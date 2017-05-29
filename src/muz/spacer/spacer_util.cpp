@@ -941,23 +941,32 @@ namespace spacer {
       
       adhoc_rewriter_cfg (ast_manager &manager) : m(manager), m_util(m) {}
       
+      bool is_le(func_decl const * n) const
+      { return is_decl_of(n, m_util.get_family_id (), OP_LE); }
+      bool is_ge(func_decl const * n) const
+      { return is_decl_of(n, m_util.get_family_id (), OP_GE); }
+      
       br_status reduce_app (func_decl * f, unsigned num, expr * const * args,
                             expr_ref & result, proof_ref & result_pr)
       {
           expr * e;
           br_status st = BR_FAILED;
-          switch (f->get_decl_kind ()) {
-          case OP_LE:
-              st = mk_le_core (args[0], args[1], result); break;
-          case OP_GE:
-              st = mk_ge_core (args[0], args[1], result); break;
-          case OP_NOT:
+          if (is_le(f))
+          {
+              st = mk_le_core (args[0], args[1], result);
+          }
+          else if(is_ge(f))
+          {
+              st = mk_ge_core (args[0], args[1], result);
+          }
+          else if (m.is_not(f))
+          {
               if (m.is_not (args[0], e)) {
                   result = e;
                   st = BR_DONE;
               }
-                      
           }
+
           return st;
       }
       
