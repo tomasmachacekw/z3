@@ -124,21 +124,6 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
                     m_h_mark.mark(currentNode, true);
                     break;
                 }
-                    /*
-                     * currentNode is result of skolemization
-                     */
-                case PR_DEF_AXIOM:
-                {
-                    if (!only_contains_symbols_b(m.get_fact(currentNode)))
-                    {
-                        m_a_mark.mark(currentNode, true);
-                    }
-                    else
-                    {
-                        SASSERT(false);
-                    }
-                    break;
-                }
                 default:
                 {
                     break;
