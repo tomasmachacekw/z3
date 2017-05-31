@@ -226,7 +226,7 @@ void unsat_core_learner::set_closed(proof* p, bool value)
     
     void unsat_core_learner::add_lemma_to_core(expr_ref lemma)
     {
-        IF_VERBOSE(2, verbose_stream() << "Add lemma to unsat core:" << mk_pp(lemma, m) << " " << lemma->get_id() << "\n";);
+        IF_VERBOSE(3, verbose_stream() << "Add lemma to unsat core:" << mk_pp(lemma, m) << " " << lemma->get_id() << "\n";);
         m_unsat_core.push_back(lemma);
     }
 
