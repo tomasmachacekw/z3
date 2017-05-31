@@ -553,7 +553,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         }
         
         // 4. extract linear combinations from matrix and add result to core
-        for (int k=0; k < i; k++)// i points to last row which is non-zero
+        for (int k=0; k < i; k++)// i points to the row after the last row which is non-zero
         {
             ptr_vector<app> literals;
             vector<rational> coefficients;
