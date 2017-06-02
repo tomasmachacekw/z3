@@ -185,7 +185,8 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
 
 void unsat_core_learner::compute_partial_core(proof* step)
 {
-    for (unsat_core_plugin** it=m_plugins.begin(); it != m_plugins.end(); ++it)
+    auto end = m_plugins.end();
+    for (unsat_core_plugin** it=m_plugins.begin();  it != end && !m_closed.is_marked(step); ++it)
     {
         unsat_core_plugin* plugin = *it;
         plugin->compute_partial_core(step);
