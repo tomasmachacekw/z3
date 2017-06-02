@@ -327,14 +327,6 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         }
     };
     
-    struct farkas_optimized_less_than_ints
-    {
-        inline bool operator() (int int1, int int2) const
-        {
-            return int1 < int2;
-        }
-    };
-    
     void unsat_core_plugin_farkas_lemma_optimized::finalize()
     {
         if(m_linear_combinations.empty())
@@ -350,7 +342,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         for (auto& linear_combination : m_linear_combinations)
         {
             std::sort(linear_combination.begin(), linear_combination.end(), farkas_optimized_less_than_pairs());
-            for (int i=0; i < linear_combination.size() - 1; ++i)
+            for (unsigned i=0; i < linear_combination.size() - 1; ++i)
             {
                 SASSERT(linear_combination[i].first->get_id() != linear_combination[i+1].first->get_id());
             }
@@ -360,7 +352,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         // init matrix
         ptr_vector<app> basis_elements;
         vector<vector<rational>> matrix;
-        for (int i=0; i < m_linear_combinations.size(); ++i)
+        for (unsigned i=0; i < m_linear_combinations.size(); ++i)
         {
             matrix.push_back(vector<rational>());
         }
@@ -390,7 +382,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             priority_queue.erase(priority_queue.begin());
 
             bool already_added_basis_element = false;
-            for (int i=0; i < iterators.size(); ++i)
+            for (unsigned i=0; i < iterators.size(); ++i)
             {
                 auto& it = iterators[i];
                 if (it != m_linear_combinations[i].end() && it->first->get_id() == minimum_id) // if current linear combination contains coefficient for current basis element
@@ -447,15 +439,15 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         
         // 3. perform gaussian elimination
         
-        int i=0;
-        int j=0;
+        unsigned i=0;
+        unsigned j=0;
         while(i < matrix.size() && j < matrix[0].size())
         {
             // find maximal element in column with row index bigger or equal i
             rational max = matrix[i][j];
-            int max_index = i;
+            unsigned max_index = i;
 
-            for (int k=i+1; k < matrix.size(); ++k)
+            for (unsigned k=i+1; k < matrix.size(); ++k)
             {
                 if (max < matrix[k][j])
                 {
@@ -479,19 +471,19 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 rational pivot = matrix[i][j];
                 if (!pivot.is_one())
                 {
-                    for (int k=0; k < matrix[i].size(); ++k)
+                    for (unsigned k=0; k < matrix[i].size(); ++k)
                     {
                         matrix[i][k] = matrix[i][k] / pivot;
                     }
                 }
                 
                 // subtract row from all other rows
-                for (int k=1; k < matrix.size(); ++k)
+                for (unsigned k=1; k < matrix.size(); ++k)
                 {
                     if (k != i)
                     {
                         rational factor = matrix[k][j];
-                        for (int l=0; l < matrix[k].size(); ++l)
+                        for (unsigned l=0; l < matrix[k].size(); ++l)
                         {
                             matrix[k][l] = matrix[k][l] - (factor * matrix[i][l]);
                         }
@@ -518,11 +510,11 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         }
         
         // 4. extract linear combinations from matrix and add result to core
-        for (int k=0; k < i; k++)// i points to the row after the last row which is non-zero
+        for (unsigned k=0; k < i; k++)// i points to the row after the last row which is non-zero
         {
             ptr_vector<app> literals;
             vector<rational> coefficients;
-            for (int l=0; l < matrix[k].size(); ++l)
+            for (unsigned l=0; l < matrix[k].size(); ++l)
             {
                 if (!matrix[k][l].is_zero())
                 {
