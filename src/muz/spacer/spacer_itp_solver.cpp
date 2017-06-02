@@ -283,18 +283,33 @@ namespace spacer {
         proof_ref pr(m);
         pr = get_proof ();
         
-        unsat_core_learner learner(m);
-        
-        unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma, learner, m_split_literals);
-        //unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma_optimized, learner, m_split_literals,m);
-        unsat_core_plugin_lemma* plugin_lemma = alloc(unsat_core_plugin_lemma, learner);
-        learner.register_plugin(plugin_farkas_lemma);
-        learner.register_plugin(plugin_lemma);
-
-        learner.compute_unsat_core(pr, B, core);
-        
-        elim_proxies (core);
-        simplify_bounds (core); // XXX potentially redundant
+        bool use_old_code = false;
+        if (use_old_code)
+        {
+            // old code
+            farkas_learner learner_old;
+            learner_old.set_split_literals(m_split_literals);
+            
+            learner_old.get_lemmas (pr, B, core);
+            elim_proxies (core);
+            simplify_bounds (core); // XXX potentially redundant
+        }
+        else
+        {
+            // new code
+            unsat_core_learner learner(m);
+            
+            unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma, learner, m_split_literals);
+            //unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma_optimized, learner, m_split_literals,m);
+            unsat_core_plugin_lemma* plugin_lemma = alloc(unsat_core_plugin_lemma, learner);
+            learner.register_plugin(plugin_farkas_lemma);
+            learner.register_plugin(plugin_lemma);
+            
+            learner.compute_unsat_core(pr, B, core);
+            
+            elim_proxies (core);
+            simplify_bounds (core); // XXX potentially redundant
+        }
 
         IF_VERBOSE(2,
                    verbose_stream () << "Itp Core:\n"
