@@ -236,7 +236,10 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
     
     ast_manager& m = res.get_manager();
     smt::farkas_util util(m);
-    util.set_split_literals (m_split_literals); // small optimization: if flag m_split_literals is set, then preserve diff constraints
+    if (m_use_constant_from_a)
+    {
+        util.set_split_literals (m_split_literals); // small optimization: if flag m_split_literals is set, then preserve diff constraints
+    }
     for(unsigned i = 0; i < literals.size(); ++i)
     {
         util.add(coefficients[i], literals[i]);
@@ -315,50 +318,6 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             }
         }
     }
-    
-    void unsat_core_plugin_farkas_lemma_optimized::test()
-    {
-        arith_util util(m);
-        app* t1 = util.mk_int(1);
-        app* t2 = util.mk_int(2);
-        app* t3 = util.mk_int(3);
-        app* t4 = util.mk_int(4);
-        app* t5 = util.mk_int(5);
-        
-        vector<std::pair<app*, rational> > row1;
-        row1.push_back(std::make_pair(t1, rational(3)));
-        row1.push_back(std::make_pair(t3, rational(0)));
-        row1.push_back(std::make_pair(t5, rational(1)));
-        
-        vector<std::pair<app*, rational> > row2;
-        row2.push_back(std::make_pair(t2, rational(1)));
-        row2.push_back(std::make_pair(t5, rational(2)));
-        row2.push_back(std::make_pair(t4, rational(4)));
-        
-        vector<std::pair<app*, rational> > row3;
-        row3.push_back(std::make_pair(t2, rational(2)));
-        row3.push_back(std::make_pair(t5, rational(4)));
-        row3.push_back(std::make_pair(t4, rational(8)));
-        
-        vector<std::pair<app*, rational> > row4;
-        row4.push_back(std::make_pair(t4, rational(3)));
-        row4.push_back(std::make_pair(t2, rational(0)));
-        row4.push_back(std::make_pair(t3, rational(1)));
-        
-        m_linear_combinations.push_back(row1);
-        m_linear_combinations.push_back(row2);
-        m_linear_combinations.push_back(row3);
-        m_linear_combinations.push_back(row4);
-        
-        finalize();
-        
-        app* t6 = util.mk_add(t1, t2);
-        app* t7 = util.mk_add(t3, t4);
-        app* t8 = util.mk_add(t6, t7);
-        app* t9 = util.mk_add(t8, t5);
-        verbose_stream() << mk_pp(t9,m);
-    }
-
     
     struct farkas_optimized_less_than_pairs
     {
@@ -466,22 +425,25 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         {
             SASSERT(row.size() == basis_elements.size());
         }
-        verbose_stream() << "\nBasis:\n";
-        for (const auto& basis : basis_elements)
+        if (get_verbosity_level() >= 3)
         {
-            verbose_stream() << mk_pp(basis, m) << ", ";
-        }
-        verbose_stream() << "\n\n";
-        verbose_stream() << "Matrix before transformation:\n";
-        for (const auto& row : matrix)
-        {
-            for (const auto& element : row)
+            verbose_stream() << "\nBasis:\n";
+            for (const auto& basis : basis_elements)
             {
-                verbose_stream() << element << ", ";
+                verbose_stream() << mk_pp(basis, m) << ", ";
+            }
+            verbose_stream() << "\n\n";
+            verbose_stream() << "Matrix before transformation:\n";
+            for (const auto& row : matrix)
+            {
+                for (const auto& element : row)
+                {
+                    verbose_stream() << element << ", ";
+                }
+                verbose_stream() << "\n";
             }
             verbose_stream() << "\n";
         }
-        verbose_stream() << "\n";
         
         // 3. perform gaussian elimination
         
@@ -539,16 +501,19 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 ++i;
                 ++j;
                 
-                verbose_stream() << "Matrix after a step:\n";
-                for (const auto& row : matrix)
+                if (get_verbosity_level() >= 3)
                 {
-                    for (const auto& element : row)
+                    verbose_stream() << "Matrix after a step:\n";
+                    for (const auto& row : matrix)
                     {
-                        verbose_stream() << element << ", ";
+                        for (const auto& element : row)
+                        {
+                            verbose_stream() << element << ", ";
+                        }
+                        verbose_stream() << "\n";
                     }
                     verbose_stream() << "\n";
                 }
-                verbose_stream() << "\n";
             }
         }
         
@@ -580,7 +545,6 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         
         ast_manager& m = res.get_manager();
         smt::farkas_util util(m);
-        util.set_split_literals (m_split_literals); // small optimization: if flag m_split_literals is set, then preserve diff constraints
         for(unsigned i = 0; i < literals.size(); ++i)
         {
             util.add(coefficients[i], literals[i]);

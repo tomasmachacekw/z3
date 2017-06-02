@@ -299,10 +299,18 @@ namespace spacer {
             // new code
             unsat_core_learner learner(m);
             
-            unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma, learner, m_split_literals);
-            //unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma_optimized, learner, m_split_literals,m);
+            bool use_optimized_farkas_plugin = true;
+            if (use_optimized_farkas_plugin)
+            {
+                unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner,m);
+                learner.register_plugin(plugin_farkas_lemma_optimized);
+            }
+            else
+            {
+                unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma, learner, m_split_literals);
+                learner.register_plugin(plugin_farkas_lemma);
+            }
             unsat_core_plugin_lemma* plugin_lemma = alloc(unsat_core_plugin_lemma, learner);
-            learner.register_plugin(plugin_farkas_lemma);
             learner.register_plugin(plugin_lemma);
             
             learner.compute_unsat_core(pr, B, core);

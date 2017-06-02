@@ -49,15 +49,13 @@ private:
     class unsat_core_plugin_farkas_lemma_optimized : public unsat_core_plugin {
         
     public:
-        unsat_core_plugin_farkas_lemma_optimized(unsat_core_learner& learner, bool split_literals, ast_manager& m) : unsat_core_plugin(learner), m_split_literals(split_literals), m(m) {};
+        unsat_core_plugin_farkas_lemma_optimized(unsat_core_learner& learner, ast_manager& m) : unsat_core_plugin(learner), m(m) {};
         
-        void test();
         virtual void compute_partial_core(proof* step) override;
         virtual void finalize() override;
         
     private:
         vector<vector<std::pair<app*, rational> > > m_linear_combinations;
-        bool m_split_literals;
         ast_manager& m;
         /*
          * compute linear combination of literals 'literals' having coefficients 'coefficients' and save result in res
