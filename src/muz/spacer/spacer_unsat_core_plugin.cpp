@@ -6,6 +6,7 @@
 #include "bool_rewriter.h"
 #include "arith_decl_plugin.h"
 #include <set>
+#include "solver.h"
 
 namespace spacer
 {
@@ -437,6 +438,11 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             verbose_stream() << "\n";
         }
         
+        if (get_verbosity_level() >= 1)
+        {
+            SASSERT(matrix.size() > 0);
+            verbose_stream() << "\nMatrix size: " << matrix.size() << ", " << matrix[0].size() << "\n";
+        }
         // 3. perform gaussian elimination
         
         unsigned i=0;
@@ -507,6 +513,12 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                     verbose_stream() << "\n";
                 }
             }
+        }
+        
+        if (get_verbosity_level() >= 1)
+        {
+            SASSERT(matrix.size() > 0);
+            verbose_stream() << "Number of nonzero rows after transformation: " << i-1 << "\n";
         }
         
         // 4. extract linear combinations from matrix and add result to core
