@@ -135,7 +135,6 @@ namespace spacer
         }
         verbose_stream() << "\n";
     }
-    
     void spacer_matrix::normalize()
     {
         rational den = rational::one();
