@@ -518,7 +518,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         if (get_verbosity_level() >= 1)
         {
             SASSERT(matrix.size() > 0);
-            verbose_stream() << "Number of nonzero rows after transformation: " << i-1 << "\n";
+            verbose_stream() << "Number of nonzero rows after transformation: " << i << "\n";
         }
         
         // 4. extract linear combinations from matrix and add result to core
@@ -553,7 +553,9 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         {
             util.add(coefficients[i], literals[i]);
         }
-        res = util.get();
+        expr_ref negated_linear_combination = util.get();
+        SASSERT(m.is_not(negated_linear_combination));
+        res = mk_not(m, negated_linear_combination); //TODO: rewrite the get-method to return nonnegated stuff?
     }
 
 }

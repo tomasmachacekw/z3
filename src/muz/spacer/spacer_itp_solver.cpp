@@ -317,6 +317,27 @@ namespace spacer {
             
             elim_proxies (core);
             simplify_bounds (core); // XXX potentially redundant
+            
+//            // debug
+//            expr_ref_vector core2(m);
+//            unsat_core_learner learner2(m);
+//
+//            unsat_core_plugin_farkas_lemma* plugin_farkas_lemma2 = alloc(unsat_core_plugin_farkas_lemma, learner2, m_split_literals);
+//            learner2.register_plugin(plugin_farkas_lemma2);
+//            unsat_core_plugin_lemma* plugin_lemma2 = alloc(unsat_core_plugin_lemma, learner2);
+//            learner2.register_plugin(plugin_lemma2);
+//            learner2.compute_unsat_core(pr, B, core2);
+//            
+//            elim_proxies (core2);
+//            simplify_bounds (core2);
+//            
+//            IF_VERBOSE(2,
+//                       verbose_stream () << "Itp Core:\n"
+//                       << mk_pp (mk_and (core), m) << "\n";);
+//            IF_VERBOSE(2,
+//                       verbose_stream () << "Itp Core2:\n"
+//                       << mk_pp (mk_and (core2), m) << "\n";);
+            //SASSERT(mk_and (core) == mk_and (core2));
         }
 
         IF_VERBOSE(2,
