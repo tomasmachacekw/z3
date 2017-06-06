@@ -6,6 +6,7 @@
 #include "bool_rewriter.h"
 #include "arith_decl_plugin.h"
 #include <set>
+#include "smt_solver.h"
 #include "solver.h"
 #include <limits>
 #include "spacer_proof_utils.h"
@@ -566,7 +567,93 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         SASSERT(m.is_not(negated_linear_combination));
         res = mk_not(m, negated_linear_combination); //TODO: rewrite the get-method to return nonnegated stuff?
     }
+    
+#pragma mark - unsat_core_plugin_farkas_bounded
+    
+    void unsat_core_plugin_farkas_lemma_bounded::finalize()
+    {
+        arith_util util(m);
+        vector<vector<rational>> matrix;
+        ptr_vector<app> basis;
+        
+        vector<expr_ref_vector> coeffs;
+        vector<expr_ref_vector> bounded_vectors;
+    
+        params_ref p;
+        p.set_bool("model", true);
+        
+        solver* s = mk_smt_solver(m, p, symbol::null);
+        
+        // find smallest n using guess and check algorithm
+        for(int n = 1; true; ++n)
+        {
+            SASSERT(!matrix.empty());
+            
+            // add new variables w_in,
+            for (unsigned i=0; i < matrix.size(); ++i)
+            {
+                std::string name = "w_" + std::to_string(i) + std::to_string(n);
+                coeffs[i].push_back(m.mk_const(symbol(name.c_str()), util.mk_int()));
+            }
+            
+            // we need s_jn
+            for (unsigned j=0; j < matrix[0].size(); ++j)
+            {
+                std::string name = "s_" + std::to_string(j) + std::to_string(n);
 
+                expr_ref s_jn(m.mk_const(symbol(name.c_str()), util.mk_int()), m);
+                bounded_vectors[j].push_back(s_jn);
+                s->assert_expr(util.mk_le(util.mk_int(0), s_jn));
+                s->assert_expr(util.mk_le(s_jn, util.mk_int(1)));
+            }
+            
+            // assert: forall i,j: a_ij = sum_k w_ik * s_jk
+            for (unsigned i=0; i < matrix.size(); ++i)
+            {
+                for (unsigned j=0; j < matrix[0].size(); ++j)
+                {
+                    app_ref a_ij = app_ref(util.mk_numeral(matrix[i][j], matrix[i][j].is_int()),m);
+                    
+                    app_ref sum = app_ref(util.mk_int(0), m);
+                    for (int k=0; k < n; ++k)
+                    {
+                        sum = util.mk_add(sum, util.mk_mul(coeffs[i][k].get(), bounded_vectors[j][k].get()));
+                    }
+                    
+                    s->assert_expr(m.mk_eq(a_ij, sum));
+                }
+            }
+            
+            lbool res = s->check_sat(0,0);
+            if (res == lbool::l_true)
+            {
+                model_ref model;
+                s->get_model(model);
+                
+                for (int k=0; k < n; ++k)
+                {
+                    ptr_vector<app> literals;
+                    vector<rational> coefficients;
+                    for (int j=0; j < matrix[0].size(); ++j)
+                    {
+                        expr_ref evaluation(m);
+                        model.get()->eval(bounded_vectors[j][k].get(), evaluation);
+                        if (!util.is_zero(evaluation.get()))
+                        {
+                            literals.push_back(basis[j]);
+                            coefficients.push_back(rational(1));
+                        }
+                    }
+                    SASSERT(!literals.empty()); // since then previous outer loop would have found solution already
+                    expr_ref linear_combination(m);
+                    compute_linear_combination(coefficients, literals, linear_combination);
+                    
+                    m_learner.add_lemma_to_core(linear_combination);
+                }
+                return;
+            }
+        }
+    }
     
 #pragma mark - unsat_core_plugin_min_cut
     unsat_core_plugin_min_cut::unsat_core_plugin_min_cut(unsat_core_learner& learner, ast_manager& m) : unsat_core_plugin(learner), m(m), m_n(2)
@@ -991,5 +1078,4 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             }
         }
     }
-
 }

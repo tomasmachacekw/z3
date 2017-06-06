@@ -54,7 +54,7 @@ private:
         virtual void compute_partial_core(proof* step) override;
         virtual void finalize() override;
         
-    private:
+    protected:
         vector<vector<std::pair<app*, rational> > > m_linear_combinations;
         ast_manager& m;
         /*
@@ -63,6 +63,14 @@ private:
         void compute_linear_combination(const vector<rational>& coefficients, const ptr_vector<app>& literals, expr_ref& res);
     };
     
+    class unsat_core_plugin_farkas_lemma_bounded : public unsat_core_plugin_farkas_lemma_optimized {
+        
+    public:
+        unsat_core_plugin_farkas_lemma_bounded(unsat_core_learner& learner, ast_manager& m) : unsat_core_plugin_farkas_lemma_optimized(learner, m) {};
+        
+        virtual void finalize() override;
+    };
+
     class unsat_core_plugin_min_cut : public unsat_core_plugin {
         
     public:
@@ -96,6 +104,5 @@ private:
         void compute_cut_and_add_lemmas(vector<bool>& reachable);
         
     };
-
 }
 #endif
