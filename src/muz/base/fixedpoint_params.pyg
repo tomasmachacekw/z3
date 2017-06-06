@@ -194,6 +194,8 @@ def_module_params('fixedpoint',
                           ('spacer.keep_proxy', BOOL, True, 'keep proxy variables (internal parameter)'),
                           ('spacer.instantiate', BOOL, True, 'instantiate quantified lemmas'),
                           ('spacer.qlemmas', BOOL, True, 'allow quantified lemmas in frames'),
+                          ('spacer.new_unsat_core', BOOL, True, 'use the new implementation of unsat-core-generation'),
+                          ('spacer.farkas_optimized', BOOL, True, 'use the optimized farkas plugin, which performs gaussian elimination'),                          
                           ))
 
 

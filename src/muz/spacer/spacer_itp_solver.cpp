@@ -283,8 +283,7 @@ namespace spacer {
         proof_ref pr(m);
         pr = get_proof ();
         
-        bool use_old_code = false;
-        if (use_old_code)
+        if (!m_new_unsat_core)
         {
             // old code
             farkas_learner learner_old;
@@ -299,8 +298,7 @@ namespace spacer {
             // new code
             unsat_core_learner learner(m);
             
-            bool use_optimized_farkas_plugin = true;
-            if (use_optimized_farkas_plugin)
+            if (m_farkas_optimized)
             {
                 unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner,m);
                 learner.register_plugin(plugin_farkas_lemma_optimized);
