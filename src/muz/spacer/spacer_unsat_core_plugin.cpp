@@ -583,9 +583,9 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         p.set_bool("model", true);
         
         solver* s = mk_smt_solver(m, p, symbol::null);
-        
+       
         // find smallest n using guess and check algorithm
-        for(int n = 1; true; ++n)
+        for(unsigned n = 1; true; ++n)
         {
             SASSERT(!matrix.empty());
             
@@ -593,7 +593,10 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             for (unsigned i=0; i < matrix.size(); ++i)
             {
                 std::string name = "w_" + std::to_string(i) + std::to_string(n);
-                coeffs[i].push_back(m.mk_const(symbol(name.c_str()), util.mk_int()));
+
+                func_decl_ref decl(m);
+                decl = m.mk_func_decl(symbol(name.c_str()), 0, (sort*const*)0, util.mk_real());
+                coeffs[i].push_back(m.mk_const(decl));
             }
             
             // we need s_jn
@@ -601,7 +604,12 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             {
                 std::string name = "s_" + std::to_string(j) + std::to_string(n);
 
-                expr_ref s_jn(m.mk_const(symbol(name.c_str()), util.mk_int()), m);
+                func_decl_ref decl(m);
+                decl = m.mk_func_decl(symbol(name.c_str()), 0, (sort*const*)0, util.mk_real());
+                
+                expr_ref s_jn(m);
+                s_jn = m.mk_const(decl);
+                
                 bounded_vectors[j].push_back(s_jn);
                 s->assert_expr(util.mk_le(util.mk_int(0), s_jn));
                 s->assert_expr(util.mk_le(s_jn, util.mk_int(1)));
@@ -612,9 +620,10 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             {
                 for (unsigned j=0; j < matrix[0].size(); ++j)
                 {
-                    app_ref a_ij = app_ref(util.mk_numeral(matrix[i][j], matrix[i][j].is_int()),m);
+                    app_ref a_ij(util.mk_numeral(matrix[i][j], matrix[i][j].is_int()),m);
                     
-                    app_ref sum = app_ref(util.mk_int(0), m);
+                    app_ref sum(m);
+                    sum = util.mk_int(0);
                     for (int k=0; k < n; ++k)
                     {
                         sum = util.mk_add(sum, util.mk_mul(coeffs[i][k].get(), bounded_vectors[j][k].get()));
@@ -624,7 +633,10 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 }
             }
             
+            // check result
             lbool res = s->check_sat(0,0);
+            
+            // if sat extract model and add corresponding linear combinations to core
             if (res == lbool::l_true)
             {
                 model_ref model;
@@ -637,8 +649,9 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                     for (int j=0; j < matrix[0].size(); ++j)
                     {
                         expr_ref evaluation(m);
-                        model.get()->eval(bounded_vectors[j][k].get(), evaluation);
-                        if (!util.is_zero(evaluation.get()))
+
+                        model.get()->eval(bounded_vectors[j][k].get(), evaluation, false);
+                        if (!util.is_zero(evaluation))
                         {
                             literals.push_back(basis[j]);
                             coefficients.push_back(rational(1));
