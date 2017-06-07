@@ -50,6 +50,8 @@ public:
         inc_ref();
     }
 
+   ref (ref && r): m_ptr (r.detach ()) {}
+
     ~ref() {
         dec_ref();
     }
@@ -90,7 +92,10 @@ public:
     }
 
     ref & operator=(ref &&r) {
-        m_ptr = r.detach ();
+        if (this != &r) {
+           dec_ref ();
+           m_ptr = r.detach ();
+        }
         return *this;
     }
 
