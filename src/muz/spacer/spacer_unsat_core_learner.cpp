@@ -176,94 +176,105 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
     
     // TODO: remove duplicates from unsat core?
 
-    // print proof for debugging
-    verbose_stream() << "\n\nProof:\n";
-    std::unordered_map<unsigned, unsigned> id_to_small_id;
-    unsigned counter = 0;
-    
-    ProofIteratorPostOrder it2(root, m);
-    while (it2.hasNext())
+    bool debug_proof = false;
+    if(debug_proof)
     {
-        proof* currentNode = it2.next();
-
-        SASSERT(id_to_small_id.find(currentNode->get_id()) == id_to_small_id.end());
-        id_to_small_id.insert(std::make_pair(currentNode->get_id(), counter));
-
-        verbose_stream() << counter << " ";
-        verbose_stream() << "[";
-        if (is_a_marked(currentNode))
+        // print proof for debugging
+        verbose_stream() << "\n\nProof:\n";
+        std::unordered_map<unsigned, unsigned> id_to_small_id;
+        unsigned counter = 0;
+        
+        ProofIteratorPostOrder it2(root, m);
+        while (it2.hasNext())
         {
-            verbose_stream() << "a";
-        }
-        if (is_b_marked(currentNode))
-        {
-            verbose_stream() << "b";
-        }
-        if (is_h_marked(currentNode))
-        {
-            verbose_stream() << "h";
-        }
-        verbose_stream() << "] ";
-
-        if (m.get_num_parents(currentNode) == 0)
-        {
-            switch (currentNode->get_decl_kind())
+            proof* currentNode = it2.next();
+            
+            SASSERT(id_to_small_id.find(currentNode->get_id()) == id_to_small_id.end());
+            id_to_small_id.insert(std::make_pair(currentNode->get_id(), counter));
+            
+            verbose_stream() << counter << " ";
+            verbose_stream() << "[";
+            if (is_a_marked(currentNode))
             {
-                case PR_ASSERTED:
-                    verbose_stream() << "asserted";
-                    break;
-                case PR_HYPOTHESIS:
-                    verbose_stream() << "hypothesis";
-                    break;
-                default:
-                    verbose_stream() << "unknown axiom-type";
-                    break;
+                verbose_stream() << "a";
             }
-        }
-        else
-        {
-            if (currentNode->get_decl_kind() == PR_LEMMA)
+            if (is_b_marked(currentNode))
             {
-                verbose_stream() << "lemma";
+                verbose_stream() << "b";
             }
-            else if (currentNode->get_decl_kind() == PR_TH_LEMMA)
+            if (is_h_marked(currentNode))
             {
-                verbose_stream() << "th_lemma";
-                func_decl* d = currentNode->get_decl();
-                symbol sym;
-                if (d->get_num_parameters() >= 2 && // the Farkas coefficients are saved in the parameters of step
-                    d->get_parameter(0).is_symbol(sym) && sym == "arith" && // the first two parameters are "arith", "farkas",
-                    d->get_parameter(1).is_symbol(sym) && sym == "farkas")
+                verbose_stream() << "h";
+            }
+            verbose_stream() << "] ";
+            
+            if (m.get_num_parents(currentNode) == 0)
+            {
+                switch (currentNode->get_decl_kind())
                 {
-                    verbose_stream() << "(farkas)";
-                }
-                else
-                {
-                    verbose_stream() << "(other)";
+                    case PR_ASSERTED:
+                        verbose_stream() << "asserted";
+                        break;
+                    case PR_HYPOTHESIS:
+                        verbose_stream() << "hypothesis";
+                        break;
+                    default:
+                        verbose_stream() << "unknown axiom-type";
+                        break;
                 }
             }
             else
             {
-                verbose_stream() << "step";
-            }
-            verbose_stream() << " from ";
-            for (int i = m.get_num_parents(currentNode) - 1; i >= 0  ; --i)
-            {
-                proof* premise = to_app(currentNode->get_arg(i));
-                unsigned premise_small_id = id_to_small_id[premise->get_id()];
-                if (i > 0)
+                if (currentNode->get_decl_kind() == PR_LEMMA)
                 {
-                    verbose_stream() << premise_small_id << ", ";
+                    verbose_stream() << "lemma";
+                }
+                else if (currentNode->get_decl_kind() == PR_TH_LEMMA)
+                {
+                    verbose_stream() << "th_lemma";
+                    func_decl* d = currentNode->get_decl();
+                    symbol sym;
+                    if (d->get_num_parameters() >= 2 && // the Farkas coefficients are saved in the parameters of step
+                        d->get_parameter(0).is_symbol(sym) && sym == "arith" && // the first two parameters are "arith", "farkas",
+                        d->get_parameter(1).is_symbol(sym) && sym == "farkas")
+                    {
+                        verbose_stream() << "(farkas)";
+                    }
+                    else
+                    {
+                        verbose_stream() << "(other)";
+                    }
                 }
                 else
                 {
-                    verbose_stream() << premise_small_id;
+                    verbose_stream() << "step";
                 }
-
+                verbose_stream() << " from ";
+                for (int i = m.get_num_parents(currentNode) - 1; i >= 0  ; --i)
+                {
+                    proof* premise = to_app(currentNode->get_arg(i));
+                    unsigned premise_small_id = id_to_small_id[premise->get_id()];
+                    if (i > 0)
+                    {
+                        verbose_stream() << premise_small_id << ", ";
+                    }
+                    else
+                    {
+                        verbose_stream() << premise_small_id;
+                    }
+                    
+                }
             }
+            if (currentNode->get_decl_kind() == PR_TH_LEMMA || (is_a_marked(currentNode) && is_b_marked(currentNode)) || is_h_marked(currentNode) || (!is_a_marked(currentNode) && !is_b_marked(currentNode)))
+            {
+                verbose_stream() << std::endl;
+            }
+            else
+            {
+                verbose_stream() << ": " << mk_pp(m.get_fact(currentNode), m) << std::endl;
+            }
+            ++counter;
         }
-        verbose_stream() << ": " << mk_pp(m.get_fact(currentNode), m) << std::endl;
-        ++counter;
     }
     // move all lemmas into vector
     for (expr* const* it = m_unsat_core.begin(); it != m_unsat_core.end(); ++it)
