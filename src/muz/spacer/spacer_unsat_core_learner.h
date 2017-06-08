@@ -3,27 +3,9 @@
 
 #include "ast.h"
 #include "spacer_util.h"
-
-#pragma mark - proof iterators
+#include "spacer_proof_utils.h"
 
 namespace spacer {
-
-    /*
-     * iterator, which traverses the proof in depth-first post-order.
-     */
-    class ProofIteratorPostOrder
-    {
-    public:
-        ProofIteratorPostOrder(proof* refutation, ast_manager& manager);
-        bool hasNext();
-        proof* next();
-        
-    private:
-        ptr_vector<proof> todo;
-        ast_mark visited; // the proof nodes we have already visited
-        
-        ast_manager& m;
-    };
 
     
     class unsat_core_plugin;
