@@ -2216,7 +2216,7 @@ namespace spacer {
           m_core_generalizers.push_back (alloc (core_eq_generalizer, *this));
         }
         
-        m_core_generalizers.push_back(alloc(unsat_core_sanity_checker, *this));
+        //m_core_generalizers.push_back(alloc(unsat_core_sanity_checker, *this));
         // -- AG: commented out because it is causing performance issues at the moment
         //m_core_generalizers.push_back (alloc (unsat_core_generalizer, *this));
         
