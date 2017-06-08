@@ -78,6 +78,7 @@ namespace spacer {
         bool m_split_literals;
         bool m_new_unsat_core;
         bool m_farkas_optimized;
+        bool m_farkas_a_const;
     
         bool is_proxy (expr *e, app_ref &def);
         void undo_proxies_in_core (ptr_vector<expr> &v);
@@ -85,7 +86,7 @@ namespace spacer {
         app* fresh_proxy ();
         void elim_proxies (expr_ref_vector &v);
     public:
-        itp_solver (solver &solver, bool new_unsat_core, bool farkas_optimized, bool split_literals = false) :
+        itp_solver (solver &solver, bool new_unsat_core, bool farkas_optimized, bool farkas_a_const, bool split_literals = false) :
             m (solver.get_manager ()),
             m_solver (solver),
             m_proxies (m), 
@@ -97,7 +98,8 @@ namespace spacer {
             m_elim_proxies_sub(m, false, true),
             m_split_literals(split_literals),
             m_new_unsat_core(new_unsat_core),
-            m_farkas_optimized(farkas_optimized)
+            m_farkas_optimized(farkas_optimized),
+            m_farkas_a_const(farkas_a_const)
         {}
 
         virtual ~itp_solver () {}
