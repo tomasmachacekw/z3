@@ -67,6 +67,13 @@ namespace
 }
 
 namespace spacer {
+    void unsat_core_sanity_checker::operator()(model_node& n, expr_ref_vector& core, unsigned& uses_level) {
+        if (!n.pt().check_inductive(n.level(), core, uses_level))
+        {
+            verbose_stream() << "\n\nunsound core!\n";
+            SASSERT(false);
+        }
+    }
 
 
     // ------------------------

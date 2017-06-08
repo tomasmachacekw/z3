@@ -25,6 +25,15 @@ Revision History:
 
 namespace spacer {
 
+    // can be used to check whether produced core is really implied by frame and therefore valid
+    // TODO: or negation?
+    class unsat_core_sanity_checker : public core_generalizer {
+    public:
+        unsat_core_sanity_checker(context& ctx) : core_generalizer(ctx) {}
+        virtual ~unsat_core_sanity_checker() {}
+        virtual void operator()(model_node& n, expr_ref_vector& core, unsigned& uses_level);
+    };
+
     class core_bool_inductive_generalizer : public core_generalizer {
 
         struct stats
