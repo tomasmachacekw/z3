@@ -23,6 +23,6 @@ namespace spacer
   };
 
   
-  void reduce_hypothesis (proof_ref &pr);
+  void reduce_hypotheses (proof_ref &pr);
 }
 #endif

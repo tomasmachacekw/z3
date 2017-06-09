@@ -1,5 +1,8 @@
 #include "spacer_proof_utils.h"
 #include "ast_util.h"
+#include "ast_pp.h"
+
+#include "proof_checker.h"
 
 namespace spacer
 {
@@ -175,6 +178,8 @@ namespace spacer
                 }
                 else  {
                     // other: reduce all premises; reapply
+                    if (m.has_fact (p)) args.push_back (to_app (m.get_fact (p)));
+                    SASSERT (p->get_decl ()->get_arity () == args.size ());
                     res = m.mk_app (p->get_decl (), args.size (), (expr *const*)args.c_ptr ());
                     m_pinned.push_back (res);
                     compute_mark1 (res);
@@ -247,9 +252,10 @@ namespace spacer
             for (unsigned i = 0, sz = cls.size (); i < sz; ++i) {
                 found = false;
                 for (unsigned j = 1; j < num_args; ++j) {
-                    if (m.is_complement (cls.get(i), m.get_fact (args [i]))) {
+                    if (m.is_complement (cls.get(i), m.get_fact (args [j]))) {
                         found = true;
-                        pf_args.push_back (args [i]);
+                        pf_args.push_back (args [j]);
+                        break;
                     }
                 }
                 if (!found) {
@@ -257,6 +263,7 @@ namespace spacer
                 }
             }
 
+            SASSERT (new_fact_cls.size () + pf_args.size () - 1 == cls.size ());
             expr_ref new_fact(m);
             new_fact = mk_or (m, new_fact_cls.size (), new_fact_cls.c_ptr ());
 
@@ -297,6 +304,10 @@ namespace spacer
         ast_manager &m = pr.get_manager ();
         class reduce_hypotheses hypred (m);
         hypred (pr);
+        DEBUG_CODE(proof_checker pc(m);
+                   expr_ref_vector side(m);
+                   SASSERT(pc.check(pr, side));
+                   );
     }
 }
 
