@@ -80,6 +80,21 @@ namespace spacer
             m_pinned.reset ();
         }
         
+        bool compute_mark1 (proof *pr) {
+            bool hyp_mark = false;
+            // lemmas clear all hypotheses
+            if (!m.is_lemma (pr)) {
+                for (unsigned i = 0, sz = m.get_num_parents (pr); i < sz; ++i) {
+                    if (m_hypmark.is_marked (m.get_parent (pr, i))) {
+                        hyp_mark = true;
+                        break;
+                    }
+                }
+            }
+            m_hypmark.mark (pr, hyp_mark);
+            return hyp_mark;
+        }
+        
         void compute_marks (proof* pr) {
             proof *p;
             ProofIteratorPostOrder pit (pr, m);
@@ -90,15 +105,7 @@ namespace spacer
                     m_hyps.insert (m.get_fact (p));
                 }
                 else {
-                    bool hyp_mark = false;
-                    for (unsigned i = 0, sz = m.get_num_parents (p); i < sz; ++i) {
-                        if (m_hypmark.is_marked (to_app (p->get_arg (i)))) {
-                            hyp_mark = true;
-                            break;
-                        }
-                    }
-                    m_hypmark.mark (p, hyp_mark);
-
+                    bool hyp_mark = compute_mark1 (p);
                     // collect units that are hyp-free and are used as hypotheses somewhere
                     if (!hyp_mark && m.has_fact (p) && m_hyps.contains (m.get_fact (p)))
                         m_units.insert (m.get_fact (p), p);
@@ -121,17 +128,16 @@ namespace spacer
                 proof *p, *tmp, *pp;
                 unsigned todo_sz;
 
-                dirty = false;
-                args.reset ();
-                todo_sz = m_todo.size ();
                 p = m_todo.back ();
-
                 if (m_cache.find (p, tmp)) {
-                    res = p;
+                    res = tmp;
                     m_todo.pop_back ();
                     continue;
                 }
-
+                
+                dirty = false;
+                args.reset ();
+                todo_sz = m_todo.size ();
                 for (unsigned i = 0, sz = m.get_num_parents (p); i < sz; ++i) {
                     pp = m.get_parent (p, i);
                     if (m_cache.find (pp, tmp)) {
@@ -160,15 +166,18 @@ namespace spacer
                     //lemma: reduce the premise; remove reduced consequences from conclusion
                     SASSERT (args.size () == 1);
                     res = mk_lemma_core (args.get (0), m.get_fact (p));
+                    compute_mark1 (res);
                 }
                 else if (m.is_unit_resolution (p)) {
                     // unit: reduce untis; reduce the first premise; rebuild unit resolution
                     res = mk_unit_resolution_core (args.size (), args.c_ptr ());
+                    compute_mark1 (res);
                 }
                 else  {
                     // other: reduce all premises; reapply
                     res = m.mk_app (p->get_decl (), args.size (), (expr *const*)args.c_ptr ());
                     m_pinned.push_back (res);
+                    compute_mark1 (res);
                 }
 
                 SASSERT (res);
@@ -180,6 +189,7 @@ namespace spacer
             out = res;
         }
 
+        // returns true if (hypothesis (not a)) would be reduced 
         bool is_reduced (expr *a) {
             expr_ref e (m);
             if (m.is_not (a)) e = to_app (a)->get_arg (0);
@@ -211,6 +221,9 @@ namespace spacer
             }
             proof* res = m.mk_lemma (pf, lemma);
             m_pinned.push_back (res);
+
+            if (m_hyps.contains (lemma))
+                m_units.insert (lemma, res);
             return res;
         }
         
@@ -258,11 +271,9 @@ namespace spacer
             proof_ref res(m);
             for (auto entry : m_units) {
                 reduce (entry.get_value (), res);
-                if (res.get () != entry.get_value ()) {
-                    if (m.is_false (m.get_fact (res))) {
-                        out = res;
-                        return true;
-                    }
+                if (m.is_false (m.get_fact (res))) {
+                    out = res;
+                    return true;
                 }
                 res.reset ();
             }
