@@ -250,8 +250,15 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
     {
         util.add(coefficients[i], literals[i]);
     }
-    // AG: should not this be negated, depending on whether we compute from A or from B side?
-    res = util.get();
+    if (m_use_constant_from_a)
+    {
+        res = util.get();
+    }
+    else
+    {
+        expr_ref negated_linear_combination = util.get();
+        res = mk_not(m, negated_linear_combination);
+    }
 }
     
 #pragma mark - unsat_core_plugin_farkas_optimized
