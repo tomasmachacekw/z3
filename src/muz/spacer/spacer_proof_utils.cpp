@@ -1,4 +1,5 @@
 #include "spacer_proof_utils.h"
+#include "ast_util.h"
 
 namespace spacer
 {
@@ -47,6 +48,244 @@ namespace spacer
         } 
         // we have already iterated through all inferences
         return NULL;
+    }
+
+
+    class reduce_hypotheses {
+        ast_manager &m;
+        // tracking all created expressions
+        expr_ref_vector m_pinned;
+        
+        // cache for the transformation
+        obj_map<proof, proof*> m_cache;
+        
+        // map from unit literals to their hypotheses-free derivations
+        obj_map<expr, proof*> m_units;
+        
+        // -- all hypotheses in the the proof
+        obj_hashtable<expr> m_hyps;
+        
+        // marks hypothetical proofs
+        ast_mark m_hypmark;
+        
+
+        // stack
+        ptr_vector<proof> m_todo;
+        
+        void reset () {
+            m_cache.reset ();
+            m_units.reset ();
+            m_hyps.reset ();
+            m_hypmark.reset ();
+            m_pinned.reset ();
+        }
+        
+        void compute_marks (proof* pr) {
+            proof *p;
+            ProofIteratorPostOrder pit (pr, m);
+            while (pit.hasNext ()) {
+                p = pit.next ();
+                if (m.is_hypothesis (p)) {
+                    m_hypmark.mark (p, true);
+                    m_hyps.insert (m.get_fact (p));
+                }
+                else {
+                    bool hyp_mark = false;
+                    for (unsigned i = 0, sz = m.get_num_parents (p); i < sz; ++i) {
+                        if (m_hypmark.is_marked (to_app (p->get_arg (i)))) {
+                            hyp_mark = true;
+                            break;
+                        }
+                    }
+                    m_hypmark.mark (p, hyp_mark);
+
+                    // collect units that are hyp-free and are used as hypotheses somewhere
+                    if (!hyp_mark && m.has_fact (p) && m_hyps.contains (m.get_fact (p)))
+                        m_units.insert (m.get_fact (p), p);
+                }
+            }
+        }
+        void find_units (proof *pr) {
+            // optional. not implemented yet.
+        }
+
+        void reduce (proof* pf, proof_ref &out) {
+            proof *res = NULL;
+
+            m_todo.reset ();
+            m_todo.push_back (pf);
+            ptr_buffer<proof> args;
+            bool dirty = false;
+
+            while (!m_todo.empty ()) {
+                proof *p, *tmp, *pp;
+                unsigned todo_sz;
+
+                dirty = false;
+                args.reset ();
+                todo_sz = m_todo.size ();
+                p = m_todo.back ();
+
+                if (m_cache.find (p, tmp)) {
+                    res = p;
+                    m_todo.pop_back ();
+                    continue;
+                }
+
+                for (unsigned i = 0, sz = m.get_num_parents (p); i < sz; ++i) {
+                    pp = m.get_parent (p, i);
+                    if (m_cache.find (pp, tmp)) {
+                        args.push_back (tmp);
+                        dirty = dirty || pp != tmp;
+                    }
+                    else {
+                        m_todo.push_back (pp);
+                    }
+                }
+                
+                if (todo_sz < m_todo.size ()) continue; 
+                else m_todo.pop_back ();
+                
+                if (m.is_hypothesis (p)) {
+                    // hyp: replace by a corresponding unit
+                    if (m_units.find (m.get_fact (p), tmp)) {
+                        res = tmp;
+                    }
+                    else { res = p; }
+                }
+
+                else if (!dirty) { res = p; }
+                
+                else if (m.is_lemma (p)) {
+                    //lemma: reduce the premise; remove reduced consequences from conclusion
+                    SASSERT (args.size () == 1);
+                    res = mk_lemma_core (args.get (0), m.get_fact (p));
+                }
+                else if (m.is_unit_resolution (p)) {
+                    // unit: reduce untis; reduce the first premise; rebuild unit resolution
+                    res = mk_unit_resolution_core (args.size (), args.c_ptr ());
+                }
+                else  {
+                    // other: reduce all premises; reapply
+                    res = m.mk_app (p->get_decl (), args.size (), (expr *const*)args.c_ptr ());
+                    m_pinned.push_back (res);
+                }
+
+                SASSERT (res);
+                m_cache.insert (p, res);
+
+                if (m.has_fact (res) && m.is_false (m.get_fact (res))) { break; }
+            }            
+            
+            out = res;
+        }
+
+        bool is_reduced (expr *a) {
+            expr_ref e (m);
+            if (m.is_not (a)) e = to_app (a)->get_arg (0);
+            else e = m.mk_not (a);
+            
+            return m_units.contains (e);
+        }
+        proof *mk_lemma_core (proof *pf, expr *fact) {
+            ptr_buffer<expr> args;
+            expr_ref lemma(m);
+
+            if (m.is_or (fact)) {
+                for (unsigned i = 0, sz = to_app(fact)->get_num_args (); i < sz; ++i) {
+                    expr *a = to_app (fact)->get_arg (i);
+                    if (!is_reduced (a))
+                        args.push_back (a);
+                }
+            }
+            else if (!is_reduced (fact))
+                args.push_back (fact);
+
+            
+            if (args.size () == 0) return pf;
+            else if (args.size () == 1) {
+                lemma = args.get (0);
+            }
+            else {
+                lemma = m.mk_or (args.size (), args.c_ptr ());
+            }
+            proof* res = m.mk_lemma (pf, lemma);
+            m_pinned.push_back (res);
+            return res;
+        }
+        
+        proof *mk_unit_resolution_core (unsigned num_args, proof* const *args) {
+            
+            ptr_buffer<proof> pf_args;
+            pf_args.push_back (args [0]);
+            
+            app *cls_fact = to_app (m.get_fact (args[0]));
+            ptr_buffer<expr> cls;
+            if (m.is_or (cls_fact)) {
+                for (unsigned i = 0, sz = cls_fact->get_num_args (); i < sz; ++i)
+                    cls.push_back (cls_fact->get_arg (i));
+            }
+            else cls.push_back (cls_fact);
+
+            // construct new resovent
+            ptr_buffer<expr> new_fact_cls;
+            bool found;
+            // XXX quadratic
+            for (unsigned i = 0, sz = cls.size (); i < sz; ++i) {
+                found = false;
+                for (unsigned j = 1; j < num_args; ++j) {
+                    if (m.is_complement (cls.get(i), m.get_fact (args [i]))) {
+                        found = true;
+                        pf_args.push_back (args [i]);
+                    }
+                }
+                if (!found) {
+                    new_fact_cls.push_back (cls.get (i));
+                }
+            }
+
+            expr_ref new_fact(m);
+            new_fact = mk_or (m, new_fact_cls.size (), new_fact_cls.c_ptr ());
+
+            // create new proof step
+            proof *res = m.mk_unit_resolution (pf_args.size (), pf_args.c_ptr (), new_fact);
+            m_pinned.push_back (res);
+            return res;
+        }
+        
+        // reduce all units, if any unit reduces to false return true and put its proof into out
+        bool reduce_units (proof_ref &out) {
+            proof_ref res(m);
+            for (auto entry : m_units) {
+                reduce (entry.get_value (), res);
+                if (res.get () != entry.get_value ()) {
+                    if (m.is_false (m.get_fact (res))) {
+                        out = res;
+                        return true;
+                    }
+                }
+                res.reset ();
+            }
+            return false;
+        }
+            
+        
+    public:
+        reduce_hypotheses (ast_manager &m) : m(m), m_pinned (m) {}
+
+        
+        void operator() (proof_ref &pr) {
+            compute_marks (pr);
+            if (!reduce_units (pr)) {
+                reduce (pr.get (), pr);
+            }
+            reset ();
+        }
+    };
+    void reduce_hypotheses (proof_ref &pr) {
+        ast_manager &m = pr.get_manager ();
+        class reduce_hypotheses hypred (m);
+        hypred (pr);
     }
 }
 
