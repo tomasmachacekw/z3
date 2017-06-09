@@ -23,8 +23,9 @@ void unsat_core_plugin_lemma::compute_partial_core(proof* step)
         SASSERT(m_learner.m.is_proof(step->get_arg(i)));
         proof* premise = to_app(step->get_arg(i));
         
-        if (m_learner.is_b_marked(premise) && !m_learner.is_closed(premise))
+        if (m_learner.is_b_open (premise))
         {
+            // by IH, premises that are AB marked are already closed
             SASSERT(!m_learner.is_a_marked(premise));
             add_lowest_split_to_core(premise);
         }
@@ -34,6 +35,7 @@ void unsat_core_plugin_lemma::compute_partial_core(proof* step)
 
 void unsat_core_plugin_lemma::add_lowest_split_to_core(proof* step) const
 {
+    ast_manager &m = m_learner.m;
     ptr_vector<proof> todo;
     todo.push_back(step);
     
@@ -53,19 +55,18 @@ void unsat_core_plugin_lemma::add_lowest_split_to_core(proof* step) const
             {
                 expr* fact = m_learner.m.get_fact(current);
                 // if we trust the current step and we are able to use it
-                if (m_learner.only_contains_symbols_b(fact) && !m_learner.is_h_marked(current))
+                if (m_learner.is_b_pure (current))
                 {
                     // just add it to the core
-                    m_learner.add_lemma_to_core(expr_ref(fact, m_learner.m));
+                    m_learner.add_lemma_to_core(fact);
                 }
                 // otherwise recurse on premises
                 else
                 {
-                    
                     for (unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
                     {
                         SASSERT(m_learner.m.is_proof(step->get_arg(i)));
-                        proof* premise = to_app(step->get_arg(i));
+                        proof* premise = m.get_parent (step, i);
                         todo.push_back(premise);
                     }
                 }
@@ -78,9 +79,11 @@ void unsat_core_plugin_lemma::add_lowest_split_to_core(proof* step) const
 #pragma mark - unsat_core_plugin_farkas_lemma
 void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
 {
+    ast_manager &m = m_learner.m;
     SASSERT(m_learner.is_a_marked(step));
     SASSERT(m_learner.is_b_marked(step));
-    
+    // XXX this assertion should be true so there is no need to check for it
+    SASSERT (!m_learner.is_closed (step));
     func_decl* d = step->get_decl();
     symbol sym;
     if(!m_learner.is_closed(step) && // if step is not already interpolated
@@ -121,31 +124,34 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
          */
         parameter const* params = d->get_parameters() + 2; // point to the first Farkas coefficient
         
+        // XXX This block of code appears to be unused. Maybe only for debugging?
         IF_VERBOSE(3, verbose_stream() << "Farkas input: "<< "\n";);
         for (unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
         {
             SASSERT(m_learner.m.is_proof(step->get_arg(i)));
-            proof *prem = to_app(step->get_arg(i));
+            proof *prem = m.get_parent (step, i);
             
             rational coef;
             VERIFY(params[i].is_rational(coef));
-            bool b_pure = m_learner.only_contains_symbols_b(m_learner.m.get_fact(prem)) && !m_learner.is_h_marked(prem);
-            IF_VERBOSE(3, verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m_learner.m.get_fact(prem), m_learner.m) << "\n";);
+            
+            IF_VERBOSE(3,
+                       bool b_pure = m_learner.is_b_pure (prem);
+                       verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m_learner.m.get_fact(prem), m_learner.m) << "\n";);
         }
         
         
         bool needsToBeClosed = true;
         
-        for(unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
+        for(unsigned i = 0; i < m.get_num_parents(step); ++i)
         {
             SASSERT(m_learner.m.is_proof(step->get_arg(i)));
-            proof * premise = to_app(step->get_arg(i));
+            proof * premise = m.get_parent (step, i);
             
-            if (m_learner.is_b_marked(premise) && !m_learner.is_closed(premise))
+            if (m_learner.is_b_open (premise))
             {
                 SASSERT(!m_learner.is_a_marked(premise));
                 
-                if (m_learner.only_contains_symbols_b(m_learner.m.get_fact(step)) && !m_learner.is_h_marked(step))
+                if (m_learner.is_b_pure (step))
                 {
                     m_learner.set_closed(premise, true);
                     
@@ -200,14 +206,13 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
                 }
                 SASSERT(m_learner.m.get_num_parents(step) + 2 + num_args == d->get_num_parameters());
                 
-                bool_rewriter rewriter(m_learner.m);
+                bool_rewriter brw(m_learner.m);
                 for (unsigned i = 0; i < num_args; ++i)
                 {
                     expr* premise = args[i];
                     
                     expr_ref negatedPremise(m_learner.m);
-                    rewriter.mk_not(premise, negatedPremise);
-                    SASSERT(is_app(negatedPremise));
+                    brw.mk_not(premise, negatedPremise);
                     literals.push_back(to_app(negatedPremise));
                     
                     rational coefficient;
@@ -245,6 +250,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
     {
         util.add(coefficients[i], literals[i]);
     }
+    // AG: should not this be negated, depending on whether we compute from A or from B side?
     res = util.get();
 }
     

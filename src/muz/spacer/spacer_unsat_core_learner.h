@@ -49,7 +49,7 @@ namespace spacer {
         /*
          * adds a lemma to the unsat core
          */
-        void add_lemma_to_core(expr_ref lemma);
+        void add_lemma_to_core(expr* lemma);
         
         /*
          * helper method, which can be used by plugins
@@ -57,6 +57,10 @@ namespace spacer {
          * must only be called after a call to collect_symbols_b.
          */
         bool only_contains_symbols_b(expr* expr) const;
+        bool is_b_pure (proof *p)
+        {return !is_h_marked (p) && only_contains_symbols_b (m.get_fact (p));}
+        bool is_b_open (proof *p)
+        { return is_b_marked (p) && !is_closed (p); }
         
     private:
         ptr_vector<unsat_core_plugin> m_plugins;
