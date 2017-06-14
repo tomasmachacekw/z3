@@ -26,6 +26,7 @@ Notes:
 #include <algorithm>
 
 #include "ast.h"
+#include "occurs.h"
 #include "array_decl_plugin.h"
 #include "ast_pp.h"
 #include "bool_rewriter.h"
@@ -1189,7 +1190,9 @@ namespace spacer {
                    << " tval: " << mk_pp (tval, m)
                    << " val: " << mk_pp (val, m) << "\n";);
             
-            if (var != term && tval == val) {
+            // -- if the term does not contain an occurrence of var
+            // -- and is in the same equivalence class in the model
+            if (tval == val && !occurs (var, term)) {
                 TRACE ("mbqi_project",
                        tout << "MBQI: replacing " << mk_pp (var, m) << " with " << mk_pp (term, m) << "\n";);
                 expr_safe_replace sub(m);
