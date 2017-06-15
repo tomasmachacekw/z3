@@ -97,7 +97,6 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
     {
         SASSERT(m_learner.m.has_fact(step));
         
-        
         ptr_vector<app> literals;
         vector<rational> coefficients;
         
@@ -126,23 +125,22 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
          */
         parameter const* params = d->get_parameters() + 2; // point to the first Farkas coefficient
         
-        // XXX This block of code appears to be unused. Maybe only for debugging?
-        IF_VERBOSE(3, verbose_stream() << "Farkas input: "<< "\n";);
-        for (unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
-        {
-            SASSERT(m_learner.m.is_proof(step->get_arg(i)));
-            proof *prem = m.get_parent (step, i);
-            
-            rational coef;
-            VERIFY(params[i].is_rational(coef));
-            
-            IF_VERBOSE(3,
-                       bool b_pure = m_learner.is_b_pure (prem);
-                       verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m_learner.m.get_fact(prem), m_learner.m) << "\n";);
-        }
+        IF_VERBOSE(3,
+            verbose_stream() << "Farkas input: "<< "\n";
+            for (unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
+            {
+                SASSERT(m_learner.m.is_proof(step->get_arg(i)));
+                proof *prem = m.get_parent (step, i);
+                
+                rational coef;
+                VERIFY(params[i].is_rational(coef));
+                
+                bool b_pure = m_learner.is_b_pure (prem);
+                verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m_learner.m.get_fact(prem), m_learner.m) << "\n";
+            }
+        );
         
-        
-        bool needsToBeClosed = true;
+        bool can_be_closed = true;
         
         for(unsigned i = 0; i < m.get_num_parents(step); ++i)
         {
@@ -155,8 +153,6 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
                 
                 if (m_learner.is_b_pure (step))
                 {
-                    m_learner.set_closed(premise, true);
-                    
                     if (!m_use_constant_from_a)
                     {
                         rational coefficient;
@@ -167,7 +163,7 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
                 }
                 else
                 {
-                    needsToBeClosed = false;
+                    can_be_closed = false;
                     
                     if (m_use_constant_from_a)
                     {
@@ -223,18 +219,17 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
                 }
             }
         }
-        
-        // only close step if there are no non-pure steps
-        if (needsToBeClosed)
+
+        // only if all b-premises can be used directly, add the farkas core and close the step
+        if (can_be_closed)
         {
             m_learner.set_closed(step, true);
+
+            expr_ref res(m_learner.m);
+            compute_linear_combination(coefficients, literals, res);
+            
+            m_learner.add_lemma_to_core(res);
         }
-        
-        // now all B-pure literals and their coefficients are collected, so compute the linear combination
-        expr_ref res(m_learner.m);
-        compute_linear_combination(coefficients, literals, res);
-        
-        m_learner.add_lemma_to_core(res);
     }
 }
 
@@ -284,19 +279,22 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             
             parameter const* params = d->get_parameters() + 2; // point to the first Farkas coefficient
             
-            IF_VERBOSE(3, verbose_stream() << "Farkas input: "<< "\n";);
-            for (unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
-            {
-                SASSERT(m_learner.m.is_proof(step->get_arg(i)));
-                proof *prem = to_app(step->get_arg(i));
-                
-                rational coef;
-                VERIFY(params[i].is_rational(coef));
-                bool b_pure = m_learner.only_contains_symbols_b(m_learner.m.get_fact(prem)) && !m_learner.is_h_marked(prem);
-                IF_VERBOSE(3, verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m_learner.m.get_fact(prem), m_learner.m) << "\n";);
-            }
+            IF_VERBOSE(3,
+               verbose_stream() << "Farkas input: "<< "\n";
+               for (unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
+               {
+                   SASSERT(m_learner.m.is_proof(step->get_arg(i)));
+                   proof *prem = m.get_parent (step, i);
+                   
+                   rational coef;
+                   VERIFY(params[i].is_rational(coef));
+                   
+                   bool b_pure = m_learner.is_b_pure (prem);
+                   verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m_learner.m.get_fact(prem), m_learner.m) << "\n";
+               }
+            );
     
-            bool needsToBeClosed = true;
+            bool can_be_closed = true;
             for(unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
             {
                 SASSERT(m_learner.m.is_proof(step->get_arg(i)));
@@ -315,22 +313,19 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                     }
                     else
                     {
-                        needsToBeClosed = false;
+                        can_be_closed = false;
                     }
                 }
             }
             
-            // only close step if there are no non-pure steps
-            if (needsToBeClosed)
+            // only if all b-premises can be used directly, close the step and add linear combinations for later processing
+            if (can_be_closed)
             {
                 m_learner.set_closed(step, true);
-            }
-            
-            // now all B-pure literals and their coefficients are collected
-            // only process them when the whole proof is traversed
-            if (!linear_combination.empty())
-            {
-                m_linear_combinations.push_back(linear_combination);
+                if (!linear_combination.empty())
+                {
+                    m_linear_combinations.push_back(linear_combination);
+                }
             }
         }
     }
