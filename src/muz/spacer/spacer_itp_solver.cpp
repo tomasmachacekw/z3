@@ -206,6 +206,17 @@ namespace spacer {
         return false;
     }
   
+    void itp_solver::collect_statistics (statistics &st) const 
+    {
+        m_solver.collect_statistics (st);
+        st.update ("time.itp_solver.itp_core", m_itp_watch.get_seconds ());
+    }
+
+    void itp_solver::reset_statistics ()
+    {
+        m_itp_watch.reset ();
+    }
+    
     void itp_solver::get_unsat_core (ptr_vector<expr> &core)
     {
         m_solver.get_unsat_core (core);
@@ -268,8 +279,8 @@ namespace spacer {
   
     void itp_solver::get_itp_core (expr_ref_vector &core)
     {
-    
-        // B side of the interpolant
+        scoped_watch _t_ (m_itp_watch);
+        
         typedef obj_hashtable<expr> expr_set;
         expr_set B;
         for (unsigned i = m_first_assumption, sz = m_assumptions.size (); i < sz; ++i)

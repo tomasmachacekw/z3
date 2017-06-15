@@ -768,7 +768,6 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             return;
         }
         
-        verbose_stream() << std::endl;
         m_d.resize(m_n);
         m_pred.resize(m_n);
         
