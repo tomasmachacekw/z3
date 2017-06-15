@@ -223,12 +223,17 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
         // only if all b-premises can be used directly, add the farkas core and close the step
         if (can_be_closed)
         {
+            verbose_stream() << "farkasClosed";
             m_learner.set_closed(step, true);
 
             expr_ref res(m_learner.m);
             compute_linear_combination(coefficients, literals, res);
             
             m_learner.add_lemma_to_core(res);
+        }
+        else
+        {
+            verbose_stream() << "farkasOpen";
         }
     }
 }
@@ -306,7 +311,6 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                     
                     if (m_learner.only_contains_symbols_b(m_learner.m.get_fact(step)) && !m_learner.is_h_marked(step))
                     {
-                        m_learner.set_closed(premise, true);
                         rational coefficient;
                         VERIFY(params[i].is_rational(coefficient));
                         linear_combination.push_back(std::make_pair(to_app(m_learner.m.get_fact(premise)), abs(coefficient)));
@@ -321,11 +325,16 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             // only if all b-premises can be used directly, close the step and add linear combinations for later processing
             if (can_be_closed)
             {
+                verbose_stream() << "farkasClosed";
                 m_learner.set_closed(step, true);
                 if (!linear_combination.empty())
                 {
                     m_linear_combinations.push_back(linear_combination);
                 }
+            }
+            else
+            {
+                verbose_stream() << "farkasOpen";
             }
         }
     }
