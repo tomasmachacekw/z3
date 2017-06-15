@@ -2192,34 +2192,31 @@ namespace spacer {
         reset_core_generalizers();
         classifier_proc classify(m, rules);
         bool use_mc = m_params.pdr_use_multicore_generalizer();
-        if (m_params.pdr_farkas() && !classify.is_bool()) {
-            m.toggle_proof_mode(PGM_FINE);
-            smt_params &fparams = m_pm.fparams ();
-            if (!m_params.spacer_eq_prop ())
-            {
-              fparams.m_arith_bound_prop = BP_NONE;
-              fparams.m_arith_auto_config_simplex = true;
-              fparams.m_arith_propagate_eqs = false;
-              fparams.m_arith_eager_eq_axioms = false;
-            }
-            fparams.m_random_seed = m_params.spacer_random_seed ();
-
-            fparams.m_dump_benchmarks = m_params.spacer_vs_dump_benchmarks();
-            fparams.m_dump_min_time = m_params.spacer_vs_dump_min_time();
-            fparams.m_dump_recheck = m_params.spacer_vs_recheck();
-
-            fparams.m_mbqi = m_params.spacer_mbqi();
+        m.toggle_proof_mode(PGM_FINE);
+        smt_params &fparams = m_pm.fparams ();
+        if (!m_params.spacer_eq_prop ()) {
+            fparams.m_arith_bound_prop = BP_NONE;
+            fparams.m_arith_auto_config_simplex = true;
+            fparams.m_arith_propagate_eqs = false;
+            fparams.m_arith_eager_eq_axioms = false;
         }
+        fparams.m_random_seed = m_params.spacer_random_seed ();
+
+        fparams.m_dump_benchmarks = m_params.spacer_vs_dump_benchmarks();
+        fparams.m_dump_min_time = m_params.spacer_vs_dump_min_time();
+        fparams.m_dump_recheck = m_params.spacer_vs_recheck();
+
+        fparams.m_mbqi = m_params.spacer_mbqi();
 
         if (get_params().spacer_lemma_sanity_check())
-        {
-            m_core_generalizers.push_back(alloc(unsat_core_sanity_checker, *this));
-        }
+            {
+                m_core_generalizers.push_back(alloc(unsat_core_sanity_checker, *this));
+            }
         
         if(get_params().spacer_use_eqclass())
-        {
-          m_core_generalizers.push_back (alloc (core_eq_generalizer, *this));
-        }
+            {
+                m_core_generalizers.push_back (alloc (core_eq_generalizer, *this));
+            }
         
         // -- AG: commented out because it is causing performance issues at the moment
         //m_core_generalizers.push_back (alloc (unsat_core_generalizer, *this));
@@ -2229,7 +2226,7 @@ namespace spacer {
         }
         
         if (m_params.use_array_eq_generalizer ()) 
-          m_core_generalizers.push_back (alloc (core_array_eq_generalizer, *this));
+            m_core_generalizers.push_back (alloc (core_array_eq_generalizer, *this));
         
     }
 
