@@ -206,6 +206,10 @@ namespace spacer {
         return false;
     }
   
+    void itp_solver::collect_statistics (statistics &st) const 
+    {m_solver.collect_statistics (st);}
+    
+    
     void itp_solver::get_unsat_core (ptr_vector<expr> &core)
     {
         m_solver.get_unsat_core (core);

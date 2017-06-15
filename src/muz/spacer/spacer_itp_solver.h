@@ -157,8 +157,7 @@ namespace spacer {
     
         /* check_sat_result interface */
     
-        virtual void collect_statistics (statistics &st) const 
-        {m_solver.collect_statistics (st);}
+        virtual void collect_statistics (statistics &st) const ;
         virtual void get_unsat_core(ptr_vector<expr> &r);
         virtual void get_model (model_ref &m) {m_solver.get_model (m);}
         virtual proof *get_proof() {return m_solver.get_proof ();}
