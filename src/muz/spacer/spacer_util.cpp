@@ -509,6 +509,7 @@ namespace spacer {
                         tout << mk_pp(vars.get (i), m) << "\n";
                     }
                   );
+            SASSERT (!m.is_false (fml));
 
             bool has_bool_vars = false;
 
@@ -532,6 +533,9 @@ namespace spacer {
             // substitute Booleans
             if (has_bool_vars) {
                 bool_sub (fml);
+                // -- bool_sub is not simplifying
+                rw (fml);
+                SASSERT (!m.is_false (fml));
                 TRACE ("spacer_mbp",
                         tout << "Projected Booleans:\n" << mk_pp (fml, m) << "\n";
                       );
@@ -552,6 +556,8 @@ namespace spacer {
                 scoped_no_proof _sp (m);
                 qe::array_project (*M.get (), array_vars, fml, vars, reduce_all_selects);
                 SASSERT (array_vars.empty ());
+                rw (fml);
+                SASSERT (!m.is_false (fml));
             }
 
             TRACE ("spacer_mbp",
@@ -605,6 +611,7 @@ namespace spacer {
                         tout << mk_pp (arith_vars.get (i), m) << "\n";
                     }
                   );
+            SASSERT (!m.is_false (fml));
         }
 
         if (!arith_vars.empty ()) {
