@@ -304,6 +304,8 @@ namespace spacer {
     }
 
     void prop_solver::collect_statistics(statistics& st) const {
+        m_contexts[0]->collect_statistics (st);
+        m_contexts[1]->collect_statistics (st);
     }
 
     void prop_solver::reset_statistics() {
