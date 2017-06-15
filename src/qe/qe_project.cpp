@@ -1641,14 +1641,10 @@ namespace qe {
                 expr_ref val (m);
                 m_mev.eval_array_eq (*M, a, a->get_arg (0), a->get_arg (1), val);
                 if (!val) {
-                    // unable to evaluate. set to true?
+                    // XXX HACK: unable to evaluate. set to true?
                     val = m.mk_true ();
                 }
                 SASSERT (m.is_true (val) || m.is_false (val));
-                TRACE ("qe",
-                        tout << "true in model:\n";
-                        tout << mk_pp (val, m) << "\n";
-                      );
 
                 if (m.is_false (val)) {
                     m_false_sub_v.insert (eq, m.mk_false ());
@@ -1691,16 +1687,19 @@ namespace qe {
                       /* empty */ ;
                     SASSERT (store == m_v);
                 }
-                nds.push_back (nd);
+                nds[i] = nd;
             }
 
+            SASSERT (true_eqs.size () == nds.size ());
+            
             // sort true_eqs according to nesting depth
             // use insertion sort
             for (unsigned i = 1; i < num_true_eqs; i++) {
-                app* eq = true_eqs.get (i);
+                app_ref eq(m);
+                eq = true_eqs.get (i);
                 unsigned nd = nds.get (i);
                 unsigned j = i;
-                for (; nds.get (j-1) > nd && j > 0; j--) {
+                for (; j >= 1 && nds.get (j-1) > nd; j--) {
                     true_eqs.set (j, true_eqs.get (j-1));
                     nds.set (j, nds.get (j-1));
                 }
@@ -1725,6 +1724,8 @@ namespace qe {
         }
 
         void mk_result (expr_ref& fml) {
+            th_rewriter rw(m);
+            rw (fml);
             // add in aux_lits and idx_lits
             expr_ref_vector lits (m);
             // TODO: eliminate possible duplicates, especially in idx_lits
@@ -1743,6 +1744,8 @@ namespace qe {
                 m_true_sub_v (fml);
                 m_false_sub_v (fml);
             }
+            rw(fml);
+            SASSERT (!m.is_false (fml));
         }
 
     public:
@@ -1764,6 +1767,7 @@ namespace qe {
             reset ();
             app_ref_vector rem_arr_vars (m); // remaining arr vars
             M = &mdl;
+
             for (unsigned i = 0; i < arr_vars.size (); i++) {
                 reset_v ();
                 m_v = arr_vars.get (i);
@@ -1777,8 +1781,10 @@ namespace qe {
                 TRACE ("qe",
                         tout << "projecting equalities on variable: " << mk_pp (m_v, m) << "\n";
                       );
+                
                 if (project (fml)) {
                     mk_result (fml);
+                    
                     contains_app contains_v (m, m_v);
                     if (!m_subst_term_v || contains_v (m_subst_term_v)) {
                         rem_arr_vars.push_back (m_v);
