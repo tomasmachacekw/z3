@@ -2211,12 +2211,16 @@ namespace spacer {
             fparams.m_mbqi = m_params.spacer_mbqi();
         }
 
+        if (get_params().spacer_lemma_sanity_check())
+        {
+            m_core_generalizers.push_back(alloc(unsat_core_sanity_checker, *this));
+        }
+        
         if(get_params().spacer_use_eqclass())
         {
           m_core_generalizers.push_back (alloc (core_eq_generalizer, *this));
         }
         
-        //m_core_generalizers.push_back(alloc(unsat_core_sanity_checker, *this));
         // -- AG: commented out because it is causing performance issues at the moment
         //m_core_generalizers.push_back (alloc (unsat_core_generalizer, *this));
         

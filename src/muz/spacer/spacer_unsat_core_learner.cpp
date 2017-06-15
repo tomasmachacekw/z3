@@ -87,7 +87,7 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
                 need_to_mark_a = need_to_mark_a || m_a_mark.is_marked(premise);
                 need_to_mark_b = need_to_mark_b || m_b_mark.is_marked(premise);
                 need_to_mark_h = need_to_mark_h || m_h_mark.is_marked(premise);
-                need_to_mark_closed = need_to_mark_closed && m_closed.is_marked(premise);
+                need_to_mark_closed = need_to_mark_closed && (!m_b_mark.is_marked(premise) || m_closed.is_marked(premise));
             }
             
             // if current node is application of lemma, we know that all hypothesis are removed
@@ -100,6 +100,7 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
             m_a_mark.mark(currentNode, need_to_mark_a);
             m_b_mark.mark(currentNode, need_to_mark_b);
             m_h_mark.mark(currentNode, need_to_mark_h);
+            m_closed.mark(currentNode, need_to_mark_closed);
         }
         
         // we have now collected all necessary information, so we can visit the node
@@ -107,8 +108,7 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
         if (m_a_mark.is_marked(currentNode) && m_b_mark.is_marked(currentNode) && !m_closed.is_marked(currentNode))
         {
             compute_partial_core(currentNode); // then we need to compute a partial core
-            SASSERT(!(m_a_mark.is_marked(currentNode) && m_b_mark.is_marked(currentNode)) ||
-                    m_closed.is_marked(currentNode));
+            // SASSERT(!(m_a_mark.is_marked(currentNode) && m_b_mark.is_marked(currentNode)) || m_closed.is_marked(currentNode)); TODO: doesn't hold anymore if we do the mincut-thing!
         }
     }
     
@@ -146,6 +146,10 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
             if (is_h_marked(currentNode))
             {
                 verbose_stream() << "h";
+            }
+            if (is_closed(currentNode))
+            {
+                verbose_stream() << "c";
             }
             verbose_stream() << "] ";
             

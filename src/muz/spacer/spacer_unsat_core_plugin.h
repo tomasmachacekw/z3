@@ -62,5 +62,40 @@ private:
          */
         void compute_linear_combination(const vector<rational>& coefficients, const ptr_vector<app>& literals, expr_ref& res);
     };
+    
+    class unsat_core_plugin_min_cut : public unsat_core_plugin {
+        
+    public:
+        unsat_core_plugin_min_cut(unsat_core_learner& learner, ast_manager& m);
+        
+        virtual void compute_partial_core(proof* step) override;
+        virtual void finalize() override;
+    private:
+        ast_manager& m;
+        
+        // data structures and methods for min-cut problem construction
+        ast_mark m_visited; // saves for each node i whether the subproof with root i has already been added to the min-cut-problem
+        obj_map<proof, unsigned> m_proof_to_node_minus; // maps proof-steps to the corresponding minus-nodes (the ones which are closer to source)
+        obj_map<proof, unsigned> m_proof_to_node_plus; // maps proof-steps to the corresponding plus-nodes (the ones which are closer to sink)
+        void advance_to_lowest_partial_cut(proof* step, ptr_vector<proof>& todo2);
+        void add_edge(proof* i, proof* j);
+        
+        // data structures and methods for min-cut computation
+        unsigned m_n; // number of vertices in the graph
+        
+        vector<vector<std::pair<unsigned, unsigned> > > m_edges; // map from node to all outgoing edges together with their weights (also contains "reverse edges")
+        vector<unsigned> m_d; // approximation of distance from node to sink in residual graph
+        vector<unsigned> m_pred; // predecessor-information for reconstruction of augmenting path
+        vector<expr*> m_node_to_formula; // maps each node to the corresponding formula in the original proof
+        
+        void compute_initial_distances();
+        unsigned get_admissible_edge(unsigned i);
+        void augment_path();
+        void compute_distance(unsigned i);
+        void compute_reachable_nodes(vector<bool>& reachable);
+        void compute_cut_and_add_lemmas(vector<bool>& reachable);
+        
+    };
+
 }
 #endif

@@ -308,8 +308,17 @@ namespace spacer {
                 unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma, learner, m_split_literals, m_farkas_a_const);
                 learner.register_plugin(plugin_farkas_lemma);
             }
-            unsat_core_plugin_lemma* plugin_lemma = alloc(unsat_core_plugin_lemma, learner);
-            learner.register_plugin(plugin_lemma);
+            
+            if (m_minimize_unsat_core)
+            {
+                unsat_core_plugin_min_cut* plugin_min_cut = alloc(unsat_core_plugin_min_cut, learner, m);
+                learner.register_plugin(plugin_min_cut);
+            }
+            else
+            {
+                unsat_core_plugin_lemma* plugin_lemma = alloc(unsat_core_plugin_lemma, learner);
+                learner.register_plugin(plugin_lemma);
+            }
             
             learner.compute_unsat_core(pr, B, core);
             

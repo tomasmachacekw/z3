@@ -7,6 +7,8 @@
 #include "arith_decl_plugin.h"
 #include <set>
 #include "solver.h"
+#include <limits>
+#include "spacer_proof_utils.h"
 
 namespace spacer
 {
@@ -569,6 +571,432 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         expr_ref negated_linear_combination = util.get();
         SASSERT(m.is_not(negated_linear_combination));
         res = mk_not(m, negated_linear_combination); //TODO: rewrite the get-method to return nonnegated stuff?
+    }
+
+    
+#pragma mark - unsat_core_plugin_min_cut
+    unsat_core_plugin_min_cut::unsat_core_plugin_min_cut(unsat_core_learner& learner, ast_manager& m) : unsat_core_plugin(learner), m(m), m_n(2)
+    {
+        // push back two empty vectors for source and sink
+        m_edges.push_back(vector<std::pair<unsigned, unsigned>>());
+        m_edges.push_back(vector<std::pair<unsigned, unsigned>>());
+    }
+    
+    void unsat_core_plugin_min_cut::compute_partial_core(proof* step)
+    {
+        ptr_vector<proof> todo;
+        
+        SASSERT(m_learner.is_a_marked(step));
+        SASSERT(m_learner.is_b_marked(step));
+        SASSERT(m.get_num_parents(step) > 0);
+        SASSERT(!m_learner.is_closed(step));
+        todo.push_back(step);
+        
+        while (!todo.empty())
+        {
+            proof* current = todo.back();
+            todo.pop_back();
+            
+            if (!m_learner.is_closed(current) && !m_visited.is_marked(current))
+            {
+                m_visited.mark(current, true);
+                advance_to_lowest_partial_cut(current, todo);
+            }
+        }
+        m_learner.set_closed(step, true);
+    }
+    
+    void unsat_core_plugin_min_cut::advance_to_lowest_partial_cut(proof* step, ptr_vector<proof>& todo2)
+    {
+        bool is_sink = true;
+
+        ast_manager &m = m_learner.m;
+        ptr_vector<proof> todo;
+        
+        for (unsigned i = 0; i < m.get_num_parents(step); ++i)
+        {
+            SASSERT(m.is_proof(step->get_arg(i)));
+            proof* premise = to_app(step->get_arg(i));
+            {
+                if (m_learner.is_b_marked(premise))
+                {
+                    todo.push_back(premise);
+                }
+            }
+        }
+        while (!todo.empty())
+        {
+            proof* current = todo.back();
+            todo.pop_back();
+            
+            // if current step hasn't been processed,
+            if (!m_learner.is_closed(current))
+            {
+                SASSERT(!m_learner.is_a_marked(current)); // by I.H. the step must be already visited
+                
+                // and the current step needs to be interpolated:
+                if (m_learner.is_b_marked(current))
+                {
+                    // if we trust the current step and we are able to use it
+                    if (m_learner.is_b_pure (current))
+                    {
+                        // add corresponding edges and continue original traversel
+                        if (m_learner.is_a_marked(step))
+                        {
+                            add_edge(nullptr, current); // current is sink
+                        }
+                        else
+                        {
+                            add_edge(step, current);
+                        }
+                        todo2.push_back(current);
+                        is_sink = false;
+                    }
+                    // otherwise recurse on premises
+                    else
+                    {
+                        for (unsigned i = 0; i < m_learner.m.get_num_parents(current); ++i)
+                        {
+                            SASSERT(m_learner.m.is_proof(current->get_arg(i)));
+                            proof* premise = m.get_parent (current, i);
+                            todo.push_back(premise);
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (is_sink)
+        {
+            add_edge(step, nullptr);
+        }
+    }
+
+    void unsat_core_plugin_min_cut::add_edge(proof* i, proof* j)
+    {
+        unsigned node_i;
+        unsigned node_j;
+        if (i == nullptr)
+        {
+            node_i = 0;
+        }
+        else
+        {
+            unsigned tmp;
+            if (m_proof_to_node_plus.find(i, tmp))
+            {
+                node_i = tmp;
+            }
+            else
+            {
+                node_i = m_n + 1;
+                
+                m_proof_to_node_minus.insert(i, m_n);
+                m_proof_to_node_plus.insert(i, m_n + 1);
+                
+                if (m_n + 1 >= m_node_to_formula.size())
+                {
+                    m_node_to_formula.resize(m_n + 2);
+                }
+                m_node_to_formula[m_n] = m.get_fact(i);
+                m_node_to_formula[m_n + 1] = m.get_fact(i);
+                
+                if (m_n >= m_edges.size())
+                {
+                    m_edges.resize(m_n + 1);
+                }
+                m_edges[m_n].insert(std::make_pair(m_n + 1, 1));
+                IF_VERBOSE(3, verbose_stream() << "adding edge (" << m_n << "," << m_n + 1 << ")\n";);
+
+                m_n += 2;
+            }
+        }
+        
+        if (j == nullptr)
+        {
+            node_j = 1;
+        }
+        else
+        {
+            unsigned tmp;
+            if (m_proof_to_node_minus.find(j, tmp))
+            {
+                node_j = tmp;
+            }
+            else
+            {
+                node_j = m_n;
+
+                m_proof_to_node_minus.insert(j, m_n);
+                m_proof_to_node_plus.insert(j, m_n + 1);
+                
+                if (m_n + 1 >= m_node_to_formula.size())
+                {
+                    m_node_to_formula.resize(m_n + 2);
+                }
+                m_node_to_formula[m_n] = m.get_fact(j);
+                m_node_to_formula[m_n + 1] = m.get_fact(j);
+                
+                if (m_n >= m_edges.size())
+                {
+                    m_edges.resize(m_n + 1);
+                }
+                m_edges[m_n].insert(std::make_pair(m_n + 1, 1));
+                IF_VERBOSE(3, verbose_stream() << "adding edge (" << m_n << "," << m_n + 1 << ")\n";);
+                
+                m_n += 2;
+            }
+        }
+        
+        // finally connect nodes
+        if (node_i >= m_edges.size())
+        {
+            m_edges.resize(node_i + 1);
+        }
+        m_edges[node_i].insert(std::make_pair(node_j, 1));
+        IF_VERBOSE(3, verbose_stream() << "adding edge (" << node_i << "," << node_j << ")\n";);
+    }
+    
+    void unsat_core_plugin_min_cut::finalize()
+    {
+        if (m_n == 2)
+        {
+            return;
+        }
+        
+        verbose_stream() << std::endl;
+        m_d.resize(m_n);
+        m_pred.resize(m_n);
+        
+        // compute initial distances and number of nodes
+        compute_initial_distances();
+        
+        unsigned i = 0;
+        
+        while (m_d[0] < m_n)
+        {
+            unsigned j = get_admissible_edge(i);
+            
+            if (j < m_n)
+            {
+                // advance(i)
+                m_pred[j] = i;
+                i = j;
+                
+                // if i is the sink, augment path
+                if (i == 1)
+                {
+                    augment_path();
+                    i = 0;
+                }
+            }
+            else
+            {
+                // retreat
+                compute_distance(i);
+                if (i != 0)
+                {
+                    i = m_pred[i];
+                }
+            }
+        }
+        
+        // split nodes into reachable and unreachable ones
+        vector<bool> reachable(m_n);
+        compute_reachable_nodes(reachable);
+        
+        // find all edges between reachable and unreachable nodes and for each such edge, add corresponding lemma to unsat-core
+        compute_cut_and_add_lemmas(reachable);
+    }
+    
+    void unsat_core_plugin_min_cut::compute_initial_distances()
+    {
+        vector<unsigned> todo;
+        vector<bool> visited(m_n);
+        
+        todo.push_back(0); // start at the source, since we do postorder traversel
+        
+        while (!todo.empty())
+        {
+            unsigned current = todo.back();
+            
+            // if we haven't already visited current
+            if (!visited[current]) {
+                bool existsUnvisitedParent = false;
+                
+                // add unprocessed parents to stack for DFS. If there is at least one unprocessed parent, don't compute the result
+                // for current now, but wait until those unprocessed parents are processed.
+                for (unsigned i = 0, sz = m_edges[current].size(); i < sz; ++i)
+                {
+                    unsigned parent = m_edges[current][i].first;
+                    
+                    // if we haven't visited the current parent yet
+                    if(!visited[parent])
+                    {
+                        // add it to the stack
+                        todo.push_back(parent);
+                        existsUnvisitedParent = true;
+                    }
+                }
+                
+                // if we already visited all parents, we can visit current too
+                if (!existsUnvisitedParent) {
+                    visited[current] = true;
+                    todo.pop_back();
+                    
+                    compute_distance(current); // I.H. all parent distances are already computed
+                }
+            }
+            else {
+                todo.pop_back();
+            }
+        }
+    }
+    
+    unsigned unsat_core_plugin_min_cut::get_admissible_edge(unsigned i)
+    {
+        for (const auto& pair : m_edges[i])
+        {
+            if (pair.second > 0 && m_d[i] == m_d[pair.first] + 1)
+            {
+                return pair.first;
+            }
+        }
+        return m_n; // no element found
+    }
+    
+    void unsat_core_plugin_min_cut::augment_path()
+    {
+        // find bottleneck capacity
+        unsigned max = std::numeric_limits<unsigned int>::max();
+        unsigned k = 1;
+        while (k != 0)
+        {
+            unsigned l = m_pred[k];
+            for (const auto& pair : m_edges[l])
+            {
+                if (pair.first == k)
+                {
+                    if (max > pair.second)
+                    {
+                        max = pair.second;
+                    }
+                }
+            }
+            k = l;
+        }
+        
+        k = 1;
+        while (k != 0)
+        {
+            unsigned l = m_pred[k];
+            
+            // decrease capacity
+            for (auto& pair : m_edges[l])
+            {
+                if (pair.first == k)
+                {
+                    pair.second -= max;
+                }
+            }
+            // increase reverse flow
+            bool already_exists = false;
+            for (auto& pair : m_edges[k])
+            {
+                if (pair.first == l)
+                {
+                    already_exists = true;
+                    pair.second += max;
+                }
+            }
+            if (!already_exists)
+            {
+                m_edges[k].insert(std::make_pair(l, max));
+            }
+            k = l;
+        }
+    }
+    
+    void unsat_core_plugin_min_cut::compute_distance(unsigned i)
+    {
+        if (i == 1) // sink node
+        {
+            m_d[1] = 0;
+        }
+        else
+        {
+            unsigned min = std::numeric_limits<unsigned int>::max();
+            
+            // find edge (i,j) with positive residual capacity and smallest distance
+            for (const auto& pair : m_edges[i])
+            {
+                if (pair.second > 0)
+                {
+                    unsigned tmp = m_d[pair.first] + 1;
+                    if (tmp < min)
+                    {
+                        min = tmp;
+                    }
+                }
+            }
+            m_d[i] = min;
+        }
+    }
+
+    void unsat_core_plugin_min_cut::compute_reachable_nodes(vector<bool>& reachable)
+    {
+        vector<unsigned> todo;
+        
+        todo.push_back(0);
+        while (!todo.empty())
+        {
+            unsigned current = todo.back();
+            todo.pop_back();
+            
+            if (!reachable[current])
+            {
+                reachable[current] = true;
+                
+                for (const auto& pair : m_edges[current])
+                {
+                    if (pair.second > 0)
+                    {
+                        todo.push_back(pair.first);
+                    }
+                }
+            }
+        }
+    }
+    
+    void unsat_core_plugin_min_cut::compute_cut_and_add_lemmas(vector<bool>& reachable)
+    {
+        vector<unsigned> todo;
+        vector<bool> visited(m_n);
+        
+        todo.push_back(0);
+        while (!todo.empty())
+        {
+            unsigned current = todo.back();
+            todo.pop_back();
+            
+            if (!visited[current])
+            {
+                visited[current] = true;
+                
+                for (const auto& pair : m_edges[current])
+                {
+                    unsigned successor = pair.first;
+                    if (reachable[successor])
+                    {
+                        todo.push_back(successor);
+                    }
+                    else
+                    {
+                        m_learner.add_lemma_to_core(m_node_to_formula[successor]);
+                    }
+                }
+            }
+        }
     }
 
 }
