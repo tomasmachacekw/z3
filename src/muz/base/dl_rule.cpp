@@ -54,7 +54,7 @@ namespace datalog {
           m_head(m),
           m_args(m),
           m_hnf(m),
-          m_qe(m),
+          m_qe(m, false),
           m_rwr(m),
           m_ufproc(m) {}
 

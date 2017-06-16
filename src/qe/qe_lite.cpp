@@ -2338,6 +2338,8 @@ private:
     elim_star    m_elim_star;
     th_rewriter  m_rewriter;
 
+    bool m_use_array_der;
+
     bool has_unique_non_ground(expr_ref_vector const& fmls, unsigned& index) {
         index = fmls.size();
         if (index <= 1) {
@@ -2355,13 +2357,14 @@ private:
     }
 
 public:
-    impl(ast_manager& m): 
+    impl(ast_manager& m, bool use_array_der): 
         m(m), 
         m_der(m), 
         m_fm(m), 
         m_array_der(m), 
         m_elim_star(*this), 
-        m_rewriter(m) {}
+        m_rewriter(m),
+        m_use_array_der(use_array_der) {}
     
     void operator()(app_ref_vector& vars, expr_ref& fml) {
         if (vars.empty()) {
@@ -2442,14 +2445,14 @@ public:
         m_der(fmls);
         m_fm(fmls);
         // XXX AG: disalble m_array_der() since it interferes with other array handling
-        // m_array_der(fmls);
+        if (m_use_array_der) m_array_der(fmls);
         TRACE("qe_lite", for (unsigned i = 0; i < fmls.size(); ++i) tout << mk_pp(fmls[i].get(), m) << "\n";);
     }
 
 };
 
-qe_lite::qe_lite(ast_manager& m) {
-    m_impl = alloc(impl, m);
+qe_lite::qe_lite(ast_manager& m, bool use_array_der) {
+    m_impl = alloc(impl, m, use_array_der);
 }
 
 qe_lite::~qe_lite() {
@@ -2481,7 +2484,7 @@ class qe_lite_tactic : public tactic {
 
         imp(ast_manager& m, params_ref const& p): 
             m(m),
-            m_qe(m)
+            m_qe(m, true)
         {}
 
         void checkpoint() {

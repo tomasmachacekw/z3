@@ -497,7 +497,7 @@ namespace spacer {
         expr_ref bval (m);
 
         while (true) {
-            qe_lite qe (m);
+            qe_lite qe (m, false);
             qe (vars, fml);
             rw (fml); 
 

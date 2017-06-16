@@ -72,7 +72,7 @@ namespace spacer {
     void qe_project (ast_manager& m, app_ref_vector& vars, expr_ref& fml, model_ref& M, expr_map& map) {
         th_rewriter rw (m);
         // qe-lite; TODO: use qe_lite aggressively
-        qe_lite qe (m);
+        qe_lite qe (m, true);
         qe (vars, fml);
         rw (fml);
 
