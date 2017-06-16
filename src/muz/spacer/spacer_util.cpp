@@ -556,8 +556,11 @@ namespace spacer {
                 scoped_no_proof _sp (m);
                 qe::array_project (*M.get (), array_vars, fml, vars, reduce_all_selects);
                 SASSERT (array_vars.empty ());
-                rw (fml);
-                SASSERT (!m.is_false (fml));
+                // XXX this causes a memory leak. Must be triggering a problem that is caused somewhere else
+                // expr_ref tmp(m);
+                // rw (fml.get (), tmp);
+                // SASSERT (!m.is_false (tmp));
+                // fml = tmp;
             }
 
             TRACE ("spacer_mbp",
