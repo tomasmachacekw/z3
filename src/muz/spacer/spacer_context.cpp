@@ -1604,9 +1604,8 @@ namespace spacer {
 
   model_node *derivation::create_first_child (model_evaluator_util &mev)
   {
-      if (m_premises.empty ()) return NULL;
-      m_active = 0;
-      
+    if (m_premises.empty ()) return NULL;
+    m_active = 0;
       model_node* node = create_next_child (mev);
       
 //      // try to merge cti with as many parents as possible

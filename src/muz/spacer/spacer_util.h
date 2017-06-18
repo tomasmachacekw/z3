@@ -33,6 +33,7 @@ Revision History:
 #include "model.h"
 
 #include "stopwatch.h"
+#include "spacer_antiunify.h"
 
 class model;
 class model_core;
@@ -162,39 +163,6 @@ namespace spacer {
 
     void find_decls (expr* fml, app_ref_vector& decls, std::string& prefix);
     
-    class anti_unifier
-    {
-    public:
-        anti_unifier(expr* t, ast_manager& m);
-        ~anti_unifier() {}
-        
-        bool add_term(expr* t);
-        void finalize();
-        
-        expr* get_generalization();
-        unsigned get_num_substitutions();
-        obj_map<expr, expr*> get_substitution(unsigned index);
-        
-    private:
-        ast_manager& m;
-        // tracking all created expressions
-        expr_ref_vector m_pinned;
-        
-        expr_ref m_g;
-        
-        vector<obj_map<expr, expr*>> m_substitutions;
-    };
-    
-    class naive_convex_closure
-    {
-    public:
-        
-        static bool compute_closure(anti_unifier& au, ast_manager& m, expr_ref& result);
-    
-    private:
-        static bool get_range(vector<unsigned>& v, unsigned& lower_bound, unsigned& upper_bound);
-        static void substitute_vars_by_const(ast_manager& m, expr* t, expr* c, expr_ref& res);
-    };
     
 }
 
