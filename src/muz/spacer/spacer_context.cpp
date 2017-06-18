@@ -1604,9 +1604,49 @@ namespace spacer {
 
   model_node *derivation::create_first_child (model_evaluator_util &mev)
   {
-    if (m_premises.empty ()) return NULL;
-    m_active = 0;
-    return create_next_child (mev);
+      if (m_premises.empty ()) return NULL;
+      m_active = 0;
+      
+      // try to merge with parent
+      model_node* node = create_next_child (mev);
+      
+      IF_VERBOSE(1, verbose_stream() << "CTI before merging: " << mk_pp(node->post(), mev.get_ast_manager()) << "\n";);
+      anti_unifier au(node->post(), mev.get_ast_manager());
+      
+      model_node* current_parent = node->parent();
+      while (true)
+      {
+          IF_VERBOSE(1, verbose_stream() << "Trying to merge with CTI: " << mk_pp(current_parent->post(), mev.get_ast_manager()) << "\n";);
+
+          bool success = au.add_term(current_parent->post());
+          if (success)
+          {
+              expr_ref result(mev.get_ast_manager());
+              obj_map<expr, ptr_vector<expr> > substitutions;
+              au.get_result(result, substitutions);
+              
+              expr_ref result2(mev.get_ast_manager());
+              success = naive_convex_closure::compute_closure(result, substitutions, result2);
+              if (success)
+              {
+                  node->set_post(result2);
+              }
+              else
+              {
+                  break;
+              }
+          }
+          else
+          {
+              break;
+          }
+          current_parent = current_parent->parent();
+      }
+    
+
+      
+      
+      return node;
   }
   
   model_node *derivation::create_next_child (model_evaluator_util &mev)

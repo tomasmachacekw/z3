@@ -1327,6 +1327,307 @@ namespace spacer {
         }
         return;
     }
+    
+#pragma mark - class anti_unifier
+    
+    anti_unifier::anti_unifier(expr* t, ast_manager& m) : m_t(t), m(m)
+    {
+        vector<expr*> todo;
+        ast_mark visited;
+        
+        todo.push_back(m_t);
+        
+        while (!todo.empty())
+        {
+            expr* current = todo.back();
+            todo.pop_back();
+            
+            if (!visited.is_marked(current))
+            {
+                visited.mark(current, true);
+                
+                if (m.is_value(current))
+                {
+                    SASSERT(!m_substitutions.contains(current));
+                    ptr_vector<expr> substitution;
+                    substitution.push_back(current);
+                    m_substitutions.insert(current, substitution);
+                }
+                else
+                {
+                    SASSERT(is_app(current));
+                    for (unsigned i = 0, num_args = to_app(current)->get_num_args(); i < num_args; ++i)
+                    {
+                        expr* argument = to_app(current)->get_arg(i);
+                        todo.push_back(argument);
+                    }
+                }
+            }
+        }
+    }
+    
+    
+    bool anti_unifier::add_term(expr* t)
+    {
+        vector<std::pair<expr*, expr*>> substitution_cache;
+        
+        vector<expr*> todo;
+        vector<expr*> todo2;
+        todo.push_back(m_t);
+        todo.push_back(t);
+        
+        ast_mark visited;
+
+        while (!todo.empty())
+        {
+            expr* current = todo.back();
+            todo.pop_back();
+            expr* current2 = todo2.back();
+            todo2.pop_back();
+            
+            if (!visited.is_marked(current))
+            {
+                visited.mark(current, true);
+                
+                if (m.is_value(current))
+                {
+                    if (m.is_value(current2))
+                    {
+                        substitution_cache.insert(std::make_pair(current, current2));
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    SASSERT(is_app(current));
+                    if (is_app(current2) && to_app(current)->get_decl() == to_app(current2)->get_decl())
+                    {
+                        SASSERT(to_app(current)->get_num_args() == to_app(current2)->get_num_args());
+                        for (unsigned i = 0, num_args = to_app(current)->get_num_args(); i < num_args; ++i)
+                        {
+                            expr* argument = to_app(current)->get_arg(i);
+                            todo.push_back(argument);
+                            expr* argument2 = to_app(current2)->get_arg(i);
+                            todo2.push_back(argument2);
+                        }
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+        
+        // we now know that the terms can be anti-unified, so add the cached substitutions
+        for (const auto& pair : substitution_cache)
+        {
+            SASSERT(m_substitutions.contains(pair.first));
+            m_substitutions[pair.first].push_back(pair.second);
+        }
+        return true;
+    }
+    
+    void anti_unifier::get_result(expr_ref& t, obj_map<expr, ptr_vector<expr>>& substitutions)
+    {
+        vector<expr*> todo;
+        todo.push_back(m_t);
+        
+        ast_mark visited;
+        
+        obj_map<expr, expr_ref> generalization;
+        unsigned var_index = 0;
+        
+        while (!todo.empty())
+        {
+            expr* current = todo.back();
+            
+            // if we haven't already visited current
+            if (!visited.is_marked(current))
+            {
+                bool existsUnvisitedParent = false;
+                
+                if (is_app(current))
+                {
+                    for (unsigned i = 0, sz = to_app(current)->get_num_args(); i < sz; ++i)
+                    {
+                        expr* parent = to_app(current)->get_arg(i);
+                        
+                        // if we haven't visited the current parent yet
+                        if(!visited.is_marked(parent))
+                        {
+                            // add it to the stack
+                            todo.push_back(parent);
+                            existsUnvisitedParent = true;
+                        }
+                    }
+                }
+                
+                // if we already visited all parents, we can visit current too
+                if (!existsUnvisitedParent) {
+                    visited.mark(current, true);
+                    todo.pop_back();
+                    
+                    if (m.is_value(current))
+                    {
+                        SASSERT(m_substitutions.contains(current));
+                        
+                        bool containsDifferentSubstitutions = false;
+                        for (const auto& e : m_substitutions[current])
+                        {
+                            if (e != current)
+                            {
+                                containsDifferentSubstitutions = true;
+                                break;
+                            }
+                        }
+                        
+                        if (containsDifferentSubstitutions)
+                        {
+                            expr_ref var(m.mk_var(var_index++, m.get_sort(current)), m);
+                            generalization.insert(current, var);
+                            substitutions.insert(var.get(), m_substitutions[current]);
+                        }
+                        else
+                        {
+                            expr_ref constant(current, m);
+                            generalization.insert(current, constant);
+                        }
+                    }
+                    else
+                    {
+                        SASSERT(is_app(current));
+                        ptr_buffer<expr> arg_list;
+
+                        for (unsigned i = 0, sz = to_app(current)->get_num_args(); i < sz; ++i)
+                        {
+                            arg_list.push_back(generalization[current]);
+                        }
+                        expr_ref application(m.mk_app(to_app(current)->get_decl(), to_app(current)->get_num_args(), arg_list.c_ptr()),m);
+                        generalization.insert(current, application);
+                    }
+                }
+            }
+            else {
+                todo.pop_back();
+            }
+        }
+    }
+    
+    class ncc_less_than_key
+    {
+    public:
+        ncc_less_than_key(arith_util& util) : m_util(util){}
+        
+        inline bool operator() (const expr*& e1, const expr*& e2)
+        {
+            rational val1;
+            rational val2;
+            
+            if (m_util.is_numeral(e1, val1) && m_util.is_numeral(e2, val2))
+            {
+                return val1 < val2;
+            }
+            else
+            {
+                SASSERT(false);
+                return false;
+            }
+        }
+
+        arith_util m_util;
+    };
+    
+    /*
+     * if there is a single interval which exactly captures each of the substitutions, return the corresponding closure, otherwise do nothing
+     */
+    bool naive_convex_closure::compute_closure(expr_ref& t, obj_map<expr, ptr_vector<expr> >& substitutions, expr_ref& result)
+    {
+        arith_util util(t.m());
+        
+        if (substitutions.empty())
+        {
+            result = t;
+            return true;
+        }
+        
+        unsigned size = substitutions.begin()->get_value().size();
+        for (const auto& pair : substitutions)
+        {
+            if (pair.get_value().size() != size)
+            {
+                return false;
+            }
+        }
+        
+        for (const auto& pair : substitutions)
+        {
+            const ptr_vector<expr>& vec_substitution = pair.get_value();
+            
+            // return false if there is a noninteger substitution
+            for (const auto& e : vec_substitution)
+            {
+                if (!util.is_int(e))
+                {
+                    return false;
+                }
+            }
+            
+            // sort substitutions
+            std::sort(vec_substitution.begin(), vec_substitution.end(), ncc_less_than_key(util));
+            
+            // check that numbers are consecutive
+            for (unsigned i=0; i < vec_substitution.size() - 1; ++i)
+            {
+                rational val1;
+                rational val2;
+                
+                if (util.is_numeral(vec_substitution[i], val1) && util.is_numeral(vec_substitution[i+1], val2) && val1.is_unsigned() && val2.is_unsigned())
+                {
+                    if (val1.get_unsigned() + 1 != val2.get_unsigned())
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    SASSERT(false);
+                    return false;
+                }
+            }
+        }
+        
+        SASSERT(size > 0);
+        
+        // all vectors are of the same size and only contain consecutive numbers, so if the first value is the same in each vector, we have a single interval
+        expr* interval_begin_expr = substitutions.begin()->get_value()[0];
+        rational val;
+        util.is_numeral(interval_begin_expr, val);
+        unsigned interval_begin = val.get_unsigned();
+        
+        for (const auto& pair : substitutions)
+        {
+            interval_begin_expr = pair.get_value()[0];
+            util.is_numeral(interval_begin_expr, val);
+            if (val.get_unsigned() != interval_begin)
+            {
+                return false;
+            }
+        }
+        
+        // we finally know that we can express the substitutions using a single interval, so build the expression
+        expr* interval_end_expr = substitutions.begin()->get_value().back();
+        util.is_numeral(interval_end_expr, val);
+        unsigned interval_end = val.get_unsigned();
+
+        expr_ref var_ref(t.m().mk_var(0, t.m().get_sort(t)), t.m());
+        expr_ref lit1(util.mk_le(util.mk_int(interval_begin), var_ref), t.m());
+        expr_ref lit2(util.mk_le(var_ref, util.mk_int(interval_end)), t.m());
+
+    }
 }
 template class rewriter_tpl<spacer::adhoc_rewriter_cfg>;
 template class rewriter_tpl<spacer::adhoc_rewriter_rpp>;

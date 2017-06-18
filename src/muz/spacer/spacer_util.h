@@ -161,6 +161,27 @@ namespace spacer {
     void get_select_indices (expr* fml, app_ref_vector& indices, ast_manager& m);
 
     void find_decls (expr* fml, app_ref_vector& decls, std::string& prefix);
+    
+    class anti_unifier
+    {
+    public:
+        anti_unifier(expr* t, ast_manager& m);
+        
+        bool add_term(expr* t);
+        void get_result(expr_ref& t, obj_map<expr, ptr_vector<expr>>& substitutions);
+        
+    private:
+        expr* m_t;
+        ast_manager m;
+        
+        obj_map<expr, ptr_vector<expr>> m_substitutions;
+    };
+    
+    class naive_convex_closure
+    {
+    public:
+        static bool compute_closure(expr_ref& t, obj_map<expr, ptr_vector<expr>>& substitutions, expr_ref& result);
+    };
 }
 
 #endif

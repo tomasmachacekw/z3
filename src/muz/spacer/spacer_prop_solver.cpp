@@ -242,7 +242,8 @@ namespace spacer {
             }
         }
 
-        if (result == l_false && m_core && m.proofs_enabled() && !m_subset_based_core) {
+//        if (result == l_false && m_core && m.proofs_enabled() && !m_subset_based_core) {
+        if (result == l_false && m_core && m.proofs_enabled() && false) {
             TRACE ("spacer", tout << "theory core\n";);
             m_core->reset ();
             m_ctx->get_itp_core (*m_core);
