@@ -2110,7 +2110,11 @@ namespace spacer {
         case l_true: {
             expr_ref cex(m);
             cex = get_ground_sat_answer();
-            SASSERT(cex.get());
+            if (!cex.get()) {
+                IF_VERBOSE(0, verbose_stream() << "Cex validation failed\n";);
+                throw default_exception("Cex validation failed\n");
+                return false;
+            }
            break;
         }            
         case l_false: {
