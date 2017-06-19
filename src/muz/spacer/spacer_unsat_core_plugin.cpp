@@ -223,17 +223,12 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
         // only if all b-premises can be used directly, add the farkas core and close the step
         if (can_be_closed)
         {
-            IF_VERBOSE (1, verbose_stream() << "farkasClosed";);
             m_learner.set_closed(step, true);
 
             expr_ref res(m_learner.m);
             compute_linear_combination(coefficients, literals, res);
             
             m_learner.add_lemma_to_core(res);
-        }
-        else
-        {
-            IF_VERBOSE (1, verbose_stream() << "farkasOpen";);
         }
     }
 }
@@ -325,16 +320,11 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             // only if all b-premises can be used directly, close the step and add linear combinations for later processing
             if (can_be_closed)
             {
-                IF_VERBOSE (1, verbose_stream() << "farkasClosed";);
                 m_learner.set_closed(step, true);
                 if (!linear_combination.empty())
                 {
                     m_linear_combinations.push_back(linear_combination);
                 }
-            }
-            else
-            {
-                IF_VERBOSE (1, verbose_stream() << "farkasOpen";);
             }
         }
     }
