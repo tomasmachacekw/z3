@@ -1521,8 +1521,11 @@ namespace spacer {
                           m.mk_bool_sort ());
     v = m.mk_const (pm.get_n_pred (v->get_decl ()));
     
+    expr_ref ic(m);
+    
     // -- extend the initial condition
-    m_solver.assert_expr (m.mk_or (m_extend_lit, e, v));
+    ic = m.mk_or (m_extend_lit, e, v);
+    m_solver.assert_expr (ic);
 
     // -- remember the new extend literal
     m_extend_lit = m.mk_not (v);
