@@ -60,6 +60,7 @@ Notes:
 #include "dl_mk_rule_inliner.h"
 #include "ast_smt2_pp.h"
 #include "ast_ll_pp.h"
+#include "ast_util.h"
 #include "proof_checker.h"
 #include "smt_value_sort.h"
 #include "proof_utils.h"
@@ -1673,6 +1674,30 @@ namespace spacer {
     
     get_manager ().formula_o2n (post.get (), post, m_premises [m_active].get_oidx ());
     
+ 
+    if(get_context().get_params().spacer_use_eqclass()) {
+        expr_ref_vector tmp(m);
+        tmp.push_back(post);
+        expr_equiv_class eq_classes(remove_eq_conds_tmp(tmp));
+        for(expr_equiv_class::equiv_iterator eq_c = eq_classes.begin(); eq_c!=eq_classes.end();++eq_c) {
+            expr* representative = *(*eq_c).begin();
+            for(expr_equiv_class::iterator it = (*eq_c).begin(); it!=(*eq_c).end(); ++it) {
+                if(!m.is_value(*it)) {
+                    representative = *it;
+                    break;
+                }
+            }
+            for(expr_equiv_class::iterator it = (*eq_c).begin(); it!=(*eq_c).end(); ++it) {
+                if(*it != representative)
+                    tmp.push_back(m.mk_eq(*it, representative));
+            }
+        }
+
+        if (tmp.size () > 1)
+            std::sort (tmp.c_ptr (), tmp.c_ptr () + tmp.size (), ast_lt_proc ());
+        post = mk_and (tmp);
+    }
+
     /* The level and depth are taken from the parent, not the sibling.
        The reasoning is that the sibling has not been checked before,
        and lower level is a better starting point. */
@@ -1680,32 +1705,6 @@ namespace spacer {
                            m_premises[m_active].pt (), 
                            prev_level (m_parent.level ()),
                            m_parent.depth ());
- 
-    if(get_context().get_params().spacer_use_eqclass())
-    {
-     expr_ref_vector tmp(m);
-     tmp.push_back(post);
-     expr_equiv_class eq_classes(remove_eq_conds_tmp(tmp));
-     for(expr_equiv_class::equiv_iterator eq_c = eq_classes.begin(); eq_c!=eq_classes.end();++eq_c)
-     {
-      expr* representative = *(*eq_c).begin();
-      for(expr_equiv_class::iterator it = (*eq_c).begin(); it!=(*eq_c).end(); ++it)
-      {
-        if(!m.is_value(*it))
-        {
-          representative = *it;
-          break;
-        }
-      }
-      for(expr_equiv_class::iterator it = (*eq_c).begin(); it!=(*eq_c).end(); ++it)
-      {
-        if(*it != representative)
-          tmp.push_back(m.mk_eq(*it, representative));
-      }
-     }
-     post=post.get_manager().mk_and(tmp.size(), tmp.c_ptr());
-    }
-
     n->set_post(post);
     
 
