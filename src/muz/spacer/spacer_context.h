@@ -448,7 +448,6 @@ namespace spacer {
     ptr_vector<model_node>  m_kids;
 
     app_ref_vector         m_vars;
-    model_ref              m_model;
 
   public:
     model_node (model_node* parent, pred_transformer& pt, unsigned level, unsigned depth=0):
@@ -499,7 +498,6 @@ namespace spacer {
         for (unsigned v=0; v < m_vars.size(); v++)
             qvars.push_back(skolems[v].get());
     }
-    model_ref& model () {return m_model;}
     void get_binding(
             const app_ref_vector& occur,
             const app_ref_vector& skolems,

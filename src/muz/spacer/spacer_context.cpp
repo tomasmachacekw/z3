@@ -3075,7 +3075,9 @@ namespace spacer {
                       // Current vars.
                       m_pm.formula_n2o(cube.get(), cube, 0);
                       // Eliminate vars
-                      qe_project (m, qvars, cube, n.model (), true,
+                      // XXX AG: this code does not look correct. Ask Yakir.
+                      model_ref empty_model;
+                      qe_project (m, qvars, cube, empty_model, true,
                                   m_use_native_mbp, false);
                       SASSERT(qvars.empty());
                       // No free vars - create the lemma
@@ -3452,8 +3454,6 @@ namespace spacer {
         if (!vars.empty()) {
             app_ref_vector& qvars = kid->get_vars();
             qvars.append(vars);
-            model_ref& model = kid->model();
-            model = mev.get_model();
         }
         
         // Optionally disable derivation optimization
