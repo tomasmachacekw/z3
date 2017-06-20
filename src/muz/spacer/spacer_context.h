@@ -50,6 +50,7 @@ namespace spacer {
     typedef obj_map<func_decl, pred_transformer*> decl2rel;
 
   class reach_fact;
+  typedef ref<reach_fact> reach_fact_ref;
   typedef sref_vector<reach_fact> reach_fact_ref_vector;
   
   class reach_fact
@@ -77,7 +78,7 @@ namespace spacer {
     bool is_init () {return m_init;}
     const datalog::rule& get_rule () {return m_rule;}
     
-    void add_justification (reach_fact &f) {m_justification.push_back (&f);}
+    void add_justification (reach_fact *f) {m_justification.push_back (f);}
     const reach_fact_ref_vector& get_justifications () {return m_justification;}
     
     expr *get () {return m_fact.get ();}
@@ -368,7 +369,7 @@ namespace spacer {
       
         /// initialize reachability facts using initial rules
         void init_reach_facts ();
-        void add_reach_fact (reach_fact &fact);  // add reachability fact
+        void add_reach_fact (reach_fact *fact);  // add reachability fact
         reach_fact* get_last_reach_fact () const { return m_reach_facts.back (); }
         expr* get_last_reach_case_var () const;
       

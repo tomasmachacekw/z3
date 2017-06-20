@@ -492,7 +492,7 @@ namespace spacer {
     {return m_reach_case_vars.get (idx);}
 
 
-  void pred_transformer::add_reach_fact (reach_fact &fact) 
+  void pred_transformer::add_reach_fact (reach_fact *fact) 
     {
       timeit _timer (is_trace_enabled("spacer_timeit"), 
                      "spacer::pred_transformer::add_reach_fact", 
@@ -500,18 +500,18 @@ namespace spacer {
 
       TRACE ("spacer",
              tout << "add_reach_fact: " << head()->get_name() << " " 
-             << (fact.is_init () ? "INIT " : "")
-             << mk_pp(fact.get (), m) << "\n";);
+             << (fact->is_init () ? "INIT " : "")
+             << mk_pp(fact->get (), m) << "\n";);
       
       // -- avoid duplicates
-      if (get_reach_fact (fact.get ())) return;
+      if (fact == nullptr || get_reach_fact (fact->get ())) return;
 
       // all initial facts are grouped together
-      SASSERT (!fact.is_init () || m_reach_facts.empty () ||
+      SASSERT (!fact->is_init () || m_reach_facts.empty () ||
                m_reach_facts.back ()->is_init ());
       
-      m_reach_facts.push_back (&fact);
-      if (fact.is_init ()) m_rf_init_sz++;
+      m_reach_facts.push_back (fact);
+      if (fact->is_init ()) m_rf_init_sz++;
       
 
       // update m_reach_ctx
@@ -520,20 +520,20 @@ namespace spacer {
       expr_ref fml (m);
       
       if (!m_reach_case_vars.empty ()) last_var = m_reach_case_vars.back ();
-      if (fact.is_init () || !ctx.get_params ().spacer_reach_as_init ())
+      if (fact->is_init () || !ctx.get_params ().spacer_reach_as_init ())
         new_var = mk_fresh_reach_case_var ();
       else
       {
-        new_var = extend_initial (fact.get ())->get_arg (0);
+        new_var = extend_initial (fact->get ())->get_arg (0);
         m_reach_case_vars.push_back (new_var);
       }
       
       SASSERT (m_reach_facts.size () == m_reach_case_vars.size ());
       
       if (last_var)
-        fml = m.mk_or (m.mk_not (last_var), fact.get (), new_var);
+        fml = m.mk_or (m.mk_not (last_var), fact->get (), new_var);
       else
-        fml = m.mk_or (fact.get (), new_var);
+        fml = m.mk_or (fact->get (), new_var);
       
       m_reach_ctx->assert_expr (fml);
       TRACE ("spacer",
@@ -951,7 +951,7 @@ namespace spacer {
     void pred_transformer::init_reach_facts ()
     {
       expr_ref_vector v(m);
-      reach_fact *fact;
+      reach_fact_ref fact;
 
       rule2expr::iterator it = m_rule2tag.begin (), end = m_rule2tag.end ();
       for (; it != end; ++it)
@@ -961,7 +961,7 @@ namespace spacer {
         {
           fact = alloc (reach_fact, m, *r, m_rule2transition.find (r),
                         get_aux_vars (*r), true);
-          add_reach_fact (*fact);
+          add_reach_fact (fact.get ());
         }
       }
     }
@@ -2839,8 +2839,8 @@ namespace spacer {
         mev.set_model(*model);
         // -- update must summary
         if (r && r->get_uninterpreted_tail_size () > 0) {
-            reach_fact* rf = mk_reach_fact (n, mev, *r);
-            n.pt ().add_reach_fact (*rf);
+            reach_fact_ref rf = mk_reach_fact (n, mev, *r);
+            n.pt ().add_reach_fact (rf.get ());
         }
 
         // if n has a derivation, create a new child and report l_undef
@@ -2959,9 +2959,9 @@ namespace spacer {
           // -- update must summary
           if (r && r->get_uninterpreted_tail_size () > 0)
           {
-            reach_fact* rf = mk_reach_fact (n, mev, *r);
+            reach_fact_ref rf = mk_reach_fact (n, mev, *r);
             checkpoint ();
-            n.pt ().add_reach_fact (*rf);
+            n.pt ().add_reach_fact (rf.get ());
             checkpoint ();
           }
           
@@ -3299,7 +3299,7 @@ namespace spacer {
         ptr_vector<app> empty;
         reach_fact *f = alloc(reach_fact, m, r, res, elim_aux ? empty : aux_vars);
         for (unsigned i = 0, sz = child_reach_facts.size (); i < sz; ++i)
-          f->add_justification (*child_reach_facts [i]);
+          f->add_justification (child_reach_facts.get (i));
         return f;
     }
 
