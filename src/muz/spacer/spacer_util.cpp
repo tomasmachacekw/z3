@@ -554,9 +554,11 @@ namespace spacer {
             // project arrays
             {
                 scoped_no_proof _sp (m);
+                // -- local rewriter that is aware of current proof mode
+                th_rewriter srw(m);
                 qe::array_project (*M.get (), array_vars, fml, vars, reduce_all_selects);
                 SASSERT (array_vars.empty ());
-                rw (fml);
+                srw (fml);
                 SASSERT (!m.is_false (fml));
             }
 
