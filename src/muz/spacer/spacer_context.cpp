@@ -2789,7 +2789,6 @@ namespace spacer {
     /// check whether node n is concretely reachable
     bool context::is_reachable (model_node &n) {
         scoped_watch _w_(m_is_reach_watch);
-        SASSERT (n.is_open ());
         TRACE ("spacer", 
                tout << "is-reachable: " << n.pt().head()->get_name() 
                << " level: " << n.level() 
@@ -2875,8 +2874,6 @@ namespace spacer {
     //this processes a goal and creates sub-goal
     lbool context::expand_node(model_node& n) 
     {
-      SASSERT(n.is_open());
-      
       TRACE ("spacer", 
              tout << "expand-node: " << n.pt().head()->get_name() 
              << " level: " << n.level() 

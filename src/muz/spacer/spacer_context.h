@@ -536,7 +536,6 @@ namespace spacer {
       m_open = true;
     }
     
-    bool is_open () const { return m_open; }
     bool is_closed () const { return !m_open; }
     
     void close () 
@@ -548,8 +547,6 @@ namespace spacer {
       for (unsigned i = 0, sz = m_kids.size (); i < sz; ++i)
         m_kids [i]->close ();
     }
-    
-    void open () { reset (); }
     
     void add_child (model_node &v) {m_kids.push_back (&v);}
     void erase_child (model_node &v) {m_kids.erase (&v);}
