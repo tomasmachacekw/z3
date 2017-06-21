@@ -34,8 +34,8 @@ class is_variable_test : public is_variable_proc {
     is_var_kind m_var_kind;
 public:
     is_variable_test(uint_set const& vars, bool index_of_bound) :
-        m_var_set(vars), 
-        m_num_decls(0), 
+        m_var_set(vars),
+        m_num_decls(0),
         m_var_kind(index_of_bound?BY_VAR_SET:BY_VAR_SET_COMPLEMENT) {}
 
     is_variable_test(unsigned num_decls) :

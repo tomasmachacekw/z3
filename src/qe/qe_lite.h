@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Light weight partial quantifier-elimination procedures 
+    Light weight partial quantifier-elimination procedures
 
 Author:
 
@@ -40,8 +40,8 @@ public:
 
     /**
        \brief
-       Apply light-weight quantifier elimination 
-       on constants provided as vector of variables. 
+       Apply light-weight quantifier elimination
+       on constants provided as vector of variables.
        Return the updated formula and updated set of variables that were not eliminated.
 
     */
@@ -69,4 +69,4 @@ tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p = params_ref())
   ADD_TACTIC("qe-light", "apply light-weight quantifier elimination.", "mk_qe_lite_tactic(m, p)")
 */
 
-#endif 
+#endif
