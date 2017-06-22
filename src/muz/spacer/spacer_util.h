@@ -166,22 +166,36 @@ namespace spacer {
     {
     public:
         anti_unifier(expr* t, ast_manager& m);
+        ~anti_unifier(){} // TODO: like this? m_pinned.reset();
         
         bool add_term(expr* t);
-        void get_result(expr_ref& t, obj_map<expr, ptr_vector<expr>>& substitutions);
+        void finalize();
+        
+        expr_ref get_generalization();
+        unsigned get_num_substitutions();
+        obj_map<expr, expr*> get_substitution(unsigned index);
         
     private:
-        expr* m_t;
         ast_manager m;
+        // tracking all created expressions
+        expr_ref_vector m_pinned;
         
-        obj_map<expr, ptr_vector<expr>> m_substitutions;
+        expr_ref m_g;
+        
+        vector<obj_map<expr, expr*>> m_substitutions;
     };
     
     class naive_convex_closure
     {
     public:
-        static bool compute_closure(expr_ref& t, obj_map<expr, ptr_vector<expr>>& substitutions, expr_ref& result);
+        
+        static bool compute_closure(anti_unifier& au, ast_manager m, expr_ref& result);
+    
+    private:
+        static bool get_range(vector<unsigned>& v, unsigned& lower_bound, unsigned& upper_bound);
+        static expr* substitute_vars_by_const(ast_manager& m, expr* t, expr* const_app);
     };
+    
 }
 
 #endif

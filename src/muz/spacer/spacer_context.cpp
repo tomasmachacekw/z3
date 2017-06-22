@@ -1607,44 +1607,26 @@ namespace spacer {
       if (m_premises.empty ()) return NULL;
       m_active = 0;
       
-      // try to merge with parent
+      // try to merge cti with as many parents as possible
       model_node* node = create_next_child (mev);
       
       IF_VERBOSE(1, verbose_stream() << "CTI before merging: " << mk_pp(node->post(), mev.get_ast_manager()) << "\n";);
       anti_unifier au(node->post(), mev.get_ast_manager());
-      
-      model_node* current_parent = node->parent();
-      while (true)
+
+      IF_VERBOSE(1, verbose_stream() << "Trying to merge with CTI: " << mk_pp(node->parent()->post(), mev.get_ast_manager()) << "\n";);
+      for (model_node* current_parent = node->parent(); au.add_term(current_parent->post()); current_parent = current_parent->parent())
       {
-          IF_VERBOSE(1, verbose_stream() << "Trying to merge with CTI: " << mk_pp(current_parent->post(), mev.get_ast_manager()) << "\n";);
-
-          bool success = au.add_term(current_parent->post());
-          if (success)
-          {
-              expr_ref result(mev.get_ast_manager());
-              obj_map<expr, ptr_vector<expr> > substitutions;
-              au.get_result(result, substitutions);
-              
-              expr_ref result2(mev.get_ast_manager());
-              success = naive_convex_closure::compute_closure(result, substitutions, result2);
-              if (success)
-              {
-                  node->set_post(result2);
-              }
-              else
-              {
-                  break;
-              }
-          }
-          else
-          {
-              break;
-          }
-          current_parent = current_parent->parent();
+          IF_VERBOSE(1, verbose_stream() << "Trying to merge with CTI: " << mk_pp(current_parent->parent()->post(), mev.get_ast_manager()) << "\n";);
       }
-    
-
       
+      au.finalize();
+      
+      expr_ref result(mev.get_ast_manager());
+      bool exact_closure = naive_convex_closure::compute_closure(au, mev.get_ast_manager(), result);
+      if (exact_closure)
+      {
+          node->set_post(result);
+      }
       
       return node;
   }
