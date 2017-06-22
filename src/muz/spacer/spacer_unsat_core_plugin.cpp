@@ -458,12 +458,23 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 matrix.set(i, map[pair.first], pair.second);
             }
         }
+        
+        matrix.print_matrix();
 
         arith_util util(m);
         
         vector<expr_ref_vector> coeffs;
+        for (unsigned i=0; i < matrix.num_rows(); ++i)
+        {
+            coeffs.push_back(expr_ref_vector(m));
+        }
+        
         vector<expr_ref_vector> bounded_vectors;
-    
+        for (unsigned j=0; j < matrix.num_cols(); ++j)
+        {
+            bounded_vectors.push_back(expr_ref_vector(m));
+        }
+        
         params_ref p;
         p.set_bool("model", true);
         
@@ -494,6 +505,9 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 s_jn = m.mk_const(decl);
                 
                 bounded_vectors[j].push_back(s_jn);
+                verbose_stream() << "asserting " << mk_pp(util.mk_le(util.mk_int(0), s_jn),m) << "\n";
+                verbose_stream() << "asserting " << mk_pp(util.mk_le(s_jn, util.mk_int(1)),m) << "\n";
+
                 s->assert_expr(util.mk_le(util.mk_int(0), s_jn));
                 s->assert_expr(util.mk_le(s_jn, util.mk_int(1)));
             }
@@ -511,7 +525,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                     {
                         sum = util.mk_add(sum, util.mk_mul(coeffs[i][k].get(), bounded_vectors[j][k].get()));
                     }
-                    
+                    verbose_stream() << "asserting " << mk_pp(m.mk_eq(a_ij, sum),m) << "\n";
                     s->assert_expr(m.mk_eq(a_ij, sum));
                 }
             }
