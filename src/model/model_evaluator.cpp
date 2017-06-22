@@ -290,8 +290,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 conj.push_back(m().mk_eq(else1, else2));
             }
             if (args_are_unique1 && args_are_unique2 && !stores1.empty()) {
-                br_status status = mk_array_eq_core(stores1, else1, stores2, else2, conj, result);
-                return status;
+                return mk_array_eq_core(stores1, else1, stores2, else2, conj, result);
             }
 
             // TBD: this is too inefficient.
@@ -433,6 +432,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         func_interp* g = m_model.get_func_interp(f);
         unsigned sz = g->num_entries();
         unsigned arity = f->get_arity();
+        unsigned base_sz = stores.size();
         for (unsigned i = 0; i < sz; ++i) {
             expr_ref_vector store(m());
             func_entry const* fe = g->get_entry(i);
@@ -457,7 +457,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             TRACE("model_evaluator", tout << "non-ground else case " << mk_pp(a, m()) << "\n" << else_case << "\n";);
             return false;
         }
-        for (unsigned i = stores.size(); are_values && i > 0; ) {
+        for (unsigned i = stores.size(); are_values && i > base_sz; ) {
             --i;
             if (m().are_equal(else_case, stores[i].back())) {
                 for (unsigned j = i + 1; j < stores.size(); ++j) {
