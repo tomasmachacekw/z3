@@ -10,6 +10,7 @@
 #include "solver.h"
 #include <limits>
 #include "spacer_proof_utils.h"
+#include "spacer_matrix.h"
 
 namespace spacer
 {
@@ -349,199 +350,48 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             SASSERT(linear_combination.size() > 0);
         }
         
-        // 1. sort each linear combination
-        for (auto& linear_combination : m_linear_combinations)
+        // 1. construct ordered basis
+        ptr_vector<app> ordered_basis;
+        obj_map<app, unsigned> map;
+        unsigned counter = 0;
+        for (const auto& linear_combination : m_linear_combinations)
         {
-            std::sort(linear_combination.begin(), linear_combination.end(), farkas_optimized_less_than_pairs());
-            for (unsigned i=0; i < linear_combination.size() - 1; ++i)
+            for (const auto& pair : linear_combination)
             {
-                SASSERT(linear_combination[i].first->get_id() != linear_combination[i+1].first->get_id());
+                if (!map.contains(pair.first))
+                {
+                    ordered_basis.push_back(pair.first);
+                    map.insert(pair.first, counter++);
+                }
             }
         }
         
-        // 2. build matrix: we use the standard idea how to construct union of two ordered vectors generalized to arbitrary number of vectors
-        // init matrix
-        ptr_vector<app> basis_elements;
-        vector<vector<rational>> matrix;
+        // 2. populate matrix
+        spacer_matrix matrix(m_linear_combinations.size(), ordered_basis.size());
+        
         for (unsigned i=0; i < m_linear_combinations.size(); ++i)
         {
-            matrix.push_back(vector<rational>());
-        }
-        
-        // init priority queue: the minimum element always corresponds to the id of the next unhandled basis element
-        std::set<unsigned> priority_queue;
-        for (const auto& linear_combination : m_linear_combinations)
-        {
-            SASSERT(linear_combination.size() > 0);
-            if (priority_queue.find(linear_combination[0].first->get_id()) == priority_queue.end())
+            auto linear_combination = m_linear_combinations[i];
+            for (const auto& pair : linear_combination)
             {
-                priority_queue.insert(linear_combination[0].first->get_id());
+                matrix.set(i, map[pair.first], pair.second);
             }
         }
         
-        // init iterators
-        ptr_vector<const std::pair<app*, rational>> iterators;
-        for (const auto& linear_combination : m_linear_combinations)
-        {
-            iterators.push_back(linear_combination.begin());
-        }
-        
-        // traverse vectors using priority queue and iterators
-        while (!priority_queue.empty())
-        {
-            unsigned minimum_id = *priority_queue.begin(); // id of current basis element
-            priority_queue.erase(priority_queue.begin());
-
-            bool already_added_basis_element = false;
-            for (unsigned i=0; i < iterators.size(); ++i)
-            {
-                auto& it = iterators[i];
-                if (it != m_linear_combinations[i].end() && it->first->get_id() == minimum_id) // if current linear combination contains coefficient for current basis element
-                {
-                    // add coefficient to matrix
-                    matrix[i].push_back(it->second);
-                    
-                    // if not already done, save the basis element
-                    if(!already_added_basis_element)
-                    {
-                        basis_elements.push_back(it->first);
-                        already_added_basis_element = true;
-                    }
-                    
-                    // manage iterator invariants
-                    it++;
-                    if (it != m_linear_combinations[i].end() && priority_queue.find(it->first->get_id()) == priority_queue.end())
-                    {
-                        priority_queue.insert(it->first->get_id());
-                    }
-                }
-                else // otherwise add 0 to matrix
-                {
-                    matrix[i].push_back(rational(0));
-                }
-            }
-            SASSERT(already_added_basis_element);
-        }
-        
-        // Debugging
-        for (const auto& row : matrix)
-        {
-            SASSERT(row.size() == basis_elements.size());
-        }
-        if (get_verbosity_level() >= 3)
-        {
-            verbose_stream() << "\nBasis:\n";
-            for (const auto& basis : basis_elements)
-            {
-                verbose_stream() << mk_pp(basis, m) << ", ";
-            }
-            verbose_stream() << "\n\n";
-            verbose_stream() << "Matrix before transformation:\n";
-            for (const auto& row : matrix)
-            {
-                for (const auto& element : row)
-                {
-                    verbose_stream() << element << ", ";
-                }
-                verbose_stream() << "\n";
-            }
-            verbose_stream() << "\n";
-        }
-        
-        if (get_verbosity_level() >= 1)
-        {
-            SASSERT(matrix.size() > 0);
-            verbose_stream() << "\nMatrix size: " << matrix.size() << ", " << matrix[0].size() << "\n";
-        }
         // 3. perform gaussian elimination
-        
-        unsigned i=0;
-        unsigned j=0;
-        while(i < matrix.size() && j < matrix[0].size())
-        {
-            // find maximal element in column with row index bigger or equal i
-            rational max = matrix[i][j];
-            unsigned max_index = i;
-
-            for (unsigned k=i+1; k < matrix.size(); ++k)
-            {
-                if (max < matrix[k][j])
-                {
-                    max = matrix[k][j];
-                    max_index = k;
-                }
-            }
-            
-            if (max.is_zero()) // skip this column
-            {
-                ++j;
-            }
-            else
-            {
-                // reorder rows if necessary
-                vector<rational> tmp = matrix[i];
-                matrix[i] = matrix[max_index];
-                matrix[max_index] = matrix[i];
-                
-                // normalize row
-                rational pivot = matrix[i][j];
-                if (!pivot.is_one())
-                {
-                    for (unsigned k=0; k < matrix[i].size(); ++k)
-                    {
-                        matrix[i][k] = matrix[i][k] / pivot;
-                    }
-                }
-                
-                // subtract row from all other rows
-                for (unsigned k=1; k < matrix.size(); ++k)
-                {
-                    if (k != i)
-                    {
-                        rational factor = matrix[k][j];
-                        for (unsigned l=0; l < matrix[k].size(); ++l)
-                        {
-                            matrix[k][l] = matrix[k][l] - (factor * matrix[i][l]);
-                        }
-                    }
-                }
-                
-                ++i;
-                ++j;
-                
-                if (get_verbosity_level() >= 3)
-                {
-                    verbose_stream() << "Matrix after a step:\n";
-                    for (const auto& row : matrix)
-                    {
-                        for (const auto& element : row)
-                        {
-                            verbose_stream() << element << ", ";
-                        }
-                        verbose_stream() << "\n";
-                    }
-                    verbose_stream() << "\n";
-                }
-            }
-        }
-        
-        if (get_verbosity_level() >= 1)
-        {
-            SASSERT(matrix.size() > 0);
-            verbose_stream() << "Number of nonzero rows after transformation: " << i << "\n";
-        }
+        unsigned i = matrix.perform_gaussian_elimination();
         
         // 4. extract linear combinations from matrix and add result to core
         for (unsigned k=0; k < i; k++)// i points to the row after the last row which is non-zero
         {
             ptr_vector<app> literals;
             vector<rational> coefficients;
-            for (unsigned l=0; l < matrix[k].size(); ++l)
+            for (unsigned l=0; l < matrix.num_cols(); ++l)
             {
-                if (!matrix[k][l].is_zero())
+                if (!matrix.get(k,l).is_zero())
                 {
-                    literals.push_back(basis_elements[l]);
-                    coefficients.push_back(matrix[k][l]);
+                    literals.push_back(ordered_basis[l]);
+                    coefficients.push_back(matrix.get(k,l));
                 }
             }
             SASSERT(literals.size() > 0);
@@ -572,9 +422,44 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
     
     void unsat_core_plugin_farkas_lemma_bounded::finalize()
     {
+        if(m_linear_combinations.empty())
+        {
+            return;
+        }
+        for (auto& linear_combination : m_linear_combinations)
+        {
+            SASSERT(linear_combination.size() > 0);
+        }
+        
+        // 1. construct ordered basis
+        ptr_vector<app> ordered_basis;
+        obj_map<app, unsigned> map;
+        unsigned counter = 0;
+        for (const auto& linear_combination : m_linear_combinations)
+        {
+            for (const auto& pair : linear_combination)
+            {
+                if (!map.contains(pair.first))
+                {
+                    ordered_basis.push_back(pair.first);
+                    map.insert(pair.first, counter++);
+                }
+            }
+        }
+        
+        // 2. populate matrix
+        spacer_matrix matrix(m_linear_combinations.size(), ordered_basis.size());
+        
+        for (unsigned i=0; i < m_linear_combinations.size(); ++i)
+        {
+            auto linear_combination = m_linear_combinations[i];
+            for (const auto& pair : linear_combination)
+            {
+                matrix.set(i, map[pair.first], pair.second);
+            }
+        }
+
         arith_util util(m);
-        vector<vector<rational>> matrix;
-        ptr_vector<app> basis;
         
         vector<expr_ref_vector> coeffs;
         vector<expr_ref_vector> bounded_vectors;
@@ -587,10 +472,8 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         // find smallest n using guess and check algorithm
         for(unsigned n = 1; true; ++n)
         {
-            SASSERT(!matrix.empty());
-            
             // add new variables w_in,
-            for (unsigned i=0; i < matrix.size(); ++i)
+            for (unsigned i=0; i < matrix.num_rows(); ++i)
             {
                 std::string name = "w_" + std::to_string(i) + std::to_string(n);
 
@@ -600,7 +483,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             }
             
             // we need s_jn
-            for (unsigned j=0; j < matrix[0].size(); ++j)
+            for (unsigned j=0; j < matrix.num_cols(); ++j)
             {
                 std::string name = "s_" + std::to_string(j) + std::to_string(n);
 
@@ -616,11 +499,11 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             }
             
             // assert: forall i,j: a_ij = sum_k w_ik * s_jk
-            for (unsigned i=0; i < matrix.size(); ++i)
+            for (unsigned i=0; i < matrix.num_rows(); ++i)
             {
-                for (unsigned j=0; j < matrix[0].size(); ++j)
+                for (unsigned j=0; j < matrix.num_cols(); ++j)
                 {
-                    app_ref a_ij(util.mk_numeral(matrix[i][j], matrix[i][j].is_int()),m);
+                    app_ref a_ij(util.mk_numeral(matrix.get(i,j), matrix.get(i,j).is_int()),m);
                     
                     app_ref sum(m);
                     sum = util.mk_int(0);
@@ -646,14 +529,14 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 {
                     ptr_vector<app> literals;
                     vector<rational> coefficients;
-                    for (int j=0; j < matrix[0].size(); ++j)
+                    for (int j=0; j < matrix.num_cols(); ++j)
                     {
                         expr_ref evaluation(m);
 
                         model.get()->eval(bounded_vectors[j][k].get(), evaluation, false);
                         if (!util.is_zero(evaluation))
                         {
-                            literals.push_back(basis[j]);
+                            literals.push_back(ordered_basis[j]);
                             coefficients.push_back(rational(1));
                         }
                     }

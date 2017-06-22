@@ -17,6 +17,7 @@ z3_add_component(spacer
   spacer_proof_utils.cpp
   spacer_unsat_core_learner.cpp
   spacer_unsat_core_plugin.cpp
+  spacer_matrix.cpp
   COMPONENT_DEPENDENCIES
   arith_tactics
   core_tactics
