@@ -6,7 +6,7 @@ namespace spacer
     {
         for (unsigned i=0; i < m; ++i)
         {
-            vector<rational> v(n);
+            vector<rational> v;
             for (unsigned j=0; j < n; ++j)
             {
                 v.push_back(rational(0));
@@ -120,5 +120,19 @@ namespace spacer
         }
         
         return i; //i points to the row after the last row which is non-zero
+    }
+    
+    void spacer_matrix::print_matrix()
+    {
+        verbose_stream() << "\nMatrix\n";
+        for (const auto& row : m_matrix)
+        {
+            for (const auto& element : row)
+            {
+                verbose_stream() << element << ", ";
+            }
+            verbose_stream() << "\n";
+        }
+        verbose_stream() << "\n";
     }
 }

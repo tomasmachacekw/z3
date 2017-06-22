@@ -17,6 +17,7 @@ namespace spacer {
         
         unsigned perform_gaussian_elimination();
         
+        void print_matrix();
     private:
         unsigned m_num_rows;
         unsigned m_num_cols;
