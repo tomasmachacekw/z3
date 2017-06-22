@@ -201,8 +201,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
     void expand_value(expr_ref& val) {
         vector<expr_ref_vector> stores;
         expr_ref else_case(m());
-        bool args_are_unique;
-        if (m_ar.is_array(val) && extract_array_func_interp(val, stores, else_case, args_are_unique)) {
+        bool _unused;
+        if (m_ar.is_array(val) && extract_array_func_interp(val, stores, else_case, _unused)) {
             sort* srt = m().get_sort(val);
             val = m_ar.mk_const_array(srt, else_case);
             for (unsigned i = stores.size(); i > 0; ) {
@@ -289,13 +289,14 @@ struct evaluator_cfg : public default_rewriter_cfg {
             else {
                 conj.push_back(m().mk_eq(else1, else2));
             }
-            args1.push_back(a);
-            args2.push_back(b);
             if (args_are_unique1 && args_are_unique2 && !stores1.empty()) {
-                return mk_array_eq(stores1, else1, stores2, else2, conj, result);
+                br_status status = mk_array_eq_core(stores1, else1, stores2, else2, conj, result);
+                return status;
             }
 
             // TBD: this is too inefficient.
+            args1.push_back(a);
+            args2.push_back(b);
             stores1.append(stores2);
             for (unsigned i = 0; i < stores1.size(); ++i) {
                 args1.resize(1); args1.append(stores1[i].size() - 1, stores1[i].c_ptr());
@@ -336,20 +337,22 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
     typedef hashtable<expr*const*, args_hash, args_eq> args_table;
 
-    br_status mk_array_eq(vector<expr_ref_vector> const& stores1, expr* else1,
-                          vector<expr_ref_vector> const& stores2, expr* else2,
-                          expr_ref_vector& conj, expr_ref& result) {
+    br_status mk_array_eq_core(vector<expr_ref_vector> const& stores1, expr* else1,
+                               vector<expr_ref_vector> const& stores2, expr* else2,
+                               expr_ref_vector& conj, expr_ref& result) {
         unsigned arity = stores1[0].size()-1; // TBD: fix arity.
         args_hash ah(arity);
         args_eq   ae(arity);
         args_table table1(DEFAULT_HASHTABLE_INITIAL_CAPACITY, ah, ae);
         args_table table2(DEFAULT_HASHTABLE_INITIAL_CAPACITY, ah, ae);
 
-        for (unsigned i = 0; i < stores1.size(); ++i) {
+        // stores with smaller index take precedence
+        for (unsigned i = stores1.size(); i > 0; ) {
+            --i;
             table1.insert(stores1[i].c_ptr());
         }
-        for (unsigned i = stores2.size(); i > 0; ) {
-            --i;
+
+        for (unsigned i = 0, sz = stores2.size(); i < sz; ++i) {
             if (table2.contains(stores2[i].c_ptr())) {
                 // first insertion takes precedence.
                 continue;
@@ -359,7 +362,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             expr* val = stores2[i][arity];
             if (table1.find(stores2[i].c_ptr(), args)) {
                 switch (compare(args[arity], val)) {
-                case l_true: table1.remove(stores2[i].c_ptr()); break;
+                case l_true: table1.remove(args); break;
                 case l_false: result = m().mk_false(); return BR_DONE;
                 default: conj.push_back(m().mk_eq(val, args[arity])); break;
                 }
