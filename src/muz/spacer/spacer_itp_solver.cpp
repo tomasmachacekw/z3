@@ -311,8 +311,17 @@ namespace spacer {
             
             if (m_farkas_optimized)
             {
-                unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner,m);
-                learner.register_plugin(plugin_farkas_lemma_optimized);
+                if (false)
+                {
+                    unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner,m);
+                    learner.register_plugin(plugin_farkas_lemma_optimized);
+                }
+                else
+                {
+                    unsat_core_plugin_farkas_lemma_bounded* plugin_farkas_lemma_bounded = alloc(unsat_core_plugin_farkas_lemma_bounded, learner,m);
+                    learner.register_plugin(plugin_farkas_lemma_bounded);
+                }
+
             }
             else
             {
