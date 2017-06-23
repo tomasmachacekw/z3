@@ -82,15 +82,22 @@ public class Sort extends AST
     /**
      * A string representation of the sort.
      **/
-    public String toString()
+    @Override
+    public String toString() {
+        return Native.sortToString(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
+     * Translates (copies) the sort to the Context {@code ctx}.
+     * 
+     * @param ctx A context
+     * 
+     * @return A copy of the sort which is associated with {@code ctx}
+     * @throws Z3Exception on error
+     **/
+    public Sort translate(Context ctx)
     {
-        try
-        {
-            return Native.sortToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+        return (Sort) super.translate(ctx);
     }
 
     /**
@@ -101,6 +108,7 @@ public class Sort extends AST
         super(ctx, obj);
     }
 
+    @Override
     void checkNativeObject(long obj)
     {
         if (Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_SORT_AST

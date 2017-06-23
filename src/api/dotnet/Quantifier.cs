@@ -14,7 +14,7 @@ Author:
     Christoph Wintersteiger (cwinter) 2012-03-19
 
 Notes:
-    
+
 --*/
 
 using System;
@@ -157,6 +157,16 @@ namespace Microsoft.Z3
             }
         }
 
+        /// <summary>
+        /// Translates (copies) the quantifier to the Context <paramref name="ctx"/>.
+        /// </summary>
+        /// <param name="ctx">A context</param>
+        /// <returns>A copy of the quantifier which is associated with <paramref name="ctx"/></returns>
+        new public Quantifier Translate(Context ctx)
+        {
+            return (Quantifier)base.Translate(ctx);
+        }
+
         #region Internal
         [ContractVerification(false)] // F: Clousot ForAll decompilation gets confused below. Setting verification off until I fixed the bug
         internal Quantifier(Context ctx, bool isForall, Sort[] sorts, Symbol[] names, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
@@ -172,10 +182,10 @@ namespace Microsoft.Z3
             Contract.Requires(patterns == null || Contract.ForAll(patterns, p => p != null));
             Contract.Requires(noPatterns == null || Contract.ForAll(noPatterns, np => np != null));
 
-            Context.CheckContextMatch(patterns);
-            Context.CheckContextMatch(noPatterns);
-            Context.CheckContextMatch(sorts);
-            Context.CheckContextMatch(names);
+            Context.CheckContextMatch<Pattern>(patterns);
+            Context.CheckContextMatch<Expr>(noPatterns);
+            Context.CheckContextMatch<Sort>(sorts);
+            Context.CheckContextMatch<Symbol>(names);
             Context.CheckContextMatch(body);
 
             if (sorts.Length != names.Length)
@@ -212,8 +222,8 @@ namespace Microsoft.Z3
             Contract.Requires(noPatterns == null || Contract.ForAll(noPatterns, np => np != null));
             Contract.Requires(bound == null || Contract.ForAll(bound, n => n != null));
 
-            Context.CheckContextMatch(noPatterns);
-            Context.CheckContextMatch(patterns);
+            Context.CheckContextMatch<Expr>(noPatterns);
+            Context.CheckContextMatch<Pattern>(patterns);
             //Context.CheckContextMatch(bound);
             Context.CheckContextMatch(body);
 

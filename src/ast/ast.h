@@ -117,6 +117,9 @@ public:
     explicit parameter(symbol const & s): m_kind(PARAM_SYMBOL) { new (m_symbol) symbol(s); }
     explicit parameter(rational const & r): m_kind(PARAM_RATIONAL) { new (m_rational) rational(r); }
     explicit parameter(double d):m_kind(PARAM_DOUBLE), m_dval(d) {}
+    explicit parameter(const char *s):m_kind(PARAM_SYMBOL) {
+        new (m_symbol) symbol(s);
+    }
     explicit parameter(unsigned ext_id, bool):m_kind(PARAM_EXTERNAL), m_ext_id(ext_id) {}
     parameter(parameter const&);
 
@@ -664,6 +667,8 @@ public:
     expr * get_arg(unsigned idx) const { SASSERT(idx < m_num_args); return m_args[idx]; }
     expr * const * get_args() const { return m_args; }
     unsigned get_size() const { return get_obj_size(get_num_args()); }
+    expr * const * begin() const { return m_args; }
+    expr * const * end() const { return m_args + m_num_args; }
 
     unsigned get_depth() const { return flags()->m_depth; }
     bool is_ground() const { return flags()->m_ground; }
@@ -838,6 +843,7 @@ inline bool is_func_decl(ast const * n)  { return n->get_kind() == AST_FUNC_DECL
 inline bool is_expr(ast const * n)       { return !is_decl(n); }
 inline bool is_app(ast const * n)        { return n->get_kind() == AST_APP; }
 inline bool is_var(ast const * n)        { return n->get_kind() == AST_VAR; }
+inline bool is_var(ast const * n, unsigned& idx) { return is_var(n) && (idx = static_cast<var const*>(n)->get_idx(), true); }
 inline bool is_quantifier(ast const * n) { return n->get_kind() == AST_QUANTIFIER; }
 inline bool is_forall(ast const * n)     { return is_quantifier(n) && static_cast<quantifier const *>(n)->is_forall(); }
 inline bool is_exists(ast const * n)     { return is_quantifier(n) && static_cast<quantifier const *>(n)->is_exists(); }
@@ -1571,11 +1577,12 @@ public:
     void debug_ref_count() { m_debug_ref_count = true; }
 
     void inc_ref(ast * n) {
-        if (n)
+        if (n) {
             n->inc_ref();
+        }
     }
-
-    void dec_ref(ast * n) {
+    
+    void dec_ref(ast* n) {
         if (n) {
             n->dec_ref();
             if (n->get_ref_count() == 0)
@@ -1837,6 +1844,8 @@ public:
     app * mk_pattern(app * expr) { return mk_pattern(1, &expr); }
 
     bool is_pattern(expr const * n) const;
+
+    bool is_pattern(expr const *n, ptr_vector<expr> &args);
 
 public:
 

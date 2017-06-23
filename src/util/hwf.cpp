@@ -29,7 +29,7 @@ Revision History:
 #include<fenv.h>
 #endif
 
-#if defined(__x86_64__) || defined(_M_X64) ||	\
+#if defined(__x86_64__) || defined(_M_X64) ||    \
     defined(__i386) || defined(_M_IX86)
 #define USE_INTRINSICS
 #endif
@@ -52,6 +52,9 @@ Revision History:
 
 #ifdef USE_INTRINSICS
 #include <emmintrin.h>
+#if defined(_MSC_VER) || defined(__SSE4_1__)
+#include <smmintrin.h>
+#endif
 #endif
 
 hwf_manager::hwf_manager() :
@@ -239,35 +242,6 @@ void hwf_manager::mul(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf & 
 #else
     o.value = x.value * y.value;
 #endif
-
-#if 0
-    // On the x86 FPU (x87), we use custom assembly routines because
-    // the code generated for x*y and x/y suffers from the double
-    // rounding on underflow problem. The scaling trick is described
-    // in Roger Golliver: `Efficiently producing default orthogonal IEEE
-    // double results using extended IEEE hardware', see
-    // http://www.open-std.org/JTC1/SC22/JSG/docs/m3/docs/jsgn326.pdf
-    // CMW: Tthis is not really needed if we use only the SSE2 FPU,
-    // it shouldn't hurt the performance too much though.
-
-    static const int const1 = -DBL_SCALE;
-    static const int const2 = +DBL_SCALE;
-    double xv = x.value;
-    double yv = y.value;
-    double & ov = o.value;
-
-    __asm {
-        fild const1;
-        fld xv;
-        fscale;
-        fstp st(1);
-        fmul yv;
-        fild const2;
-        fxch st(1);
-        fscale;
-        fstp ov;
-    }
-#endif
 }
 
 void hwf_manager::div(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf & o) {
@@ -276,28 +250,6 @@ void hwf_manager::div(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf & 
     _mm_store_sd(&o.value, _mm_div_sd(_mm_set_sd(x.value), _mm_set_sd(y.value)));
 #else
     o.value = x.value / y.value;
-#endif
-
-#if 0
-    // see mul(...)
-
-    static const int const1 = -DBL_SCALE;
-    static const int const2 = +DBL_SCALE;
-    double xv = x.value;
-    double yv = y.value;
-    double & ov = o.value;
-
-    __asm {
-        fild const1;
-        fld xv;
-        fscale;
-        fstp st(1);
-        fdiv yv;
-        fild const2;
-        fxch st(1);
-        fscale;
-        fstp ov;
-    }
 #endif
 }
 
@@ -354,7 +306,9 @@ void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o
     // According to the Intel Architecture manual, the x87-instrunction FRNDINT is the
     // same in 32-bit and 64-bit mode. The _mm_round_* intrinsics are SSE4 extensions.
 #ifdef _WINDOWS
-#ifdef USE_INTRINSICS
+#if defined(USE_INTRINSICS) && \
+    (defined(_WINDOWS) && (defined(__AVX__) || defined(_M_X64))) || \
+    (!defined(_WINDOWS) && defined(__SSE4_1__))
     switch (rm) {
     case 0: _mm_store_sd(&o.value, _mm_round_pd(_mm_set_sd(x.value), _MM_FROUND_TO_NEAREST_INT)); break;
     case 2: _mm_store_sd(&o.value, _mm_round_pd(_mm_set_sd(x.value), _MM_FROUND_TO_POS_INF)); break;
@@ -389,25 +343,6 @@ void hwf_manager::rem(hwf const & x, hwf const & y, hwf & o) {
         o.value -= y.value;
 #else
     o.value = remainder(x.value, y.value);
-#endif
-
-#if 0
-    // Here is an x87 alternative if the above makes problems; this may also be faster.
-    double xv = x.value;
-    double yv = y.value;
-    double & ov = o.value;
-
-    // This is from: http://webster.cs.ucr.edu/AoA/DOS/ch14/CH14-4.html#HEADING4-173
-    __asm {
-        fld     yv
-        fld     xv
-L:      fprem1
-        fstsw   ax              // Get condition bits in AX.
-        test    ah, 100b        // See if C2 is set.
-        jnz     L               // Repeat if not done yet.
-        fstp    ov              // Store remainder away.
-        fstp    st(0)           // Pop old y value.
-    }
 #endif
 }
 

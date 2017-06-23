@@ -56,7 +56,10 @@ bool fpa2bv_rewriter_cfg::max_steps_exceeded(unsigned num_steps) const {
 
 
 br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-    TRACE("fpa2bv_rw", tout << "APP: " << f->get_name() << std::endl; );
+    TRACE("fpa2bv_rw", tout << "func: " << f->get_name() << std::endl;
+                       tout << "args: " << std::endl;
+                       for (unsigned i = 0; i < num; i++)
+                           tout << mk_ismt2_pp(args[i], m()) << std::endl;);
 
     if (num == 0 && f->get_family_id() == null_family_id && m_conv.is_float(f->get_range())) {
         m_conv.mk_const(f, result);
@@ -71,7 +74,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
     if (m().is_eq(f)) {
         SASSERT(num == 2);
         TRACE("fpa2bv_rw", tout << "(= " << mk_ismt2_pp(args[0], m()) << " " <<
-              mk_ismt2_pp(args[1], m()) << ")" << std::endl;);
+            mk_ismt2_pp(args[1], m()) << ")" << std::endl;);
         SASSERT(m().get_sort(args[0]) == m().get_sort(args[1]));
         sort * ds = f->get_domain()[0];
         if (m_conv.is_float(ds)) {
@@ -86,7 +89,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
     }
     else if (m().is_ite(f)) {
         SASSERT(num == 3);
-        if (m_conv.is_float(args[1])) {
+        if (m_conv.is_float(args[1]) || m_conv.is_rm(args[1])) {
             m_conv.mk_ite(args[0], args[1], args[2], result);
             return BR_DONE;
         }
@@ -107,7 +110,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_RM_NEAREST_TIES_TO_EVEN:
         case OP_FPA_RM_TOWARD_NEGATIVE:
         case OP_FPA_RM_TOWARD_POSITIVE:
-        case OP_FPA_RM_TOWARD_ZERO: m_conv.mk_rounding_mode(f, result); return BR_DONE;
+        case OP_FPA_RM_TOWARD_ZERO: m_conv.mk_rounding_mode(f->get_decl_kind(), result); return BR_DONE;
         case OP_FPA_NUM: m_conv.mk_numeral(f, num, args, result); return BR_DONE;
         case OP_FPA_PLUS_INF: m_conv.mk_pinf(f, result); return BR_DONE;
         case OP_FPA_MINUS_INF: m_conv.mk_ninf(f, result); return BR_DONE;
@@ -140,43 +143,37 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_TO_FP_UNSIGNED: m_conv.mk_to_fp_unsigned(f, num, args, result); return BR_DONE;
         case OP_FPA_FP: m_conv.mk_fp(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_UBV: m_conv.mk_to_ubv(f, num, args, result); return BR_DONE;
+        case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED: m_conv.mk_to_ubv_unspecified(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_SBV: m_conv.mk_to_sbv(f, num, args, result); return BR_DONE;
+        case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED: m_conv.mk_to_sbv_unspecified(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_REAL: m_conv.mk_to_real(f, num, args, result); return BR_DONE;
+        case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED: m_conv.mk_to_real_unspecified(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
+        case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED: m_conv.mk_to_ieee_bv_unspecified(f, num, args, result); return BR_DONE;
 
         case OP_FPA_MIN: m_conv.mk_min(f, num, args, result); return BR_REWRITE_FULL;
         case OP_FPA_MAX: m_conv.mk_max(f, num, args, result); return BR_REWRITE_FULL;
 
-        case OP_FPA_INTERNAL_MIN_UNSPECIFIED: result = m_conv.mk_min_unspecified(f, args[0], args[1]); return BR_DONE;
-        case OP_FPA_INTERNAL_MAX_UNSPECIFIED: result = m_conv.mk_max_unspecified(f, args[0], args[1]); return BR_DONE;
+        case OP_FPA_INTERNAL_MIN_UNSPECIFIED:
+        case OP_FPA_INTERNAL_MAX_UNSPECIFIED: result = m_conv.mk_min_max_unspecified(f, args[0], args[1]); return BR_DONE;
         case OP_FPA_INTERNAL_MIN_I: m_conv.mk_min_i(f, num, args, result); return BR_DONE;
         case OP_FPA_INTERNAL_MAX_I: m_conv.mk_max_i(f, num, args, result); return BR_DONE;
 
-        case OP_FPA_INTERNAL_RM:
         case OP_FPA_INTERNAL_BVWRAP:
-        case OP_FPA_INTERNAL_BVUNWRAP:
-        case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
-        case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
-        case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
-        case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
+        case OP_FPA_INTERNAL_BV2RM:
                 return BR_FAILED;
+
         default:
             TRACE("fpa2bv", tout << "unsupported operator: " << f->get_name() << "\n";
                   for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << std::endl;);
             NOT_IMPLEMENTED_YET();
         }
     }
-    else {
+    else
+    {
         SASSERT(!m_conv.is_float_family(f));
-        bool is_float_uf = m_conv.is_float(f->get_range()) || m_conv.is_rm(f->get_range());
-
-        for (unsigned i = 0; i < f->get_arity(); i++) {
-            sort * di = f->get_domain()[i];
-            is_float_uf |= m_conv.is_float(di) || m_conv.is_rm(di);
-        }
-
-        if (is_float_uf) {
-            m_conv.mk_uninterpreted_function(f, num, args, result);
+        if (m_conv.fu().contains_floats(f)) {
+            m_conv.mk_function(f, num, args, result);
             return BR_DONE;
         }
     }
@@ -249,17 +246,15 @@ bool fpa2bv_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref & res
 
     expr_ref new_exp(m());
     sort * s = t->get_sort();
-    if (m_conv.is_float(s))
-        {
-            expr_ref new_var(m());
-            unsigned ebits = m_conv.fu().get_ebits(s);
-            unsigned sbits = m_conv.fu().get_sbits(s);
-            new_var = m().mk_var(t->get_idx(), m_conv.bu().mk_sort(sbits+ebits));
-            m_conv.mk_fp(m_conv.bu().mk_extract(sbits+ebits-1, sbits+ebits-1, new_var),
-                         m_conv.bu().mk_extract(ebits - 1, 0, new_var),
-                         m_conv.bu().mk_extract(sbits+ebits-2, ebits, new_var),
-                         new_exp);
-        }
+    if (m_conv.is_float(s)) {
+        expr_ref new_var(m());
+        unsigned ebits = m_conv.fu().get_ebits(s);
+        unsigned sbits = m_conv.fu().get_sbits(s);
+        new_var = m().mk_var(t->get_idx(), m_conv.bu().mk_sort(sbits+ebits));
+        new_exp = m_conv.fu().mk_fp(m_conv.bu().mk_extract(sbits+ebits-1, sbits+ebits-1, new_var),
+                                    m_conv.bu().mk_extract(ebits - 1, 0, new_var),
+                                    m_conv.bu().mk_extract(sbits+ebits-2, ebits, new_var));
+    }
     else
         new_exp = m().mk_var(t->get_idx(), s);
 

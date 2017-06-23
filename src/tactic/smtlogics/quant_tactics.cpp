@@ -28,6 +28,7 @@ Revision History:
 #include"ctx_simplify_tactic.h"
 #include"smt_tactic.h"
 #include"elim_term_ite_tactic.h"
+#include"probe_arith.h"
 
 static tactic * mk_quant_preprocessor(ast_manager & m, bool disable_gaussian = false) {
     params_ref pull_ite_p;
@@ -104,19 +105,14 @@ tactic * mk_aufnira_tactic(ast_manager & m, params_ref const & p) {
 }
 
 tactic * mk_lra_tactic(ast_manager & m, params_ref const & p) {
-#if 0
-    tactic * st = and_then(mk_quant_preprocessor(m),
-                           or_else(try_for(mk_smt_tactic(), 100), 
-                                   try_for(qe::mk_sat_tactic(m), 1000), 
-                                   try_for(mk_smt_tactic(), 1000),
-                                   and_then(mk_qe_tactic(m), mk_smt_tactic())
-                                   ));
-#else
     tactic * st = and_then(mk_quant_preprocessor(m),
                            mk_qe_lite_tactic(m, p),
-                           or_else(mk_qsat_tactic(m, p),
-                                   and_then(mk_qe_tactic(m), mk_smt_tactic())));
-#endif
+                           cond(mk_has_quantifier_probe(), 
+                                cond(mk_is_lira_probe(),
+                                     or_else(mk_qsat_tactic(m, p),
+                                             and_then(mk_qe_tactic(m), mk_smt_tactic())),
+                                     mk_smt_tactic()),
+                                mk_smt_tactic()));
     st->updt_params(p);
     return st;
 }

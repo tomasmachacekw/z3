@@ -417,8 +417,8 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::atom::display(theory_arith<Ext> const& th, std::ostream& out) const {
         literal l(get_bool_var(), !m_is_true);
-        out << "v" << bound::get_var() << " " << bound::get_bound_kind() << " " << get_k() << " ";
-        out << l << ":";
+        // out << "v" << bound::get_var() << " " << bound::get_bound_kind() << " " << get_k() << " ";
+        // out << l << ":";
         th.get_context().display_detailed_literal(out, l);
     }
 
@@ -1056,6 +1056,11 @@ namespace smt {
     inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
         TRACE("bound_bug", display_var(tout, v); display(tout););
         has_shared = false;
+        if (!m_nl_monomials.empty()) {
+            has_shared = true;
+            blocker = mk_gt(v);
+            return inf_eps_rational<inf_rational>(get_value(v));            
+        }
         max_min_t r = max_min(v, true, true, has_shared); 
         if (r == UNBOUNDED) {
             has_shared = false;
@@ -1300,6 +1305,7 @@ namespace smt {
 
     */
 
+
     
     template<typename Ext>
     bool theory_arith<Ext>::pick_var_to_leave(
@@ -1331,7 +1337,7 @@ namespace smt {
             if (update_gains(inc, s, coeff_ij, min_gain, max_gain) ||
                 (x_i == null_theory_var && !unbounded_gain(max_gain))) {
                 x_i = s;
-                a_ij = coeff_ij;
+                a_ij = coeff_ij;                
             }
             has_shared |= ctx.is_shared(get_enode(s));
         }
@@ -1452,7 +1458,7 @@ namespace smt {
             normalize_gain(min_gain.get_rational(), max_gain);
         }
 
-        if (is_int(x_i) && !max_gain.is_rational()) {
+        if (is_int(x_i) && !max_gain.is_int()) {
             max_gain = inf_numeral(floor(max_gain));
             normalize_gain(min_gain.get_rational(), max_gain);
         }
@@ -1477,7 +1483,7 @@ namespace smt {
             }
         }
         TRACE("opt",
-              tout << "v" << x_i << " a_ij " << a_ij << " "
+              tout << "v" << x_i << (is_int(x_i)?" int":" real") << " a_ij " << a_ij << " "
               << "min gain: " << min_gain << " " 
               << "max gain: " << max_gain << " tighter: "
               << (is_tighter?"true":"false") << "\n";);
@@ -1690,6 +1696,7 @@ namespace smt {
                   if (lower(x_j)) tout << "lower x_j: " << lower_bound(x_j) << " ";
                   tout << "value x_j: " << get_value(x_j) << "\n";
                   );
+
             pivot<true>(x_i, x_j, a_ij, false);
                         
             SASSERT(is_non_base(x_i));
@@ -1709,7 +1716,7 @@ namespace smt {
             SASSERT(!maintain_integrality || valid_assignment());
             SASSERT(satisfy_bounds());
         }
-        TRACE("opt", display(tout););
+        TRACE("opt_verbose", display(tout););
         return (best_efforts>0 || ctx.get_cancel_flag())?BEST_EFFORT:result;
     }
 
@@ -2195,16 +2202,19 @@ namespace smt {
         int num       = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
             enode * n        = get_enode(v);
-            TRACE("func_interp_bug", tout << "#" << n->get_owner_id() << " -> " << m_value[v] << "\n";);
-            if (!is_relevant_and_shared(n))
+            TRACE("func_interp_bug", tout << mk_pp(n->get_owner(), get_manager()) << " -> " << m_value[v] << " root #" << n->get_root()->get_owner_id() << " " << is_relevant_and_shared(n) << "\n";);
+            if (!is_relevant_and_shared(n)) {
                 continue;
+            }
             theory_var other = null_theory_var;
             other = m_var_value_table.insert_if_not_there(v);
-            if (other == v)
+            if (other == v) {
                 continue;
+            }
             enode * n2 = get_enode(other);
-            if (n->get_root() == n2->get_root())
+            if (n->get_root() == n2->get_root()) {
                 continue;
+            }
             TRACE("func_interp_bug", tout << "adding to assume_eq queue #" << n->get_owner_id() << " #" << n2->get_owner_id() << "\n";);
             m_assume_eq_candidates.push_back(std::make_pair(other, v));
             result = true;

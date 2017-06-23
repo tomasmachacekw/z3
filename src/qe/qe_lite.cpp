@@ -55,6 +55,7 @@ namespace eq {
         expr_ref_vector  m_subst_map;
         expr_ref_buffer  m_new_args;
         th_rewriter      m_rewriter;
+        params_ref       m_params;
         
         void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsigned_vector & order) {
             order.reset();
@@ -527,7 +528,8 @@ namespace eq {
         void elim_unused_vars(expr_ref& r, proof_ref &pr) {
             if (is_quantifier(r)) {
                 quantifier * q = to_quantifier(r);
-                ::elim_unused_vars(m, q, r);
+
+                ::elim_unused_vars(m, q, m_params, r);
                 if (m.proofs_enabled()) {
                     proof * p1 = m.mk_elim_unused_vars(q, r);
                     pr = m.mk_transitivity(pr, p1);
@@ -566,14 +568,12 @@ namespace eq {
                             largest_vinx = std::max(idx, largest_vinx); 
                             m_new_exprs.push_back(t);
                         }
-                        else if (!m.is_value (m_map[idx]))
-                        {
+                        else if (!m.is_value(m_map[idx])) {
                           // check if the new definition is simpler
                           expr *old_def = m_map[idx];
                           
                           // -- prefer values 
-                          if (m.is_value (t))
-                          {
+                            if (m.is_value(t)) {
                             m_pos2var [m_var2pos [idx]] = -1;
         		    m_pos2var [i] = idx;
                             m_var2pos [idx] = i;
@@ -583,8 +583,7 @@ namespace eq {
                           // -- prefer ground
                           else if (is_app (t) && to_app (t)->is_ground () &&
                                    (!is_app (old_def) || 
-                                    !to_app(old_def)->is_ground ()))
-                          {
+                                    !to_app(old_def)->is_ground())) {
                             m_pos2var [m_var2pos [idx]] = -1;
         		    m_pos2var [i] = idx;
                             m_var2pos [idx] = i;
@@ -593,8 +592,7 @@ namespace eq {
                           }
                           // -- prefer constants
                           else if (is_uninterp_const (t) 
-                                   /* && !is_uninterp_const (old_def) */)
-                          {
+                                   /* && !is_uninterp_const(old_def) */){
                             m_pos2var [m_var2pos [idx]] = -1;
         		    m_pos2var [i] = idx;
                             m_var2pos [idx] = i;
@@ -751,7 +749,7 @@ namespace eq {
         }
 
     public:
-        der(ast_manager & m): 
+        der(ast_manager & m, params_ref const & p):
             m(m), 
             a(m),
             dt(m),
@@ -760,7 +758,8 @@ namespace eq {
             m_new_exprs(m), 
             m_subst_map(m), 
             m_new_args(m), 
-            m_rewriter(m) {}
+            m_rewriter(m),
+            m_params(p) {}
         
         void set_is_variable_proc(is_variable_proc& proc) { m_is_variable = &proc;}
         
@@ -834,7 +833,7 @@ namespace ar {
            Ex A. Phi[store(A,x,t)]
 
            (Not implemented)
-           Perhaps also: 
+           Perhaps also:
            Ex A. store(A,y,z)[x] = t & Phi[A] where x \not\in A, t, y, z, A \not\in y z, t 
            =>
            Ex A, v . (x = y => z = t) & Phi[store(store(A,x,t),y,v)]
@@ -1497,8 +1496,10 @@ namespace fm {
             unsigned sz = g.size();
             for (unsigned i = 0; i < sz; i++) {
                 expr * f = g[i];
-                if (is_occ(f))
+                if (is_occ(f)) {
+                    TRACE("qe_lite", tout << "OCC: " << mk_ismt2_pp(f, m) << "\n";);
                     continue;
+                }
                 TRACE("qe_lite", tout << "not OCC:\n" << mk_ismt2_pp(f, m) << "\n";);
                 quick_for_each_expr(proc, visited, f);
             }
@@ -1676,7 +1677,7 @@ namespace fm {
             sbuffer<var>     xs;
             buffer<rational> as;
             rational         c;
-            bool             strict;
+            bool             strict = false;
             unsigned         num;
             expr * const *   args;
             if (m.is_or(f)) {
@@ -2227,6 +2228,9 @@ namespace fm {
         void operator()(expr_ref_vector& fmls) {
             init(fmls);
             init_use_list(fmls);
+            for (auto & f : fmls) {
+                if (has_quantifiers(f)) return;
+            }
             if (m_inconsistent) {
                 m_new_fmls.reset();
                 m_new_fmls.push_back(m.mk_false());
@@ -2357,9 +2361,9 @@ private:
     }
 
 public:
-    impl(ast_manager& m, bool use_array_der): 
+    impl(ast_manager & m, params_ref const & p, bool use_array_der):
         m(m), 
-        m_der(m), 
+        m_der(m, p),
         m_fm(m), 
         m_array_der(m), 
         m_elim_star(*this), 
@@ -2444,15 +2448,15 @@ public:
         m_array_der.set_is_variable_proc(is_var);
         m_der(fmls);
         m_fm(fmls);
-        // XXX AG: disalble m_array_der() since it interferes with other array handling
+        // AG: disalble m_array_der() since it interferes with other array handling
         if (m_use_array_der) m_array_der(fmls);
         TRACE("qe_lite", for (unsigned i = 0; i < fmls.size(); ++i) tout << mk_pp(fmls[i].get(), m) << "\n";);
     }
 
 };
 
-qe_lite::qe_lite(ast_manager& m, bool use_array_der) {
-    m_impl = alloc(impl, m, use_array_der);
+qe_lite::qe_lite(ast_manager & m, params_ref const & p, bool use_array_der) {
+    m_impl = alloc(impl, m, p, use_array_der);
 }
 
 qe_lite::~qe_lite() {
@@ -2484,7 +2488,7 @@ class qe_lite_tactic : public tactic {
 
         imp(ast_manager& m, params_ref const& p): 
             m(m),
-            m_qe(m, true)
+            m_qe(m, p, true)
         {}
 
         void checkpoint() {

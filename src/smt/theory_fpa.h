@@ -82,11 +82,7 @@ namespace smt {
                 m_th(*th) {}
             virtual ~fpa2bv_converter_wrapped() {}
             virtual void mk_const(func_decl * f, expr_ref & result);
-            virtual void mk_rm_const(func_decl * f, expr_ref & result);
-            virtual void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);            
-
-            virtual expr_ref mk_min_unspecified(func_decl * f, expr * x, expr * y);
-            virtual expr_ref mk_max_unspecified(func_decl * f, expr * x, expr * y);
+            virtual void mk_rm_const(func_decl * f, expr_ref & result);            
         };
 
         class fpa_value_proc : public model_value_proc {
@@ -124,7 +120,7 @@ namespace smt {
 
         public:
             fpa_rm_value_proc(theory_fpa * th) :
-                m_th(*th), m(th->get_manager()), m_fu(th->m_fpa_util), m_bu(th->m_bv_util) {}
+                m_th(*th), m(th->get_manager()), m_fu(th->m_fpa_util), m_bu(th->m_bv_util) { (void) m_th; }
 
             void add_dependency(enode * e) { m_deps.push_back(model_value_dependency(e)); }
 
@@ -145,10 +141,9 @@ namespace smt {
         fpa_util                & m_fpa_util;
         bv_util                 & m_bv_util;
         arith_util              & m_arith_util;
-        obj_map<sort, func_decl*> m_wraps;
-        obj_map<sort, func_decl*> m_unwraps;
         obj_map<expr, expr*>      m_conversions;
         bool                      m_is_initialized;
+        obj_hashtable<func_decl>  m_is_added_to_model;
 
         virtual final_check_status final_check_eh();
         virtual bool internalize_atom(app * atom, bool gate_ctx);

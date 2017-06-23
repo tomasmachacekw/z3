@@ -206,7 +206,8 @@ namespace smt {
         numeral k     = ceil(get_value(v));
         rational _k   = k.to_rational();
         expr_ref bound(get_manager());
-        bound  = m_util.mk_ge(get_enode(v)->get_owner(), m_util.mk_numeral(_k, true));
+        expr* e = get_enode(v)->get_owner();
+        bound  = m_util.mk_ge(e, m_util.mk_numeral(_k, m_util.is_int(e)));
         TRACE("arith_int", tout << mk_bounded_pp(bound, get_manager()) << "\n";);
         context & ctx = get_context();
         ctx.internalize(bound, true);
@@ -371,7 +372,7 @@ namespace smt {
         
         ctx.mk_th_axiom(get_id(), l1, l2);
        
-        TRACE("theory_arith_int", 
+        TRACE("arith_int", 
               tout << "cut: (or " << mk_pp(p1, get_manager()) << " " << mk_pp(p2, get_manager()) << ")\n";
               );
 
@@ -1267,11 +1268,11 @@ namespace smt {
     final_check_status theory_arith<Ext>::check_int_feasibility() {
         TRACE("arith_int_detail", get_context().display(tout););
         if (!has_infeasible_int_var()) {
-            TRACE("arith_int_incomp", tout << "FC_DONE 1...\n"; display(tout););
+            TRACE("arith", tout << "FC_DONE 1...\n"; display(tout););
             return FC_DONE;
         }
 
-        TRACE("arith_int_fracs",
+        TRACE("arith",
               int num = get_num_vars();
               for (theory_var v = 0; v < num; v++) {
                   if (is_int(v) && !get_value(v).is_int()) {
@@ -1385,7 +1386,7 @@ namespace smt {
         m_branch_cut_counter++;
         // TODO: add giveup code
         if (m_branch_cut_counter % m_params.m_arith_branch_cut_ratio == 0) {
-            TRACE("opt", display(tout););
+            TRACE("opt_verbose", display(tout););
             move_non_base_vars_to_bounds();
             if (!make_feasible()) {
                 TRACE("arith_int", tout << "failed to move variables to bounds.\n";);
@@ -1407,6 +1408,7 @@ namespace smt {
             if (m_params.m_arith_int_eq_branching && branch_infeasible_int_equality()) {
                 return FC_CONTINUE;
             }
+
             theory_var int_var = find_infeasible_int_base_var();
             if (int_var != null_theory_var) {
                 TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);

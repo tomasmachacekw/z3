@@ -33,7 +33,7 @@ namespace smt {
     }
 
     void theory_array_base::found_unsupported_op(expr * n) {
-        TRACE("theory_array_unsup", tout << mk_ll_pp(n, get_manager()) << "\n";);
+        TRACE("array", tout << mk_ll_pp(n, get_manager()) << "\n";);
         if (!m_found_unsupported_op) {
             get_context().push_trail(value_trail<context, bool>(m_found_unsupported_op));
             m_found_unsupported_op = true;
@@ -426,19 +426,19 @@ namespace smt {
         ptr_buffer<enode> to_unmark;
         unsigned num_vars = get_num_vars();
         for (unsigned i = 0; i < num_vars; i++) {
-	    enode * n = get_enode(i);
+        enode * n = get_enode(i);
             if (ctx.is_relevant(n)) {
-	        enode * r = n->get_root();
-		if (!r->is_marked()){
-		    if(is_array_sort(r) && ctx.is_shared(r)) {
-		      TRACE("array_shared", tout << "new shared var: #" << r->get_owner_id() << "\n";);
-		      theory_var r_th_var = r->get_th_var(get_id());
-		      SASSERT(r_th_var != null_theory_var);
-		      result.push_back(r_th_var);
-		    }
-		    r->set_mark();
-		    to_unmark.push_back(r);
-		}
+            enode * r = n->get_root();
+        if (!r->is_marked()){
+            if(is_array_sort(r) && ctx.is_shared(r)) {
+              TRACE("array_shared", tout << "new shared var: #" << r->get_owner_id() << "\n";);
+              theory_var r_th_var = r->get_th_var(get_id());
+              SASSERT(r_th_var != null_theory_var);
+              result.push_back(r_th_var);
+            }
+            r->set_mark();
+            to_unmark.push_back(r);
+        }
             }
         }
         unmark_enodes(to_unmark.size(), to_unmark.c_ptr());
