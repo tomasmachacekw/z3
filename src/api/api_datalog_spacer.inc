@@ -80,7 +80,7 @@ Notes:
         Z3_TRY;
         LOG_Z3_fixedpoint_get_rules_along_trace(c, d);
         ast_manager& m = mk_c(c)->m();
-        Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, m);
+        Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
         mk_c(c)->save_object(v);
         expr_ref_vector rules(m);
         svector<symbol> names;
@@ -100,7 +100,7 @@ Notes:
         Z3_TRY;
         LOG_Z3_fixedpoint_get_rule_names_along_trace(c, d);
         ast_manager& m = mk_c(c)->m();
-        Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, m);
+        Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
         mk_c(c)->save_object(v);
         expr_ref_vector rules(m);
         svector<symbol> names;
