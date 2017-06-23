@@ -1,4 +1,4 @@
-/** 
+/**
 Spacer
 Copyright (c) 2015 Carnegie Mellon University.
 All Rights Reserved.
@@ -29,13 +29,13 @@ Module Name:
 Abstract:
 
    Old projection utilities. Used by Grigory
-   
+
 Author:
 
     Arie Gurfinkel
     Anvesh Komuravelli
 Notes:
-   
+
 --*/
 #include <sstream>
 #include "arith_simplifier_plugin.h"
@@ -72,7 +72,8 @@ namespace spacer {
     void qe_project (ast_manager& m, app_ref_vector& vars, expr_ref& fml, model_ref& M, expr_map& map) {
         th_rewriter rw (m);
         // qe-lite; TODO: use qe_lite aggressively
-        qe_lite qe (m, true);
+        params_ref p;
+        qe_lite qe (m, p, true);
         qe (vars, fml);
         rw (fml);
 
@@ -134,6 +135,3 @@ namespace spacer {
         }
     }
 }
-
-
-
