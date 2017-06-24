@@ -28,15 +28,14 @@ Revision History:
 class model_core;
 
 namespace spacer {
-class sym_mux
-{
+class sym_mux {
 public:
     typedef ptr_vector<app> app_vector;
     typedef ptr_vector<func_decl> decl_vector;
 private:
-    typedef obj_map<func_decl,unsigned> sym2u;
+    typedef obj_map<func_decl, unsigned> sym2u;
     typedef obj_map<func_decl, decl_vector> sym2dv;
-    typedef obj_map<func_decl,func_decl *> sym2sym;
+    typedef obj_map<func_decl, func_decl *> sym2sym;
     typedef obj_map<func_decl, func_decl *> sym2pred;
     typedef hashtable<symbol, symbol_hash_proc, symbol_eq_proc> symbols;
 
@@ -66,7 +65,7 @@ private:
     mutable sym2sym m_sym2prim;
 
     /**
-       Maps prefixes passed to the create_tuple to 
+       Maps prefixes passed to the create_tuple to
        the primary symbol created from it.
     */
     sym2pred m_prefix2prim;
@@ -101,17 +100,20 @@ public:
 
     bool is_muxed(func_decl * sym) const { return m_sym2idx.contains(sym); }
 
-    bool try_get_index(func_decl * sym, unsigned & idx) const {
-        return m_sym2idx.find(sym,idx);
+    bool try_get_index(func_decl * sym, unsigned & idx) const
+    {
+        return m_sym2idx.find(sym, idx);
     }
 
-    bool has_index(func_decl * sym, unsigned idx) const {
+    bool has_index(func_decl * sym, unsigned idx) const
+    {
         unsigned actual_idx;
-        return try_get_index(sym, actual_idx) && idx==actual_idx;
+        return try_get_index(sym, actual_idx) && idx == actual_idx;
     }
 
     /** Return primary symbol. sym must be muxed. */
-    func_decl * get_primary(func_decl * sym) const {
+    func_decl * get_primary(func_decl * sym) const
+    {
         func_decl * prim;
         TRUSTME(m_sym2prim.find(sym, prim));
         return prim;
@@ -120,7 +122,8 @@ public:
     /**
     Return primary symbol created from prefix, or 0 if the prefix was never used.
     */
-    func_decl * try_get_primary_by_prefix(func_decl* prefix) const {
+    func_decl * try_get_primary_by_prefix(func_decl* prefix) const
+    {
         func_decl * res;
         if(!m_prefix2prim.find(prefix, res)) {
             return 0;
@@ -131,7 +134,8 @@ public:
     /**
     Return symbol created from prefix, or 0 if the prefix was never used.
     */
-    func_decl * try_get_by_prefix(func_decl* prefix, unsigned idx) const {
+    func_decl * try_get_by_prefix(func_decl* prefix, unsigned idx) const
+    {
         func_decl * prim = try_get_primary_by_prefix(prefix);
         if(!prim) {
             return 0;
@@ -140,36 +144,38 @@ public:
     }
 
     /**
-    Marks symbol as non-model which means it will not appear in models collected by 
+    Marks symbol as non-model which means it will not appear in models collected by
     get_muxed_cube_from_model function.
     This is to take care of auxiliary symbols introduced by the disjunction relations
     to relativize lemmas coming from disjuncts.
     */
-    void mark_as_non_model(func_decl * sym) {
+    void mark_as_non_model(func_decl * sym)
+    {
         SASSERT(is_muxed(sym));
         m_non_model_syms.insert(get_primary(sym));
     }
 
-    func_decl * get_or_create_symbol_by_prefix(func_decl* prefix, unsigned idx, 
-        unsigned arity, sort * const * domain, sort * range);
+    func_decl * get_or_create_symbol_by_prefix(func_decl* prefix, unsigned idx,
+            unsigned arity, sort * const * domain, sort * range);
 
 
 
     bool is_muxed_lit(expr * e, unsigned idx) const;
 
-    bool is_non_model_sym(func_decl * s) const { 
+    bool is_non_model_sym(func_decl * s) const
+    {
         return is_muxed(s) && m_non_model_syms.contains(get_primary(s));
     }
 
     /**
     Create a multiplexed tuple of propositional constants.
     Symbols may be suplied in the tuple vector,
-    those beyond the size of the array and those with corresponding positions 
+    those beyond the size of the array and those with corresponding positions
     assigned to zero will be created using prefix.
     Tuple length must be at least one.
     */
-    void create_tuple(func_decl* prefix, unsigned arity, sort * const * domain, sort * range, 
-        unsigned tuple_length, decl_vector & tuple);
+    void create_tuple(func_decl* prefix, unsigned arity, sort * const * domain, sort * range,
+                      unsigned tuple_length, decl_vector & tuple);
 
     /**
     Return true if the only multiplexed symbols which e contains are of index idx.
@@ -202,17 +208,17 @@ public:
     */
     func_decl * conv(func_decl * sym, unsigned src_idx, unsigned tgt_idx) const;
 
-    
+
     /**
     Convert src_idx symbols in formula f variant into tgt_idx.
     If homogenous is true, formula cannot contain symbols of other variants.
     */
-    void conv_formula(expr * f, unsigned src_idx, unsigned tgt_idx, expr_ref & res, bool homogenous=true) const;
-    void conv_formula_vector(const expr_ref_vector & vect, unsigned src_idx, unsigned tgt_idx, 
-        expr_ref_vector & res) const;
+    void conv_formula(expr * f, unsigned src_idx, unsigned tgt_idx, expr_ref & res, bool homogenous = true) const;
+    void conv_formula_vector(const expr_ref_vector & vect, unsigned src_idx, unsigned tgt_idx,
+                             expr_ref_vector & res) const;
 
     /**
-    Shifts the muxed symbols in f by dist. Dist can be negative, but it should never shift 
+    Shifts the muxed symbols in f by dist. Dist can be negative, but it should never shift
     symbol index to a negative value.
     */
     void shift_formula(expr * f, int dist, expr_ref & res) const;
@@ -231,7 +237,7 @@ public:
     /**
         Partition literals into o_literals and others.
     */
-    void partition_o_idx(expr_ref_vector const& lits, 
+    void partition_o_idx(expr_ref_vector const& lits,
                          expr_ref_vector& o_lits,
                          expr_ref_vector& other, unsigned idx) const;
 
