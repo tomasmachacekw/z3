@@ -189,8 +189,7 @@ namespace pdr {
             
             res = extract_consequence(0, m_coeffs.size());
 
-// XXX This is enabled in opt-branch, but disabled in spacer branch
-#if 0
+#if 1
             // partition equalities into variable disjoint sets.
             // take the conjunction of these instead of the
             // linear combination.
