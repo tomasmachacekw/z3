@@ -1351,8 +1351,25 @@ namespace spacer {
         }
         
         bool pre_visit(expr * t) {
-            bool r = (!m_seen.is_marked(t) || m_has_num.is_marked(t)) && !m_util.is_mul(t);
-
+            
+            bool r = (!m_seen.is_marked(t) || m_has_num.is_marked(t));
+            // only unify if convex closure will not contain non-linear multiplication
+            if (m_util.is_mul(t))
+            {
+                bool contains_const_child = false;
+                app* a = to_app(t);
+                for (unsigned i=0, sz = a->get_num_args(); i < sz; ++i)
+                {
+                    if (m_util.is_numeral(a->get_arg(i)))
+                    {
+                        contains_const_child = true;
+                    }
+                }
+                if (!contains_const_child)
+                {
+                    r = false;
+                }
+            }
             if (r) m_stack.push_back (t);
             return r;
         }
@@ -1412,8 +1429,6 @@ namespace spacer {
         rewriter_tpl<var_abs_rewriter> var_abs_rw (m, false, var_abs_cfg);
         var_abs_rw (t, m_g);
         
-//        verbose_stream() << "\n m_g: " << mk_pp(m_g,m) << "\n";
-
         m_substitutions.push_back(substitution); //TODO: refactor into vector, remove k
     }
     
@@ -1766,7 +1781,7 @@ namespace spacer {
         
         SASSERT(v.size() > 0);
         lower_bound = v[0];
-        upper_bound = v.size() - 1;
+        upper_bound = v.back();
         
         return true;
     }

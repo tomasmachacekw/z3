@@ -1610,7 +1610,7 @@ namespace spacer {
       // try to merge cti with as many parents as possible
       model_node* node = create_next_child (mev);
       
-      IF_VERBOSE(3, verbose_stream() << "\nCTI before merging: " << mk_pp(node->post(), mev.get_ast_manager()) << "\n";);
+      IF_VERBOSE(1, verbose_stream() << "\nCTI before merging: " << mk_pp(node->post(), mev.get_ast_manager()) << "\n";);
       anti_unifier au(node->post(), mev.get_ast_manager());
 
       model_node* current = node;
@@ -1620,7 +1620,7 @@ namespace spacer {
           {
               current = current->parent();
               
-              IF_VERBOSE(3, verbose_stream() << "Trying to anti-unify with CTI: " << mk_pp(current->post(), mev.get_ast_manager()) << std::endl;);
+              IF_VERBOSE(1, verbose_stream() << "Trying to anti-unify with CTI: " << mk_pp(current->post(), mev.get_ast_manager()) << std::endl;);
               if (!au.add_term(current->post()))
               {
                   break;
@@ -1642,7 +1642,7 @@ namespace spacer {
           bool exact_closure = naive_convex_closure::compute_closure(au, mev.get_ast_manager(), result);
           if (exact_closure)
           {
-              IF_VERBOSE(3, verbose_stream() << "Exact closure: " << mk_pp(result, mev.get_ast_manager()) << std::endl;);
+              IF_VERBOSE(1, verbose_stream() << "Exact closure: " << mk_pp(result, mev.get_ast_manager()) << std::endl;);
               node->set_post(result);
           }
       }
