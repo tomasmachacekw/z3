@@ -166,17 +166,17 @@ namespace spacer {
     {
     public:
         anti_unifier(expr* t, ast_manager& m);
-        ~anti_unifier(){} // TODO: like this? m_pinned.reset();
+        ~anti_unifier() {}
         
         bool add_term(expr* t);
         void finalize();
         
-        expr_ref get_generalization();
+        expr* get_generalization();
         unsigned get_num_substitutions();
         obj_map<expr, expr*> get_substitution(unsigned index);
         
     private:
-        ast_manager m;
+        ast_manager& m;
         // tracking all created expressions
         expr_ref_vector m_pinned;
         
@@ -189,11 +189,11 @@ namespace spacer {
     {
     public:
         
-        static bool compute_closure(anti_unifier& au, ast_manager m, expr_ref& result);
+        static bool compute_closure(anti_unifier& au, ast_manager& m, expr_ref& result);
     
     private:
         static bool get_range(vector<unsigned>& v, unsigned& lower_bound, unsigned& upper_bound);
-        static expr* substitute_vars_by_const(ast_manager& m, expr* t, expr* const_app);
+        static void substitute_vars_by_const(ast_manager& m, expr* t, expr* c, expr_ref& res);
     };
     
 }

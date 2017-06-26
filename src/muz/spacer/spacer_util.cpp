@@ -1331,109 +1331,90 @@ namespace spacer {
     
 #pragma mark - class anti_unifier
     
+    // Adhoc arithmetic rewriter
+    struct var_abs_rewriter : public default_rewriter_cfg
+    {
+        ast_manager &m;
+        arith_util m_util;
+        ast_mark m_seen;
+        ast_mark m_has_num;
+        unsigned m_var_index;
+        expr_ref_vector m_pinned;
+        obj_map<expr, expr*>& m_substitution;
+        ptr_vector<expr> m_stack;
+        
+        var_abs_rewriter (ast_manager &manager, obj_map<expr, expr*>& substitution, unsigned k = 0) : m(manager), m_util(m), m_var_index(k), m_pinned(m), m_substitution(substitution) {}
+        
+        void reset(unsigned k = 0) {
+            m_pinned.reset();
+            m_var_index = k;
+        }
+        
+        bool pre_visit(expr * t) {
+            bool r = (!m_seen.is_marked(t) || m_has_num.is_marked(t)) && !m_util.is_mul(t);
+
+            if (r) m_stack.push_back (t);
+            return r;
+        }
+        
+        
+        br_status reduce_app (func_decl * f, unsigned num, expr * const * args,
+                              expr_ref & result, proof_ref & result_pr)
+        {
+            expr *s;
+            s = m_stack.back();
+            m_stack.pop_back();
+            if (is_app(s))
+            {
+                app *a = to_app(s);
+                for (unsigned i=0, sz = a->get_num_args(); i < sz; ++i)
+                {
+                    if (m_has_num.is_marked(a->get_arg(i)))
+                    {
+                        m_has_num.mark(a,true);
+                        return BR_FAILED;
+                    }
+                }
+            }
+            return BR_FAILED;
+        }
+        
+        bool cache_all_results() const { return false; }
+        bool cache_results() const { return false; }
+        
+        bool get_subst(expr * s, expr * & t, proof * & t_pr) {
+
+            if (m_util.is_numeral(s)) {
+                t = m.mk_var(m_var_index++, m.get_sort(s));
+                m_substitution.insert(t, s);
+                m_pinned.push_back(t);
+                m_has_num.mark(s, true);
+                m_seen.mark(t, true);
+                return true;
+            }
+            return false;
+         
+        }
+
+    };
+
     /*
      * construct m_g, which is a generalization of t, where every constant is replaced by a variable
      * for any variable in m_g, remember the substitution to get back t and save it in m_substitutions
      */
-    anti_unifier::anti_unifier(expr* t, ast_manager& m) : m(m), m_pinned(m), m_g(m)
+    anti_unifier::anti_unifier(expr* t, ast_manager& man) : m(man), m_pinned(m), m_g(m)
     {
         m_pinned.push_back(t);
-        
-        // corner case: term is a constant
-        unsigned var_index = 0;
-        if (m.is_value(t))
-        {
-            m_g = expr_ref(m.mk_var(var_index, m.get_sort(t)), m);
-            obj_map<expr, expr*> substitution;
-            substitution.insert(m_g, t);
-            return;
-        }
-        else
-        {
-            SASSERT(is_app(t));
-        }
-        
-        // post-order traversel which ignores constants and handles them directly when the enclosing term of the constant is handled
-        vector<expr*> todo;
-        todo.push_back(t);
-        ast_mark visited;
-        
-        obj_map<expr, expr*> generalization;
-        
-        arith_util util(m);
-        
+      
         obj_map<expr, expr*> substitution;
+
+        var_abs_rewriter var_abs_cfg(m, substitution);
+        rewriter_tpl<var_abs_rewriter> var_abs_rw (m, false, var_abs_cfg);
+        var_abs_rw (t, m_g);
         
-        // keep invariant that current is never value in order to support multiple variables for the same constant, e.g. in f(1,1)
-        while (!todo.empty())
-        {
-            expr* current = todo.back();
-            SASSERT(is_app(current));
+//        verbose_stream() << "\n m_g: " << mk_pp(m_g,m) << "\n";
 
-            // if we haven't already visited current
-            if (!visited.is_marked(current))
-            {
-                bool existsUnvisitedParent = false;
-
-                for (unsigned i = 0, sz = to_app(current)->get_num_args(); i < sz; ++i)
-                {
-                    expr* argument = to_app(current)->get_arg(i);
-                    SASSERT(is_app(argument));
-
-                    if (!util.is_numeral(argument))
-                    {
-                        // if we haven't visited the current parent yet
-                        if(!visited.is_marked(argument))
-                        {
-                            // add it to the stack
-                            todo.push_back(argument);
-                            existsUnvisitedParent = true;
-                        }
-                    }
-                }
-                
-                // if we already visited all parents, we can visit current too
-                if (!existsUnvisitedParent)
-                {
-                    visited.mark(current, true);
-                    todo.pop_back();
-                    
-                    ptr_buffer<expr> arg_list;
-                    
-                    for (unsigned i = 0, num_args = to_app(current)->get_num_args(); i < num_args; ++i)
-                    {
-                        expr* argument = to_app(current)->get_arg(i);
-                        
-                        if (util.is_numeral(argument))
-                        {
-                            // replace value by fresh variable and remember substitutions
-                            expr_ref var(m.mk_var(var_index++, m.get_sort(current)), m);
-                            m_pinned.push_back(var);
-                            arg_list.push_back(var);
-
-                            substitution.insert(var,argument);
-                        }
-                        else
-                        {
-                            SASSERT(generalization.contains(argument));
-                            arg_list.push_back(generalization[argument]);
-                        }
-                    }
-                    
-                    expr_ref application(m.mk_app(to_app(current)->get_decl(), to_app(current)->get_num_args(), arg_list.c_ptr()),m);
-                    m_pinned.push_back(application);
-                    generalization.insert(current, application);
-                }
-            }
-            else
-            {
-                todo.pop_back();
-            }
-        }
-        
-        SASSERT(generalization.contains(t));
-        m_g = generalization[t];
-        m_substitutions.push_back(substitution);
+        m_substitutions.push_back(substitution); //TODO: refactor into vector, remove k
     }
     
     // traverses m_g and t in parallel. if they only differ in constants (i.e. m_g contains a variable, where t contains a constant), then add the substitutions, which need to be applied to m_g to get t, to m_substitutions.
@@ -1441,8 +1422,8 @@ namespace spacer {
     {
         m_pinned.push_back(t);
         
-        vector<expr*> todo;
-        vector<expr*> todo2;
+        ptr_vector<expr> todo;
+        ptr_vector<expr> todo2;
         todo.push_back(m_g);
         todo2.push_back(t);
         
@@ -1478,11 +1459,16 @@ namespace spacer {
                 else
                 {
                     SASSERT(is_app(current));
-                    SASSERT(!util.is_numeral(current));
                     
-                    if (is_app(current2) && (to_app(current)->get_decl() == to_app(current2)->get_decl()))
+                    if (is_app(current2) &&
+                        to_app(current)->get_decl() == to_app(current2)->get_decl() &&
+                        to_app(current)->get_num_args() == to_app(current2)->get_num_args())
                     {
-                        SASSERT(to_app(current)->get_num_args() == to_app(current2)->get_num_args());
+                        // TODO: what to do for numerals here? E.g. if we have 1 and 2, do they have the same decl or are the decls already different?
+                        if (util.is_numeral(current))
+                        {
+                            SASSERT(current == current2);
+                        }
                         for (unsigned i = 0, num_args = to_app(current)->get_num_args(); i < num_args; ++i)
                         {
                             expr* argument = to_app(current)->get_arg(i);
@@ -1509,7 +1495,7 @@ namespace spacer {
      */
     void anti_unifier::finalize()
     {
-        vector<expr*> todo;
+        ptr_vector<expr> todo;
         todo.push_back(m_g);
         
         ast_mark visited;
@@ -1601,8 +1587,8 @@ namespace spacer {
                     
                     SASSERT(to_app(current)->get_num_args() == arg_list.size());
                     expr_ref application(m.mk_app(to_app(current)->get_decl(), to_app(current)->get_num_args(), arg_list.c_ptr()),m);
-                    generalization.insert(current, application);
                     m_pinned.push_back(application);
+                    generalization.insert(current, application);
                 }
             }
             else
@@ -1614,7 +1600,7 @@ namespace spacer {
         m_g = generalization[m_g];
     }
     
-    expr_ref anti_unifier::get_generalization()
+    expr* anti_unifier::get_generalization()
     {
         return m_g;
     }
@@ -1659,11 +1645,12 @@ namespace spacer {
     /*
      * if there is a single interval which exactly captures each of the substitutions, return the corresponding closure, otherwise do nothing
      */
-    bool naive_convex_closure::compute_closure(anti_unifier& au, ast_manager m, expr_ref& result)
+    bool naive_convex_closure::compute_closure(anti_unifier& au, ast_manager& m, expr_ref& result)
     {
         arith_util util(m);
 
-        if (au.get_num_substitutions() == 0)
+        SASSERT(au.get_num_substitutions() > 0);
+        if (au.get_substitution(0).size() == 0)
         {
             result = au.get_generalization();
             return true;
@@ -1736,11 +1723,8 @@ namespace spacer {
         // 2. construct body with const
         expr_ref lit1(util.mk_le(util.mk_int(lower_bound), const_ref), m);
         expr_ref lit2(util.mk_le(const_ref, util.mk_int(upper_bound)), m);
-        expr_ref lit3(substitute_vars_by_const(m, au.get_generalization(), const_ref),m);
-        
-        verbose_stream() << "lit1 " << mk_pp(lit1, m) << "\n";
-        verbose_stream() << "lit2 " << mk_pp(lit2, m) << "\n";
-        verbose_stream() << "lit3 " << mk_pp(lit2, m) << "\n";
+        expr_ref lit3(m);
+        substitute_vars_by_const(m, au.get_generalization(), const_ref, lit3);
         
         expr_ref_vector args(m);
         args.push_back(lit1);
@@ -1761,7 +1745,7 @@ namespace spacer {
         svector<symbol> names;
         names.push_back(symbol("scti!0"));
 
-        result = m.mk_exists(vars.size(), sorts.c_ptr(), names.c_ptr(), body);
+        result = expr_ref(m.mk_exists(vars.size(), sorts.c_ptr(), names.c_ptr(), body),m);
 
         return true;
     }
@@ -1787,86 +1771,31 @@ namespace spacer {
         return true;
     }
     
-    expr* naive_convex_closure::substitute_vars_by_const(ast_manager& m, expr* t, expr* const_app)
+    struct subs_rewriter_cfg : public default_rewriter_cfg
     {
-        vector<expr*> todo;
-        todo.push_back(t);
-        
-        ast_mark visited;
-        
-        obj_map<expr, expr*> substituted_terms;
-        
-        expr_ref_vector pinned(m);
-        
-        // post-order traversel which ignores constants and handles them directly when the enclosing term of the constant is handled
-        while (!todo.empty())
-        {
-            expr* current = todo.back();
-            SASSERT(is_app(current));
-            
-            // if we haven't already visited current
-            if (!visited.is_marked(current))
-            {
-                bool existsUnvisitedParent = false;
-                
-                for (unsigned i = 0, sz = to_app(current)->get_num_args(); i < sz; ++i)
-                {
-                    expr* argument = to_app(current)->get_arg(i);
-                    
-                    if (!is_var(argument))
-                    {
-                        SASSERT(is_app(argument));
-                        // if we haven't visited the current parent yet
-                        if(!visited.is_marked(argument))
-                        {
-                            // add it to the stack
-                            todo.push_back(argument);
-                            existsUnvisitedParent = true;
-                        }
-                    }
-                }
-                
-                // if we already visited all parents, we can visit current too
-                if (!existsUnvisitedParent)
-                {
-                    visited.mark(current, true);
-                    todo.pop_back();
-                    
-                    ptr_buffer<expr> arg_list;
-                    
-                    for (unsigned i = 0, num_args = to_app(current)->get_num_args(); i < num_args; ++i)
-                    {
-                        expr* argument = to_app(current)->get_arg(i);
-                        
-                        if (is_var(argument))
-                        {
-                            arg_list.push_back(const_app);
-                        }
-                        else
-                        {
-                            SASSERT(substituted_terms.contains(argument));
-                            arg_list.push_back(substituted_terms[argument]);
-                        }
-                    }
-                    
-                    SASSERT(to_app(current)->get_num_args() == arg_list.size());
-                    expr_ref application(m.mk_app(to_app(current)->get_decl(), to_app(current)->get_num_args(), arg_list.c_ptr()),m);
-                    substituted_terms.insert(current, application);
-                    pinned.push_back(application);
-                }
-            }
-            else
-            {
-                todo.pop_back();
-            }
-        }
-        
-        return substituted_terms[t];
+        ast_manager &m;
+        expr_ref m_c;
 
+        subs_rewriter_cfg (ast_manager &manager, expr* c) : m(manager), m_c(c, m) {}
+        
+        bool reduce_var(var * t, expr_ref & result, proof_ref & result_pr)
+        {
+            result = m_c;
+            result_pr = 0;
+            return true;
+        }
+    };
+
+    void naive_convex_closure::substitute_vars_by_const(ast_manager& m, expr* t, expr* c, expr_ref& res)
+    {
+        subs_rewriter_cfg subs_cfg(m, c);
+        rewriter_tpl<subs_rewriter_cfg> subs_rw (m, false, subs_cfg);
+        subs_rw (t, res);
     }
 }
 template class rewriter_tpl<spacer::adhoc_rewriter_cfg>;
 template class rewriter_tpl<spacer::adhoc_rewriter_rpp>;
+template class rewriter_tpl<spacer::subs_rewriter_cfg>;
 template class rewriter_tpl<spacer::ite_hoister_cfg>;
 
 

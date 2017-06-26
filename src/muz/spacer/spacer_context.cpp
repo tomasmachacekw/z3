@@ -1610,22 +1610,41 @@ namespace spacer {
       // try to merge cti with as many parents as possible
       model_node* node = create_next_child (mev);
       
-      IF_VERBOSE(1, verbose_stream() << "CTI before merging: " << mk_pp(node->post(), mev.get_ast_manager()) << "\n";);
+      IF_VERBOSE(3, verbose_stream() << "\nCTI before merging: " << mk_pp(node->post(), mev.get_ast_manager()) << "\n";);
       anti_unifier au(node->post(), mev.get_ast_manager());
 
-      IF_VERBOSE(1, verbose_stream() << "Trying to merge with CTI: " << mk_pp(node->parent()->post(), mev.get_ast_manager()) << "\n";);
-      for (model_node* current_parent = node->parent(); au.add_term(current_parent->post()); current_parent = current_parent->parent())
+      model_node* current = node;
+      while (true)
       {
-          IF_VERBOSE(1, verbose_stream() << "Trying to merge with CTI: " << mk_pp(current_parent->parent()->post(), mev.get_ast_manager()) << "\n";);
+          if (current->parent() && &(current->pt()) == &(current->parent()->pt())) // TODO: restrict this to CTIs of the same predicate
+          {
+              current = current->parent();
+              
+              IF_VERBOSE(3, verbose_stream() << "Trying to anti-unify with CTI: " << mk_pp(current->post(), mev.get_ast_manager()) << std::endl;);
+              if (!au.add_term(current->post()))
+              {
+                  break;
+              }
+          }
+          else
+          {
+              break;
+          }
       }
       
       au.finalize();
       
-      expr_ref result(mev.get_ast_manager());
-      bool exact_closure = naive_convex_closure::compute_closure(au, mev.get_ast_manager(), result);
-      if (exact_closure)
+      // if we found any parent we want to merge with the node (which is also different from the node)
+      SASSERT(au.get_num_substitutions() > 0);
+      if (au.get_substitution(0).size() > 0)
       {
-          node->set_post(result);
+          expr_ref result(mev.get_ast_manager());
+          bool exact_closure = naive_convex_closure::compute_closure(au, mev.get_ast_manager(), result);
+          if (exact_closure)
+          {
+              IF_VERBOSE(3, verbose_stream() << "Exact closure: " << mk_pp(result, mev.get_ast_manager()) << std::endl;);
+              node->set_post(result);
+          }
       }
       
       return node;
