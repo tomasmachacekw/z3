@@ -94,7 +94,7 @@ inline expr_equiv_class remove_eq_conds_tmp(expr_ref_vector& e)
                     if (m_a.is_minus_one(mult->get_arg(0))) {
                         e1 = first;
                         e2 = mult->get_arg(1);
-                    }
+            }
                 }
             }
             eq_classes.merge(e1, e2);
@@ -450,7 +450,6 @@ bool pred_transformer::add_lemma(expr * lemma, unsigned lvl, expr_ref_vector& bi
 
     return res;
 }
-
 
 void pred_transformer::add_lemma_from_child(pred_transformer& child,
         frames::lemma* lemma, unsigned lvl)
@@ -999,7 +998,7 @@ void pred_transformer::init_rules(decl2rel const& pts, expr_ref& init, expr_ref&
 
         transition = pm.mk_and(transitions);
         break;
-    }
+            }
     default:
         disj.push_back(m_extend_lit->get_arg(0));
         for (unsigned i = 0; i < transitions.size(); ++i) {
@@ -1072,7 +1071,7 @@ void pred_transformer::init_rule(
     }
 
     th_rewriter rw(m);
-    rw(fml);
+        rw(fml);
     if (ctx.get_params().spacer_blast_term_ite()) {
         blast_term_ite(fml);
         rw(fml);
@@ -1115,7 +1114,7 @@ void pred_transformer::ground_free_vars(expr* e, app_ref_vector& vars,
 
     while (vars.size() < fv.size()) {
         vars.push_back(0);
-    }
+        }
     for (unsigned i = 0; i < fv.size(); ++i) {
         if (fv[i] && !vars[i].get()) {
             vars[i] = m.mk_fresh_const("aux", fv[i]);
@@ -1249,7 +1248,6 @@ bool pred_transformer::legacy_frames::propagate_to_next_level(unsigned src_level
     unsigned tgt_level = next_level(src_level);
     m_pt.ensure_level(next_level(tgt_level));
 
-
     TRACE("spacer",
           tout << "propagating " << src_level << " to " << tgt_level;
           tout << " for relation " << m_pt.head()->get_name() << "\n";);
@@ -1293,10 +1291,10 @@ bool pred_transformer::legacy_frames::add_lemma(expr * lemma, unsigned lvl)
         if (!m_invariants.contains(lemma)) {
             m_invariants.push_back(lemma);
             m_prop2level.insert(lemma, lvl);
-            //m_pt.add_lemma_core (lemma, lvl);
-            return true;
-        }
-        return false;
+        //m_pt.add_lemma_core (lemma, lvl);
+        return true;
+    }
+    return false;
     }
 
     unsigned old_level;
@@ -1382,7 +1380,7 @@ bool pred_transformer::frames::add_lemma(expr * lemma, unsigned level, expr_ref_
                 TRACE("spacer", tout << "Already at a higher level: "
                       << pp_level(m_lemmas [i]->level()) << "\n";);
                 return false;
-            }
+        }
 
             m_lemmas [i]->set_level(level);
             m_lemmas [i]->add_binding(binding);
@@ -1450,8 +1448,7 @@ bool pred_transformer::frames::propagate_to_next_level(unsigned level)
                 frames::lemma* l = m_lemmas[j];
                 m_lemmas[j] = m_lemmas[j + 1];
                 m_lemmas[j + 1] = l;
-            }
-
+        }
         } else {
             all = false;
             ++i;
@@ -1695,7 +1692,6 @@ model_node *derivation::create_next_child(model_evaluator_util &mev)
                           m_parent.depth());
     n->set_post(post);
 
-
     IF_VERBOSE(1, verbose_stream()
                << "\n\tcreate_child: " << n->pt().head()->get_name()
                << " (" << n->level() << ", " << n->depth() << ") "
@@ -1905,7 +1901,7 @@ void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
                 rels.insert(pred, pt);
             }
         }
-    }
+        }
     // Initialize use list dependencies
     decl2rel::iterator it = rels.begin(), end = rels.end();
     for (; it != end; ++it) {
@@ -2026,7 +2022,7 @@ public:
             } else if (to_app(e)->get_num_args() > 0 &&
                        to_app(e)->get_family_id() != m.get_basic_family_id()) {
                 m_is_bool = false;
-            }
+        }
         }
 
         m_has_arith = m_has_arith || a.is_int_real(e);
@@ -2061,16 +2057,16 @@ private:
         expr_fast_mark1 mark;
         datalog::rule_set::iterator it = rules.begin(), end = rules.end();
         for (; it != end; ++it) {
-            datalog::rule& r = *(*it);
+                datalog::rule& r = *(*it);
             classify_pred(mark, r.get_head());
-            unsigned utsz = r.get_uninterpreted_tail_size();
+                unsigned utsz = r.get_uninterpreted_tail_size();
             for (unsigned i = 0; i < utsz; ++i) {
                 classify_pred(mark, r.get_tail(i));
             }
-            for (unsigned i = utsz; i < r.get_tail_size(); ++i) {
+                for (unsigned i = utsz; i < r.get_tail_size(); ++i) {
                 quick_for_each_expr(*this, mark, r.get_tail(i));
+                }
             }
-        }
         mark.reset();
 
         m_is_dl = false;
@@ -2779,8 +2775,8 @@ bool context::check_reachability()
     }
 
     UNREACHABLE();
-    return false;
-}
+        return false;
+    }
 
 /// check whether node n is concretely reachable
 bool context::is_reachable(model_node &n)
@@ -2812,7 +2808,6 @@ bool context::is_reachable(model_node &n)
     vector<bool> reach_pred_used;
     unsigned num_reuse_reach = 0;
 
-
     unsigned saved = n.level();
     n.m_level = infty_level();
     lbool res = n.pt().is_reachable(n, NULL, &model,
@@ -2825,8 +2820,7 @@ bool context::is_reachable(model_node &n)
                    << std::fixed << std::setprecision(2)
                    << watch.get_seconds() << "\n";);
         return false;
-    }
-
+        }
     SASSERT(res == l_true);
     SASSERT(is_concrete);
 
@@ -3431,12 +3425,13 @@ bool context::create_children(model_node& n, datalog::rule const& r,
         return false;
     }
     SASSERT(kid);
-    kid->set_derivation(deriv);
     // Remember the quantified variables
+        // XXX This is a hack. Quantified variables must be properly
+        // XXX handled when kid is created.
     if (!vars.empty()) {
-        app_ref_vector& qvars = kid->get_vars();
-        qvars.append(vars);
+            kid->set_qvars(vars);
     }
+        kid->set_derivation (deriv);
 
     // Optionally disable derivation optimization
     if (!get_params().use_derivations()) { kid->reset_derivation(); }
@@ -3624,7 +3619,7 @@ void context::add_constraints(unsigned level, expr_ref c)
             pred_transformer *r = 0;
             if (m_rels.find(to_app(e1)->get_decl(), r))
             { r->add_lemma(e2, level); }
-        }
+    }
     }
 }
 
@@ -3636,7 +3631,6 @@ void context::ensure_skolems(ptr_vector<sort>& sorts)
         m_skolems.push_back(m.mk_const(symbol(str.c_str()), sorts[v]));
     }
 }
-
 
 inline bool model_node_lt::operator()(const model_node *pn1, const model_node *pn2) const
 {
