@@ -92,8 +92,15 @@ class reach_fact {
     }
   };
 
+
+class lemma;
+typedef ref<lemma> lemma_ref;
+typedef sref_vector<lemma> lemma_ref_vector;
+
 // a lemma
 class lemma {
+    unsigned m_ref_count;
+
     ast_manager &m;
     expr_ref m_fml;
     expr_ref_vector m_bindings;
@@ -101,7 +108,7 @@ class lemma {
 
 public:
     lemma (ast_manager &manager, expr * fml, unsigned lvl) :
-        m(manager), m_fml (fml, m), m_bindings(m), m_lvl(lvl) {}
+        m_ref_count(0), m(manager), m_fml (fml, m), m_bindings(m), m_lvl(lvl) {}
 
     lemma (const lemma &other)
         : m(other.m), m_fml (other.m_fml), m_bindings(other.m_bindings), m_lvl (other.m_lvl) {}
@@ -113,6 +120,14 @@ public:
     void add_binding(expr_ref_vector& binding) {m_bindings.append(binding);}
     void create_instantiations(expr_ref_vector& inst, expr* fml = NULL);
     bool is_ground () const { return ::is_quantifier (m_fml); }
+
+    void inc_ref () {++m_ref_count;}
+    void dec_ref ()
+    {
+      SASSERT (m_ref_count > 0);
+      --m_ref_count;
+        if(m_ref_count == 0) { dealloc(this); }
+    }
 };
 
 struct lemma_lt_proc : public std::binary_function<const lemma*, const lemma *, bool> {
