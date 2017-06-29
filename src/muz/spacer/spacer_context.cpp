@@ -1239,9 +1239,7 @@ bool pred_transformer::frames::add_lemma(expr * lem, unsigned level, expr_ref_ve
             m_lemmas [i]->add_binding(binding);
             m_pt.add_lemma_core(m_lemmas[i]);
             for (unsigned j = i; (j + 1) < sz && m_lt(m_lemmas [j + 1], m_lemmas[j]); ++j) {
-                lemma* l = m_lemmas[j];
-                m_lemmas[j] = m_lemmas[j + 1];
-                m_lemmas[j + 1] = l;
+                m_lemmas.swap (j, j+1);
             }
 
             return true;
@@ -1271,7 +1269,7 @@ void pred_transformer::frames::sort()
     if (m_sorted) { return; }
 
     m_sorted = true;
-    std::sort(m_lemmas.begin(), m_lemmas.end(), m_lt);
+    std::sort(m_lemmas.c_ptr(), m_lemmas.c_ptr() + m_lemmas.size (), m_lt);
 }
 
 bool pred_transformer::frames::propagate_to_next_level(unsigned level)
@@ -1298,10 +1296,8 @@ bool pred_transformer::frames::propagate_to_next_level(unsigned level)
 
             // percolate the lemma up to its new place
             for (unsigned j = i; (j + 1) < sz && m_lt(m_lemmas[j + 1], m_lemmas[j]); ++j) {
-                lemma* l = m_lemmas[j];
-                m_lemmas[j] = m_lemmas[j + 1];
-                m_lemmas[j + 1] = l;
-        }
+                m_lemmas.swap(j, j + 1);
+            }
         } else {
             all = false;
             ++i;
@@ -1313,19 +1309,21 @@ bool pred_transformer::frames::propagate_to_next_level(unsigned level)
 
 void pred_transformer::frames::simplify_formulas()
 {
-    ast_manager &m = m_pt.get_ast_manager();
+    // ensure that the lemmas are sorted
     sort();
+    ast_manager &m = m_pt.get_ast_manager();
 
     tactic_ref simplifier = mk_unit_subsumption_tactic(m);
-    vector<lemma*> new_lemmas;
+    lemma_ref_vector new_lemmas;
 
     unsigned lemmas_size = m_lemmas.size();
-
     goal_ref g(alloc(goal, m, false, false, false));
 
     unsigned j = 0;
+    // for every frame + infinity frame
     for (unsigned i = 0; i <= m_size; ++i) {
         g->reset_all();
+        // normalize level
         unsigned level = i < m_size ? i : infty_level();
 
         model_converter_ref mc;
@@ -1333,8 +1331,15 @@ void pred_transformer::frames::simplify_formulas()
         expr_dependency_ref core(m);
         goal_ref_buffer result;
 
-        for (; j < lemmas_size && m_lemmas [j]->level() <= level; ++j)
-            if (m_lemmas [j]->level() == level) { g->assert_expr(m_lemmas [j]->get()); }
+        // simplify lemmas of the current level
+        // XXX lemmas of higher levels can be assumed in background
+        unsigned begin = j;
+        for (; j < lemmas_size && m_lemmas[j]->level() <= level; ++j) {
+            if (m_lemmas[j]->level() == level) {
+                g->assert_expr(m_lemmas[j]->get());
+            }
+        }
+        unsigned end = j;
 
         if (g->size() <= 0) { continue; }
 
@@ -1342,15 +1347,36 @@ void pred_transformer::frames::simplify_formulas()
         SASSERT(result.size() == 1);
         goal *r = result [0];
 
-        for (unsigned k = 0; k < r->size(); ++k)
-        { new_lemmas.push_back(alloc(lemma, m, r->form(k), level)); }
-        m_sorted = false;
+        // no simplification happened, copy all the lemmas
+        if (r->size () == end - begin) {
+            for (unsigned n = begin; n < end; ++n) {
+                new_lemmas.push_back (m_lemmas[n]);
+            }
+        }
+        // something got simplified, find out which lemmas remain
+        else {
+            // XXX linear search. optimize if needed
+            bool found;
+            for (unsigned k = 0; k < r->size(); ++k) {
+                found = false;
+                for (unsigned n = begin; n < end; ++n) {
+                    if (m_lemmas[n]->get() == r->form(k)) {
+                        new_lemmas.push_back(m_lemmas[n]);
+                        found = true;
+                        break;
+                    }
+                }
+                SASSERT(found);
+            }
+        }
     }
-    for (unsigned i = 0; i < m_lemmas.size(); i++)
-    { dealloc(m_lemmas[i]); }
-    m_lemmas.reset();
-    for (unsigned i = 0; i < new_lemmas.size(); i++)
-    { m_lemmas.push_back(new_lemmas[i]); }
+
+    if (new_lemmas.size() < m_lemmas.size()) {
+        m_lemmas.reset();
+        m_lemmas.append(new_lemmas);
+        m_sorted = false;
+        sort();
+    }
 }
 
 

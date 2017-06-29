@@ -160,7 +160,7 @@ class pred_transformer {
     class frames {
     private:
         pred_transformer &m_pt;
-        vector<lemma*> m_lemmas;
+        lemma_ref_vector m_lemmas;
         unsigned m_size;
 
         bool m_sorted;
@@ -170,12 +170,7 @@ class pred_transformer {
 
     public:
         frames (pred_transformer &pt) : m_pt (pt), m_size(0), m_sorted (true) {}
-        ~frames()
-            {
-                for (unsigned i=0; i < m_lemmas.size(); i++)
-                { dealloc(m_lemmas[i]); }
-                m_lemmas.reset();
-            }
+        ~frames() {}
         void simplify_formulas ();
 
         pred_transformer& pt () {return m_pt;}
