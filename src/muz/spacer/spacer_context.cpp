@@ -1333,6 +1333,7 @@ void pred_transformer::frames::simplify_formulas()
 
         // simplify lemmas of the current level
         // XXX lemmas of higher levels can be assumed in background
+        // XXX decide what to do with non-ground lemmas!
         unsigned begin = j;
         for (; j < lemmas_size && m_lemmas[j]->level() <= level; ++j) {
             if (m_lemmas[j]->level() == level) {
