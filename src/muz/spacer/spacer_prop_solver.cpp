@@ -242,49 +242,12 @@ namespace spacer {
             }
         }
 
-//        if (result == l_false && m_core && m.proofs_enabled() && !m_subset_based_core) {
-        if (result == l_false && m_core && m.proofs_enabled() && false) {
+        if (result == l_false && m_core && m.proofs_enabled() && !m_subset_based_core) {
             TRACE ("spacer", tout << "theory core\n";);
             m_core->reset ();
             m_ctx->get_itp_core (*m_core);
         }
         else if (result == l_false && m_core) {
-//            arith_util util(m);
-//            expr_ref t_1(util.mk_int(1), m);
-//            expr_ref t_2(util.mk_int(2), m);
-//            expr_ref t_3(util.mk_int(3), m);
-//            expr_ref t_4(util.mk_gt(util.mk_add(util.mk_add(t_1, t_1), t_1), t_3),m);
-//            expr_ref t_5(util.mk_gt(util.mk_add(util.mk_add(t_2, t_2), t_2), t_3),m);
-//            
-//            anti_unifier au(t_4,m);
-//            au.add_term(t_5);
-//            expr_ref t_6(m);
-//            obj_map<expr, ptr_vector<expr> > substitutions;
-//            au.finalize();
-//            t_6 = au.get_generalization();
-//            verbose_stream() << "generalization of AU: " << mk_pp(t_6,m) << "\n";
-//
-//            for (unsigned i=0; i < au.get_num_substitutions(); ++i)
-//            {
-//                expr_ref_vector pinned(m);
-//                auto substitution = au.get_substitution(i);
-//                verbose_stream() << "\nsubstitution: ";
-//                for (const auto& pair : substitution)
-//                {
-//                    verbose_stream() << "(" << mk_pp(&pair.get_key(),m) << "," << mk_pp(pair.get_value(),m) << "),";
-//                }
-//                verbose_stream() << "\n";
-//            }
-//            
-//            expr_ref t_7(m);
-//            naive_convex_closure::compute_closure(au, m, t_7);
-//            verbose_stream() << "closure: " << mk_pp(t_7,m) << "\n";
-//
-//            verbose_stream() << "yo " << mk_pp(t_4,m) << "\n";
-//            verbose_stream() << "yo " << mk_pp(t_5,m) << "\n";
-
-            
-            
             m_core->reset ();
             m_ctx->get_unsat_core (*m_core);
             // manually undo proxies because maxsmt() call above manually adds proxies

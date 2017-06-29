@@ -135,4 +135,24 @@ namespace spacer
         }
         verbose_stream() << "\n";
     }
+    
+    void spacer_matrix::normalize()
+    {
+        rational den = rational::one();
+        for (unsigned i=0; i < m_num_rows; ++i)
+        {
+            for (unsigned j=0; j < m_num_cols; ++j)
+            {
+                den = lcm(den, denominator(m_matrix[i][j]));
+            }
+        }
+        for (unsigned i=0; i < m_num_rows; ++i)
+        {
+            for (unsigned j=0; j < m_num_cols; ++j)
+            {
+                m_matrix[i][j] = den * m_matrix[i][j];
+                SASSERT(m_matrix[i][j].is_int());
+            }
+        }
+    }
 }

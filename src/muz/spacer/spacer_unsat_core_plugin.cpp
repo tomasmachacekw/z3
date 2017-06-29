@@ -461,6 +461,10 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         
         matrix.print_matrix();
 
+        // 3. normalize matrix to integer values
+        matrix.normalize();
+        
+        
         arith_util util(m);
         
         vector<expr_ref_vector> coeffs;
@@ -474,22 +478,23 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         {
             bounded_vectors.push_back(expr_ref_vector(m));
         }
-        
-        params_ref p;
-        p.set_bool("model", true);
-        
-        solver* s = mk_smt_solver(m, p, symbol::null);
        
-        // find smallest n using guess and check algorithm
+        // 4. find smallest n using guess and check algorithm
         for(unsigned n = 1; true; ++n)
         {
+            verbose_stream() << "New round:\n";
+
+            params_ref p;
+            p.set_bool("model", true);
+            solver* s = mk_smt_solver(m, p, symbol::null); // TODO: incremental version?
+            
             // add new variables w_in,
             for (unsigned i=0; i < matrix.num_rows(); ++i)
             {
                 std::string name = "w_" + std::to_string(i) + std::to_string(n);
 
                 func_decl_ref decl(m);
-                decl = m.mk_func_decl(symbol(name.c_str()), 0, (sort*const*)0, util.mk_real());
+                decl = m.mk_func_decl(symbol(name.c_str()), 0, (sort*const*)0, util.mk_int());
                 coeffs[i].push_back(m.mk_const(decl));
             }
             
@@ -499,17 +504,26 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 std::string name = "s_" + std::to_string(j) + std::to_string(n);
 
                 func_decl_ref decl(m);
-                decl = m.mk_func_decl(symbol(name.c_str()), 0, (sort*const*)0, util.mk_real());
+                decl = m.mk_func_decl(symbol(name.c_str()), 0, (sort*const*)0, util.mk_int());
                 
                 expr_ref s_jn(m);
                 s_jn = m.mk_const(decl);
                 
                 bounded_vectors[j].push_back(s_jn);
-                verbose_stream() << "asserting " << mk_pp(util.mk_le(util.mk_int(0), s_jn),m) << "\n";
-                verbose_stream() << "asserting " << mk_pp(util.mk_le(s_jn, util.mk_int(1)),m) << "\n";
-
-                s->assert_expr(util.mk_le(util.mk_int(0), s_jn));
-                s->assert_expr(util.mk_le(s_jn, util.mk_int(1)));
+            }
+            
+            // assert bounds for all s_jn
+            for (unsigned l=0; l < n; ++l)
+            {
+                for (unsigned j=0; j < matrix.num_cols(); ++j)
+                {
+                    expr* s_jn = bounded_vectors[j][l].get();
+                    
+                    expr_ref lb(util.mk_le(util.mk_int(0), s_jn), m);
+                    expr_ref ub(util.mk_le(s_jn, util.mk_int(1)), m);
+                    s->assert_expr(lb);
+                    s->assert_expr(ub);
+                }
             }
             
             // assert: forall i,j: a_ij = sum_k w_ik * s_jk
@@ -517,7 +531,8 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             {
                 for (unsigned j=0; j < matrix.num_cols(); ++j)
                 {
-                    app_ref a_ij(util.mk_numeral(matrix.get(i,j), matrix.get(i,j).is_int()),m);
+                    SASSERT(matrix.get(i, j).is_int());
+                    app_ref a_ij(util.mk_numeral(matrix.get(i,j), true),m);
                     
                     app_ref sum(m);
                     sum = util.mk_int(0);
@@ -525,8 +540,8 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                     {
                         sum = util.mk_add(sum, util.mk_mul(coeffs[i][k].get(), bounded_vectors[j][k].get()));
                     }
-                    verbose_stream() << "asserting " << mk_pp(m.mk_eq(a_ij, sum),m) << "\n";
-                    s->assert_expr(m.mk_eq(a_ij, sum));
+                    expr_ref eq(m.mk_eq(a_ij, sum),m);
+                    s->assert_expr(eq);
                 }
             }
             
