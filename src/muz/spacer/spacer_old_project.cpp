@@ -66,7 +66,7 @@ Notes:
 #include "datatype_decl_plugin.h"
 #include "bv_decl_plugin.h"
 
-#include "old_mev.h"
+#include "spacer_legacy_mev.h"
 
 namespace spacer {
 void qe_project(ast_manager& m, app_ref_vector& vars, expr_ref& fml, model_ref& M, expr_map& map)

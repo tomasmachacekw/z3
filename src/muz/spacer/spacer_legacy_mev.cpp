@@ -14,7 +14,7 @@
 #include "rewriter_def.h"
 #include "util.h"
 #include "spacer_manager.h"
-#include "old_mev.h"
+#include "spacer_legacy_mev.h"
 #include "spacer_util.h"
 #include "arith_decl_plugin.h"
 #include "expr_replacer.h"
