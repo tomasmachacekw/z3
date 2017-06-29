@@ -1221,36 +1221,86 @@ void lemma::create_instantiations(expr_ref_vector& inst, expr* fml)
     }
 }
 
-bool pred_transformer::frames::add_lemma(expr * lem, unsigned level, expr_ref_vector& binding)
+bool pred_transformer::frames::add_lemma(lemma *lem)
 {
-    TRACE("spacer", tout << "add-lemma: " << pp_level(level) << " "
+    TRACE("spacer", tout << "add-lemma: " << pp_level(lem->level()) << " "
           << m_pt.head()->get_name() << " "
-          << mk_pp(lem, m_pt.get_ast_manager()) << "\n";);
+          << mk_pp(lem->get(), m_pt.get_ast_manager()) << "\n";);
 
-    for (unsigned i = 0, sz = m_lemmas.size(); i < sz; ++i)
-        if (m_lemmas [i]->get() == lem && binding.empty()) {
-            if (m_lemmas [i]->level() >= level) {
+    for (unsigned i = 0, sz = m_lemmas.size(); i < sz; ++i) {
+        if (m_lemmas [i]->get() == lem->get()) {
+            // extend bindings if needed
+            if (!lem->get_bindings().empty()) {
+                m_lemmas [i]->add_binding(lem->get_bindings());
+            }
+            // if the lemma is at a higher level, skip it
+            // XXX if there are new bindings, we need to assert new instances
+            if (m_lemmas [i]->level() >= lem->level()) {
                 TRACE("spacer", tout << "Already at a higher level: "
                       << pp_level(m_lemmas [i]->level()) << "\n";);
                 return false;
-        }
+            }
 
-            m_lemmas [i]->set_level(level);
-            m_lemmas [i]->add_binding(binding);
+            // update level of the existing lemma
+            m_lemmas [i]->set_level(lem->level());
+            // assert lemma in the solver
             m_pt.add_lemma_core(m_lemmas[i]);
+            // move the lemma to its new place to maintain sortedness
             for (unsigned j = i; (j + 1) < sz && m_lt(m_lemmas [j + 1], m_lemmas[j]); ++j) {
                 m_lemmas.swap (j, j+1);
             }
 
             return true;
         }
+    }
 
+    // did not find, create new lemma
+    m_lemmas.push_back(lem);
+    m_sorted = false;
+    m_pt.add_lemma_core(lem);
+    return true;
+}
+
+
+bool pred_transformer::frames::add_lemma(expr * lem, unsigned level, expr_ref_vector& binding)
+{
+    TRACE("spacer", tout << "add-lemma: " << pp_level(level) << " "
+          << m_pt.head()->get_name() << " "
+          << mk_pp(lem, m_pt.get_ast_manager()) << "\n";);
+
+    for (unsigned i = 0, sz = m_lemmas.size(); i < sz; ++i) {
+        if (m_lemmas [i]->get() == lem) {
+            // extend bindings if needed
+            if (!binding.empty()) {
+                m_lemmas [i]->add_binding(binding);
+            }
+            // if the lemma is at a higher level, skip it
+            // XXX if there are new bindings, we need to assert new instances
+            if (m_lemmas [i]->level() >= level) {
+                TRACE("spacer", tout << "Already at a higher level: "
+                      << pp_level(m_lemmas [i]->level()) << "\n";);
+                return false;
+            }
+
+            // update level of the existing lemma
+            m_lemmas [i]->set_level(level);
+            // assert lemma in the solver
+            m_pt.add_lemma_core(m_lemmas[i]);
+            // move the lemma to its new place to maintain sortedness
+            for (unsigned j = i; (j + 1) < sz && m_lt(m_lemmas [j + 1], m_lemmas[j]); ++j) {
+                m_lemmas.swap (j, j+1);
+            }
+
+            return true;
+        }
+    }
+
+    // did not find, create new lemma
     lemma *phi = alloc(lemma, m_pt.get_ast_manager(), lem, level);
     phi->add_binding(binding);
     m_lemmas.push_back(phi);
     m_sorted = false;
     m_pt.add_lemma_core(phi);
-    //m_pt.add_lemma_core (m_lemmas.back ()->get (), m_lemmas.back ()->level ());
     return true;
 }
 

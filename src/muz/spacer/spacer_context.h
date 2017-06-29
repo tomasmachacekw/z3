@@ -199,6 +199,7 @@ class pred_transformer {
             }
 
         bool add_lemma (expr * lemma, unsigned level, expr_ref_vector& binding);
+        bool add_lemma (lemma *lem);
         void propagate_to_infinity (unsigned level);
         bool propagate_to_next_level (unsigned level);
 
@@ -324,12 +325,11 @@ public:
     bool propagate_to_next_level(unsigned level);
     void propagate_to_infinity(unsigned level);
     /// \brief  Add a lemma to the current context and all users
-    bool add_lemma (expr * lemma, unsigned lvl, expr_ref_vector& binding);
-    bool add_lemma(expr * lemma, unsigned lvl)
-        {
-            expr_ref_vector binding(m);
-            return add_lemma(lemma, lvl, binding);
-        }
+    bool add_lemma(expr * lemma, unsigned lvl, expr_ref_vector& binding);
+    bool add_lemma(expr * lemma, unsigned lvl) {
+        expr_ref_vector binding(m);
+        return add_lemma(lemma, lvl, binding);
+    }
     expr* get_reach_case_var (unsigned idx) const;
     bool has_reach_facts () const { return !m_reach_facts.empty () ;}
 
