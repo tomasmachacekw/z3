@@ -399,7 +399,7 @@ bool pred_transformer::propagate_to_next_level(unsigned src_level)
 
 
 /// \brief adds a lema to the solver and to child solvers
-void pred_transformer::add_lemma_core(frames::lemma* lemma)
+void pred_transformer::add_lemma_core(lemma* lemma)
 {
     unsigned lvl = lemma->level();
     expr* l = lemma->get();
@@ -452,7 +452,7 @@ bool pred_transformer::add_lemma(expr * lemma, unsigned lvl, expr_ref_vector& bi
 }
 
 void pred_transformer::add_lemma_from_child(pred_transformer& child,
-        frames::lemma* lemma, unsigned lvl)
+        lemma* lemma, unsigned lvl)
 {
     ensure_level(lvl);
     expr_ref_vector fmls(m);
@@ -544,7 +544,7 @@ void pred_transformer::add_reach_fact(reach_fact *fact)
     TRACE("spacer",
           tout << "updating reach ctx: " << mk_pp(fml, m) << "\n";);
 
-    frames::lemma lem(m, fml, infty_level());
+    lemma lem(m, fml, infty_level());
     // update users; reach facts are independent of levels
     for (unsigned i = 0; i < m_use.size(); ++i) {
         m_use[i]->add_lemma_from_child(*this, &lem, infty_level());
@@ -1202,7 +1202,7 @@ void pred_transformer::inherit_properties(pred_transformer& other)
 
 
 
-void pred_transformer::frames::lemma::create_instantiations(expr_ref_vector& inst, expr* fml)
+void lemma::create_instantiations(expr_ref_vector& inst, expr* fml)
 {
     if (!is_quantifier(m_fml) || m_bindings.empty())
     { return; }
@@ -1221,7 +1221,7 @@ void pred_transformer::frames::lemma::create_instantiations(expr_ref_vector& ins
     }
 }
 
-bool pred_transformer::frames::lemma::binding_exists(expr_ref_vector& binding)
+bool lemma::binding_exists(expr_ref_vector& binding)
 {
     if (!is_quantifier(m_fml) || m_bindings.empty())
     { return false; }
@@ -1239,14 +1239,14 @@ bool pred_transformer::frames::lemma::binding_exists(expr_ref_vector& binding)
     return false;
 }
 
-bool pred_transformer::frames::add_lemma(expr * lemma, unsigned level, expr_ref_vector& binding)
+bool pred_transformer::frames::add_lemma(expr * lem, unsigned level, expr_ref_vector& binding)
 {
     TRACE("spacer", tout << "add-lemma: " << pp_level(level) << " "
           << m_pt.head()->get_name() << " "
-          << mk_pp(lemma, m_pt.get_ast_manager()) << "\n";);
+          << mk_pp(lem, m_pt.get_ast_manager()) << "\n";);
 
     for (unsigned i = 0, sz = m_lemmas.size(); i < sz; ++i)
-        if (m_lemmas [i]->get() == lemma && binding.empty()) {
+        if (m_lemmas [i]->get() == lem && binding.empty()) {
             if (m_lemmas [i]->level() >= level) {
                 TRACE("spacer", tout << "Already at a higher level: "
                       << pp_level(m_lemmas [i]->level()) << "\n";);
@@ -1257,7 +1257,7 @@ bool pred_transformer::frames::add_lemma(expr * lemma, unsigned level, expr_ref_
             m_lemmas [i]->add_binding(binding);
             m_pt.add_lemma_core(m_lemmas[i]);
             for (unsigned j = i; (j + 1) < sz && m_lt(m_lemmas [j + 1], m_lemmas[j]); ++j) {
-                frames::lemma* l = m_lemmas[j];
+                lemma* l = m_lemmas[j];
                 m_lemmas[j] = m_lemmas[j + 1];
                 m_lemmas[j + 1] = l;
             }
@@ -1265,11 +1265,11 @@ bool pred_transformer::frames::add_lemma(expr * lemma, unsigned level, expr_ref_
             return true;
         }
 
-    frames::lemma *lem = alloc(frames::lemma, m_pt.get_ast_manager(), lemma, level);
-    lem->add_binding(binding);
-    m_lemmas.push_back(lem);
+    lemma *phi = alloc(lemma, m_pt.get_ast_manager(), lem, level);
+    phi->add_binding(binding);
+    m_lemmas.push_back(phi);
     m_sorted = false;
-    m_pt.add_lemma_core(lem);
+    m_pt.add_lemma_core(phi);
     //m_pt.add_lemma_core (m_lemmas.back ()->get (), m_lemmas.back ()->level ());
     return true;
 }
@@ -1316,7 +1316,7 @@ bool pred_transformer::frames::propagate_to_next_level(unsigned level)
 
             // percolate the lemma up to its new place
             for (unsigned j = i; (j + 1) < sz && m_lt(m_lemmas[j + 1], m_lemmas[j]); ++j) {
-                frames::lemma* l = m_lemmas[j];
+                lemma* l = m_lemmas[j];
                 m_lemmas[j] = m_lemmas[j + 1];
                 m_lemmas[j + 1] = l;
         }

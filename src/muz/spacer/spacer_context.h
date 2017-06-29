@@ -92,13 +92,45 @@ class reach_fact {
     }
   };
 
+// a lemma
+class lemma {
+    ast_manager &m;
+    expr_ref m_fml;
+    expr_ref_vector m_bindings;
+    unsigned m_lvl;
+
+public:
+    lemma (ast_manager &manager, expr * fml, unsigned lvl) :
+        m(manager), m_fml (fml, m), m_bindings(m), m_lvl(lvl) {}
+
+    lemma (const lemma &other)
+        : m(other.m), m_fml (other.m_fml), m_bindings(other.m_bindings), m_lvl (other.m_lvl) {}
+
+    expr * get () const {return m_fml.get ();}
+    unsigned level () const {return m_lvl;}
+    void set_level (unsigned lvl) { m_lvl = lvl;}
+    expr_ref_vector& get_bindings() { return m_bindings; }
+    void add_binding(expr_ref_vector& binding) {m_bindings.append(binding);}
+    void create_instantiations(expr_ref_vector& inst, expr* fml = NULL);
+    bool binding_exists(expr_ref_vector& binding);
+    bool is_forall () {return m_fml && ::is_forall (m_fml);}
+};
+
+struct lemma_lt_proc : public std::binary_function<const lemma*, const lemma *, bool> {
+    bool operator() (const lemma *a, const lemma *b) {
+        return (a->level () < b->level ()) ||
+            (a->level () == b->level () &&
+             ast_lt_proc() (a->get (), b->get ()));
+    }
+};
 
 
-    //
-    // Predicate transformer state.
-    // A predicate transformer corresponds to the
-    // set of rules that have the same head predicates.
-    //
+
+//
+// Predicate transformer state.
+// A predicate transformer corresponds to the
+// set of rules that have the same head predicates.
+//
 
 class pred_transformer {
 
@@ -112,47 +144,13 @@ class pred_transformer {
     /// manager of the lemmas in all the frames
 #include "spacer_legacy_frames.h"
     class frames {
-    public:
-        class lemma {
-            ast_manager &m;
-            expr_ref m_fml;
-            expr_ref_vector m_bindings;
-            unsigned m_lvl;
-
-        public:
-            lemma (ast_manager &manager, expr * fml, unsigned lvl) :
-                m(manager), m_fml (fml, m), m_bindings(m), m_lvl(lvl) {}
-
-            lemma (const lemma &other)
-                : m(other.m), m_fml (other.m_fml), m_bindings(other.m_bindings), m_lvl (other.m_lvl) {}
-
-            expr * get () const {return m_fml.get ();}
-            unsigned level () const {return m_lvl;}
-            void set_level (unsigned lvl) { m_lvl = lvl;}
-            expr_ref_vector& get_bindings() { return m_bindings; }
-            void add_binding(expr_ref_vector& binding) {m_bindings.append(binding);}
-            void create_instantiations(expr_ref_vector& inst, expr* fml = NULL);
-            bool binding_exists(expr_ref_vector& binding);
-            bool is_forall () {return m_fml && ::is_forall (m_fml);}
-        };
-
-        struct lemmas_lt_proc :
-            public std::binary_function<const lemma*, const lemma *, bool> {
-            bool operator() (const lemma *a, const lemma *b)
-                {
-                    return (a->level () < b->level ()) ||
-                        (a->level () == b->level () &&
-                         ast_lt_proc() (a->get (), b->get ()));
-                }
-        };
     private:
-
         pred_transformer &m_pt;
         vector<lemma*> m_lemmas;
         unsigned m_size;
 
         bool m_sorted;
-        lemmas_lt_proc m_lt;
+        lemma_lt_proc m_lt;
 
         void sort ();
 
@@ -241,8 +239,8 @@ class pred_transformer {
 
     void init_sig();
     void ensure_level(unsigned level);
-    void add_lemma_core (frames::lemma *lemma);
-    void add_lemma_from_child (pred_transformer &child, frames::lemma *lemma, unsigned lvl);
+    void add_lemma_core (lemma *lemma);
+    void add_lemma_from_child (pred_transformer &child, lemma *lemma, unsigned lvl);
 
     void mk_assumptions(func_decl* head, expr* fml, expr_ref_vector& result);
 
