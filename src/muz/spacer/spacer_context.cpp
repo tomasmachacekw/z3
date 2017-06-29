@@ -1221,24 +1221,6 @@ void lemma::create_instantiations(expr_ref_vector& inst, expr* fml)
     }
 }
 
-bool lemma::binding_exists(expr_ref_vector& binding)
-{
-    if (!is_quantifier(m_fml) || m_bindings.empty())
-    { return false; }
-    expr_ref body(m);
-    body = to_quantifier(m_fml)->get_expr();
-    unsigned num_decls = to_quantifier(m_fml)->get_num_decls();
-    unsigned size = m_bindings.size() / num_decls;
-    for (unsigned i = 0, offset = 0; i < size; i++, offset += num_decls) {
-        bool eq = true;
-        for (unsigned j = 0; j < binding.size() && eq; j++)
-            if (m_bindings.get(offset + j)->hash() != binding.get(j)->hash())
-            { eq = false; }
-        if (eq) { return true; }
-    }
-    return false;
-}
-
 bool pred_transformer::frames::add_lemma(expr * lem, unsigned level, expr_ref_vector& binding)
 {
     TRACE("spacer", tout << "add-lemma: " << pp_level(level) << " "
