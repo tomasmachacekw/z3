@@ -2955,6 +2955,7 @@ lbool context::expand_node(model_node& n)
             std::string str("zk!");
             find_decls(lemma.get(), qvars, str);
             std::sort(qvars.c_ptr(), qvars.c_ptr() + qvars.size(), sk_lt_proc(m_skolems));
+            expr_ref_vector binding(m);
             if (!n.is_ground() && qvars.size() > 0) {
                 if (contains_selects(lemma.get(), m)) {
                     app_ref_vector rqvars(qvars);
@@ -2974,6 +2975,7 @@ lbool context::expand_node(model_node& n)
                                             sorts.c_ptr(),
                                             names.c_ptr(),
                                             lemma, 0, qid);
+                    n.get_binding(qvars, m_skolems, binding);
                 } else {
                     if (!m.is_true(lemma)) {
                         // Create the generalized cube
@@ -3000,8 +3002,6 @@ lbool context::expand_node(model_node& n)
             TRACE("spacer", tout << "invariant state: "
                   << (is_infty_level(uses_level) ? "(inductive)" : "")
                   <<  mk_pp(lemma, m) << "\n";);
-            expr_ref_vector binding(m);
-            n.get_binding(qvars, m_skolems, binding);
             bool v = n.pt().add_lemma(lemma, uses_level, binding);
             if (v) { m_stats.m_num_lemmas++; }
 
@@ -3359,9 +3359,9 @@ bool context::create_children(model_node& n, datalog::rule const& r,
         // XXX This is a hack. Quantified variables must be properly
         // XXX handled when kid is created.
     if (!vars.empty()) {
-            kid->set_qvars(vars);
+        kid->set_qvars(vars);
     }
-        kid->set_derivation (deriv);
+    kid->set_derivation (deriv);
 
     // Optionally disable derivation optimization
     if (!get_params().use_derivations()) { kid->reset_derivation(); }
