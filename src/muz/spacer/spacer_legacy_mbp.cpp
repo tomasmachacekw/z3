@@ -24,11 +24,11 @@ Released under the MIT License (LICENSE.txt)
 
 Module Name:
 
-    spacer_old_project.cpp
+    spacer_legacy_mbp.cpp
 
 Abstract:
 
-   Old projection utilities. Used by Grigory
+   Legacy Model Based Projection. Used by Grigory Fedyukovich
 
 Author:
 
