@@ -330,6 +330,7 @@ public:
         expr_ref_vector binding(m);
         return add_lemma(lemma, lvl, binding);
     }
+    bool add_lemma(lemma* lem) {return m_frames.add_lemma(lem);}
     expr* get_reach_case_var (unsigned idx) const;
     bool has_reach_facts () const { return !m_reach_facts.empty () ;}
 
