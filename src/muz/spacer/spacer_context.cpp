@@ -424,7 +424,7 @@ void pred_transformer::add_lemma_core(lemma* lemma)
 
     if (is_infty_level(lvl)) { m_stats.m_num_invariants++; }
 
-    if (!lemma->is_forall()) {
+    if (lemma->is_ground()) {
         if (is_infty_level(lvl)) { m_solver.assert_expr(l); }
         else {
             ensure_level(lvl);
@@ -467,7 +467,7 @@ void pred_transformer::add_lemma_from_child(pred_transformer& child,
         for (unsigned j = 0; j < inst.size(); j++) {
             inst.set(j, m.mk_implies(a, inst.get(j)));
         }
-        if (!lemma->is_forall() || get_context().use_qlemmas())
+        if (lemma->is_ground() || get_context().use_qlemmas())
         { inst.push_back(fmls.get(i)); }
         SASSERT(!inst.empty());
         for (unsigned j = 0; j < inst.size(); ++j) {

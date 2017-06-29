@@ -112,7 +112,7 @@ public:
     expr_ref_vector& get_bindings() { return m_bindings; }
     void add_binding(expr_ref_vector& binding) {m_bindings.append(binding);}
     void create_instantiations(expr_ref_vector& inst, expr* fml = NULL);
-    bool is_forall () {return m_fml && ::is_forall (m_fml);}
+    bool is_ground () const { return ::is_quantifier (m_fml); }
 };
 
 struct lemma_lt_proc : public std::binary_function<const lemma*, const lemma *, bool> {
