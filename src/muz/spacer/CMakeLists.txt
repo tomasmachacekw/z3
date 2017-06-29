@@ -1,6 +1,7 @@
 z3_add_component(spacer
   SOURCES
   old_mev.cpp
+  spacer_legacy_frames.cpp
   spacer_context.cpp
   spacer_dl_interface.cpp
   spacer_farkas_learner.cpp
