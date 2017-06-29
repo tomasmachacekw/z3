@@ -96,27 +96,12 @@ namespace spacer
                 
                 ++i;
                 ++j;
-                
-                if (get_verbosity_level() >= 3)
-                {
-                    verbose_stream() << "Matrix after a step:\n";
-                    for (const auto& row : m_matrix)
-                    {
-                        for (const auto& element : row)
-                        {
-                            verbose_stream() << element << ", ";
-                        }
-                        verbose_stream() << "\n";
-                    }
-                    verbose_stream() << "\n";
-                }
             }
         }
         
         if (get_verbosity_level() >= 1)
         {
             SASSERT(m_matrix.size() > 0);
-            verbose_stream() << "Number of nonzero rows after transformation: " << i << "\n";
         }
         
         return i; //i points to the row after the last row which is non-zero

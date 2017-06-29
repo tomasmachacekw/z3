@@ -30,7 +30,9 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
 
     proof_utils::reduce_hypotheses(pr);
     proof_utils::permute_unit_resolution(pr);
-    IF_VERBOSE(3, verbose_stream() << "Reduced proof:\n" << mk_ismt2_pp(pr, m) << "\n";);
+    STRACE("spacer.unsat_core_learner",
+           verbose_stream() << "Reduced proof:\n" << mk_ismt2_pp(pr, m) << "\n";
+    );
     
     // compute symbols occuring in B
     collect_symbols_b(asserted_b);
@@ -40,7 +42,6 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
     while (it.hasNext())
     {
         proof* currentNode = it.next();
-        //            verbose_stream() << mk_pp(m.get_fact(currentNode), m) << std::endl;
         
         if (m.get_num_parents(currentNode) == 0)
         {
@@ -271,8 +272,6 @@ void unsat_core_learner::set_closed(proof* p, bool value)
     
     void unsat_core_learner::add_lemma_to_core(expr* lemma)
     {
-        IF_VERBOSE(3, verbose_stream() << "Add lemma to unsat core:"
-                   << mk_pp(lemma, m) << " " << lemma->get_id() << "\n";);
         m_unsat_core.push_back(lemma);
     }
 

@@ -1608,45 +1608,6 @@ namespace spacer {
     m_active = 0;
       model_node* node = create_next_child (mev);
       
-//      // try to merge cti with as many parents as possible
-//      IF_VERBOSE(1, verbose_stream() << "\nCTI before merging: " << mk_pp(node->post(), mev.get_ast_manager()) << "\n";);
-//      anti_unifier au(node->post(), mev.get_ast_manager());
-//
-//      model_node* current = node;
-//      while (true)
-//      {
-//          if (current->parent() && &(current->pt()) == &(current->parent()->pt())) // TODO: restrict this to CTIs of the same predicate
-//          {
-//              current = current->parent();
-//              
-//              IF_VERBOSE(1, verbose_stream() << "Trying to anti-unify with CTI: " << mk_pp(current->post(), mev.get_ast_manager()) << std::endl;);
-//              if (!au.add_term(current->post()))
-//              {
-//                  break;
-//              }
-//          }
-//          else
-//          {
-//              break;
-//          }
-//      }
-//      
-//      au.finalize();
-//      
-//      // if we found any parent we want to merge with the node (which is also different from the node)
-//      SASSERT(au.get_num_substitutions() > 0);
-//      if (au.get_substitution(0).size() > 0)
-//      {
-//          expr_ref result(mev.get_ast_manager());
-//          bool exact_closure = naive_convex_closure::compute_closure(au, mev.get_ast_manager(), result);
-//          if (exact_closure)
-//          {
-//              IF_VERBOSE(1, verbose_stream() << "Exact closure: " << mk_pp(result, mev.get_ast_manager()) << std::endl;);
-//              TRACE("spacer", tout << "Exact closure: " << mk_pp(result, mev.get_ast_manager()) << std::endl;);
-//              node->set_post(result);
-//          }
-//      }
-      
       return node;
   }
   

@@ -311,7 +311,7 @@ namespace spacer {
             
             if (m_farkas_optimized)
             {
-                if (false)
+                if (true) // TODO: proper options
                 {
                     unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner,m);
                     learner.register_plugin(plugin_farkas_lemma_optimized);

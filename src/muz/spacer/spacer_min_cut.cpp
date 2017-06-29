@@ -23,7 +23,9 @@ namespace spacer {
             m_edges.resize(i + 1);
         }
         m_edges[i].insert(std::make_pair(j, 1));
-        IF_VERBOSE(3, verbose_stream() << "adding edge (" << i << "," << j << ")\n";);
+        STRACE("spacer.mincut",
+               verbose_stream() << "adding edge (" << i << "," << j << ")\n";
+        );
 
     }
     
