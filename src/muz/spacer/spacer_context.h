@@ -103,7 +103,7 @@ class lemma {
 
     ast_manager &m;
     expr_ref m_fml;
-    expr_ref_vector m_bindings;
+    app_ref_vector m_bindings;
     unsigned m_lvl;
 
 public:
@@ -116,9 +116,9 @@ public:
     expr * get () const {return m_fml.get ();}
     unsigned level () const {return m_lvl;}
     void set_level (unsigned lvl) { m_lvl = lvl;}
-    expr_ref_vector& get_bindings() { return m_bindings; }
-    void add_binding(expr_ref_vector& binding) {m_bindings.append(binding);}
-    void create_instantiations(expr_ref_vector& inst, expr* fml = NULL);
+    app_ref_vector& get_bindings() { return m_bindings; }
+    void add_binding(app_ref_vector& binding) {m_bindings.append(binding);}
+    void mk_insts(expr_ref_vector& inst, expr* fml = nullptr);
     bool is_ground () const { return ::is_quantifier (m_fml); }
 
     void inc_ref () {++m_ref_count;}
@@ -198,7 +198,7 @@ class pred_transformer {
                 m_sorted = false;
             }
 
-        bool add_lemma (expr * lemma, unsigned level, expr_ref_vector& binding);
+        bool add_lemma (expr * lemma, unsigned level, app_ref_vector& binding);
         bool add_lemma (lemma *lem);
         void propagate_to_infinity (unsigned level);
         bool propagate_to_next_level (unsigned level);
@@ -325,9 +325,9 @@ public:
     bool propagate_to_next_level(unsigned level);
     void propagate_to_infinity(unsigned level);
     /// \brief  Add a lemma to the current context and all users
-    bool add_lemma(expr * lemma, unsigned lvl, expr_ref_vector& binding);
+    bool add_lemma(expr * lemma, unsigned lvl, app_ref_vector& binding);
     bool add_lemma(expr * lemma, unsigned lvl) {
-        expr_ref_vector binding(m);
+        app_ref_vector binding(m);
         return add_lemma(lemma, lvl, binding);
     }
     bool add_lemma(lemma* lem) {return m_frames.add_lemma(lem);}
@@ -396,6 +396,9 @@ public:
     pred_transformer&       m_pt;
     /// post-condition decided by this node
     expr_ref                m_post;
+    // if m_post is not ground, then m_binding is an instantiation for
+    // all quantified variables
+    app_ref_vector          m_binding;
     /// new post to be swapped in for m_post
     expr_ref                m_new_post;
     /// level at which to decide the post
@@ -413,21 +416,11 @@ public:
     scoped_ptr<derivation>   m_derivation;
 
     ptr_vector<model_node>  m_kids;
-
-    app_ref_vector         m_vars;
-
   public:
-    model_node (model_node* parent, pred_transformer& pt, unsigned level, unsigned depth=0):
-      m_ref_count (0),
-      m_parent (parent), m_pt (pt),
-      m_post (m_pt.get_ast_manager ()),
-      m_new_post (m_pt.get_ast_manager ()),
-      m_level (level), m_depth (depth),
-      m_open (true), m_use_farkas (true), m_weakness(0),
-      m_vars (m_pt.get_ast_manager ())
-    {if(m_parent) { m_parent->add_child(*this); }}
+      model_node (model_node* parent, pred_transformer& pt,
+                  unsigned level, unsigned depth=0);
 
-    ~model_node() {if(m_parent) { m_parent->erase_child(*this); }}
+      ~model_node() {if(m_parent) { m_parent->erase_child(*this); }}
 
       unsigned weakness() {return m_weakness;}
       void bump_weakness() {m_weakness++;}
@@ -435,101 +428,59 @@ public:
 
       void inc_level () {m_level++; m_depth++;reset_weakness();}
 
-    void set_derivation (derivation *d) {m_derivation = d;}
-    bool has_derivation () const {return (bool)m_derivation;}
-    derivation &get_derivation() const {return *m_derivation.get ();}
-    void reset_derivation () {set_derivation (NULL);}
-    /// detaches derivation from the node without deallocating
-    derivation* detach_derivation () {return m_derivation.detach ();}
+      void set_derivation (derivation *d) {m_derivation = d;}
+      bool has_derivation () const {return (bool)m_derivation;}
+      derivation &get_derivation() const {return *m_derivation.get ();}
+      void reset_derivation () {set_derivation (NULL);}
+      /// detaches derivation from the node without deallocating
+      derivation* detach_derivation () {return m_derivation.detach ();}
 
-    model_node* parent () const { return m_parent.get (); }
+      model_node* parent () const { return m_parent.get (); }
 
-    pred_transformer& pt () const { return m_pt; }
-    ast_manager& get_ast_manager () const { return m_pt.get_ast_manager (); }
-    manager& get_manager () const { return m_pt.get_manager (); }
-    context& get_context () const {return m_pt.get_context ();}
+      pred_transformer& pt () const { return m_pt; }
+      ast_manager& get_ast_manager () const { return m_pt.get_ast_manager (); }
+      manager& get_manager () const { return m_pt.get_manager (); }
+      context& get_context () const {return m_pt.get_context ();}
 
-    unsigned level () const { return m_level; }
-    unsigned depth () const {return m_depth;}
+      unsigned level () const { return m_level; }
+      unsigned depth () const {return m_depth;}
 
-    bool use_farkas_generalizer () const {return m_use_farkas;}
-    void set_farkas_generalizer (bool v) {m_use_farkas = v;}
+      bool use_farkas_generalizer () const {return m_use_farkas;}
+      void set_farkas_generalizer (bool v) {m_use_farkas = v;}
 
-    expr* post () const { return m_post.get (); }
-    void set_post (expr* post) { normalize(post, m_post); }
+      expr* post () const { return m_post.get (); }
+      void set_post(expr *post);
+      void set_post(expr *post, app_ref_vector const &b);
 
-    const app_ref_vector &get_vars () {return m_vars;}
-    void set_qvars (app_ref_vector const &vars) {
-        m_vars.reset();
-        m_vars.append(vars);
-    }
-    void get_qvars(app_ref_vector& skolems, app_ref_vector& qvars)
-    {
-        for (unsigned v=0; v < m_vars.size(); v++)
-        { qvars.push_back(skolems[v].get()); }
-    }
-    void get_binding(
-            const app_ref_vector& occur,
-            const app_ref_vector& skolems,
-        expr_ref_vector& binding)
-    {
-        if(occur.empty()) { return; }
-        for (unsigned i=0, j=0; i < occur.size(); i++) {
-            while (j < skolems.size()) {
-                app* sk = skolems.get(j);
-                if (sk->hash() == occur.get(i)->hash())
-                { break; }
-                j++;
-            }
-            binding.push_back(m_vars.get(j));
-        }
-    }
+      /// indicate that a new post should be set for the node
+      void new_post(expr *post) {if(post != m_post) {m_new_post = post;}}
+      /// true if the node needs to be updated outside of the priority queue
+      bool is_dirty () {return m_new_post;}
+      /// clean a dirty node
+      void clean();
 
+      void reset () {clean (); m_derivation = NULL; m_open = true;}
 
-    /// indicate that a new post should be set for the node
-    void new_post(expr *post) {if(post != m_post) { m_new_post = post; }}
-    /// true if the node needs to be updated outside of the priority queue
-    bool is_dirty () {return m_new_post;}
-    /// clean a dirty node
-    void clean ()
-    {
-        if(m_new_post) {
-        set_post (m_new_post);
-        m_new_post.reset ();
-      }
-    }
+      bool is_closed () const { return !m_open; }
+      void close();
 
-    void reset ()
-    {
-      clean ();
-      m_derivation = NULL;
-      m_open = true;
-    }
+      void add_child (model_node &v) {m_kids.push_back (&v);}
+      void erase_child (model_node &v) {m_kids.erase (&v);}
 
-    bool is_closed () const { return !m_open; }
+      bool is_ground () { return m_binding.empty (); }
+      app_ref_vector const &get_binding() const {return m_binding;}
+      /*
+       * Return skolem variables that appear in post
+       */
+      void get_skolems(app_ref_vector& v);
 
-    void close ()
-    {
-        if(!m_open) { return; }
+      void inc_ref () {++m_ref_count;}
+      void dec_ref ()
+          {
+              --m_ref_count;
+              if(m_ref_count == 0) { dealloc(this); }
+          }
 
-      reset ();
-      m_open = false;
-      for (unsigned i = 0, sz = m_kids.size (); i < sz; ++i)
-        { m_kids [i]->close(); }
-    }
-
-    void add_child (model_node &v) {m_kids.push_back (&v);}
-    void erase_child (model_node &v) {m_kids.erase (&v);}
-
-
-    void inc_ref () {++m_ref_count;}
-    void dec_ref ()
-    {
-      --m_ref_count;
-        if(m_ref_count == 0) { dealloc(this); }
-    }
-
-    bool is_ground () { return m_vars.empty (); }
   };
 
 
@@ -596,12 +547,14 @@ public:
     unsigned                            m_active;
     // transition relation over origin variables
     expr_ref                            m_trans;
-
+    //  implicitly existentially quantified variables in m_trans
+    app_ref_vector                      m_evars;
     /// -- create next child using given model as the guide
     /// -- returns NULL if there is no next child
     model_node* create_next_child (model_evaluator_util &mev);
   public:
-    derivation (model_node& parent, datalog::rule const& rule, expr *trans);
+    derivation (model_node& parent, datalog::rule const& rule,
+                expr *trans, app_ref_vector const &evars);
     void add_premise (pred_transformer &pt, unsigned oidx,
                       expr * summary, bool must, const ptr_vector<app> *aux_vars = NULL);
 
