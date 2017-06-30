@@ -98,7 +98,7 @@ namespace Microsoft.Z3
             Contract.Requires(args != null);
             Contract.Requires(Contract.ForAll(args, a => a != null));
 
-            Context.CheckContextMatch(args);
+            Context.CheckContextMatch<Expr>(args);
             if (IsApp && args.Length != NumArgs)
                 throw new Z3Exception("Number of arguments does not match");
             NativeObject = Native.Z3_update_term(Context.nCtx, NativeObject, (uint)args.Length, Expr.ArrayToNative(args));
@@ -120,8 +120,8 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(to, t => t != null));
             Contract.Ensures(Contract.Result<Expr>() != null);
 
-            Context.CheckContextMatch(from);
-            Context.CheckContextMatch(to);
+            Context.CheckContextMatch<Expr>(from);
+            Context.CheckContextMatch<Expr>(to);
             if (from.Length != to.Length)
                 throw new Z3Exception("Argument sizes do not match");
             return Expr.Create(Context, Native.Z3_substitute(Context.nCtx, NativeObject, (uint)from.Length, Expr.ArrayToNative(from), Expr.ArrayToNative(to)));
@@ -152,7 +152,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(to, t => t != null));
             Contract.Ensures(Contract.Result<Expr>() != null);
 
-            Context.CheckContextMatch(to);
+            Context.CheckContextMatch<Expr>(to);
             return Expr.Create(Context, Native.Z3_substitute_vars(Context.nCtx, NativeObject, (uint)to.Length, Expr.ArrayToNative(to)));
         }
 
@@ -163,13 +163,7 @@ namespace Microsoft.Z3
         /// <returns>A copy of the term which is associated with <paramref name="ctx"/></returns>
         new public Expr Translate(Context ctx)
         {
-            Contract.Requires(ctx != null);
-            Contract.Ensures(Contract.Result<Expr>() != null);
-
-            if (ReferenceEquals(Context, ctx))
-                return this;
-            else
-                return Expr.Create(ctx, Native.Z3_translate(Context.nCtx, NativeObject, ctx.nCtx));
+            return (Expr)base.Translate(ctx);
         }
 
         /// <summary>
@@ -795,6 +789,77 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>A label literal has a set of string parameters. It takes no arguments.</remarks>
         public bool IsLabelLit { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LABEL_LIT; } }
+        #endregion
+
+        #region Sequences and Strings
+
+        /// <summary>
+        /// Check whether expression is a string constant.
+        /// </summary>
+        /// <returns>a Boolean</returns>
+        public bool IsString  { get { return IsApp && 0 != Native.Z3_is_string(Context.nCtx, NativeObject); } }
+
+        /// <summary>
+        /// Retrieve string corresponding to string constant.
+        /// </summary>
+        /// <remarks>the expression should be a string constant, (IsString should be true).</remarks>
+        public string String { get { return Native.Z3_get_string(Context.nCtx, NativeObject); } }
+
+        /// <summary>
+        /// Check whether expression is a concatentation.
+        /// </summary>
+        /// <returns>a Boolean</returns>
+	public bool IsConcat { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_CONCAT; } }
+
+        /// <summary>
+        /// Check whether expression is a prefix.
+        /// </summary>
+        /// <returns>a Boolean</returns>
+	public bool IsPrefix { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_PREFIX; } }
+
+        /// <summary>
+        /// Check whether expression is a suffix.
+        /// </summary>
+        /// <returns>a Boolean</returns>
+	public bool IsSuffix { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_SUFFIX; } }
+
+        /// <summary>
+        /// Check whether expression is a contains.
+        /// </summary>
+        /// <returns>a Boolean</returns>
+	public bool IsContains { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_CONTAINS; } }
+
+        /// <summary>
+        /// Check whether expression is an extract.
+        /// </summary>
+        /// <returns>a Boolean</returns>
+	public bool IsExtract { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_EXTRACT; } }
+
+        /// <summary>
+        /// Check whether expression is a replace.
+        /// </summary>
+        /// <returns>a Boolean</returns>
+	public bool IsReplace { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_REPLACE; } }
+
+        /// <summary>
+        /// Check whether expression is an at.
+        /// </summary>
+        /// <returns>a Boolean</returns>
+	public bool IsAt { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_AT; } }
+
+        /// <summary>
+        /// Check whether expression is a sequence length.
+        /// </summary>
+        /// <returns>a Boolean</returns>
+	public bool IsLength { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_LENGTH; } }
+
+        /// <summary>
+        /// Check whether expression is a sequence index.
+        /// </summary>
+        /// <returns>a Boolean</returns>
+	public bool IsIndex { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_INDEX; } }
+
+
         #endregion
 
         #region Proof Terms

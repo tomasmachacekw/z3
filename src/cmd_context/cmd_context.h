@@ -123,7 +123,7 @@ public:
     virtual void display_assignment(std::ostream& out) = 0;
     virtual bool is_pareto() = 0;
     virtual void set_logic(symbol const& s) = 0;
-    virtual bool print_model() const = 0;
+    virtual void get_box_model(model_ref& mdl, unsigned index) = 0;
     virtual void updt_params(params_ref const& p) = 0;
 };
 
@@ -159,7 +159,8 @@ protected:
     bool                         m_produce_assignments;
     status                       m_status;
     bool                         m_numeral_as_real;
-    bool                         m_ignore_check; // used by the API to disable check-sat() commands when parsing SMT 2.0 files.
+    bool                         m_ignore_check;      // used by the API to disable check-sat() commands when parsing SMT 2.0 files.
+    bool                         m_processing_pareto; // used when re-entering check-sat for pareto front.
     bool                         m_exit_on_error;
     
     static std::ostringstream    g_error_stream;
@@ -249,19 +250,13 @@ protected:
     void erase_psort_decl_core(symbol const & s);
     void erase_macro_core(symbol const & s);
 
-    bool logic_has_arith_core(symbol const & s) const;
-    bool logic_has_bv_core(symbol const & s) const;
-    bool logic_has_array_core(symbol const & s) const;
-    bool logic_has_seq_core(symbol const & s) const;
-    bool logic_has_fpa_core(symbol const & s) const;
-    bool logic_has_horn(symbol const& s) const;
     bool logic_has_arith() const;
     bool logic_has_bv() const;
+    bool logic_has_pb() const;
     bool logic_has_seq() const;
     bool logic_has_array() const;
     bool logic_has_datatype() const;
     bool logic_has_fpa() const;
-    bool supported_logic(symbol const & s) const;
 
     void print_unsupported_msg() { regular_stream() << "unsupported" << std::endl; }
     void print_unsupported_info(symbol const& s, int line, int pos) { if (s != symbol::null) diagnostic_stream() << "; " << s << " line: " << line << " position: " << pos << std::endl;}
@@ -392,6 +387,7 @@ public:
     void push(unsigned n);
     void pop(unsigned n);
     void check_sat(unsigned num_assumptions, expr * const * assumptions);
+    void get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector & conseq);
     void reset_assertions();
     // display the result produced by a check-sat or check-sat-using commands in the regular stream
     void display_sat_result(lbool r);

@@ -33,25 +33,24 @@ class obj_equiv_class {
     basic_union_find uf;
     obj_map<OBJ, unsigned> to_int;
     ref_vector<OBJ, Manager> to_obj;
-    
+
     unsigned add_elem_impl(OBJ*o)
     {
-      unsigned id = to_obj.size();
-      to_int.insert(o, id);
-      to_obj.push_back(o);
-      return id;
+        unsigned id = to_obj.size();
+        to_int.insert(o, id);
+        to_obj.push_back(o);
+        return id;
     }
     unsigned add_if_not_there(OBJ*o)
     {
-      unsigned id;
-      if(!to_int.find(o, id))
-      {
-          id = add_elem_impl(o);
-      }
-      return id;
+        unsigned id;
+        if(!to_int.find(o, id)) {
+            id = add_elem_impl(o);
+        }
+        return id;
     }
 
- public:
+public:
     class iterator;
     class equiv_iterator;
     friend class iterator;
@@ -61,124 +60,121 @@ class obj_equiv_class {
 
     void add_elem(OBJ*o)
     {
-      SASSERT(!to_int.find(o));
-      add_elem_impl(o);
+        SASSERT(!to_int.find(o));
+        add_elem_impl(o);
     }
-    
+
     //Invalidates all iterators
-    void merge(OBJ* a, OBJ* b) {
+    void merge(OBJ* a, OBJ* b)
+    {
         unsigned v1 = add_if_not_there(a);
         unsigned v2 = add_if_not_there(b);
-        unsigned tmp1=uf.find(v1);
-        unsigned tmp2=uf.find(v2);
+        unsigned tmp1 = uf.find(v1);
+        unsigned tmp2 = uf.find(v2);
         uf.merge(tmp1, tmp2);
     }
-    
-    void reset() {
+
+    void reset()
+    {
         uf.reset();
         to_int.reset();
         to_obj.reset();
     }
-    
+
     bool are_equiv(OBJ*a, OBJ*b)
     {
-      unsigned id1 = add_if_not_there(a);
-      unsigned id2 = add_if_not_there(b);
-      return uf.find(id1)==uf.find(id2);
+        unsigned id1 = add_if_not_there(a);
+        unsigned id2 = add_if_not_there(b);
+        return uf.find(id1) == uf.find(id2);
     }
 
-    class iterator
-    {
-      friend class obj_equiv_class;
-      private :
+    class iterator {
+        friend class obj_equiv_class;
+    private :
         const obj_equiv_class& ouf;
         unsigned curr_id;
         bool first;
         iterator(const obj_equiv_class& uf, unsigned id, bool f) : ouf(uf), curr_id(id), first(f) {}
-      public :
+    public :
         OBJ*operator*()
         {
-          return ouf.to_obj[curr_id];
+            return ouf.to_obj[curr_id];
         }
         iterator& operator++()
         {
-          curr_id = ouf.uf.next(curr_id);
-          first=false;
-          return *this;
+            curr_id = ouf.uf.next(curr_id);
+            first = false;
+            return *this;
         }
         bool operator==(const iterator& o)
         {
-          SASSERT(&ouf==&o.ouf);
-          return  first==o.first && curr_id==o.curr_id;
+            SASSERT(&ouf == &o.ouf);
+            return  first == o.first && curr_id == o.curr_id;
         }
         bool operator!=(const iterator& o)
         {
-          return !(*this==o);
+            return !(*this == o);
         }
     };
 
     iterator begin(OBJ*o)
     {
-      unsigned id = add_if_not_there(o);
-      return iterator(*this, id, true);
+        unsigned id = add_if_not_there(o);
+        return iterator(*this, id, true);
     }
     iterator end(OBJ*o)
     {
-      unsigned id = add_if_not_there(o);
-      return iterator(*this, id, false);
+        unsigned id = add_if_not_there(o);
+        return iterator(*this, id, false);
     }
 
-    class eq_class
-    {
-      private :
+    class eq_class {
+    private :
         iterator beg;
         iterator e;
-      public :
+    public :
         eq_class(const iterator& a, const iterator& b) : beg(a), e(b) {}
         iterator begin() {return beg;}
         iterator end() {return e;}
     };
 
-    class equiv_iterator
-    {
-      friend class obj_equiv_class;
-      private :
+    class equiv_iterator {
+        friend class obj_equiv_class;
+    private :
         const obj_equiv_class& ouf;
         unsigned rootnb;
         equiv_iterator(const obj_equiv_class& uf, unsigned nb) : ouf(uf), rootnb(nb)
         {
-          while(rootnb!=ouf.to_obj.size() && ouf.uf.is_root(rootnb)!=true)
-            rootnb++;
+            while(rootnb != ouf.to_obj.size() && ouf.uf.is_root(rootnb) != true)
+            { rootnb++; }
         }
-      public :
+    public :
         eq_class operator*() {return eq_class(iterator(ouf, rootnb, true), iterator(ouf, rootnb, false));}
         equiv_iterator& operator++()
         {
-          do
-          {
-            rootnb++;
-          }
-          while(rootnb!=ouf.to_obj.size() && ouf.uf.is_root(rootnb)!=true);
-          return *this;
+            do {
+                rootnb++;
+            } while(rootnb != ouf.to_obj.size() && ouf.uf.is_root(rootnb) != true);
+            return *this;
         }
         bool operator==(const equiv_iterator& o)
         {
-          SASSERT(&ouf==&o.ouf);
-          return rootnb==o.rootnb;
+            SASSERT(&ouf == &o.ouf);
+            return rootnb == o.rootnb;
         }
         bool operator!=(const equiv_iterator& o)
         {
-          return !(*this==o);
+            return !(*this == o);
         }
     };
 
     equiv_iterator begin()
     {
-      return equiv_iterator(*this, 0);
+        return equiv_iterator(*this, 0);
     }
     equiv_iterator end()
     {
-      return equiv_iterator(*this, to_obj.size());
+        return equiv_iterator(*this, to_obj.size());
     }
 };
 

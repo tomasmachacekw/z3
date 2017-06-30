@@ -58,8 +58,7 @@ namespace spacer {
         unsigned lvl = m_defs.size ();
         SASSERT (n <= lvl);
         unsigned new_lvl = lvl-n;
-        while (m_defs.size () > new_lvl)
-        {
+    while (m_defs.size() > new_lvl) {
             m_num_proxies -= m_defs.back ().m_defs.size ();
             m_defs.pop_back ();
         }
@@ -67,8 +66,7 @@ namespace spacer {
   
     app* itp_solver::fresh_proxy ()
     {
-        if (m_num_proxies == m_proxies.size ())
-        {
+    if (m_num_proxies == m_proxies.size()) {
             std::stringstream name;
             name << "spacer_proxy!" << m_proxies.size ();
             app_ref res(m);
@@ -90,7 +88,7 @@ namespace spacer {
         {
             expr *e = v;
             m.is_not (v, e);
-            if (is_uninterp_const (e)) return to_app(v);
+        if (is_uninterp_const(e)) { return to_app(v); }
         }
     
         def_manager &def = m_defs.size () > 0 ? m_defs.back () : m_base_defs;
@@ -101,8 +99,7 @@ namespace spacer {
     {
         bool dirty = false;
         spacer::expand_literals (m, v);
-        for (unsigned i = from, sz = v.size (); i < sz; ++i)
-        {
+    for (unsigned i = from, sz = v.size(); i < sz; ++i) {
             app *p = mk_proxy (v.get (i));
             dirty |= (v.get (i) != p);
             v[i] = p;
@@ -113,17 +110,17 @@ namespace spacer {
     void itp_solver::push_bg (expr *e)
     {
         if (m_assumptions.size () > m_first_assumption)
-            m_assumptions.shrink (m_first_assumption);
+    { m_assumptions.shrink(m_first_assumption); }
         m_assumptions.push_back (e);
         m_first_assumption = m_assumptions.size ();
     }
 
     void itp_solver::pop_bg (unsigned n)
     {
-        if (n == 0) return;
+    if (n == 0) { return; }
     
         if (m_assumptions.size () > m_first_assumption)
-            m_assumptions.shrink (m_first_assumption);
+    { m_assumptions.shrink(m_first_assumption); }
         m_first_assumption = m_first_assumption > n ? m_first_assumption - n : 0;
         m_assumptions.shrink (m_first_assumption);
     }
@@ -134,7 +131,7 @@ namespace spacer {
     {
         // -- remove any old assumptions
         if (m_assumptions.size () > m_first_assumption)
-            m_assumptions.shrink (m_first_assumption);
+    { m_assumptions.shrink(m_first_assumption); }
     
         // -- replace theory literals in background assumptions with proxies
         mk_proxies (m_assumptions);
@@ -154,7 +151,7 @@ namespace spacer {
     app* itp_solver::def_manager::mk_proxy (expr *v)
     {
         app* r;
-        if (m_expr2proxy.find (v, r)) return r;
+    if (m_expr2proxy.find(v, r)) { return r; }
     
         ast_manager &m = m_parent.m;
         app_ref proxy(m);
@@ -192,16 +189,16 @@ namespace spacer {
     
     bool itp_solver::is_proxy(expr *e, app_ref &def)
     {
-        if (!is_uninterp_const (e)) return false;
+    if (!is_uninterp_const(e)) { return false; }
     
         app *a = to_app (e);
 
         for (int i = m_defs.size (); i > 0; --i)
             if (m_defs[i-1].is_proxy (a, def))
-                return true;
+        { return true; }
         
         if (m_base_defs.is_proxy (a, def))
-            return true;
+    { return true; }
     
         return false;
     }
@@ -227,22 +224,19 @@ namespace spacer {
         app_ref e(m);
         expr_fast_mark1 bg;
         for (unsigned i = 0; i < m_first_assumption; ++i)
-            bg.mark (m_assumptions.get (i));
+    { bg.mark(m_assumptions.get(i)); }
     
         // expand proxies
         unsigned j = 0;
-        for (unsigned i = 0, sz = r.size (); i < sz; ++i)
-        {
+    for (unsigned i = 0, sz = r.size(); i < sz; ++i) {
             // skip background assumptions
-            if (bg.is_marked (r[i])) continue;
+        if (bg.is_marked(r[i])) { continue; }
       
             // -- undo proxies, but only if they were introduced in check_sat
-            if (m_is_proxied && is_proxy (r[i], e))
-            {
+        if (m_is_proxied && is_proxy(r[i], e)) {
                 SASSERT (m.is_or (e));
                 r[j] = e->get_arg (1);
-            }
-            else if (i != j) r[j] = r[i];
+        } else if (i != j) { r[j] = r[i]; }
             j++;
         }
         r.shrink (j);
@@ -253,8 +247,7 @@ namespace spacer {
         app_ref e(m);
         // expand proxies
         for (unsigned i = 0, sz = r.size (); i < sz; ++i)
-            if (is_proxy (r.get (i), e))
-            {
+        if (is_proxy(r.get(i), e)) {
                 SASSERT (m.is_or (e));
                 r[i] = e->get_arg (1);
             }
@@ -283,19 +276,17 @@ namespace spacer {
         
         typedef obj_hashtable<expr> expr_set;
         expr_set B;
-        for (unsigned i = m_first_assumption, sz = m_assumptions.size (); i < sz; ++i)
-        {
+    for (unsigned i = m_first_assumption, sz = m_assumptions.size(); i < sz; ++i) {
             expr *a = m_assumptions.get (i);
             app_ref def(m);
-            if (is_proxy (a, def)) B.insert (def.get ());
+        if (is_proxy(a, def)) { B.insert(def.get()); }
             B.insert (a);
         }
         
         proof_ref pr(m);
         pr = get_proof ();
         
-        if (!m_new_unsat_core)
-        {
+    if (!m_new_unsat_core) {
             // old code
             farkas_learner learner_old;
             learner_old.set_split_literals(m_split_literals);
@@ -303,18 +294,15 @@ namespace spacer {
             learner_old.get_lemmas (pr, B, core);
             elim_proxies (core);
             simplify_bounds (core); // XXX potentially redundant
-        }
-        else
-        {
+    } else {
             // new code
             unsat_core_learner learner(m);
             
-            if (m_farkas_optimized)
-            {
+        if (m_farkas_optimized) {
                 if (true) // TODO: proper options
                 {
-                    unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner,m);
-                    learner.register_plugin(plugin_farkas_lemma_optimized);
+                unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner,m);
+                learner.register_plugin(plugin_farkas_lemma_optimized);
                 }
                 else
                 {
@@ -322,20 +310,15 @@ namespace spacer {
                     learner.register_plugin(plugin_farkas_lemma_bounded);
                 }
 
-            }
-            else
-            {
+        } else {
                 unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma, learner, m_split_literals, m_farkas_a_const);
                 learner.register_plugin(plugin_farkas_lemma);
             }
             
-            if (m_minimize_unsat_core)
-            {
+        if (m_minimize_unsat_core) {
                 unsat_core_plugin_min_cut* plugin_min_cut = alloc(unsat_core_plugin_min_cut, learner, m);
                 learner.register_plugin(plugin_min_cut);
-            }
-            else
-            {
+        } else {
                 unsat_core_plugin_lemma* plugin_lemma = alloc(unsat_core_plugin_lemma, learner);
                 learner.register_plugin(plugin_lemma);
             }
@@ -378,10 +361,9 @@ namespace spacer {
         // only refresh in non-pushed state
         SASSERT (m_defs.size () == 0);
         expr_ref_vector assertions (m);
-        for (unsigned i = 0, e = m_solver.get_num_assertions (); i < e; ++i)
-            {
+    for (unsigned i = 0, e = m_solver.get_num_assertions(); i < e; ++i) {
                 expr* a = m_solver.get_assertion (i);
-                if (!m_base_defs.is_proxy_def (a)) assertions.push_back (a);
+        if (!m_base_defs.is_proxy_def(a)) { assertions.push_back(a); }
                 
             }
         m_base_defs.reset ();
@@ -389,7 +371,7 @@ namespace spacer {
         // solver interface does not have a reset method. need to introduce it somewhere.
         // m_solver.reset ();
         for (unsigned i = 0, e = assertions.size (); i < e; ++i)
-            m_solver.assert_expr (assertions.get (i));
+    { m_solver.assert_expr(assertions.get(i)); }
     }
   
 }

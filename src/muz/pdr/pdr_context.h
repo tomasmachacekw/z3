@@ -332,6 +332,7 @@ namespace pdr {
         datalog::context*    m_context;
         manager              m_pm;  
         decl2rel             m_rels;         // Map from relation predicate to fp-operator.       
+        decl2rel             m_rels_tmp; 
         func_decl_ref        m_query_pred;
         pred_transformer*    m_query;
         mutable model_search m_search;
@@ -375,6 +376,8 @@ namespace pdr {
         void simplify_formulas();
 
         void reset_core_generalizers();
+
+        void reset(decl2rel& rels);
 
         void validate();
         void validate_proof();
@@ -426,8 +429,7 @@ namespace pdr {
 
         lbool solve_from_lvl (unsigned lvl);
 
-
-        void reset();
+        void reset(bool full = true);
 
         void set_query(func_decl* q) { m_query_pred = q; }
 

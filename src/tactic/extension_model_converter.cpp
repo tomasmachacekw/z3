@@ -25,7 +25,7 @@ Notes:
 extension_model_converter::~extension_model_converter() {
 }
 
-
+#ifdef _TRACE
 static void display_decls_info(std::ostream & out, model_ref & md) {
     ast_manager & m = md->get_manager();
     unsigned sz = md->get_num_decls();
@@ -42,12 +42,14 @@ static void display_decls_info(std::ostream & out, model_ref & md) {
         out << " :id " << d->get_id() << "\n";
     }
 }
+#endif
 
 void extension_model_converter::operator()(model_ref & md, unsigned goal_idx) {
     SASSERT(goal_idx == 0);
     TRACE("extension_mc", model_v2_pp(tout, *md); display_decls_info(tout, md););
     model_evaluator ev(*(md.get()));
     ev.set_model_completion(true);
+    ev.set_expand_array_equalities(false);
     expr_ref val(m());
     unsigned i = m_vars.size();
     while (i > 0) {
@@ -71,7 +73,7 @@ void extension_model_converter::operator()(model_ref & md, unsigned goal_idx) {
 
 void extension_model_converter::insert(func_decl * v, expr * def) {
     m_vars.push_back(v);
-    m_defs.push_back(def);
+    m_defs.push_back(def);    
 }
 
 

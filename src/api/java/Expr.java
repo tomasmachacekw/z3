@@ -120,13 +120,13 @@ public class Expr extends AST
      * @param args arguments
      * @throws Z3Exception on error
      **/
-    public void update(Expr[] args)
+    public Expr update(Expr[] args)
     {
         getContext().checkContextMatch(args);
         if (isApp() && args.length != getNumArgs()) {
             throw new Z3Exception("Number of arguments does not match");
         }
-        setNativeObject(Native.updateTerm(getContext().nCtx(), getNativeObject(),
+        return Expr.create(getContext(), Native.updateTerm(getContext().nCtx(), getNativeObject(),
                 args.length, Expr.arrayToNative(args)));
     }
 
@@ -194,14 +194,7 @@ public class Expr extends AST
      **/
     public Expr translate(Context ctx)
     {
-        if (getContext() == ctx) {
-            return this;
-        } else {
-            return Expr.create(
-                ctx,
-                Native.translate(getContext().nCtx(), getNativeObject(),
-                    ctx.nCtx()));
-        }
+        return (Expr) super.translate(ctx);
     }
 
     /**
@@ -1278,6 +1271,35 @@ public class Expr extends AST
     }
 
     /**
+     * Check whether expression is a string constant.
+     * @return a boolean
+     */
+    public boolean isString() 
+    {
+        return isApp() && Native.isString(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
+     * Retrieve string corresponding to string constant.
+     * Remark: the expression should be a string constant, (isString() should return true).
+     * @throws Z3Exception on error
+     * @return a string
+     */
+    public String getString()
+    {
+	return Native.getString(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
+     * Check whether expression is a concatenation
+     * @return a boolean
+     */
+    public boolean isConcat() 
+    {
+        return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SEQ_CONCAT;
+    }
+
+    /**
      * Indicates whether the term is a binary equivalence modulo namings.
      * Remarks: This binary predicate is used in proof terms. It captures
      * equisatisfiability and equivalence modulo renamings.
@@ -2091,36 +2113,23 @@ public class Expr extends AST
      **/
     public int getIndex()
     {
-        if (!isVar())
+        if (!isVar()) {
             throw new Z3Exception("Term is not a bound variable.");
+        }
 
         return Native.getIndexValue(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * Constructor for Expr
-     **/
-    protected Expr(Context ctx)
-    {
-        super(ctx);
-        {
-        }
-    }
-
-    /**
-     * Constructor for Expr
      * @throws Z3Exception on error
      **/
-    protected Expr(Context ctx, long obj)
-    {
+    protected Expr(Context ctx, long obj) {
         super(ctx, obj);
-        {
-        }
     }
 
     @Override
-    void checkNativeObject(long obj)
-    {
+    void checkNativeObject(long obj) {
         if (!Native.isApp(getContext().nCtx(), obj) && 
             Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_VAR_AST.toInt() &&
             Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST.toInt()) {

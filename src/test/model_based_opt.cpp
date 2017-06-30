@@ -216,12 +216,155 @@ static void test4() {
     std::cout << "u: " << mbo.get_value(u) << "\n";
 }
 
+static void test5() {
+    opt::model_based_opt mbo;
+    unsigned x = mbo.add_var(rational(2));
+    unsigned y = mbo.add_var(rational(3));
+    unsigned z = mbo.add_var(rational(4));
+    unsigned u = mbo.add_var(rational(5));
+
+    add_ineq(mbo, x, 1, y, -1, 0, opt::t_le);
+    add_ineq(mbo, x, 1, z, -1, 0, opt::t_le);
+    add_ineq(mbo, y, 1, u, -1, 0, opt::t_le);
+    add_ineq(mbo, z, 1, u, -1, 1, opt::t_le);
+
+    unsigned vars[2] = { y, z };
+    mbo.project(1, vars);    
+    mbo.display(std::cout);
+
+    mbo.project(1, vars);    
+    mbo.display(std::cout);
+
+    mbo.project(1, vars+1);
+    mbo.display(std::cout);
+
+    vector<opt::model_based_opt::row> rows;
+    mbo.get_live_rows(rows);
+}
+
+
+static void test6() {
+    opt::model_based_opt mbo;
+    unsigned x0 = mbo.add_var(rational(1));
+    unsigned x = mbo.add_var(rational(2));
+    unsigned y = mbo.add_var(rational(3));
+    unsigned z = mbo.add_var(rational(4));
+    unsigned u = mbo.add_var(rational(5));
+    unsigned v = mbo.add_var(rational(6));
+    unsigned w = mbo.add_var(rational(6));
+
+    add_ineq(mbo, x0, 1, y, -1, 0, opt::t_le);
+    add_ineq(mbo, x, 1, y, -1, 0, opt::t_le);
+    add_ineq(mbo, y, 1, u, -1, 0, opt::t_le);
+    add_ineq(mbo, y, 1, z, -1, 1, opt::t_le);
+    add_ineq(mbo, y, 1, v, -1, 1, opt::t_le);
+    add_ineq(mbo, y, 1, w, -1, 1, opt::t_le);
+
+    mbo.display(std::cout);
+    mbo.project(1, &y);
+    mbo.display(std::cout);
+}
+
+static void test7() {
+    opt::model_based_opt mbo;
+    unsigned x0 = mbo.add_var(rational(2));
+    unsigned x = mbo.add_var(rational(1));
+    unsigned y = mbo.add_var(rational(3));
+    unsigned z = mbo.add_var(rational(4));
+    unsigned u = mbo.add_var(rational(5));
+    unsigned v = mbo.add_var(rational(6));
+    unsigned w = mbo.add_var(rational(6));
+
+    add_ineq(mbo, x0, 1, y, -1, 0, opt::t_le);
+    add_ineq(mbo, x, 1, y, -1, 0, opt::t_lt);
+    add_ineq(mbo, y, 1, u, -1, 0, opt::t_le);
+    add_ineq(mbo, y, 1, z, -1, 1, opt::t_le);
+    add_ineq(mbo, y, 1, v, -1, 1, opt::t_le);
+    add_ineq(mbo, y, 1, w, -1, 1, opt::t_lt);
+
+    mbo.display(std::cout);
+    mbo.project(1, &y);
+    mbo.display(std::cout);
+}
+
+static void test8() {
+    opt::model_based_opt mbo;
+    unsigned x0 = mbo.add_var(rational(2));
+    unsigned x = mbo.add_var(rational(1));
+    unsigned y = mbo.add_var(rational(3));
+    unsigned z = mbo.add_var(rational(4));
+    unsigned u = mbo.add_var(rational(5));
+    unsigned v = mbo.add_var(rational(6));
+    unsigned w = mbo.add_var(rational(6));
+
+    add_ineq(mbo, x0, 1, y, -1, 0, opt::t_le);
+    add_ineq(mbo, x, 1, y, -1, 0, opt::t_lt);
+    add_ineq(mbo, y, 1, u, -1, 0, opt::t_le);
+    add_ineq(mbo, y, 1, z, -1, 1, opt::t_le);
+    add_ineq(mbo, y, 1, v, -1, 1, opt::t_le);
+
+    mbo.display(std::cout);
+    mbo.project(1, &y);
+    mbo.display(std::cout);
+}
+
+
+static void test9() {
+    opt::model_based_opt mbo;
+    unsigned x0 = mbo.add_var(rational(2), true);
+    unsigned x = mbo.add_var(rational(1), true);
+    unsigned y = mbo.add_var(rational(3), true);
+    unsigned z = mbo.add_var(rational(4), true);
+    unsigned u = mbo.add_var(rational(5), true);
+    unsigned v = mbo.add_var(rational(6), true);
+
+    add_ineq(mbo, x0, 1, y, -1, 0, opt::t_le);
+    add_ineq(mbo, x, 1, y, -1, 0, opt::t_lt);
+    add_ineq(mbo, y, 1, u, -1, 0, opt::t_le);
+    add_ineq(mbo, y, 1, z, -1, 1, opt::t_le);
+    add_ineq(mbo, y, 1, v, -1, 1, opt::t_le);
+
+    mbo.display(std::cout);
+    mbo.project(1, &y);
+    mbo.display(std::cout);
+}
+
+
+static void test10() {
+    opt::model_based_opt mbo;
+    unsigned x0 = mbo.add_var(rational(2), true);
+    unsigned x = mbo.add_var(rational(1), true);
+    unsigned y = mbo.add_var(rational(3), true);
+    unsigned z = mbo.add_var(rational(4), true);
+    unsigned u = mbo.add_var(rational(5), true);
+    unsigned v = mbo.add_var(rational(6), true);
+
+    add_ineq(mbo, x0, 1, y, -2, 0, opt::t_le);
+    add_ineq(mbo, x, 1, y, -2, 0, opt::t_lt);
+    add_ineq(mbo, y, 3, u, -4, 0, opt::t_le);
+    add_ineq(mbo, y, 3, z, -5, 1, opt::t_le);
+    add_ineq(mbo, y, 3, v, -6, 1, opt::t_le);
+
+    mbo.display(std::cout);
+    mbo.project(1, &y);
+    mbo.display(std::cout);
+    mbo.project(1, &x0);
+    mbo.display(std::cout);
+}
+
 // test with mix of upper and lower bounds
 
 void tst_model_based_opt() {
+    test10();
+    return;
     check_random_ineqs();
     test1();
     test2();
     test3();
     test4();
+    test5();
+    test6();
+    test7();
+    test8();
+    test9();
 }

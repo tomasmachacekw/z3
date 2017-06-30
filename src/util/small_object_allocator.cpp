@@ -68,8 +68,10 @@ void small_object_allocator::reset() {
 
 #define MASK ((1 << PTR_ALIGNMENT) - 1)
 
+
 void small_object_allocator::deallocate(size_t size, void * p) {
     if (size == 0) return;
+
   //#if defined(Z3DEBUG) && !defined(_WINDOWS)
 #if defined (Z3DEBUG) && defined (VALGRIND)
     // Valgrind friendly
@@ -92,16 +94,19 @@ void small_object_allocator::deallocate(size_t size, void * p) {
     m_free_list[slot_id] = p;
 }
 
+
 void * small_object_allocator::allocate(size_t size) {
     if (size == 0) return 0;
+
   //#if defined(Z3DEBUG) && !defined(_WINDOWS)
 #if defined (Z3DEBUG) && defined (VALGRIND)
     // Valgrind friendly
     return memory::allocate(size);
 #endif
     m_alloc_size += size;
-    if (size >= SMALL_OBJ_SIZE - (1 << PTR_ALIGNMENT))
+    if (size >= SMALL_OBJ_SIZE - (1 << PTR_ALIGNMENT)) {
         return memory::allocate(size);
+    }
 #ifdef Z3DEBUG
     size_t osize = size;
 #endif

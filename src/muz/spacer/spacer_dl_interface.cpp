@@ -37,29 +37,32 @@ Revision History:
 
 using namespace spacer;
 
-dl_interface::dl_interface(datalog::context& ctx) : 
+dl_interface::dl_interface(datalog::context& ctx) :
     engine_base(ctx.get_manager(), "spacer"),
-    m_ctx(ctx), 
-    m_spacer_rules(ctx), 
+    m_ctx(ctx),
+    m_spacer_rules(ctx),
     m_old_rules(ctx),
     m_context(0),
-    m_refs(ctx.get_manager()) {
+    m_refs(ctx.get_manager())
+{
     m_context = alloc(spacer::context, ctx.get_params(), ctx.get_manager());
 }
 
 
-dl_interface::~dl_interface() {
+dl_interface::~dl_interface()
+{
     dealloc(m_context);
 }
 
 
 //
-// Check if the new rules are weaker so that we can 
+// Check if the new rules are weaker so that we can
 // re-use existing context.
-// 
-void dl_interface::check_reset() {
+//
+void dl_interface::check_reset()
+{
     datalog::rule_set const& new_rules = m_ctx.get_rules();
-    datalog::rule_ref_vector const& old_rules = m_old_rules.get_rules();  
+    datalog::rule_ref_vector const& old_rules = m_old_rules.get_rules();
     bool is_subsumed = !old_rules.empty();
     for (unsigned i = 0; is_subsumed && i < new_rules.get_num_rules(); ++i) {
         is_subsumed = false;
@@ -77,7 +80,8 @@ void dl_interface::check_reset() {
 }
 
 
-lbool dl_interface::query(expr * query) {
+lbool dl_interface::query(expr * query)
+{
     //we restore the initial state in the datalog context
     m_ctx.ensure_opened();
     m_refs.reset();
@@ -93,14 +97,14 @@ lbool dl_interface::query(expr * query) {
     check_reset();
 
     TRACE("spacer",
-          if (!m.is_true(bg_assertion)) {
-              tout << "axioms:\n";
-              tout << mk_pp(bg_assertion, m) << "\n";
-          }
-          tout << "query: " << mk_pp(query, m) << "\n";
-          tout << "rules:\n";
-          m_ctx.display_rules(tout);
-          );
+    if (!m.is_true(bg_assertion)) {
+    tout << "axioms:\n";
+    tout << mk_pp(bg_assertion, m) << "\n";
+    }
+    tout << "query: " << mk_pp(query, m) << "\n";
+         tout << "rules:\n";
+         m_ctx.display_rules(tout);
+         );
 
 
     apply_default_transformation(m_ctx);
@@ -110,7 +114,7 @@ lbool dl_interface::query(expr * query) {
         datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
         transformer.register_plugin(slice);
         m_ctx.transform_rules(transformer);
-        
+
         // track sliced predicates.
         obj_map<func_decl, func_decl*> const& preds = slice->get_predicates();
         obj_map<func_decl, func_decl*>::iterator it  = preds.begin();
@@ -124,7 +128,7 @@ lbool dl_interface::query(expr * query) {
 
     if (m_ctx.get_params().xform_unfold_rules() > 0) {
         unsigned num_unfolds = m_ctx.get_params().xform_unfold_rules();
-        datalog::rule_transformer transf1(m_ctx), transf2(m_ctx);        
+        datalog::rule_transformer transf1(m_ctx), transf2(m_ctx);
         transf1.register_plugin(alloc(datalog::mk_coalesce, m_ctx));
         transf2.register_plugin(alloc(datalog::mk_unfold, m_ctx));
         if (m_ctx.get_params().xform_coalesce_rules()) {
@@ -137,7 +141,7 @@ lbool dl_interface::query(expr * query) {
     }
 
     const datalog::rule_set& rules = m_ctx.get_rules();
-    if (rules.get_output_predicates().empty()) {      
+    if (rules.get_output_predicates().empty()) {
         m_context->set_unsat();
         return l_false;
     }
@@ -150,7 +154,7 @@ lbool dl_interface::query(expr * query) {
     m_ctx.record_transformed_rules();
     m_ctx.reopen();
     m_ctx.replace_rules(old_rules);
-    
+
     scoped_restore_proof _sc(m); // update_rules may overwrite the proof mode.
 
     m_context->set_proof_converter(m_ctx.get_proof_converter());
@@ -158,18 +162,19 @@ lbool dl_interface::query(expr * query) {
     m_context->set_query(query_pred);
     m_context->set_axioms(bg_assertion);
     m_context->update_rules(m_spacer_rules);
-    
+
     if (m_spacer_rules.get_rules().empty()) {
         m_context->set_unsat();
-        IF_VERBOSE(2, model_smt2_pp(verbose_stream(), m, *m_context->get_model(),0););
+        IF_VERBOSE(2, model_smt2_pp(verbose_stream(), m, *m_context->get_model(), 0););
         return l_false;
     }
-        
+
     return m_context->solve();
 
 }
 
-lbool dl_interface::query_from_lvl (expr * query, unsigned lvl) {
+lbool dl_interface::query_from_lvl(expr * query, unsigned lvl)
+{
     //we restore the initial state in the datalog context
     m_ctx.ensure_opened();
     m_refs.reset();
@@ -185,14 +190,14 @@ lbool dl_interface::query_from_lvl (expr * query, unsigned lvl) {
     check_reset();
 
     TRACE("spacer",
-          if (!m.is_true(bg_assertion)) {
-              tout << "axioms:\n";
-              tout << mk_pp(bg_assertion, m) << "\n";
-          }
-          tout << "query: " << mk_pp(query, m) << "\n";
-          tout << "rules:\n";
-          m_ctx.display_rules(tout);
-          );
+    if (!m.is_true(bg_assertion)) {
+    tout << "axioms:\n";
+    tout << mk_pp(bg_assertion, m) << "\n";
+    }
+    tout << "query: " << mk_pp(query, m) << "\n";
+         tout << "rules:\n";
+         m_ctx.display_rules(tout);
+         );
 
 
     apply_default_transformation(m_ctx);
@@ -202,7 +207,7 @@ lbool dl_interface::query_from_lvl (expr * query, unsigned lvl) {
         datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
         transformer.register_plugin(slice);
         m_ctx.transform_rules(transformer);
-        
+
         // track sliced predicates.
         obj_map<func_decl, func_decl*> const& preds = slice->get_predicates();
         obj_map<func_decl, func_decl*>::iterator it  = preds.begin();
@@ -216,7 +221,7 @@ lbool dl_interface::query_from_lvl (expr * query, unsigned lvl) {
 
     if (m_ctx.get_params().xform_unfold_rules() > 0) {
         unsigned num_unfolds = m_ctx.get_params().xform_unfold_rules();
-        datalog::rule_transformer transf1(m_ctx), transf2(m_ctx);        
+        datalog::rule_transformer transf1(m_ctx), transf2(m_ctx);
         transf1.register_plugin(alloc(datalog::mk_coalesce, m_ctx));
         transf2.register_plugin(alloc(datalog::mk_unfold, m_ctx));
         if (m_ctx.get_params().xform_coalesce_rules()) {
@@ -229,8 +234,8 @@ lbool dl_interface::query_from_lvl (expr * query, unsigned lvl) {
     }
 
     const datalog::rule_set& rules = m_ctx.get_rules();
-    if (rules.get_output_predicates().empty()) {      
-      
+    if (rules.get_output_predicates().empty()) {
+
         m_context->set_unsat();
         return l_false;
     }
@@ -243,7 +248,7 @@ lbool dl_interface::query_from_lvl (expr * query, unsigned lvl) {
     m_ctx.record_transformed_rules();
     m_ctx.reopen();
     m_ctx.replace_rules(old_rules);
-    
+
     scoped_restore_proof _sc(m); // update_rules may overwrite the proof mode.
 
     m_context->set_proof_converter(m_ctx.get_proof_converter());
@@ -251,39 +256,43 @@ lbool dl_interface::query_from_lvl (expr * query, unsigned lvl) {
     m_context->set_query(query_pred);
     m_context->set_axioms(bg_assertion);
     m_context->update_rules(m_spacer_rules);
-    
+
     if (m_spacer_rules.get_rules().empty()) {
         m_context->set_unsat();
-        IF_VERBOSE(1, model_smt2_pp(verbose_stream(), m, *m_context->get_model(),0););
+        IF_VERBOSE(1, model_smt2_pp(verbose_stream(), m, *m_context->get_model(), 0););
         return l_false;
     }
-        
-    return m_context->solve (lvl);
+
+    return m_context->solve(lvl);
 
 }
 
-expr_ref dl_interface::get_cover_delta(int level, func_decl* pred_orig) {
+expr_ref dl_interface::get_cover_delta(int level, func_decl* pred_orig)
+{
     func_decl* pred = pred_orig;
     m_pred2slice.find(pred_orig, pred);
     SASSERT(pred);
     return m_context->get_cover_delta(level, pred_orig, pred);
 }
 
-void dl_interface::add_cover(int level, func_decl* pred, expr* property) {
+void dl_interface::add_cover(int level, func_decl* pred, expr* property)
+{
     if (m_ctx.get_params().xform_slice()) {
         throw default_exception("Covers are incompatible with slicing. Disable slicing before using covers");
     }
     m_context->add_cover(level, pred, property);
 }
 
-void dl_interface::add_invariant(func_decl* pred, expr* property) {
+void dl_interface::add_invariant(func_decl* pred, expr* property)
+{
     if (m_ctx.get_params().xform_slice()) {
         throw default_exception("Invariants are incompatible with slicing. Disable slicing before using invariants");
     }
     m_context->add_invariant(pred, property);
 }
 
-expr_ref dl_interface::get_reachable(func_decl* pred) {
+expr_ref dl_interface::get_reachable(func_decl* pred)
+{
     if (m_ctx.get_params().xform_slice()) {
         throw default_exception("Invariants are incompatible with slicing. "
                                 "Disable slicing before using invariants");
@@ -291,45 +300,55 @@ expr_ref dl_interface::get_reachable(func_decl* pred) {
     return m_context->get_reachable(pred);
 }
 
-unsigned dl_interface::get_num_levels(func_decl* pred) {
+unsigned dl_interface::get_num_levels(func_decl* pred)
+{
     m_pred2slice.find(pred, pred);
     SASSERT(pred);
     return m_context->get_num_levels(pred);
 }
 
-void dl_interface::collect_statistics(statistics& st) const {
+void dl_interface::collect_statistics(statistics& st) const
+{
     m_context->collect_statistics(st);
 }
 
-void dl_interface::reset_statistics() {
+void dl_interface::reset_statistics()
+{
     m_context->reset_statistics();
 }
 
-void dl_interface::display_certificate(std::ostream& out) const {
+void dl_interface::display_certificate(std::ostream& out) const
+{
     m_context->display_certificate(out);
 }
 
-expr_ref dl_interface::get_answer() {
+expr_ref dl_interface::get_answer()
+{
     return m_context->get_answer();
 }
 
-expr_ref dl_interface::get_ground_sat_answer () {
-    return m_context->get_ground_sat_answer ();
+expr_ref dl_interface::get_ground_sat_answer()
+{
+    return m_context->get_ground_sat_answer();
 }
 
-void dl_interface::get_rules_along_trace (datalog::rule_ref_vector& rules) {
-    m_context->get_rules_along_trace (rules);
+void dl_interface::get_rules_along_trace(datalog::rule_ref_vector& rules)
+{
+    m_context->get_rules_along_trace(rules);
 }
 
-void dl_interface::updt_params() {
+void dl_interface::updt_params()
+{
     dealloc(m_context);
     m_context = alloc(spacer::context, m_ctx.get_params(), m_ctx.get_manager());
 }
 
-model_ref dl_interface::get_model() {
+model_ref dl_interface::get_model()
+{
     return m_context->get_model();
 }
 
-proof_ref dl_interface::get_proof() {
+proof_ref dl_interface::get_proof()
+{
     return m_context->get_proof();
 }

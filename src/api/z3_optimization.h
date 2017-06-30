@@ -71,12 +71,11 @@ extern "C" {
     */
     unsigned Z3_API Z3_optimize_assert_soft(Z3_context c, Z3_optimize o, Z3_ast a, Z3_string weight, Z3_symbol id);
 
-
     /**
        \brief Add a maximization constraint.
        \param c - context
        \param o - optimization context
-       \param a - arithmetical term
+       \param t - arithmetical term
        def_API('Z3_optimize_maximize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
     unsigned Z3_API Z3_optimize_maximize(Z3_context c, Z3_optimize o, Z3_ast t);
@@ -85,12 +84,11 @@ extern "C" {
        \brief Add a minimization constraint.
        \param c - context
        \param o - optimization context
-       \param a - arithmetical term
+       \param t - arithmetical term
 
        def_API('Z3_optimize_minimize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
     unsigned Z3_API Z3_optimize_minimize(Z3_context c, Z3_optimize o, Z3_ast t);
-
 
     /**
        \brief Create a backtracking point.
@@ -188,6 +186,33 @@ extern "C" {
     */
     Z3_ast Z3_API Z3_optimize_get_upper(Z3_context c, Z3_optimize o, unsigned idx);
 
+
+    /**
+       \brief Retrieve lower bound value or approximation for the i'th optimization objective.
+              The returned vector is of length 3. It always contains numerals.
+              The three numerals are coefficients a, b, c and encode the result of \c Z3_optimize_get_lower
+              a * infinity + b + c * epsilon.
+              
+       \param c - context
+       \param o - optimization context
+       \param idx - index of optimization objective
+
+       def_API('Z3_optimize_get_lower_as_vector', AST_VECTOR, (_in(CONTEXT), _in(OPTIMIZE), _in(UINT)))
+    */
+    Z3_ast_vector Z3_API Z3_optimize_get_lower_as_vector(Z3_context c, Z3_optimize o, unsigned idx);
+
+    /**
+       \brief Retrieve upper bound value or approximation for the i'th optimization objective.
+
+       \param c - context
+       \param o - optimization context
+       \param idx - index of optimization objective
+
+       def_API('Z3_optimize_get_upper_as_vector', AST_VECTOR, (_in(CONTEXT), _in(OPTIMIZE), _in(UINT)))
+    */
+    Z3_ast_vector Z3_API Z3_optimize_get_upper_as_vector(Z3_context c, Z3_optimize o, unsigned idx);
+
+
     /**
        \brief Print the current context as a string.
        \param c - context.
@@ -197,6 +222,31 @@ extern "C" {
     */
     Z3_string Z3_API Z3_optimize_to_string(Z3_context c, Z3_optimize o);
 
+    /**
+       \brief Parse an SMT-LIB2 string with assertions,
+       soft constraints and optimization objectives.
+       Add the parsed constraints and objectives to the optimization context.
+
+       \param c - context.
+       \param o - optimize context.
+       \param s - string containing SMT2 specification.
+
+       def_API('Z3_optimize_from_string', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(STRING)))
+    */
+    void Z3_API Z3_optimize_from_string(Z3_context c, Z3_optimize o, Z3_string s);
+
+    /**
+       \brief Parse an SMT-LIB2 file with assertions,
+       soft constraints and optimization objectives.
+       Add the parsed constraints and objectives to the optimization context.
+
+       \param c - context.
+       \param o - optimize context.
+       \param s - string containing SMT2 specification.
+
+       def_API('Z3_optimize_from_file', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(STRING)))
+    */
+    void Z3_API Z3_optimize_from_file(Z3_context c, Z3_optimize o, Z3_string s);
 
     /**
        \brief Return a string containing a description of parameters accepted by optimize.
@@ -211,6 +261,26 @@ extern "C" {
        def_API('Z3_optimize_get_statistics', STATS, (_in(CONTEXT), _in(OPTIMIZE)))
     */
     Z3_stats Z3_API Z3_optimize_get_statistics(Z3_context c, Z3_optimize d);
+
+    /**
+       \brief Return the set of asserted formulas on the optimization context.
+
+       def_API('Z3_optimize_get_assertions', AST_VECTOR, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    Z3_ast_vector Z3_API Z3_optimize_get_assertions(Z3_context c, Z3_optimize o);
+
+    /**
+       \brief Return objectives on the optimization context.
+       If the objective function is a max-sat objective it is returned
+       as a Pseudo-Boolean (minimization) sum of the form (+ (if f1 w1 0) (if f2 w2 0) ...)
+       If the objective function is entered as a maximization objective, then return
+       the corresponding minimization objective. In this way the resulting objective
+       function is always returned as a minimization objective.
+
+       def_API('Z3_optimize_get_objectives', AST_VECTOR, (_in(CONTEXT), _in(OPTIMIZE)))
+    */
+    Z3_ast_vector Z3_API Z3_optimize_get_objectives(Z3_context c, Z3_optimize o);
+
     /*@}*/
     /*@}*/
 

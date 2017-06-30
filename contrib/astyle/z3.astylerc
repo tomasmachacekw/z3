@@ -1,0 +1,10 @@
+--style=stroustrup
+--indent=spaces=4
+--attach-namespaces
+--attach-classes
+--pad-oper
+--unpad-paren
+-J
+--keep-one-line-blocks
+--pad-header
+

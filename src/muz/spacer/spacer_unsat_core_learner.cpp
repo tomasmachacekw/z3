@@ -1,4 +1,3 @@
-
 #include "spacer_unsat_core_learner.h"
 
 #include "spacer_unsat_core_plugin.h"

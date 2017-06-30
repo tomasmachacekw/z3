@@ -51,8 +51,8 @@ namespace spacer {
   
   inline unsigned prev_level (unsigned lvl)
   {
-    if (is_infty_level (lvl)) return infty_level ();
-    if (lvl == 0) return 0;
+    if(is_infty_level(lvl)) { return infty_level(); }
+    if(lvl == 0) { return 0; }
     return lvl -1;
   }
   
@@ -61,22 +61,21 @@ namespace spacer {
         pp_level(unsigned l): m_level(l) {}        
     };
 
-    inline std::ostream& operator<<(std::ostream& out, pp_level const& p) {
+inline std::ostream& operator<<(std::ostream& out, pp_level const& p)
+{
         if (is_infty_level(p.m_level)) {
             return out << "oo";
-        }
-        else {
+    } else {
             return out << p.m_level;
         }
     }
 
 
-  struct scoped_watch
-  {
+struct scoped_watch {
     stopwatch &m_sw;
     scoped_watch (stopwatch &sw, bool reset=false): m_sw(sw) 
     {
-      if (reset) m_sw.reset ();
+        if(reset) { m_sw.reset(); }
       m_sw.start ();
     }
     ~scoped_watch () {m_sw.stop ();}

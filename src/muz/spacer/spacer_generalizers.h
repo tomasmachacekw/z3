@@ -25,74 +25,70 @@ Revision History:
 
 namespace spacer {
 
-    // can be used to check whether produced core is really implied by frame and therefore valid
-    // TODO: or negation?
-    class unsat_core_sanity_checker : public core_generalizer {
-    public:
-        unsat_core_sanity_checker(context& ctx) : core_generalizer(ctx) {}
-        virtual ~unsat_core_sanity_checker() {}
-        virtual void operator()(model_node& n, expr_ref_vector& core, unsigned& uses_level);
+// can be used to check whether produced core is really implied by frame and therefore valid
+// TODO: or negation?
+class unsat_core_sanity_checker : public core_generalizer {
+public:
+    unsat_core_sanity_checker(context& ctx) : core_generalizer(ctx) {}
+    virtual ~unsat_core_sanity_checker() {}
+    virtual void operator()(model_node& n, expr_ref_vector& core, unsigned& uses_level);
+};
+
+class core_bool_inductive_generalizer : public core_generalizer {
+
+    struct stats {
+        unsigned count;
+        unsigned num_failures;
+        stopwatch watch;
+        stats() {reset();}
+        void reset() {count = 0; num_failures = 0; watch.reset();}
     };
 
-    class core_bool_inductive_generalizer : public core_generalizer {
+    unsigned m_failure_limit;
+    stats m_st;
 
-        struct stats
-        {
-          unsigned count;
-          unsigned num_failures;  
-          stopwatch watch;
-          stats () {reset ();}
-          void reset () {count=0; num_failures=0; watch.reset ();}
-        };
-          
-        unsigned m_failure_limit;
-        stats m_st;
-      
-    public:
-      core_bool_inductive_generalizer(context& ctx, unsigned failure_limit) : core_generalizer(ctx), m_failure_limit(failure_limit) {}
-        virtual ~core_bool_inductive_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector& core, unsigned& uses_level);
-      
-      virtual void collect_statistics(statistics& st) const;
-      virtual void reset_statistics () {m_st.reset ();}
+public:
+    core_bool_inductive_generalizer(context& ctx, unsigned failure_limit) : core_generalizer(ctx), m_failure_limit(failure_limit) {}
+    virtual ~core_bool_inductive_generalizer() {}
+    virtual void operator()(model_node& n, expr_ref_vector& core, unsigned& uses_level);
+
+    virtual void collect_statistics(statistics& st) const;
+    virtual void reset_statistics() {m_st.reset();}
+};
+
+class unsat_core_generalizer : public core_generalizer {
+    struct stats {
+        unsigned count;
+        unsigned num_failures;
+        stopwatch watch;
+        stats() { reset(); }
+        void reset() {count = 0; num_failures = 0; watch.reset();}
     };
 
-    class unsat_core_generalizer : public core_generalizer {
-        struct stats
-        {
-            unsigned count;
-            unsigned num_failures;
-            stopwatch watch;
-            stats () { reset (); }
-            void reset () {count=0; num_failures=0; watch.reset();}
-        };
-        
-        stats m_st;
-    public:
-        unsat_core_generalizer (context &ctx) : core_generalizer(ctx) {}
-        virtual ~unsat_core_generalizer () {}
-        virtual void operator() (model_node &n, expr_ref_vector &core, unsigned& uses_level);
+    stats m_st;
+public:
+    unsat_core_generalizer(context &ctx) : core_generalizer(ctx) {}
+    virtual ~unsat_core_generalizer() {}
+    virtual void operator()(model_node &n, expr_ref_vector &core, unsigned& uses_level);
 
-        virtual void collect_statistics (statistics &st) const;
-        virtual void reset_statistics () {m_st.reset();}
-    };
-    
-  class core_array_eq_generalizer : public core_generalizer 
-  {
-  public:
-    core_array_eq_generalizer (context &ctx) : core_generalizer (ctx) {} 
-    virtual ~core_array_eq_generalizer () {}
-    virtual void operator() (model_node& n, expr_ref_vector& core, unsigned &uses_level);
-    
-  };
+    virtual void collect_statistics(statistics &st) const;
+    virtual void reset_statistics() {m_st.reset();}
+};
 
-  class core_eq_generalizer : public core_generalizer 
-  {
-  public:
-    core_eq_generalizer (context &ctx) : core_generalizer (ctx) {} 
-    virtual ~core_eq_generalizer () {}
-    virtual void operator() (model_node& n, expr_ref_vector& core, unsigned &uses_level);
-  };
+class core_array_eq_generalizer : public core_generalizer {
+public:
+    core_array_eq_generalizer(context &ctx) : core_generalizer(ctx) {}
+    virtual ~core_array_eq_generalizer() {}
+    virtual void operator()(model_node& n, expr_ref_vector& core, unsigned &uses_level);
+
+};
+
+class core_eq_generalizer : public core_generalizer {
+public:
+    core_eq_generalizer(context &ctx) : core_generalizer(ctx) {}
+    virtual ~core_eq_generalizer() {}
+    virtual void operator()(model_node& n, expr_ref_vector& core, unsigned &uses_level);
+};
 
 
 };

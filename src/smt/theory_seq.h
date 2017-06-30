@@ -294,6 +294,7 @@ namespace smt {
         ast_manager&               m;
         dependency_manager         m_dm;
         solution_map               m_rep;        // unification representative.
+        bool                       m_reset_cache; // invalidate cache.
         scoped_vector<eq>          m_eqs;        // set of current equations.
         scoped_vector<ne>          m_nqs;        // set of current disequalities.
         scoped_vector<nc>          m_ncs;        // set of non-contains constraints.
@@ -308,6 +309,7 @@ namespace smt {
         bool            m_incomplete;             // is the solver (clearly) incomplete for the fragment.
         expr_ref_vector     m_int_string;
         rational_set        m_itos_axioms;
+        rational_set        m_stoi_axioms;
         obj_hashtable<expr> m_length;             // is length applied
         scoped_ptr_vector<apply> m_replay;        // set of actions to replay
         model_generator* m_mg;
@@ -339,9 +341,9 @@ namespace smt {
 
         virtual void init(context* ctx);
         virtual final_check_status final_check_eh();
-        virtual bool internalize_atom(app* atom, bool) { return internalize_term(atom); }
-        virtual bool internalize_term(app*);
-        virtual void internalize_eq_eh(app * atom, bool_var v) {}
+        virtual bool internalize_atom(app* atom, bool);
+        virtual bool internalize_term(app*);        
+        virtual void internalize_eq_eh(app * atom, bool_var v);
         virtual void new_eq_eh(theory_var, theory_var);
         virtual void new_diseq_eh(theory_var, theory_var);
         virtual void assign_eh(bool_var v, bool is_true);        
@@ -385,6 +387,7 @@ namespace smt {
                            vector<rational> const& ll, vector<rational> const& rl);
         bool set_empty(expr* x);
         bool is_complex(eq const& e);
+        bool internalize_re(expr* e);
 
         bool check_extensionality();
         bool check_contains();
@@ -447,10 +450,12 @@ namespace smt {
         bool is_var(expr* b);
         bool add_solution(expr* l, expr* r, dependency* dep);
         bool is_nth(expr* a) const;
+        bool is_nth(expr* a, expr*& e1, expr*& e2) const;
         bool is_tail(expr* a, expr*& s, unsigned& idx) const;
         bool is_eq(expr* e, expr*& a, expr*& b) const; 
         bool is_pre(expr* e, expr*& s, expr*& i);
         bool is_post(expr* e, expr*& s, expr*& i);
+        expr_ref mk_sk_ite(expr* c, expr* t, expr* f);
         expr_ref mk_nth(expr* s, expr* idx);
         expr_ref mk_last(expr* e);
         expr_ref mk_first(expr* e);
@@ -493,7 +498,11 @@ namespace smt {
         void add_elim_string_axiom(expr* n);
         void add_at_axiom(expr* n);
         void add_in_re_axiom(expr* n);
+        bool add_stoi_axiom(expr* n);
         bool add_itos_axiom(expr* n);
+        literal is_digit(expr* ch);
+        expr_ref digit2int(expr* ch);
+        void add_itos_length_axiom(expr* n);
         literal mk_literal(expr* n);
         literal mk_eq_empty(expr* n, bool phase = true);
         literal mk_seq_eq(expr* a, expr* b);
@@ -506,7 +515,7 @@ namespace smt {
 
 
         // arithmetic integration
-        bool get_value(expr* s, rational& val) const;
+        bool get_num_value(expr* s, rational& val) const;
         bool lower_bound(expr* s, rational& lo) const;
         bool upper_bound(expr* s, rational& hi) const;
         bool get_length(expr* s, rational& val) const;
@@ -562,6 +571,7 @@ namespace smt {
         void display_disequation(std::ostream& out, ne const& e) const;
         void display_deps(std::ostream& out, dependency* deps) const;
         void display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const;
+        void display_nc(std::ostream& out, nc const& nc) const;
     public:
         theory_seq(ast_manager& m);
         virtual ~theory_seq();

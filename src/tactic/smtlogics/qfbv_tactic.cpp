@@ -32,7 +32,7 @@ Notes:
 
 #define MEMLIMIT 300
 
-tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
+static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
 
     params_ref solve_eq_p;
     // conservative guassian elimination.
@@ -80,7 +80,7 @@ static tactic * main_p(tactic* t) {
 }
 
 
-tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tactic* smt) {
+static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tactic* smt) {
 
     params_ref local_ctx_p = p;
     local_ctx_p.set_bool("local_ctx", true);
@@ -103,7 +103,7 @@ tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tacti
     tactic * st = main_p(and_then(preamble_st,
                                   // If the user sets HI_DIV0=false, then the formula may contain uninterpreted function
                                   // symbols. In this case, we should not use the `sat', but instead `smt'. Alternatively,
-								  // the UFs can be eliminated by eager ackermannization in the preamble.
+                                  // the UFs can be eliminated by eager ackermannization in the preamble.
                                   cond(mk_is_qfbv_eq_probe(),
                                        and_then(mk_bv1_blaster_tactic(m),
                                                 using_params(smt, solver_p)),

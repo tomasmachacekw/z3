@@ -74,8 +74,7 @@ Notes:
 #include "expr_abstract.h"
 #include "obj_equiv_class.h"
 
-namespace
-{
+namespace {
   inline expr_equiv_class remove_eq_conds_tmp(expr_ref_vector& e)
   {
     ast_manager& m = e.get_manager();
@@ -83,29 +82,24 @@ namespace
     expr_equiv_class eq_classes(m);
     flatten_and(e);
     expr_ref_vector res(m);
-    for(unsigned i=0;i<e.size();i++)
-    {
+    for (unsigned i = 0; i < e.size(); i++) {
       expr*e1, *e2;
-      if(m.is_eq(e[i].get(), e1, e2))	
-      {
-        if(m_a.is_add(e1) && e2 == m_a.mk_int(0))
-        {
+        if (m.is_eq(e[i].get(), e1, e2)) {
+            if (m_a.is_add(e1) && e2 == m_a.mk_int(0)) {
           app* f = to_app(e1);
           expr*first=f->get_arg(0);
           expr*snd=f->get_arg(1);
-          if(m_a.is_mul(snd))
-          {
+                if (m_a.is_mul(snd)) {
             app*mult=to_app(snd);
-            if(m_a.is_minus_one(mult->get_arg(0)))
-            {
-              e1 = first; e2=mult->get_arg(1);
+                    if (m_a.is_minus_one(mult->get_arg(0))) {
+                        e1 = first;
+                        e2 = mult->get_arg(1);
             }
           }
         } 
         eq_classes.merge(e1, e2);
-      }
-      else
-        res.push_back(e[i].get());
+        } else
+        { res.push_back(e[i].get()); }
     }
     e.reset();
     e.append(res);
@@ -139,7 +133,8 @@ namespace spacer {
       m_extend_lit = m.mk_not (m.mk_const (pm.get_n_pred (v->get_decl ())));
     }
 
-    pred_transformer::~pred_transformer() {
+pred_transformer::~pred_transformer()
+{
         rule2inst::iterator it2 = m_rule2inst.begin(), end2 = m_rule2inst.end();
         for (; it2 != end2; ++it2) {
             dealloc(it2->m_value);
@@ -150,8 +145,9 @@ namespace spacer {
         }
     }
 
-    std::ostream& pred_transformer::display(std::ostream& out) const {
-        if (!rules().empty()) out << "rules\n";
+std::ostream& pred_transformer::display(std::ostream& out) const
+{
+    if (!rules().empty()) { out << "rules\n"; }
         datalog::rule_manager& rm = ctx.get_datalog_context().get_rule_manager();
         for (unsigned i = 0; i < rules().size(); ++i) {
             rm.display_smt2(*rules()[i], out) << "\n";
@@ -160,7 +156,8 @@ namespace spacer {
         return out;
     }
 
-    void pred_transformer::collect_statistics(statistics& st) const {
+void pred_transformer::collect_statistics(statistics& st) const
+{
         m_solver.collect_statistics(st);
         st.update("SPACER num propagations", m_stats.m_num_propagations);
         st.update("SPACER num properties", m_frames.lemma_size ());
@@ -171,7 +168,8 @@ namespace spacer {
                    m_must_reachable_watch.get_seconds ());
     }
 
-    void pred_transformer::reset_statistics() {
+void pred_transformer::reset_statistics()
+{
         m_solver.reset_statistics();
         //m_reachable.reset_statistics();
         m_stats.reset();
@@ -179,7 +177,8 @@ namespace spacer {
         m_must_reachable_watch.reset ();
     }
     
-    void pred_transformer::init_sig() {
+void pred_transformer::init_sig()
+{
         for (unsigned i = 0; i < m_head->get_arity(); ++i) {
             sort * arg_sort = m_head->get_domain(i);
             std::stringstream name_stm;
@@ -190,28 +189,29 @@ namespace spacer {
         }
     }
 
-    void pred_transformer::ensure_level(unsigned level) {
-        if (is_infty_level(level)) return;
+void pred_transformer::ensure_level(unsigned level)
+{
+    if (is_infty_level(level)) { return; }
         
-        while (m_frames.size () <= level)
-        {
+    while (m_frames.size() <= level) {
           m_frames.add_frame ();
           m_solver.add_level ();
         }
     }
 
-    bool pred_transformer::is_must_reachable (expr* state, model_ref* model) {
+bool pred_transformer::is_must_reachable(expr* state, model_ref* model)
+{
         scoped_watch _t_(m_must_reachable_watch);
         SASSERT (state);
         // XXX This seems to mis-handle the case when state is
         // reachable using the init rule of the current transformer
-        if (m_reach_facts.empty ()) return false;
+    if (m_reach_facts.empty()) { return false; }
         
         m_reach_ctx->push ();
         m_reach_ctx->assert_expr (state);
         m_reach_ctx->assert_expr (m.mk_not (m_reach_case_vars.back ()));
         lbool res = m_reach_ctx->check_sat (0, NULL);
-        if (model) m_reach_ctx->get_model (*model);
+    if (model) { m_reach_ctx->get_model(*model); }
         m_reach_ctx->pop (1);
         return (res == l_true);
     }
@@ -220,7 +220,8 @@ namespace spacer {
   
   
   reach_fact* pred_transformer::get_used_reach_fact (model_evaluator_util& mev,
-                                                     bool all) {
+        bool all)
+{
     expr_ref v (m);
     
     for (unsigned i = all ? 0 : m_rf_init_sz, sz = m_reach_case_vars.size ();
@@ -236,7 +237,8 @@ namespace spacer {
   }
   
   reach_fact *pred_transformer::get_used_origin_reach_fact (model_evaluator_util& mev, 
-                                                            unsigned oidx) {
+        unsigned oidx)
+{
     expr_ref b(m), v(m);
     reach_fact *res = NULL;
     
@@ -256,7 +258,8 @@ namespace spacer {
     datalog::rule const* pred_transformer::find_rule(model &model, 
                                                      bool& is_concrete, 
                                                      vector<bool>& reach_pred_used, 
-                                                     unsigned& num_reuse_reach) {
+        unsigned& num_reuse_reach)
+{
         typedef obj_map<expr, datalog::rule const*> tag2rule;
         TRACE ("spacer_verbose",
                 datalog::rule_manager& rm = ctx.get_datalog_context().get_rule_manager();
@@ -265,7 +268,7 @@ namespace spacer {
                 for (; it != end; ++it) {
                     expr* pred = it->m_key;
                     tout << mk_pp(pred, m) << ":\n";
-                    if (it->m_value) rm.display_smt2 (*(it->m_value), tout) << "\n";
+        if (it->m_value) { rm.display_smt2(*(it->m_value), tout) << "\n"; }
                 }
               );
 
@@ -287,7 +290,7 @@ namespace spacer {
                     bool used = false;
                     func_decl* d = r->get_tail(i)->get_decl();
                     pred_transformer const& pt = ctx.get_pred_transformer (d);
-                    if (!pt.has_reach_facts ()) is_concrete = false;
+                if (!pt.has_reach_facts()) { is_concrete = false; }
                     else {
                       expr_ref v(m);
                       pm.formula_n2o (pt.get_last_reach_case_var (), v, i);
@@ -297,18 +300,19 @@ namespace spacer {
                     }
 
                     reach_pred_used.push_back (used);
-                    if (used) num_reuse_reach++;
+                if (used) { num_reuse_reach++; }
                 }
-                if (is_concrete) break;
+            if (is_concrete) { break; }
             }
         }
         // SASSERT (r);
         // reached by a reachability fact
-        if (!r) is_concrete = true;
+    if (!r) { is_concrete = true; }
         return r;
     }
 
-    void pred_transformer::find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& preds) const {
+void pred_transformer::find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& preds) const
+{
         preds.reset();
         unsigned tail_sz = r.get_uninterpreted_tail_size();
         for (unsigned ti = 0; ti < tail_sz; ti++) {
@@ -316,7 +320,8 @@ namespace spacer {
         }
     }
 
-    void pred_transformer::find_predecessors(vector<std::pair<func_decl*, unsigned> >& preds) const {
+void pred_transformer::find_predecessors(vector<std::pair<func_decl*, unsigned> >& preds) const
+{
         preds.reset();
         obj_map<expr, datalog::rule const*>::iterator it = m_tag2rule.begin(), end = m_tag2rule.end();
         for (; it != end; it++) {
@@ -329,7 +334,8 @@ namespace spacer {
     }
 
 
-    void pred_transformer::remove_predecessors(expr_ref_vector& literals) {
+void pred_transformer::remove_predecessors(expr_ref_vector& literals)
+{
         // remove tags
         for (unsigned i = 0; i < literals.size(); ) {
             expr* l = literals[i].get();
@@ -337,19 +343,20 @@ namespace spacer {
             if (m_tag2rule.contains(l)) {
                 literals[i] = literals.back();
                 literals.pop_back();
-            }
-            else {
+        } else {
                 ++i;
             }
         }
     }
 
-    void pred_transformer::simplify_formulas() {
+void pred_transformer::simplify_formulas()
+{
       m_frames.simplify_formulas ();
     }
 
   
-    expr_ref pred_transformer::get_formulas(unsigned level, bool add_axioms) {
+expr_ref pred_transformer::get_formulas(unsigned level, bool add_axioms)
+{
         expr_ref_vector res(m);
         if (add_axioms) {
             res.push_back(pm.get_background());
@@ -359,13 +366,13 @@ namespace spacer {
         return pm.mk_and(res);
     }
 
-    expr_ref pred_transformer::get_propagation_formula(decl2rel const& pts, unsigned level) {
+expr_ref pred_transformer::get_propagation_formula(decl2rel const& pts, unsigned level)
+{
         expr_ref result(m), tmp1(m), tmp2(m);
         expr_ref_vector conj(m);
         if (level == 0) {
             conj.push_back(initial_state());
-        }
-        else {
+    } else {
             conj.push_back(transition());
         }
         conj.push_back(get_formulas(level, true));        
@@ -373,7 +380,7 @@ namespace spacer {
         for (; level > 0 && it != end; ++it) {
             expr* tag = it->m_key;
             datalog::rule const* r = it->m_value;
-            if (!r) continue;
+        if (!r) { continue; }
             find_predecessors(*r, m_predicates);
             for (unsigned i = 0; i < m_predicates.size(); ++i) {
                 func_decl* d = m_predicates[i];
@@ -392,7 +399,7 @@ namespace spacer {
   
 
   /// \brief adds a lema to the solver and to child solvers
-  void pred_transformer::add_lemma_core (frames::lemma* lemma)
+void pred_transformer::add_lemma_core(lemma* lemma)
   {
     unsigned lvl = lemma->level();
     expr* l = lemma->get();
@@ -415,10 +422,10 @@ namespace spacer {
              << mk_pp (t, m, p) << "\n\n";);
     
     
-    if (is_infty_level (lvl)) m_stats.m_num_invariants++;
+    if (is_infty_level(lvl)) { m_stats.m_num_invariants++; }
     
-    if (!lemma->is_forall ()) {
-        if (is_infty_level (lvl)) m_solver.assert_expr (l);
+    if (lemma->is_ground()) {
+        if (is_infty_level(lvl)) { m_solver.assert_expr(l); }
         else {
             ensure_level (lvl);
             m_solver.assert_expr (l, lvl);
@@ -426,7 +433,7 @@ namespace spacer {
     }
     
     for (unsigned i = 0, sz = m_use.size (); i < sz; ++i)
-      m_use [i]->add_lemma_from_child (*this, lemma, next_level (lvl));
+    { m_use [i]->add_lemma_from_child(*this, lemma, next_level(lvl)); }
   }
   
   bool pred_transformer::add_lemma (expr * lemma, unsigned lvl, expr_ref_vector& binding)
@@ -436,8 +443,7 @@ namespace spacer {
     expr_ref_vector lemmas (m);
     expr_ref nlemma (m);
     flatten_and (lemma, lemmas);
-    for (unsigned i = 0, sz = lemmas.size(); i < sz; ++i)
-    {
+    for (unsigned i = 0, sz = lemmas.size(); i < sz; ++i) {
       normalize (lemmas.get (i), nlemma);
       res |= m_frames.add_lemma (nlemma, lvl, binding);
     }
@@ -445,9 +451,8 @@ namespace spacer {
     return res;
   }
   
-
   void pred_transformer::add_lemma_from_child (pred_transformer& child, 
-                                               frames::lemma* lemma, unsigned lvl)
+        lemma* lemma, unsigned lvl)
   {
     ensure_level(lvl);
     expr_ref_vector fmls(m);
@@ -458,20 +463,20 @@ namespace spacer {
         expr* a = to_app(fmls.get(i))->get_arg(0);
         expr* l = to_app(fmls.get(i))->get_arg(1);
         if (get_context().use_instantiate())
-            lemma->create_instantiations(inst, l);
+        { lemma->create_instantiations(inst, l); }
         for (unsigned j=0; j < inst.size(); j++) {
             inst.set(j, m.mk_implies(a, inst.get(j)));
         }
-        if (!lemma->is_forall () || get_context().use_qlemmas ())
-            inst.push_back(fmls.get(i));
+        if (lemma->is_ground() || get_context().use_qlemmas())
+        { inst.push_back(fmls.get(i)); }
         SASSERT (!inst.empty ());
         for (unsigned j = 0; j < inst.size(); ++j) {
           TRACE("spacer_detail", tout << "child property: "
                 << mk_pp(inst.get (j), m) << "\n";);
           if (is_infty_level(lvl))
-            m_solver.assert_expr (inst.get (j));
+            { m_solver.assert_expr(inst.get(j)); }
           else
-            m_solver.assert_expr (inst.get (j), lvl);
+            { m_solver.assert_expr(inst.get(j), lvl); }
         }
     }
 
@@ -505,14 +510,14 @@ namespace spacer {
              << mk_pp(fact->get (), m) << "\n";);
       
       // -- avoid duplicates
-      if (fact == nullptr || get_reach_fact (fact->get ())) return;
+    if (fact == nullptr || get_reach_fact(fact->get())) { return; }
 
       // all initial facts are grouped together
       SASSERT (!fact->is_init () || m_reach_facts.empty () ||
                m_reach_facts.back ()->is_init ());
       
       m_reach_facts.push_back (fact);
-      if (fact->is_init ()) m_rf_init_sz++;
+    if (fact->is_init()) { m_rf_init_sz++; }
       
 
       // update m_reach_ctx
@@ -520,11 +525,10 @@ namespace spacer {
       expr_ref new_var (m);
       expr_ref fml (m);
       
-      if (!m_reach_case_vars.empty ()) last_var = m_reach_case_vars.back ();
+    if (!m_reach_case_vars.empty()) { last_var = m_reach_case_vars.back(); }
       if (fact->is_init () || !ctx.get_params ().spacer_reach_as_init ())
-        new_var = mk_fresh_reach_case_var ();
-      else
-      {
+    { new_var = mk_fresh_reach_case_var(); }
+    else {
         new_var = extend_initial (fact->get ())->get_arg (0);
         m_reach_case_vars.push_back (new_var);
       }
@@ -532,22 +536,23 @@ namespace spacer {
       SASSERT (m_reach_facts.size () == m_reach_case_vars.size ());
       
       if (last_var)
-        fml = m.mk_or (m.mk_not (last_var), fact->get (), new_var);
+    { fml = m.mk_or(m.mk_not(last_var), fact->get(), new_var); }
       else
-        fml = m.mk_or (fact->get (), new_var);
+    { fml = m.mk_or(fact->get(), new_var); }
       
       m_reach_ctx->assert_expr (fml);
       TRACE ("spacer",
              tout << "updating reach ctx: " << mk_pp(fml, m) << "\n";);
 
-      frames::lemma lem (m, fml, infty_level());
+    lemma lem(m, fml, infty_level());
       // update users; reach facts are independent of levels
       for (unsigned i = 0; i < m_use.size(); ++i) {
         m_use[i]->add_lemma_from_child (*this, &lem, infty_level ());
       }
     }
 
-    expr_ref pred_transformer::get_reachable() {
+expr_ref pred_transformer::get_reachable()
+{
         expr_ref res(m);
         res = m.mk_false();
         
@@ -590,12 +595,13 @@ namespace spacer {
     return m_reach_case_vars.empty () ? NULL : m_reach_case_vars.back ();
   }
   
-    expr_ref pred_transformer::get_cover_delta(func_decl* p_orig, int level) {
+expr_ref pred_transformer::get_cover_delta(func_decl* p_orig, int level)
+{
         expr_ref result(m.mk_true(), m), v(m), c(m);
         
         expr_ref_vector lemmas (m);
         m_frames.get_frame_lemmas (level == -1 ? infty_level() : level, lemmas);
-        if (!lemmas.empty ()) result = pm.mk_and (lemmas);
+    if (!lemmas.empty()) { result = pm.mk_and(lemmas); }
         
         // replace local constants by bound variables.
         expr_substitution sub(m);        
@@ -613,8 +619,7 @@ namespace spacer {
         model_ref md = alloc(model, m);
         if (arity == 0) {
             md->register_decl(m_head, result);
-        }
-        else {
+    } else {
             func_interp* fi = alloc(func_interp, m, arity);
             fi->set_else(result);
             md->register_decl(m_head, fi);
@@ -623,8 +628,7 @@ namespace spacer {
         apply(mc, md, 0);
         if (p_orig->get_arity() == 0) {
             result = md->get_const_interp(p_orig);
-        }
-        else {
+    } else {
             result = md->get_func_interp(p_orig)->get_interp();
         }
         return result;        
@@ -647,14 +651,11 @@ namespace spacer {
     expr_ref_vector summary (m);
     expr_ref v(m);
     
-    if (!must) // use may summary
-    {
+    if (!must) { // use may summary
       summary.push_back (get_formulas (level, false));
       // -- no auxiliary variables in lemmas
       *aux = NULL;
-    }
-    else // find must summary to use
-    {
+    } else { // find must summary to use
       reach_fact *f = get_used_origin_reach_fact (mev, oidx);
       summary.push_back (f->get ());
       *aux = &f->aux_vars ();
@@ -663,8 +664,7 @@ namespace spacer {
     SASSERT (!summary.empty ());
 
     // -- convert to origin
-    for (unsigned i = 0; i < summary.size (); ++i)
-    {
+    for (unsigned i = 0; i < summary.size(); ++i) {
       pm.formula_n2o (summary.get (i), v, oidx);
       summary[i] = v;
     }
@@ -677,7 +677,8 @@ namespace spacer {
   }
   
 
-    void pred_transformer::add_cover(unsigned level, expr* property) {
+void pred_transformer::add_cover(unsigned level, expr* property)
+{
         // replace bound variables by local constants.
         expr_ref result(property, m), v(m), c(m);
         expr_substitution sub(m);        
@@ -710,7 +711,7 @@ namespace spacer {
     expr_ref_vector post(m), aux(m);
     post.push_back (n.post ());
     lbool res = m_solver.check_assumptions (post, aux, 0, NULL, 0);
-    if (res == l_false) uses_level = m_solver.uses_level ();
+    if (res == l_false) { uses_level = m_solver.uses_level(); }
     return res == l_false;
   }
 
@@ -723,7 +724,7 @@ namespace spacer {
 
       // assert all lemmas
       for (unsigned i = 0, sz = frame_lemmas.size (); i < sz; ++i)
-          solver.assert_expr (frame_lemmas.get (i));
+    { solver.assert_expr(frame_lemmas.get(i)); }
       // assert cti
       solver.assert_expr (n.post ());
       lbool res = solver.check ();
@@ -741,7 +742,8 @@ namespace spacer {
                                        model_ref* model, unsigned& uses_level, 
                                          bool& is_concrete, datalog::rule const*& r, 
                                        vector<bool>& reach_pred_used, 
-                                       unsigned& num_reuse_reach) {
+                                     unsigned& num_reuse_reach)
+{
         TRACE("spacer", 
               tout << "is-reachable: " << head()->get_name() << " level: " 
               << n.level() << " depth: " << n.depth () << "\n";
@@ -774,20 +776,17 @@ namespace spacer {
                 end = m_tag2rule.end ();
             for (; it != end; ++it) {
                 datalog::rule const* r = it->m_value;
-                if (!r) continue;
+            if (!r) { continue; }
                 find_predecessors(*r, m_predicates);
-                if (m_predicates.empty ()) continue;
+            if (m_predicates.empty()) { continue; }
                 for (unsigned i = 0; i < m_predicates.size(); i++) {
                     const pred_transformer &pt = 
                       ctx.get_pred_transformer (m_predicates [i]);
-                    if (pt.has_reach_facts ())
-                    {
+                if (pt.has_reach_facts()) {
                       expr_ref a(m);
                       pm.formula_n2o (pt.get_last_reach_case_var (), a, i);
                       reach_assumps.push_back (m.mk_not (a));
-                    }
-                    else if (ctx.get_params ().init_reach_facts ())
-                    {
+                } else if (ctx.get_params().init_reach_facts()) {
                       reach_assumps.push_back (m.mk_not (it->m_key));
                       break;
                     }
@@ -820,7 +819,7 @@ namespace spacer {
               );
 
         if (is_sat == l_true || is_sat == l_undef) {
-            if (core) core->reset();
+        if (core) { core->reset(); }
             if (model) {
                 r = find_rule (**model, is_concrete, reach_pred_used, num_reuse_reach);
                 TRACE ("spacer", tout << "reachable "
@@ -850,7 +849,8 @@ namespace spacer {
     }
 
   bool pred_transformer::is_invariant(unsigned level, expr* lemma,
-                                      unsigned& solver_level, expr_ref_vector* core) {
+                                    unsigned& solver_level, expr_ref_vector* core)
+{
         expr_ref_vector conj(m), aux(m);
         expr_ref glemma(m);
 
@@ -881,7 +881,8 @@ namespace spacer {
   }
 
     bool pred_transformer::check_inductive(unsigned level, expr_ref_vector& state, 
-                                           unsigned& uses_level) {
+                                       unsigned& uses_level)
+{
         manager& pm = get_manager();
         expr_ref_vector conj(m), core(m);
         expr_ref states(m);
@@ -908,7 +909,8 @@ namespace spacer {
     }
 
     void pred_transformer::mk_assumptions(func_decl* head, expr* fml, 
-                                          expr_ref_vector& result) {
+                                      expr_ref_vector& result)
+{
         expr_ref tmp1(m), tmp2(m);
         expr_substitution sub (m);
         proof_ref pr (m.mk_asserted (m.mk_true ()), m);
@@ -917,7 +919,7 @@ namespace spacer {
         for (; it != end; ++it) {
             expr* tag = it->m_key;
             datalog::rule const* r = it->m_value;
-            if (!r) continue;
+        if (!r) { continue; }
             find_predecessors(*r, m_predicates);
             for (unsigned i = 0; i < m_predicates.size(); i++) {
                 func_decl* d = m_predicates[i];
@@ -930,7 +932,8 @@ namespace spacer {
         }
     }
 
-    void pred_transformer::initialize(decl2rel const& pts) {
+void pred_transformer::initialize(decl2rel const& pts)
+{
         m_initial_state = m.mk_false();
         m_transition = m.mk_true();        
         init_rules(pts, m_initial_state, m_transition);
@@ -955,11 +958,9 @@ namespace spacer {
       reach_fact_ref fact;
 
       rule2expr::iterator it = m_rule2tag.begin (), end = m_rule2tag.end ();
-      for (; it != end; ++it)
-      {
+    for (; it != end; ++it) {
         const datalog::rule* r = it->m_key;
-        if (r->get_uninterpreted_tail_size () == 0)
-        {
+        if (r->get_uninterpreted_tail_size() == 0) {
           fact = alloc (reach_fact, m, *r, m_rule2transition.find (r),
                         get_aux_vars (*r), true);
           add_reach_fact (fact.get ());
@@ -967,7 +968,8 @@ namespace spacer {
       }
     }
   
-    void pred_transformer::init_rules(decl2rel const& pts, expr_ref& init, expr_ref& transition) {
+void pred_transformer::init_rules(decl2rel const& pts, expr_ref& init, expr_ref& transition)
+{
         expr_ref_vector transitions(m);
         ptr_vector<datalog::rule const> tr_rules;
         datalog::rule const* rule;
@@ -982,8 +984,7 @@ namespace spacer {
         case 0:
             transition = m.mk_false(); 
             break;
-        case 1:
-            {
+    case 1: {
                 std::stringstream name;
                 // create a dummy tag.
                 name << head()->get_name() << "_dummy";
@@ -993,7 +994,7 @@ namespace spacer {
                 m_rule2tag.insert(rule, pred.get());            
                 transitions [0] = m.mk_implies (pred, transitions.get (0));
                 transitions.push_back (m.mk_or (pred, m_extend_lit->get_arg (0)));
-                if (!is_init [0]) init_conds.push_back (m.mk_not (pred));
+        if (!is_init [0]) { init_conds.push_back(m.mk_not(pred)); }
             
                 transition = pm.mk_and(transitions);
                 break;
@@ -1055,7 +1056,7 @@ namespace spacer {
         {
           expr_ref_vector tail(m);
           for (unsigned i = ut_size; i < t_size; ++i) 
-            tail.push_back(rule.get_tail(i));
+        { tail.push_back(rule.get_tail(i)); }
           fml = mk_and (tail);
           
           ground_free_vars (fml, var_reprs, aux_vars, ut_size == 0);
@@ -1079,8 +1080,7 @@ namespace spacer {
         SASSERT(is_ground(fml));
         if (m.is_false(fml)) {
             // no-op.
-        }
-        else {
+    } else {
             is_init.push_back (ut_size == 0);
             transitions.push_back(fml);            
             m.inc_ref(fml);
@@ -1097,16 +1097,18 @@ namespace spacer {
               tout << "\n";);
     }
 
-    bool pred_transformer::check_filled(app_ref_vector const& v) const {
+bool pred_transformer::check_filled(app_ref_vector const& v) const
+{
         for (unsigned i = 0; i < v.size(); ++i) {
-            if (!v[i]) return false;
+        if (!v[i]) { return false; }
         }
         return true;
     }
 
     // create constants for free variables in tail.
   void pred_transformer::ground_free_vars(expr* e, app_ref_vector& vars, 
-                                          ptr_vector<app>& aux_vars, bool is_init) {
+                                        ptr_vector<app>& aux_vars, bool is_init)
+{
         expr_free_vars fv;
         fv(e);
         
@@ -1140,8 +1142,7 @@ namespace spacer {
             
             if (tail_idx == UINT_MAX) {
                 rep = m.mk_const(pm.o2n(pt.sig(i), 0));
-            }
-            else {
+        } else {
                 rep = m.mk_const(pm.o2o(pt.sig(i), 0, tail_idx));
             }            
                        
@@ -1155,19 +1156,18 @@ namespace spacer {
                 expr * repr = var_reprs[var_idx].get();
                 if (repr) {
                     conj.push_back(m.mk_eq(rep, repr));
-                }
-                else {
+            } else {
                     var_reprs[var_idx] = rep;
                 }
-            }
-            else {
+        } else {
                 SASSERT(is_app(arg));
                 conj.push_back(m.mk_eq(rep, arg));
             }
         }
     }
 
-    void pred_transformer::add_premises(decl2rel const& pts, unsigned lvl, expr_ref_vector& r) {
+void pred_transformer::add_premises(decl2rel const& pts, unsigned lvl, expr_ref_vector& r)
+{
         r.push_back(pm.get_background());
         r.push_back((lvl == 0)?initial_state():transition());
         for (unsigned i = 0; i < rules().size(); ++i) {
@@ -1175,11 +1175,13 @@ namespace spacer {
         }
     }
 
-    void pred_transformer::close(expr* e) {
+void pred_transformer::close(expr* e)
+{
         //m_reachable.add_reachable(e);
     }
 
-    void pred_transformer::add_premises(decl2rel const& pts, unsigned lvl, datalog::rule& rule, expr_ref_vector& r) {        
+void pred_transformer::add_premises(decl2rel const& pts, unsigned lvl, datalog::rule& rule, expr_ref_vector& r)
+{
         find_predecessors(rule, m_predicates);
         for (unsigned i = 0; i < m_predicates.size(); ++i) {
             expr_ref tmp(m);
@@ -1193,150 +1195,17 @@ namespace spacer {
         }
     }
 
-    void pred_transformer::inherit_properties(pred_transformer& other) {
+void pred_transformer::inherit_properties(pred_transformer& other)
+{
       m_frames.inherit_frames (other.m_frames);
     }
 
   
-  // ------------------
-  // legacy_frames
-  void pred_transformer::legacy_frames::simplify_formulas (tactic& tac, 
-                                                           expr_ref_vector& v) {
-    ast_manager &m = m_pt.get_ast_manager ();
-    goal_ref g(alloc(goal, m, false, false, false));
-    for (unsigned j = 0; j < v.size(); ++j) g->assert_expr(v[j].get()); 
-    model_converter_ref mc;
-    proof_converter_ref pc;
-    expr_dependency_ref core(m);
-    goal_ref_buffer result;
-    tac(g, result, mc, pc, core);
-    SASSERT(result.size() == 1);
-    goal* r = result[0];
-    v.reset();
-    for (unsigned j = 0; j < r->size(); ++j) v.push_back(r->form(j));            
-  }
   
-  void pred_transformer::legacy_frames::simplify_formulas() {
-    ast_manager &m = m_pt.get_ast_manager ();
-    tactic_ref us = mk_unit_subsumption_tactic(m);
-    simplify_formulas(*us, m_invariants);
-    for (unsigned i = 0; i < m_levels.size(); ++i) {
-      simplify_formulas(*us, m_levels[i]);
-    }             
-  }
-  
-  void pred_transformer::legacy_frames::get_frame_geq_lemmas (unsigned lvl, 
-                                                              expr_ref_vector &out)
-  {
-    get_frame_lemmas (infty_level(), out);
-    for (unsigned i = lvl, sz = m_levels.size (); i < sz; ++i)
-      get_frame_lemmas (i, out);
-  }
-  
-  bool pred_transformer::legacy_frames::propagate_to_next_level(unsigned src_level) 
-  {
-      
-    ast_manager &m = m_pt.get_ast_manager ();
-    if (m_levels.size () <= src_level) return true;
-    if (m_levels [src_level].empty ()) return true;
-      
-    unsigned tgt_level = next_level(src_level);
-    m_pt.ensure_level(next_level(tgt_level));
-        
-
-    TRACE("spacer", 
-           tout << "propagating " << src_level << " to " << tgt_level;
-           tout << " for relation " << m_pt.head()->get_name() << "\n";);
-                
-    for (unsigned i = 0; i < m_levels[src_level].size(); ) {
-      expr_ref_vector &src= m_levels[src_level];
-      expr * curr = src[i].get();                  
-      unsigned stored_lvl;
-      VERIFY(m_prop2level.find(curr, stored_lvl));
-      SASSERT(stored_lvl >= src_level);
-      unsigned solver_level;
-      if (stored_lvl > src_level) {
-        TRACE("spacer", tout << "at level: "<< stored_lvl << " " << mk_pp(curr, m) << "\n";);
-        src[i] = src.back();
-        src.pop_back();
-      }
-      else if (m_pt.is_invariant(tgt_level, curr, solver_level)) {
-        // -- might invalidate src reference
-        add_lemma (curr, solver_level);
-        TRACE("spacer", tout << "is invariant: "<< pp_level(solver_level) << " " << mk_pp(curr, m) << "\n";);              
-        // shadow higher-level src
-        expr_ref_vector &src = m_levels[src_level];
-        src[i] = src.back();
-        src.pop_back();
-        ++m_pt.m_stats.m_num_propagations;
-      }
-      else {
-        TRACE("spacer", tout << "not propagated: " << mk_pp(curr, m) << "\n";); 
-        ++i;
-      }
-    }        
-
-    CTRACE ("spacer", m_levels[src_level].empty (), 
-            tout << "Fully propagated level " 
-            << src_level << " of " << m_pt.head ()->get_name () << "\n";);
-        
-    return m_levels[src_level].empty();
-  }
-  
-  bool pred_transformer::legacy_frames::add_lemma (expr * lemma, unsigned lvl)
-  {
-    if (is_infty_level (lvl))
-    {
-      if (!m_invariants.contains (lemma))
-      {
-        m_invariants.push_back (lemma);
-        m_prop2level.insert (lemma, lvl);
-        //m_pt.add_lemma_core (lemma, lvl);
-        return true;
-      }
-      return false;
-    }
-    
-    unsigned old_level;
-    if (!m_prop2level.find (lemma, old_level) || old_level < lvl)
-    {
-      m_levels[lvl].push_back(lemma);
-      m_prop2level.insert(lemma, lvl);
-      //m_pt.add_lemma_core (lemma, lvl);
-      return true;
-    }
-    return false;
-  }
-  
-  void  pred_transformer::legacy_frames::propagate_to_infinity(unsigned level) 
-  {
-    TRACE ("spacer", tout << "propagating to oo from lvl " << level 
-          << " of " << m_pt.m_head->get_name () << "\n";);
-      
-    if (m_levels.empty ()) return;
-      
-    for (unsigned i = m_levels.size (); i > level; --i)
-    {
-      expr_ref_vector &lemmas = m_levels [i-1];
-      for (unsigned j = 0; j < lemmas.size (); ++j)
-        add_lemma (lemmas.get (j), infty_level ());
-      lemmas.reset();
-    }
-  }
-  
-  void pred_transformer::legacy_frames::inherit_frames (legacy_frames& other)
-  {
-    
-    SASSERT(m_pt.m_head == other.m_pt.m_head);
-    obj_map<expr, unsigned>::iterator it  = other.m_prop2level.begin();
-    obj_map<expr, unsigned>::iterator end = other.m_prop2level.end();        
-    for (; it != end; ++it) add_lemma (it->m_key, it->m_value);
-  }
-  
-  void pred_transformer::frames::lemma::create_instantiations (expr_ref_vector& inst, expr* fml)
+void lemma::create_instantiations(expr_ref_vector& inst, expr* fml)
   {
       if (!is_quantifier(m_fml) || m_bindings.empty())
-          return;
+    { return; }
       expr_ref body(m);
       body = (fml == NULL) ?
               to_quantifier(m_fml)->get_expr() :
@@ -1352,66 +1221,93 @@ namespace spacer {
       }
   }
 
-  bool pred_transformer::frames::lemma::binding_exists (expr_ref_vector& binding)
+bool pred_transformer::frames::add_lemma(lemma *lem)
   {
-      if (!is_quantifier(m_fml) || m_bindings.empty())
-          return false;
-      expr_ref body(m);
-      body = to_quantifier(m_fml)->get_expr();
-      unsigned num_decls = to_quantifier(m_fml)->get_num_decls();
-      unsigned size = m_bindings.size() / num_decls;
-      for (unsigned i=0, offset=0; i < size; i++, offset += num_decls) {
-         bool eq = true;
-         for (unsigned j=0; j < binding.size() && eq; j++)
-             if (m_bindings.get(offset+j)->hash() != binding.get(j)->hash())
-                 eq = false;
-         if (eq) return true;
+    TRACE("spacer", tout << "add-lemma: " << pp_level(lem->level()) << " "
+          << m_pt.head()->get_name() << " "
+          << mk_pp(lem->get(), m_pt.get_ast_manager()) << "\n";);
+
+    for (unsigned i = 0, sz = m_lemmas.size(); i < sz; ++i) {
+        if (m_lemmas [i]->get() == lem->get()) {
+            // extend bindings if needed
+            if (!lem->get_bindings().empty()) {
+                m_lemmas [i]->add_binding(lem->get_bindings());
       }
+            // if the lemma is at a higher level, skip it
+            // XXX if there are new bindings, we need to assert new instances
+            if (m_lemmas [i]->level() >= lem->level()) {
+                TRACE("spacer", tout << "Already at a higher level: "
+                      << pp_level(m_lemmas [i]->level()) << "\n";);
       return false;
   }
   
-  bool pred_transformer::frames::add_lemma (expr * lemma, unsigned level, expr_ref_vector& binding)
+            // update level of the existing lemma
+            m_lemmas [i]->set_level(lem->level());
+            // assert lemma in the solver
+            m_pt.add_lemma_core(m_lemmas[i]);
+            // move the lemma to its new place to maintain sortedness
+            for (unsigned j = i; (j + 1) < sz && m_lt(m_lemmas [j + 1], m_lemmas[j]); ++j) {
+                m_lemmas.swap (j, j+1);
+            }
+
+            return true;
+        }
+    }
+
+    // did not find, create new lemma
+    m_lemmas.push_back(lem);
+    m_sorted = false;
+    m_pt.add_lemma_core(lem);
+    return true;
+}
+
+
+bool pred_transformer::frames::add_lemma(expr * lem, unsigned level, expr_ref_vector& binding)
   {
     TRACE ("spacer", tout << "add-lemma: " << pp_level (level) << " " 
            << m_pt.head ()->get_name () << " " 
-           << mk_pp (lemma, m_pt.get_ast_manager ()) << "\n";);
+          << mk_pp(lem, m_pt.get_ast_manager()) << "\n";);
       
-    for (unsigned i = 0, sz = m_lemmas.size (); i < sz; ++i)
-      if (m_lemmas [i]->get () == lemma && binding.empty())
-      {
-        if (m_lemmas [i]->level () >= level)
-        {
+    for (unsigned i = 0, sz = m_lemmas.size(); i < sz; ++i) {
+        if (m_lemmas [i]->get() == lem) {
+            // extend bindings if needed
+            if (!binding.empty()) {
+                m_lemmas [i]->add_binding(binding);
+            }
+            // if the lemma is at a higher level, skip it
+            // XXX if there are new bindings, we need to assert new instances
+            if (m_lemmas [i]->level() >= level) {
           TRACE ("spacer", tout << "Already at a higher level: "
                  << pp_level (m_lemmas [i]->level ()) << "\n";);
           return false;
         }
         
+            // update level of the existing lemma
         m_lemmas [i]->set_level (level);
-        m_lemmas [i]->add_binding(binding);
+            // assert lemma in the solver
         m_pt.add_lemma_core (m_lemmas[i]);
+            // move the lemma to its new place to maintain sortedness
         for (unsigned j = i; (j+1) < sz && m_lt (m_lemmas [j+1], m_lemmas[j]); ++j) {
-          frames::lemma* l = m_lemmas[j];
-          m_lemmas[j] = m_lemmas[j+1];
-          m_lemmas[j+1] = l;
+                m_lemmas.swap (j, j+1);
         }
 
         return true;
       }
+    }
     
-    frames::lemma *lem = alloc(frames::lemma, m_pt.get_ast_manager (), lemma, level);
-    lem->add_binding(binding);
-    m_lemmas.push_back (lem);
+    // did not find, create new lemma
+    lemma *phi = alloc(lemma, m_pt.get_ast_manager(), lem, level);
+    phi->add_binding(binding);
+    m_lemmas.push_back(phi);
     m_sorted = false;
-    m_pt.add_lemma_core (lem);
-    //m_pt.add_lemma_core (m_lemmas.back ()->get (), m_lemmas.back ()->level ());
+    m_pt.add_lemma_core(phi);
     return true;
   }
   
   void pred_transformer::frames::propagate_to_infinity (unsigned level)
   {
     for (unsigned i = 0, sz = m_lemmas.size (); i < sz; ++i)
-      if (m_lemmas[i]->level () >= level && !is_infty_level (m_lemmas [i]->level ()))
-      {
+        if (m_lemmas[i]->level() >= level && !is_infty_level(m_lemmas [i]->level())) {
         m_lemmas [i]->set_level (infty_level ());
         m_pt.add_lemma_core (m_lemmas [i]);
         m_sorted = false;
@@ -1420,10 +1316,10 @@ namespace spacer {
   
   void pred_transformer::frames::sort ()
   {
-    if (m_sorted) return;
+    if (m_sorted) { return; }
     
     m_sorted = true;
-    std::sort (m_lemmas.begin (), m_lemmas.end (), m_lt);
+    std::sort(m_lemmas.c_ptr(), m_lemmas.c_ptr() + m_lemmas.size (), m_lt);
   }
   
   bool pred_transformer::frames::propagate_to_next_level (unsigned level)
@@ -1432,34 +1328,27 @@ namespace spacer {
     bool all = true;
     
     
-    if (m_lemmas.empty ()) return all;
+    if (m_lemmas.empty()) { return all; }
     
     unsigned tgt_level = next_level (level);
     m_pt.ensure_level (tgt_level);
     
-    for (unsigned i = 0, sz = m_lemmas.size (); i < sz && m_lemmas [i]->level () <= level;)
-    {
+    for (unsigned i = 0, sz = m_lemmas.size(); i < sz && m_lemmas [i]->level() <= level;) {
       if (m_lemmas [i]->level () < level)
       {++i; continue;}
       
       
       unsigned solver_level;
       expr * curr = m_lemmas [i]->get ();
-      if (m_pt.is_invariant (tgt_level, curr, solver_level))
-      {
+        if (m_pt.is_invariant(tgt_level, curr, solver_level)) {
         m_lemmas [i]->set_level (solver_level);
         m_pt.add_lemma_core (m_lemmas [i]);
         
         // percolate the lemma up to its new place
         for (unsigned j = i; (j+1) < sz && m_lt (m_lemmas[j+1], m_lemmas[j]); ++j) {
-            frames::lemma* l = m_lemmas[j];
-            m_lemmas[j] = m_lemmas[j+1];
-            m_lemmas[j+1] = l;
+                m_lemmas.swap(j, j + 1);
         }
-        
-      }
-      else 
-      {
+        } else {
         all = false;
         ++i;
       }
@@ -1470,20 +1359,21 @@ namespace spacer {
 
   void pred_transformer::frames::simplify_formulas ()
   {
+    // ensure that the lemmas are sorted
+    sort();
     ast_manager &m = m_pt.get_ast_manager ();
-    sort ();
     
     tactic_ref simplifier = mk_unit_subsumption_tactic (m);
-    vector<lemma*> new_lemmas;
+    lemma_ref_vector new_lemmas;
     
     unsigned lemmas_size = m_lemmas.size ();
-
     goal_ref g (alloc (goal, m, false, false, false));
     
     unsigned j = 0;
-    for (unsigned i = 0; i <= m_size; ++i)
-    {
+    // for every frame + infinity frame
+    for (unsigned i = 0; i <= m_size; ++i) {
       g->reset_all ();
+        // normalize level
       unsigned level = i < m_size ? i : infty_level ();
       
       model_converter_ref mc;
@@ -1491,24 +1381,53 @@ namespace spacer {
       expr_dependency_ref core(m);
       goal_ref_buffer result;
       
-      for (; j < lemmas_size && m_lemmas [j]->level () <= level; ++j)
-        if (m_lemmas [j]->level () == level) g->assert_expr (m_lemmas [j]->get ());
+        // simplify lemmas of the current level
+        // XXX lemmas of higher levels can be assumed in background
+        // XXX decide what to do with non-ground lemmas!
+        unsigned begin = j;
+        for (; j < lemmas_size && m_lemmas[j]->level() <= level; ++j) {
+            if (m_lemmas[j]->level() == level) {
+                g->assert_expr(m_lemmas[j]->get());
+            }
+        }
+        unsigned end = j;
       
-      if (g->size () <= 0) continue;
+        if (g->size() <= 0) { continue; }
       
       (*simplifier) (g, result, mc, pc, core);
       SASSERT (result.size () == 1);
       goal *r = result [0];
       
-      for (unsigned k = 0; k < r->size (); ++k) 
-        new_lemmas.push_back (alloc(lemma, m, r->form (k), level));
-      m_sorted = false;
+        // no simplification happened, copy all the lemmas
+        if (r->size () == end - begin) {
+            for (unsigned n = begin; n < end; ++n) {
+                new_lemmas.push_back (m_lemmas[n]);
     }
-    for (unsigned i=0; i < m_lemmas.size(); i++)
-        dealloc(m_lemmas[i]);
+        }
+        // something got simplified, find out which lemmas remain
+        else {
+            // XXX linear search. optimize if needed
+            bool found;
+            for (unsigned k = 0; k < r->size(); ++k) {
+                found = false;
+                for (unsigned n = begin; n < end; ++n) {
+                    if (m_lemmas[n]->get() == r->form(k)) {
+                        new_lemmas.push_back(m_lemmas[n]);
+                        found = true;
+                        break;
+                    }
+                }
+                SASSERT(found);
+            }
+        }
+    }
+
+    if (new_lemmas.size() < m_lemmas.size()) {
     m_lemmas.reset();
-    for (unsigned i=0; i < new_lemmas.size(); i++)
-        m_lemmas.push_back(new_lemmas[i]);
+        m_lemmas.append(new_lemmas);
+        m_sorted = false;
+        sort();
+    }
   }
 
 
@@ -1559,11 +1478,11 @@ namespace spacer {
     
     unsigned sig_sz = m_pt.head ()->get_arity ();
     for (unsigned i = 0; i < sig_sz; ++i)
-      m_ovars.push_back (m.mk_const (sm.o2o (pt.sig (i), 0, m_oidx)));
+    { m_ovars.push_back(m.mk_const(sm.o2o(pt.sig(i), 0, m_oidx))); }
     
     if (aux_vars)
       for (unsigned i = 0, sz = aux_vars->size (); i < sz; ++i)
-        m_ovars.push_back (m.mk_const (sm.n2o (aux_vars->get (i)->get_decl (), m_oidx)));
+        { m_ovars.push_back(m.mk_const(sm.n2o(aux_vars->get(i)->get_decl(), m_oidx))); }
   }
   
   derivation::premise::premise (const derivation::premise &p) :
@@ -1584,7 +1503,7 @@ namespace spacer {
     
     m_ovars.reset ();
     for (unsigned i = 0; i < sig_sz; ++i)
-      m_ovars.push_back (m.mk_const (sm.o2o (m_pt.sig (i), 0, m_oidx)));
+    { m_ovars.push_back(m.mk_const(sm.o2o(m_pt.sig(i), 0, m_oidx))); }
     
     if (aux_vars)
       for (unsigned i = 0, sz = aux_vars->size (); i < sz; ++i)
@@ -1604,11 +1523,9 @@ namespace spacer {
 
   model_node *derivation::create_first_child (model_evaluator_util &mev)
   {
-    if (m_premises.empty ()) return NULL;
+    if (m_premises.empty()) { return NULL; }
     m_active = 0;
-      model_node* node = create_next_child (mev);
-      
-      return node;
+    return create_next_child(mev);
   }
   
   model_node *derivation::create_next_child (model_evaluator_util &mev)
@@ -1624,21 +1541,19 @@ namespace spacer {
     bool use_native_mbp = get_context ().use_native_mbp ();
     bool ground = get_context ().use_ground_cti ();
     // -- find first may premise
-    while (m_active < m_premises.size () && m_premises[m_active].is_must ())
-    {
+    while (m_active < m_premises.size() && m_premises[m_active].is_must()) {
       summaries.push_back (m_premises[m_active].get_summary ());
       vars.append (m_premises[m_active].get_ovars ());
       ++m_active;
     }
-    if (m_active >= m_premises.size ()) return NULL;
+    if (m_active >= m_premises.size()) { return NULL; }
     
     // -- update m_trans with the pre-image of m_trans over the must summaries
     summaries.push_back (m_trans);
     m_trans = get_manager ().mk_and (summaries);
     summaries.reset ();
     
-    if (!vars.empty ()) 
-    {
+    if (!vars.empty()) {
       timeit _timer1 (is_trace_enabled("spacer_timeit"), 
                       "create_next_child::qproject1", 
                       verbose_stream ());
@@ -1655,8 +1570,7 @@ namespace spacer {
     // create the post condition by compute post-image over summaries
     // that precede currently active premise
     vars.reset ();
-    for (unsigned i = m_active + 1; i < m_premises.size (); ++i)
-    {
+    for (unsigned i = m_active + 1; i < m_premises.size(); ++i) {
       summaries.push_back (m_premises [i].get_summary ());
       vars.append (m_premises [i].get_ovars ());
     }
@@ -1665,8 +1579,7 @@ namespace spacer {
     expr_ref post(m);
     post = get_manager ().mk_and (summaries);
     summaries.reset ();
-    if (!vars.empty ()) 
-    {
+    if (!vars.empty()) {
       timeit _timer2 (is_trace_enabled("spacer_timeit"),
                       "create_next_child::qproject2", 
                       verbose_stream ());
@@ -1691,12 +1604,12 @@ namespace spacer {
             }
             for(expr_equiv_class::iterator it = (*eq_c).begin(); it!=(*eq_c).end(); ++it) {
                 if(*it != representative)
-                    tmp.push_back(m.mk_eq(*it, representative));
+                { tmp.push_back(m.mk_eq(*it, representative)); }
             }
         }
 
         if (tmp.size () > 1)
-            std::sort (tmp.c_ptr (), tmp.c_ptr () + tmp.size (), ast_lt_proc ());
+        { std::sort(tmp.c_ptr(), tmp.c_ptr() + tmp.size(), ast_lt_proc()); }
         post = mk_and (tmp);
     }
 
@@ -1709,7 +1622,6 @@ namespace spacer {
                            m_parent.depth ());
     n->set_post(post);
     
-
     IF_VERBOSE (1, verbose_stream ()
                 << "\n\tcreate_child: " << n->pt ().head ()->get_name () 
                 << " (" << n->level () << ", " << n->depth () << ") "
@@ -1721,7 +1633,7 @@ namespace spacer {
   
   model_node *derivation::create_next_child ()
   {
-    if (m_active + 1 >= m_premises.size ()) return NULL;
+    if (m_active + 1 >= m_premises.size()) { return NULL; }
     
     bool use_native_mbp = get_context ().use_native_mbp ();
     bool ground = get_context ().use_ground_cti ();
@@ -1738,7 +1650,7 @@ namespace spacer {
     expr_ref_vector summaries (m);
     
     for (unsigned i = m_active + 1; i < m_premises.size (); ++i)
-      summaries.push_back (m_premises [i].get_summary ());
+    { summaries.push_back(m_premises [i].get_summary()); }
     
     // -- orient transition relation towards m_active premise
     expr_ref active_trans (m);
@@ -1748,7 +1660,7 @@ namespace spacer {
     
     // if not true, bail out, the must summary of m_active is not strong enough
     // this is possible if m_post was weakened for some reason
-    if (!pt.is_must_reachable (pm.mk_and (summaries), &model)) return NULL;
+    if (!pt.is_must_reachable(pm.mk_and(summaries), &model)) { return NULL; }
     
     model_evaluator_util mev (m);
     mev.set_model (*model);
@@ -1786,7 +1698,7 @@ namespace spacer {
       // variables to eliminate
       vars.append (rf->aux_vars ().size (), rf->aux_vars ().c_ptr ());
       for (unsigned i = 0, sz = pt.head ()->get_arity (); i < sz; ++i)
-        vars.push_back (m.mk_const (pm.o2n (pt.sig (i), 0)));
+        { vars.push_back(m.mk_const(pm.o2n(pt.sig(i), 0))); }
       
       if (!vars.empty ())
           qe_project (m, vars, m_trans, mev.get_model (), true, use_native_mbp,
@@ -1806,18 +1718,19 @@ namespace spacer {
   model_node* model_search::top ()
   {
     /// nothing in the queue
-    if (m_obligations.empty ()) return NULL;
+    if (m_obligations.empty()) { return NULL; }
     /// top queue element is above max level
-    if (m_obligations.top ()->level () > m_max_level) return NULL;
+    if (m_obligations.top()->level() > m_max_level) { return NULL; }
     /// top queue element is at the max level, but at a higher than base depth
     if (m_obligations.top ()->level () == m_max_level && 
-        m_obligations.top ()->depth () > m_min_depth) return NULL;
+            m_obligations.top()->depth() > m_min_depth) { return NULL; }
     
     /// there is something good in the queue
     return m_obligations.top ().get ();
   }
   
-    void model_search::set_root (model_node& root) {
+void model_search::set_root(model_node& root)
+{
         m_root = &root;
         m_max_level = root.level ();
         m_min_depth = root.depth ();
@@ -1829,16 +1742,18 @@ namespace spacer {
        and predicates that are satisfied from facts to the query.
        The resulting trace 
      */
-    expr_ref model_search::get_trace(context const& ctx) {
+expr_ref model_search::get_trace(context const& ctx)
+{
         ast_manager& m = ctx.get_ast_manager ();
         return expr_ref (m.mk_true (), m);
     }
   
     model_search::~model_search() {}
 
-    void model_search::reset() {
-        while (!m_obligations.empty ()) m_obligations.pop ();
-        if (m_root) m_obligations.push (m_root);
+void model_search::reset()
+{
+    while (!m_obligations.empty()) { m_obligations.pop(); }
+    if (m_root) { m_obligations.push(m_root); }
     }
   
     // ----------------
@@ -1866,12 +1781,14 @@ namespace spacer {
         m_skolems(m)
     {}
 
-    context::~context() {
+context::~context()
+{
         reset_core_generalizers();
         reset();
     }
 
-    void context::reset() {
+void context::reset()
+{
         TRACE("spacer", tout << "\n";);
         m_search.reset();
         decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
@@ -1884,7 +1801,8 @@ namespace spacer {
         m_inductive_lvl = 0;        
     }
 
-    void context::init_rules(datalog::rule_set& rules, decl2rel& rels) {
+void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
+{
         scoped_watch _t_(m_init_rules_watch);
         m_context = &rules.get_context();
         // Allocate collection of predicate transformers
@@ -1939,10 +1857,11 @@ namespace spacer {
         // initialize reach facts
         it = rels.begin (), end = rels.end ();
         for (; it != end; ++it)
-          it->m_value->init_reach_facts ();        
+    { it->m_value->init_reach_facts(); }
     }
 
-    void context::update_rules(datalog::rule_set& rules) {
+void context::update_rules(datalog::rule_set& rules)
+{
         decl2rel rels;
         init_core_generalizers(rules);
         init_rules(rules, rels); 
@@ -1960,29 +1879,30 @@ namespace spacer {
         }
     }
 
-    unsigned context::get_num_levels(func_decl* p) {
+unsigned context::get_num_levels(func_decl* p)
+{
         pred_transformer* pt = 0;
         if (m_rels.find(p, pt)) {
             return pt->get_num_levels();
-        }
-        else {
+    } else {
             IF_VERBOSE(10, verbose_stream() << "did not find predicate " << p->get_name() << "\n";);
             return 0;
         }
     }
 
-    expr_ref context::get_cover_delta(int level, func_decl* p_orig, func_decl* p) {
+expr_ref context::get_cover_delta(int level, func_decl* p_orig, func_decl* p)
+{
         pred_transformer* pt = 0;
         if (m_rels.find(p, pt)) {
             return pt->get_cover_delta(p_orig, level);
-        }
-        else {
+    } else {
             IF_VERBOSE(10, verbose_stream() << "did not find predicate " << p->get_name() << "\n";);
             return expr_ref(m.mk_true(), m);
         }
     }
 
-    void context::add_cover(int level, func_decl* p, expr* property) {
+void context::add_cover(int level, func_decl* p, expr* property)
+{
         pred_transformer* pt = 0;
         if (!m_rels.find(p, pt)) {
             pt = alloc(pred_transformer, *this, get_manager(), p);
@@ -1998,10 +1918,11 @@ namespace spacer {
       add_cover (infty_level(), p, property);
     }
   
-    expr_ref context::get_reachable(func_decl *p) {
+expr_ref context::get_reachable(func_decl *p)
+{
         pred_transformer* pt = 0;
         if (!m_rels.find(p, pt)) 
-            return expr_ref(m.mk_false(), m);
+    { return expr_ref(m.mk_false(), m); }
         return pt->get_reachable();
     }
 
@@ -2015,21 +1936,20 @@ namespace spacer {
         bool m_is_utvpi;
     public:
         classifier_proc(ast_manager& m, datalog::rule_set& rules):
-            m(m), a(m), m_is_bool(true), m_is_bool_arith(true), m_has_arith(false), m_is_dl(false), m_is_utvpi(false) {
+        m(m), a(m), m_is_bool(true), m_is_bool_arith(true), m_has_arith(false), m_is_dl(false), m_is_utvpi(false)
+    {
             classify(rules);
         }
-        void operator()(expr* e) {
+    void operator()(expr* e)
+    {
             if (m_is_bool) {                
                 if (!m.is_bool(e)) {
                     m_is_bool = false;
-                }
-                else if (is_var(e)) {
+            } else if (is_var(e)) {
                     // no-op.
-                }
-                else if (!is_app(e)) {
+            } else if (!is_app(e)) {
                     m_is_bool = false;
-                }
-                else if (to_app(e)->get_num_args() > 0 &&
+            } else if (to_app(e)->get_num_args() > 0 &&
                          to_app(e)->get_family_id() != m.get_basic_family_id()) {
                     m_is_bool = false;
                 }
@@ -2040,14 +1960,11 @@ namespace spacer {
             if (m_is_bool_arith) {                
                 if (!m.is_bool(e) && !a.is_int_real(e)) {
                     m_is_bool_arith = false;
-                }
-                else if (is_var(e)) {
+            } else if (is_var(e)) {
                     // no-op
-                }
-                else if (!is_app(e)) {
+            } else if (!is_app(e)) {
                     m_is_bool_arith = false;
-                }
-                else if (to_app(e)->get_num_args() > 0 &&
+            } else if (to_app(e)->get_num_args() > 0 &&
                          to_app(e)->get_family_id() != m.get_basic_family_id() &&
                          to_app(e)->get_family_id() != a.get_family_id()) {
                     m_is_bool_arith = false;
@@ -2065,7 +1982,8 @@ namespace spacer {
 
     private:
 
-        void classify(datalog::rule_set& rules) {
+    void classify(datalog::rule_set& rules)
+    {
             expr_fast_mark1 mark;
             datalog::rule_set::iterator it = rules.begin(), end = rules.end();        
             for (; it != end; ++it) {      
@@ -2098,15 +2016,17 @@ namespace spacer {
             }
         }
 
-        void classify_pred(expr_fast_mark1& mark, app* pred) {
+    void classify_pred(expr_fast_mark1& mark, app* pred)
+    {
             for (unsigned i = 0; i < pred->get_num_args(); ++i) {
                 quick_for_each_expr(*this, mark, pred->get_arg(i));
             }
         }
     };
 
-    bool context::validate() {
-        if (!m_params.pdr_validate_result()) return true;
+bool context::validate()
+{
+    if (!m_params.pdr_validate_result()) { return true; }
         
         std::stringstream msg;
 
@@ -2191,12 +2111,14 @@ namespace spacer {
     }
 
 
-    void context::reset_core_generalizers() {
+void context::reset_core_generalizers()
+{
         std::for_each(m_core_generalizers.begin(), m_core_generalizers.end(), delete_proc<core_generalizer>());
         m_core_generalizers.reset();
     }
 
-    void context::init_core_generalizers(datalog::rule_set& rules) {
+void context::init_core_generalizers(datalog::rule_set& rules)
+{
         reset_core_generalizers();
         classifier_proc classify(m, rules);
         bool use_mc = m_params.pdr_use_multicore_generalizer();
@@ -2216,13 +2138,11 @@ namespace spacer {
 
         fparams.m_mbqi = m_params.spacer_mbqi();
 
-        if (get_params().spacer_lemma_sanity_check())
-            {
+    if (get_params().spacer_lemma_sanity_check()) {
                 m_core_generalizers.push_back(alloc(unsat_core_sanity_checker, *this));
             }
         
-        if(get_params().spacer_use_eqclass())
-            {
+    if (get_params().spacer_use_eqclass()) {
                 m_core_generalizers.push_back (alloc (core_eq_generalizer, *this));
             }
         
@@ -2234,11 +2154,12 @@ namespace spacer {
         }
         
         if (m_params.use_array_eq_generalizer ()) 
-            m_core_generalizers.push_back (alloc (core_array_eq_generalizer, *this));
+    { m_core_generalizers.push_back(alloc(core_array_eq_generalizer, *this)); }
         
     }
 
-    void context::get_level_property(unsigned lvl, expr_ref_vector& res, vector<relation_info>& rs) const {
+void context::get_level_property(unsigned lvl, expr_ref_vector& res, vector<relation_info>& rs) const
+{
         decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
         for (; it != end; ++it) {
             pred_transformer* r = it->m_value;
@@ -2253,7 +2174,8 @@ namespace spacer {
         }
     }
 
-    void context::simplify_formulas() {
+void context::simplify_formulas()
+{
         decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
         for (; it != end; ++it) {
             pred_transformer* r = it->m_value;
@@ -2261,12 +2183,12 @@ namespace spacer {
         }        
     }
 
-  lbool context::solve(unsigned from_lvl) {
+lbool context::solve(unsigned from_lvl)
+{
     m_last_result = l_undef;
     try {
       m_last_result = solve_core (from_lvl);
-      if (m_last_result == l_false)
-      {
+        if (m_last_result == l_false) {
         simplify_formulas();
         m_last_result = l_false;
         //TRACE("spacer",  display_certificate(tout););      
@@ -2288,8 +2210,7 @@ namespace spacer {
         // }
       }            
       VERIFY (validate ());
-    }
-    catch (unknown_exception) 
+    } catch (unknown_exception)
     {}
 
     if (m_last_result == l_true) {
@@ -2306,13 +2227,15 @@ namespace spacer {
   }
 
 
-    void context::checkpoint() {
+void context::checkpoint()
+{
         if (m.canceled ()) {
             throw default_exception("spacer canceled");
         }
     }
 
-    unsigned context::get_cex_depth () {
+unsigned context::get_cex_depth()
+{
         if (m_last_result != l_true) {
           IF_VERBOSE(1, 
                      verbose_stream () 
@@ -2340,8 +2263,7 @@ namespace spacer {
         // assume that the query is only on a single predicate
         // (i.e. disallow fancy queries for now)
         facts.append (fact->get_justifications ());
-        if (facts.size () != 1) 
-        {
+    if (facts.size() != 1) {
           // XXX AG: Escape if an assertion is about to fail
           IF_VERBOSE(1, 
                      verbose_stream () << 
@@ -2363,7 +2285,7 @@ namespace spacer {
             if (pt == NULL) {
                 ++cex_depth;
                 // insert new marker if there are pts at higher depth
-                if (curr + 1 < pts.size ()) pts.push_back (NULL);
+            if (curr + 1 < pts.size()) { pts.push_back(NULL); }
                 continue;
             }
             fact = facts.get (curr - cex_depth); // discount the number of markers
@@ -2387,7 +2309,8 @@ namespace spacer {
        \brief retrieve answer.
     */
 
-    void context::get_rules_along_trace (datalog::rule_ref_vector& rules) {
+void context::get_rules_along_trace(datalog::rule_ref_vector& rules)
+{
         if (m_last_result != l_true) {
           IF_VERBOSE(1, 
                      verbose_stream () 
@@ -2417,8 +2340,7 @@ namespace spacer {
         // assume that the query is only on a single predicate
         // (i.e. disallow fancy queries for now)
         facts.append (fact->get_justifications ());
-        if (facts.size () != 1) 
-        {
+    if (facts.size() != 1) {
           // XXX AG: Escape if an assertion is about to fail
           IF_VERBOSE(1, 
                      verbose_stream () << 
@@ -2450,18 +2372,24 @@ namespace spacer {
         }
     }
 
-    model_ref context::get_model () {
+model_ref context::get_model()
+{
         return model_ref ();
     }
-    proof_ref context::get_proof () const {
+proof_ref context::get_proof() const
+{
         return proof_ref (m);
     }
 
-    expr_ref context::get_answer() {
+expr_ref context::get_answer()
+{
         switch(m_last_result) {
-        case l_true: return mk_sat_answer();
-        case l_false: return mk_unsat_answer();
-        default: return expr_ref(m.mk_true(), m);
+    case l_true:
+        return mk_sat_answer();
+    case l_false:
+        return mk_unsat_answer();
+    default:
+        return expr_ref(m.mk_true(), m);
         }
     }
 
@@ -2469,7 +2397,8 @@ namespace spacer {
     /**
         \brief Retrieve satisfying assignment with explanation.
     */
-    expr_ref context::mk_sat_answer() const {
+expr_ref context::mk_sat_answer() const
+{
         if (m_params.generate_proof_trace()) {
             IF_VERBOSE(0, verbose_stream() << "Unsupported" << "\n";);
             return expr_ref(m.mk_true(), m);
@@ -2480,7 +2409,8 @@ namespace spacer {
     }
 
 
-    expr_ref context::mk_unsat_answer() const {
+expr_ref context::mk_unsat_answer() const
+{
         expr_ref_vector refs(m);
         vector<relation_info> rs;
         get_level_property(m_inductive_lvl, refs, rs);            
@@ -2488,7 +2418,8 @@ namespace spacer {
         return ex.to_expr();
     }
 
-    expr_ref context::get_ground_sat_answer () {
+expr_ref context::get_ground_sat_answer()
+{
         if (m_last_result != l_true) {
             verbose_stream () << "Sat answer unavailable when result is false\n";
             return expr_ref (m);
@@ -2513,8 +2444,7 @@ namespace spacer {
 
         // initialize queues
         reach_facts.append (reach_fact->get_justifications ());
-        if (reach_facts.size () != 1)
-        {
+    if (reach_facts.size() != 1) {
           // XXX Escape if an assertion is about to fail
           IF_VERBOSE(1, 
                      verbose_stream () << 
@@ -2528,7 +2458,7 @@ namespace spacer {
         
         // XXX a hack to avoid assertion when query predicate is not nullary
         if (preds[0]->get_arity () == 0)
-          cex.push_back (m.mk_const (preds[0]));
+    { cex.push_back(m.mk_const(preds[0])); }
 
         // smt context to obtain local cexes
         scoped_ptr<smt::kernel> cex_ctx = alloc (smt::kernel, m, m_pm.fparams2 ());
@@ -2549,7 +2479,8 @@ namespace spacer {
             const reach_fact_ref_vector &child_reach_facts = 
               reach_fact->get_justifications ();
             // get child pts
-            preds.reset (); pt->find_predecessors (*r, preds);
+        preds.reset();
+        pt->find_predecessors(*r, preds);
             for (unsigned j = 0; j < preds.size (); j++) {
                 child_pts.push_back (&(get_pred_transformer (preds[j])));
             }
@@ -2604,8 +2535,7 @@ namespace spacer {
                     ground_fact = m.mk_and (ground_fact_conjs.size (), ground_fact_conjs.c_ptr ());
                     ch_pt.get_manager ().formula_o2n (ground_fact, ground_fact, i);
                     cex_facts.push_back (ground_fact);
-                }
-                else {
+            } else {
                     cex_facts.push_back (m.mk_true ());
                 }
                 cex.push_back (m.mk_app (ch_pt.head (), sig_size, ground_arg_vals.c_ptr ()));
@@ -2627,7 +2557,7 @@ namespace spacer {
     {
       scoped_watch _w_(m_solve_watch);
       //if there is no query predicate, abort
-      if (!m_rels.find(m_query_pred, m_query)) return l_false;
+    if (!m_rels.find(m_query_pred, m_query)) { return l_false; }
 
       unsigned lvl = from_lvl;
       
@@ -2642,10 +2572,10 @@ namespace spacer {
         m_expanded_lvl = infty_level ();
         m_stats.m_max_query_lvl = lvl;
 
-        if (check_reachability()) return l_true;
+        if (check_reachability()) { return l_true; }
             
         if (lvl > 0 && !get_params ().pdr_skip_propagate ())
-          if (propagate(m_expanded_lvl, lvl, UINT_MAX)) return l_false;
+            if (propagate(m_expanded_lvl, lvl, UINT_MAX)) { return l_false; }
             
         m_search.inc_level ();
         lvl = m_search.max_level ();
@@ -2662,7 +2592,7 @@ namespace spacer {
                   );
       }
       // communicate failure to datalog::context
-      if (m_context) m_context->set_status (datalog::BOUNDED);
+    if (m_context) { m_context->set_status(datalog::BOUNDED); }
       return l_undef;
     }
 
@@ -2678,29 +2608,26 @@ namespace spacer {
 
         model_node_ref last_reachable;
         
-        if (get_params().reset_obligation_queue ()) m_search.reset ();
+    if (get_params().reset_obligation_queue()) { m_search.reset(); }
         
         unsigned initial_size = m_stats.m_num_lemmas;
         unsigned threshold = m_restart_initial_threshold;
         unsigned luby_idx = 1;
         
-        while (m_search.top ())
-        {
+    while (m_search.top()) {
           model_node_ref node;
           checkpoint ();
           
-          while (last_reachable)
-          {
+        while (last_reachable) {
             checkpoint ();
             node = last_reachable;
             last_reachable = NULL;
-            if (m_search.is_root (*node)) return true;
+            if (m_search.is_root(*node)) { return true; }
             if (is_reachable (*node->parent())) {
               last_reachable = node->parent ();
               SASSERT(last_reachable->is_closed());
               last_reachable->close ();
-            }
-            else if (!node->parent()->is_closed ()) {
+            } else if (!node->parent()->is_closed()) {
                 /* bump node->parent */ 
                 node->parent ()->bump_weakness();
             }
@@ -2711,34 +2638,28 @@ namespace spacer {
           // -- this is necessary because there is no easy way to
           // -- remove nodes from the priority queue.
           while (m_search.top ()->is_closed () ||
-                 m_search.top ()->is_dirty ()) 
-          { 
+                m_search.top()->is_dirty()) {
             model_node_ref n = m_search.top ();
             m_search.pop ();
-            if (n->is_closed ())
-            {
+            if (n->is_closed()) {
               IF_VERBOSE (1,
                           verbose_stream () << "Deleting closed node: " 
                           << n->pt ().head ()->get_name ()
                           << "(" << n->level () << ", " << n->depth () << ")"
                           << " " << n->post ()->get_id () << "\n";);
-              if (m_search.is_root (*n)) return true;
+                if (m_search.is_root(*n)) { return true; }
               SASSERT (m_search.top ());
-            }
-            else if (n->is_dirty ())
-            {
+            } else if (n->is_dirty()) {
               n->clean ();
               // -- the node n might not be at the top after it is cleaned
               m_search.push (*n);
-            }
-            else 
-              UNREACHABLE ();
+            } else
+            { UNREACHABLE(); }
           }
           
           SASSERT (m_search.top ());
           
-          if (m_use_restarts && m_stats.m_num_lemmas - initial_size > threshold)
-          {
+        if (m_use_restarts && m_stats.m_num_lemmas - initial_size > threshold) {
             luby_idx++;
             m_stats.m_num_restarts++;
             threshold =
@@ -2748,35 +2669,34 @@ namespace spacer {
                         << " :restart_threshold " << threshold
                         << ")\n";);
             // -- clear obligation queue up to the root
-            while (!m_search.is_root(*m_search.top())) m_search.pop ();
+            while (!m_search.is_root(*m_search.top())) { m_search.pop(); }
             initial_size = m_stats.m_num_lemmas;
           }
           
           node = m_search.top ();
           SASSERT (node->level () <= m_search.max_level ());
-          switch (expand_node (*node))
-          {
+        switch (expand_node(*node)) {
           case l_true:
             SASSERT (m_search.top () == node.get ());
             m_search.pop ();
             last_reachable = node;
             last_reachable->close ();
-            if (m_search.is_root (*node)) return true;
+            if (m_search.is_root(*node)) { return true; }
             break;
           case l_false:
             SASSERT (m_search.top () == node.get ());
             m_search.pop ();
             
-            if (node->is_dirty ()) node->clean ();
+            if (node->is_dirty()) { node->clean(); }
             
             node->inc_level ();
             if (get_params ().pdr_flexible_trace () &&
                 (node->level () >= m_search.max_level () || 
                  m_search.max_level () - node->level () 
                  <= get_params ().pdr_flexible_trace_depth ()))
-              m_search.push (*node);
+            { m_search.push(*node); }
             
-            if (m_search.is_root (*node)) return false;
+            if (m_search.is_root(*node)) { return false; }
             break;
           case l_undef:
             SASSERT (m_search.top () != node.get ());
@@ -2789,7 +2709,8 @@ namespace spacer {
     }
 
     /// check whether node n is concretely reachable
-    bool context::is_reachable (model_node &n) {
+bool context::is_reachable(model_node &n)
+{
         scoped_watch _w_(m_is_reach_watch);
         TRACE ("spacer", 
                tout << "is-reachable: " << n.pt().head()->get_name() 
@@ -2817,7 +2738,6 @@ namespace spacer {
         vector<bool> reach_pred_used; 
         unsigned num_reuse_reach = 0;
         
-        
         unsigned saved = n.level ();
         n.m_level = infty_level ();
         lbool res = n.pt().is_reachable(n, NULL, &model,
@@ -2831,7 +2751,6 @@ namespace spacer {
                        << watch.get_seconds () << "\n";);
             return false;
         }
-        
         SASSERT(res == l_true);
         SASSERT(is_concrete);
         
@@ -2846,16 +2765,14 @@ namespace spacer {
         // if n has a derivation, create a new child and report l_undef
         // otherwise if n has no derivation or no new children, report l_true
         model_node *next = NULL;
-        if (n.has_derivation ())
-        {
+    if (n.has_derivation()) {
             next = n.get_derivation ().create_next_child ();
-            if (next) 
-            { 
+        if (next) {
                 // move derivation over to the next obligation
                 next->set_derivation(n.detach_derivation ());
               
                 // remove the current node from the queue if it is at the top
-                if (m_search.top() == &n) m_search.pop();
+            if (m_search.top() == &n) { m_search.pop(); }
               
                 m_search.push(*next);
             }
@@ -2923,8 +2840,7 @@ namespace spacer {
       unsigned num_reuse_reach = 0;
 
       
-      if (get_params ().pdr_flexible_trace () && n.pt ().is_blocked (n, uses_level))
-      {
+    if (get_params().pdr_flexible_trace() && n.pt().is_blocked(n, uses_level)) {
         // if (!m_search.is_root (n)) n.close ();
         IF_VERBOSE (1, verbose_stream () << " K "
                     << std::fixed << std::setprecision(2) 
@@ -2952,11 +2868,9 @@ namespace spacer {
         model_evaluator_util mev (m);
         mev.set_model (*model);
         // must-reachable
-        if (is_concrete) 
-        {
+        if (is_concrete) {
           // -- update must summary
-          if (r && r->get_uninterpreted_tail_size () > 0)
-          {
+            if (r && r->get_uninterpreted_tail_size() > 0) {
             reach_fact_ref rf = mk_reach_fact (n, mev, *r);
             checkpoint ();
             n.pt ().add_reach_fact (rf.get ());
@@ -2966,17 +2880,15 @@ namespace spacer {
           // if n has a derivation, create a new child and report l_undef
           // otherwise if n has no derivation or no new children, report l_true
           model_node *next = NULL;
-          if (n.has_derivation ())
-          {
+            if (n.has_derivation()) {
             next = n.get_derivation ().create_next_child ();
             checkpoint ();
-            if (next) 
-            { 
+                if (next) {
               // move derivation over to the next obligation
               next->set_derivation (n.detach_derivation ());
               
               // remove the current node from the queue if it is at the top
-              if (m_search.top () == &n) m_search.pop ();
+                    if (m_search.top() == &n) { m_search.pop(); }
               
               m_search.push (*next);
             }
@@ -3007,7 +2919,7 @@ namespace spacer {
                        verbose_stream ());
 
         // -- only update expanded level when new lemmas are generated at it.
-        if (n.level() < m_expanded_lvl) m_expanded_lvl = n.level();
+        if (n.level() < m_expanded_lvl) { m_expanded_lvl = n.level(); }
 
         TRACE("spacer", tout << "cube:\n"; 
               for (unsigned j = 0; j < cube.size(); ++j) 
@@ -3043,6 +2955,7 @@ namespace spacer {
           std::string str("zk!");
           find_decls(lemma.get(), qvars, str);
           std::sort(qvars.c_ptr(), qvars.c_ptr() + qvars.size(), sk_lt_proc(m_skolems));
+            expr_ref_vector binding(m);
           if (!n.is_ground () && qvars.size() > 0) {
               if (contains_selects(lemma.get(), m)) {
                   app_ref_vector rqvars(qvars);
@@ -3062,8 +2975,8 @@ namespace spacer {
                                            sorts.c_ptr (),
                                            names.c_ptr (),
                                            lemma, 0, qid);
-              }
-              else {
+                    n.get_binding(qvars, m_skolems, binding);
+                } else {
                   if (!m.is_true (lemma)) {
                       // Create the generalized cube
                       expr_ref cube (m_pm.mk_and(core), m);
@@ -3089,14 +3002,11 @@ namespace spacer {
           TRACE("spacer", tout << "invariant state: "
                 << (is_infty_level(uses_level)?"(inductive)":"")
                 <<  mk_pp (lemma, m) << "\n";);
-          expr_ref_vector binding(m);
-          n.get_binding(qvars, m_skolems, binding);
           bool v = n.pt().add_lemma (lemma, uses_level, binding);
-          if (v) m_stats.m_num_lemmas++;
+            if (v) { m_stats.m_num_lemmas++; }
           
           // Optionally update the node to be the negation of the lemma
-          if (v && get_params ().use_lemma_as_cti ())
-          {
+            if (v && get_params().use_lemma_as_cti()) {
             n.new_post (m_pm.mk_and (core));
             n.set_farkas_generalizer (false);
           }
@@ -3121,13 +3031,13 @@ namespace spacer {
                   mev.set_model(*model);
                   // do not trust reach_pred_used
                   for (unsigned i = 0, sz = reach_pred_used.size(); i < sz; ++i)
-                      reach_pred_used[i] = false;
+                { reach_pred_used[i] = false; }
                   has_new_child = create_children(n,*r,mev,reach_pred_used);
               }
               IF_VERBOSE(1, verbose_stream() << " UNDEF "
                          << std::fixed << std::setprecision(2) 
                          << watch.get_seconds () << "\n";);
-              if (has_new_child) return l_undef;
+            if (has_new_child) { return l_undef; }
 
               // -- failed to create a child, bump weakness and repeat
               // -- the recursion is bounded by the levels of weakness supported
@@ -3150,16 +3060,17 @@ namespace spacer {
     // 
 
   bool context::propagate(unsigned min_prop_lvl, 
-                          unsigned max_prop_lvl, unsigned full_prop_lvl) {    
+                        unsigned max_prop_lvl, unsigned full_prop_lvl)
+{
     scoped_watch _w_(m_propagate_watch);
     
-    if (min_prop_lvl == infty_level ()) return false;
+    if (min_prop_lvl == infty_level()) { return false; }
     
     timeit _timer (get_verbosity_level() >= 1, 
                    "spacer::context::propagate", 
                    verbose_stream ());
     
-    if (full_prop_lvl < max_prop_lvl) full_prop_lvl = max_prop_lvl;
+    if (full_prop_lvl < max_prop_lvl) { full_prop_lvl = max_prop_lvl; }
     
     if (m_params.pdr_simplify_formulas_pre()) {
       simplify_formulas();
@@ -3185,16 +3096,13 @@ namespace spacer {
       }
       //CASSERT("spacer", check_invariant(lvl));
 
-      if (all_propagated)
-      {
-        for (it = m_rels.begin (); it != end; ++it)
-        {
+        if (all_propagated) {
+            for (it = m_rels.begin(); it != end; ++it) {
           checkpoint ();
           pred_transformer& r = *it->m_value;
           r.propagate_to_infinity (lvl);
         }
-        if (lvl <= max_prop_lvl)
-        {
+            if (lvl <= max_prop_lvl) {
           m_inductive_lvl = lvl;
           IF_VERBOSE(1, verbose_stream () << "\n";);
           return true;
@@ -3205,8 +3113,7 @@ namespace spacer {
       if (all_propagated && lvl == max_prop_lvl) {
         m_inductive_lvl = lvl;
         return true;
-      }
-      else if (all_propagated && lvl > max_prop_lvl) break;
+        } else if (all_propagated && lvl > max_prop_lvl) { break; }
     }
     if (m_params.pdr_simplify_formulas_post()) {            
       simplify_formulas();
@@ -3217,7 +3124,8 @@ namespace spacer {
   }
 
   reach_fact *context::mk_reach_fact (model_node& n, model_evaluator_util &mev,
-                                      const datalog::rule& r) {
+                                   const datalog::rule& r)
+{
     timeit _timer1 (is_trace_enabled("spacer_timeit"), 
                     "mk_reach_fact", 
                     verbose_stream ());
@@ -3244,22 +3152,21 @@ namespace spacer {
             path_cons.push_back (o_ch_reach);
             // collect o-vars to eliminate
             for (unsigned j = 0; j < pred->get_arity (); j++) 
-                vars.push_back (m.mk_const (m_pm.o2o (ch_pt.sig (j), 0, i)));
+        { vars.push_back(m.mk_const(m_pm.o2o(ch_pt.sig(j), 0, i))); }
             
             const ptr_vector<app> &v = kid->aux_vars (); 
             for (unsigned j = 0, sz = v.size (); j < sz; ++j)
-              vars.push_back (m.mk_const (m_pm.n2o (v [j]->get_decl (), i)));
+        { vars.push_back(m.mk_const(m_pm.n2o(v [j]->get_decl(), i))); }
         }
         // collect aux vars to eliminate
         ptr_vector<app>& aux_vars = pt.get_aux_vars (r);
         bool elim_aux = get_params ().spacer_elim_aux ();
-        if (elim_aux) vars.append (aux_vars.size (), aux_vars.c_ptr ());
+    if (elim_aux) { vars.append(aux_vars.size(), aux_vars.c_ptr()); }
 
         res = m_pm.mk_and (path_cons);
         
         // -- pick an implicant from the path condition
-        if (get_params ().spacer_reach_dnf ())
-        {
+    if (get_params().spacer_reach_dnf()) {
           expr_ref_vector u(m), lits(m);
           u.push_back (res);
           compute_implicant_literals (mev, u, lits);
@@ -3299,7 +3206,7 @@ namespace spacer {
         ptr_vector<app> empty;
         reach_fact *f = alloc(reach_fact, m, r, res, elim_aux ? empty : aux_vars);
         for (unsigned i = 0, sz = child_reach_facts.size (); i < sz; ++i)
-          f->add_justification (child_reach_facts.get (i));
+    { f->add_justification(child_reach_facts.get(i)); }
         return f;
     }
 
@@ -3309,7 +3216,8 @@ namespace spacer {
     */
     bool context::create_children(model_node& n, datalog::rule const& r, 
                                   model_evaluator_util &mev,
-                                  const vector<bool> &reach_pred_used) {
+                              const vector<bool> &reach_pred_used)
+{
  
         scoped_watch _w_ (m_create_children_watch);
         pred_transformer& pt = n.pt();
@@ -3356,7 +3264,7 @@ namespace spacer {
         if (!n.is_ground()) {
             unsigned size = n.get_vars().size();
             for (unsigned sk=0; sk < size; sk++)
-                vars.push_back(m_skolems[sk].get());
+        { vars.push_back(m_skolems[sk].get()); }
         }
 
         std::sort(vars.c_ptr(), vars.c_ptr() + vars.size(), sk_lt_proc(m_skolems));
@@ -3395,7 +3303,7 @@ namespace spacer {
             if (qvars_size > m_skolems.size()) {
                 ptr_vector<sort> sorts;
                 for (unsigned i = 0, e = vars.size (); i < e; ++i)
-                    sorts.push_back (m.get_sort (vars.get (i)));
+            { sorts.push_back(m.get_sort(vars.get(i))); }
                 ensure_skolems(sorts);
             }
             // The mapping is as follows:
@@ -3418,15 +3326,14 @@ namespace spacer {
         // XXX knows it is dealing with a quantified post-condition        
         /// create a derivation and populate it with premises
         derivation *deriv = alloc (derivation, n, r, phi1);
-        for (unsigned i = 0, sz = preds.size (); i < sz; ++i)
-        {
+    for (unsigned i = 0, sz = preds.size(); i < sz; ++i) {
           unsigned j; 
           if (get_params ().order_children () == 1)
             // -- reverse order
-            j = sz - i - 1;
+        { j = sz - i - 1; }
           else 
             // -- default order
-            j = i;
+        { j = i; }
           
           pred_transformer &pt = get_pred_transformer (preds [j]);
           
@@ -3448,22 +3355,23 @@ namespace spacer {
             return false;
         }
         SASSERT (kid);
-        kid->set_derivation (deriv);
         // Remember the quantified variables
+        // XXX This is a hack. Quantified variables must be properly
+        // XXX handled when kid is created.
         if (!vars.empty()) {
-            app_ref_vector& qvars = kid->get_vars();
-            qvars.append(vars);
+        kid->set_qvars(vars);
         }
+    kid->set_derivation (deriv);
         
         // Optionally disable derivation optimization
-        if (!get_params ().use_derivations ()) kid->reset_derivation ();
+    if (!get_params().use_derivations()) { kid->reset_derivation(); }
 
         // -- deriviation is abstract if the current weak model does
         // -- not satisfy 'T && phi'. It is possible to recover from
         // -- that more gracefully. For now, we just remove the
         // -- derivation completely forcing it to be recomputed
         if (m_weak_abs && (!mev.is_true(T) || !mev.is_true(phi)))
-            kid->reset_derivation();
+    { kid->reset_derivation(); }
         
         m_search.push (*kid);
         m_stats.m_num_queries++;
@@ -3473,7 +3381,8 @@ namespace spacer {
 
 
 
-    void context::collect_statistics(statistics& st) const {
+void context::collect_statistics(statistics& st) const
+{
         decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
         for (it = m_rels.begin(); it != end; ++it) {
             it->m_value->collect_statistics(st);
@@ -3512,7 +3421,8 @@ namespace spacer {
         verbose_stream () << "BRUNCH_STAT cex_depth " << m_stats.m_cex_depth << "\n";
     }
 
-    void context::reset_statistics() {
+void context::reset_statistics()
+{
         decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
         for (it = m_rels.begin(); it != end; ++it) {
             it->m_value->reset_statistics();
@@ -3543,7 +3453,8 @@ namespace spacer {
     }
 */
 
-    bool context::check_invariant(unsigned lvl) {
+bool context::check_invariant(unsigned lvl)
+{
         decl2rel::iterator it = m_rels.begin(), end = m_rels.end();        
         for (; it != end; ++it) {
             checkpoint();
@@ -3554,12 +3465,13 @@ namespace spacer {
         return true;
     }
 
-    bool context::check_invariant(unsigned lvl, func_decl* fn) {
+bool context::check_invariant(unsigned lvl, func_decl* fn)
+{
         smt::kernel ctx(m, m_pm.fparams2());
         pred_transformer& pt = *m_rels.find(fn);
         expr_ref_vector conj(m);
         expr_ref inv = pt.get_formulas(next_level(lvl), false);
-        if (m.is_true(inv)) return true;
+    if (m.is_true(inv)) { return true; }
         pt.add_premises(m_rels, lvl, conj);
         conj.push_back(m.mk_not(inv));
         expr_ref fml(m.mk_and(conj.size(), conj.c_ptr()), m);
@@ -3603,12 +3515,12 @@ namespace spacer {
       pred_transformer& r = *it->m_value;
       expr_ref c = r.get_formulas(level, false);
 
-      if (m.is_true(c)) continue;
+        if (m.is_true(c)) { continue; }
 
       // replace local constants by bound variables.
       expr_ref_vector args(m);
       for (unsigned i = 0; i < r.sig_size(); ++i) 
-        args.push_back(m.mk_const(m_pm.o2n(r.sig(i), 0)));
+        { args.push_back(m.mk_const(m_pm.o2n(r.sig(i), 0))); }
 
       expr_ref pred(m);
       pred = m.mk_app(r.head (), r.sig_size(), args.c_ptr());
@@ -3616,29 +3528,27 @@ namespace spacer {
       constraints.push_back(m.mk_implies(pred, c));
     }
 
-    if (constraints.empty ()) return expr_ref (m.mk_true (), m);
+    if (constraints.empty()) { return expr_ref(m.mk_true(), m); }
     return m_pm.mk_and (constraints);
   }
   
   void context::add_constraints (unsigned level, expr_ref c)
   {
-    if (!c.get ()) return;
-    if (m.is_true (c)) return;
+    if (!c.get()) { return; }
+    if (m.is_true(c)) { return; }
     
     expr_ref_vector constraints (m);
     constraints.push_back (c);
     flatten_and (constraints);
     
-    for (unsigned i = 0, sz = constraints.size (); i < sz; ++i)
-    {
+    for (unsigned i = 0, sz = constraints.size(); i < sz; ++i) {
       expr *c = constraints.get (i);
       expr *e1, *e2;
-      if (m.is_implies (c, e1, e2))
-      {
+        if (m.is_implies(c, e1, e2)) {
         SASSERT (is_app (e1));
         pred_transformer *r = 0;
         if (m_rels.find (to_app (e1)->get_decl (), r))
-          r->add_lemma (e2, level);
+            { r->add_lemma(e2, level); }
       }
     }
   }
@@ -3652,7 +3562,6 @@ namespace spacer {
       }
   }
 
-
   inline bool model_node_lt::operator() (const model_node *pn1, const model_node *pn2) const
   {
     SASSERT (pn1);
@@ -3660,9 +3569,9 @@ namespace spacer {
     const model_node& n1 = *pn1; 
     const model_node& n2 = *pn2;
       
-    if (n1.level () != n2.level ()) return n1.level () < n2.level ();
+    if (n1.level() != n2.level()) { return n1.level() < n2.level(); }
       
-    if (n1.depth () != n2.depth ()) return n1.depth () < n2.depth ();
+    if (n1.depth() != n2.depth()) { return n1.depth() < n2.depth(); }
     
     // -- a more deterministic order of proof obligations in a queue
     // if (!n1.get_context ().get_params ().spacer_nondet_tie_break ())
@@ -3678,9 +3587,9 @@ namespace spacer {
       unsigned sz1 = 1;
       unsigned sz2 = 1;
       
-      if (m.is_and (p1)) sz1 = to_app (p1)->get_num_args ();
-      if (m.is_and (p2)) sz2 = to_app (p2)->get_num_args ();
-      if (sz1 != sz2) return sz1 < sz2;
+        if (m.is_and(p1)) { sz1 = to_app(p1)->get_num_args(); }
+        if (m.is_and(p2)) { sz2 = to_app(p2)->get_num_args(); }
+        if (sz1 != sz2) { return sz1 < sz2; }
       
       // -- when all else fails, order by identifiers of the
       // -- expressions.  This roughly means that expressions created
@@ -3689,10 +3598,9 @@ namespace spacer {
       // -- order over predicates as well. That is, two expressions
       // -- are equal if and only if they correspond to the same proof
       // -- obligation of the same predicate.
-      if (p1->get_id () != p2->get_id ()) return p1->get_id () < p2->get_id ();
+        if (p1->get_id() != p2->get_id()) { return p1->get_id() < p2->get_id(); }
       
-      if (n1.pt ().head ()->get_id () == n2.pt ().head ()->get_id ())
-      {
+        if (n1.pt().head()->get_id() == n2.pt().head()->get_id()) {
         IF_VERBOSE (1, 
                     verbose_stream () 
                     << "dup: " << n1.pt ().head ()->get_name () 
@@ -3706,7 +3614,7 @@ namespace spacer {
       // SASSERT (n1.pt ().head ()->get_id () != n2.pt ().head ()->get_id ());
       // -- if expression comparison fails, compare by predicate id
       if (n1.pt().head ()->get_id () != n2.pt ().head ()->get_id ())
-        return n1.pt ().head ()->get_id () < n2.pt ().head ()->get_id ();
+        { return n1.pt().head()->get_id() < n2.pt().head()->get_id(); }
       
       /** XXX Identical nodes. This should not happen. However,
        * currently, when propagating reachability, we might call

@@ -27,60 +27,60 @@ Revision History:
 #include "statistics.h"
 
 namespace datalog {
-    class context;
+class context;
 }
 
 namespace spacer {
 
-    class context;
+class context;
 
-    class dl_interface : public datalog::engine_base {
-        datalog::context& m_ctx;
-        datalog::rule_set m_spacer_rules;
-        datalog::rule_set m_old_rules;
-        context*          m_context;
-        obj_map<func_decl, func_decl*> m_pred2slice;
-        ast_ref_vector    m_refs;
+class dl_interface : public datalog::engine_base {
+    datalog::context& m_ctx;
+    datalog::rule_set m_spacer_rules;
+    datalog::rule_set m_old_rules;
+    context*          m_context;
+    obj_map<func_decl, func_decl*> m_pred2slice;
+    ast_ref_vector    m_refs;
 
-        void check_reset();
+    void check_reset();
 
-    public:
-        dl_interface(datalog::context& ctx); 
-        ~dl_interface();
-        
-        lbool query(expr* query);
+public:
+    dl_interface(datalog::context& ctx);
+    ~dl_interface();
 
-        lbool query_from_lvl (expr* query, unsigned lvl);
+    lbool query(expr* query);
 
-        void display_certificate(std::ostream& out) const;
+    lbool query_from_lvl(expr* query, unsigned lvl);
 
-        void collect_statistics(statistics& st) const;
+    void display_certificate(std::ostream& out) const;
 
-        void reset_statistics();
+    void collect_statistics(statistics& st) const;
 
-        expr_ref get_answer();
+    void reset_statistics();
 
-        expr_ref get_ground_sat_answer ();
+    expr_ref get_answer();
 
-        void get_rules_along_trace (datalog::rule_ref_vector& rules);
+    expr_ref get_ground_sat_answer();
 
-        unsigned get_num_levels(func_decl* pred);
+    void get_rules_along_trace(datalog::rule_ref_vector& rules);
 
-        expr_ref get_cover_delta(int level, func_decl* pred);
-       
-        void add_cover(int level, func_decl* pred, expr* property);
-      
-        void add_invariant(func_decl* pred, expr* property);
+    unsigned get_num_levels(func_decl* pred);
 
-        expr_ref get_reachable (func_decl *pred);
-      
-        void updt_params();
+    expr_ref get_cover_delta(int level, func_decl* pred);
 
-        model_ref get_model();
+    void add_cover(int level, func_decl* pred, expr* property);
 
-        proof_ref get_proof();
-        
-    };
+    void add_invariant(func_decl* pred, expr* property);
+
+    expr_ref get_reachable(func_decl *pred);
+
+    void updt_params();
+
+    model_ref get_model();
+
+    proof_ref get_proof();
+
+};
 }
 
 
