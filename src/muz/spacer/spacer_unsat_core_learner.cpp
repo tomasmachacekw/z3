@@ -28,8 +28,7 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
     // transform proof in order to get a proof which is better suited for unsat-core-extraction
     proof_ref pr(root, m);
 
-    proof_utils::reduce_hypotheses(pr);
-    proof_utils::permute_unit_resolution(pr);
+    spacer::reduce_hypotheses(pr);
     STRACE("spacer.unsat_core_learner",
            verbose_stream() << "Reduced proof:\n" << mk_ismt2_pp(pr, m) << "\n";
     );
