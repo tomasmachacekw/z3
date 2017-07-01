@@ -42,7 +42,7 @@ namespace spacer {
 
 class pred_transformer;
 class derivation;
-class model_search;
+class pob_queue;
 class context;
 
 typedef obj_map<datalog::rule const, app_ref_vector*> rule2inst;
@@ -586,7 +586,7 @@ public:
 };
 
 
-class model_search {
+class pob_queue {
     pob_ref  m_root;
     unsigned m_max_level;
     unsigned m_min_depth;
@@ -595,8 +595,8 @@ class model_search {
                         pob_ref_gt>     m_obligations;
 
 public:
-    model_search(): m_root(NULL), m_max_level(0), m_min_depth(0) {}
-    ~model_search();
+    pob_queue(): m_root(NULL), m_max_level(0), m_min_depth(0) {}
+    ~pob_queue();
 
     void reset();
     pob * top ();
@@ -671,7 +671,7 @@ class context {
     decl2rel             m_rels;         // Map from relation predicate to fp-operator.
     func_decl_ref        m_query_pred;
     pred_transformer*    m_query;
-    mutable model_search m_search;
+    mutable pob_queue m_search;
     lbool                m_last_result;
     unsigned             m_inductive_lvl;
     unsigned             m_expanded_lvl;

@@ -1833,9 +1833,9 @@ void pob::get_skolems(app_ref_vector &v) {
 
 
 // ----------------
-// model_search
+// pob_queue
 
-pob* model_search::top ()
+pob* pob_queue::top ()
 {
     /// nothing in the queue
     if (m_obligations.empty()) { return NULL; }
@@ -1849,7 +1849,7 @@ pob* model_search::top ()
     return m_obligations.top ().get ();
 }
 
-void model_search::set_root(pob& root)
+void pob_queue::set_root(pob& root)
 {
     m_root = &root;
     m_max_level = root.level ();
@@ -1862,15 +1862,15 @@ void model_search::set_root(pob& root)
    and predicates that are satisfied from facts to the query.
    The resulting trace
 */
-expr_ref model_search::get_trace(context const& ctx)
+expr_ref pob_queue::get_trace(context const& ctx)
 {
     ast_manager& m = ctx.get_ast_manager ();
     return expr_ref (m.mk_true (), m);
 }
 
-model_search::~model_search() {}
+pob_queue::~pob_queue() {}
 
-void model_search::reset()
+void pob_queue::reset()
 {
     while (!m_obligations.empty()) { m_obligations.pop(); }
     if (m_root) { m_obligations.push(m_root); }
