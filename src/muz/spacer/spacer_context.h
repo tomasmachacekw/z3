@@ -696,7 +696,7 @@ class context {
     bool create_children(pob& n, datalog::rule const& r,
                          model_evaluator_util &model,
                          const vector<bool>& reach_pred_used);
-    expr_ref mk_sat_answer() const;
+    expr_ref mk_sat_answer();
     expr_ref mk_unsat_answer() const;
 
     // Generate inductive property

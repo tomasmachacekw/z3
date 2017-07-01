@@ -2408,11 +2408,10 @@ expr_ref context::get_answer()
     }
 }
 
-
 /**
    \brief Retrieve satisfying assignment with explanation.
 */
-expr_ref context::mk_sat_answer() const {return expr_ref(m.mk_true(), m);}
+expr_ref context::mk_sat_answer() {return get_ground_sat_answer();}
 
 
 expr_ref context::mk_unsat_answer() const
