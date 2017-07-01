@@ -257,21 +257,11 @@ void lemma_eq_generalizer::operator() (lemma_ref &lemma)
     expr_ref_vector core(m);
     core.append (lemma->get_cube());
 
-    bool dirty = false;
+    bool dirty;
     expr_equiv_class eq_classes(m);
     factor_eqs(core, eq_classes);
-    for (expr_equiv_class::equiv_iterator eq_c = eq_classes.begin();
-         eq_c != eq_classes.end(); ++eq_c) {
-        unsigned nb_elem = 0;
-        for (expr_equiv_class::iterator a = (*eq_c).begin(); a != (*eq_c).end(); ++a) {
-            nb_elem++;
-            expr_equiv_class::iterator b(a);
-            for (++b; b != (*eq_c).end(); ++b) {
-                core.push_back(m.mk_eq(*a, *b));
-                dirty = true;
-            }
-        }
-    }
+    // create all possible equalities to allow for simple inductive generalization
+    dirty = equiv_to_expr_full(eq_classes, core);
     if (dirty) {
         lemma->update_cube(lemma->get_pob(), core);
     }

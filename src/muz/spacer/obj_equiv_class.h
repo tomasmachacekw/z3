@@ -226,6 +226,24 @@ inline void equiv_to_expr(expr_equiv_class &equiv, expr_ref_vector &out) {
     }
 }
 
+/**
+ * expands equivalence classes to all derivable equalities
+ */
+inline bool equiv_to_expr_full(expr_equiv_class &equiv, expr_ref_vector &out) {
+    ast_manager &m = out.get_manager();
+    bool dirty = false;
+    for (auto eq_class : equiv) {
+        for (auto a = eq_class.begin(), end = eq_class.end(); a != end; ++a) {
+            expr_equiv_class::iterator b(a);
+            for (++b; b != end; ++b) {
+                out.push_back(m.mk_eq(*a, *b));
+                dirty = true;
+            }
+        }
+    }
+    return dirty;
+}
+
 }
 
 #endif
