@@ -1857,17 +1857,6 @@ void pob_queue::set_root(pob& root)
     reset();
 }
 
-/**
-   Extract trace comprising of constraints
-   and predicates that are satisfied from facts to the query.
-   The resulting trace
-*/
-expr_ref pob_queue::get_trace(context const& ctx)
-{
-    ast_manager& m = ctx.get_ast_manager ();
-    return expr_ref (m.mk_true (), m);
-}
-
 pob_queue::~pob_queue() {}
 
 void pob_queue::reset()
@@ -2416,16 +2405,7 @@ expr_ref context::get_answer()
 /**
    \brief Retrieve satisfying assignment with explanation.
 */
-expr_ref context::mk_sat_answer() const
-{
-    if (m_params.generate_proof_trace()) {
-        IF_VERBOSE(0, verbose_stream() << "Unsupported" << "\n";);
-        return expr_ref(m.mk_true(), m);
-        //proof_ref pr = get_proof();
-        //return expr_ref(pr.get(), m);
-    }
-    return m_search.get_trace(*this);
-}
+expr_ref context::mk_sat_answer() const {return expr_ref(m.mk_true(), m);}
 
 
 expr_ref context::mk_unsat_answer() const

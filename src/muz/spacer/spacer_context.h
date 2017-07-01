@@ -619,9 +619,6 @@ public:
     unsigned min_depth () {return m_min_depth;}
     unsigned size () {return m_obligations.size ();}
 
-
-    //std::ostream& display(std::ostream& out) const;
-    expr_ref get_trace(context const& ctx);
 };
 
 
