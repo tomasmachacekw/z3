@@ -371,17 +371,11 @@ public:
 
     void simplify_formulas();
 
-    expr_ref get_propagation_formula(decl2rel const& pts, unsigned level);
-
     context& get_context () const {return ctx;}
     manager& get_manager() const { return pm; }
     ast_manager& get_ast_manager() const { return m; }
 
     void add_premises(decl2rel const& pts, unsigned lvl, expr_ref_vector& r);
-
-    void close(expr* e);
-
-    app_ref_vector& get_inst(datalog::rule const* r) { return *m_rule2inst.find(r);}
 
     void inherit_properties(pred_transformer& other);
 
@@ -700,10 +694,6 @@ typedef pob_ref model_node_ref;
         bool                 m_use_restarts;
         unsigned             m_restart_initial_threshold;
 
-        // Utility: Quantified Lemmas
-        app_ref_vector m_skolems;
-        void ensure_skolems(ptr_vector<sort>& sorts);
-
         // Functions used by search.
         lbool solve_core (unsigned from_lvl = 0);
         bool check_reachability ();
@@ -780,7 +770,7 @@ typedef pob_ref model_node_ref;
 
         std::ostream& display(std::ostream& strm) const;
 
-        void display_certificate(std::ostream& strm) const;
+        void display_certificate(std::ostream& strm) const {}
 
         lbool solve(unsigned from_lvl = 0);
 
@@ -822,41 +812,6 @@ typedef pob_ref model_node_ref;
 
         expr_ref get_constraints (unsigned lvl);
         void add_constraints (unsigned lvl, expr_ref c);
-
-        struct sk_lt_proc :
-        public std::binary_function<app const*, app const*, bool> {
-          sk_lt_proc(app_ref_vector& skolems) : m_skolems(skolems) {}
-          bool operator() (app const *a, app const *b)
-          {
-              bool a_skolem = a->get_decl()->get_name().str().find("zk!") != std::string::npos;
-              bool b_skolem = b->get_decl()->get_name().str().find("zk!") != std::string::npos;
-              if (a_skolem || b_skolem) {
-                  if (a_skolem && !b_skolem)
-                { return true; }
-                  else if (!a_skolem && b_skolem)
-                { return false; }
-                  else {
-                      bool a_found = false, b_found = false;
-                      for (unsigned sk=0; sk < m_skolems.size(); sk++) {
-                          if (m_skolems.get(sk)->hash() == a->hash()) {
-                            if(b_found) { return false; }
-                              a_found = true;
-                          }
-                          if (m_skolems.get(sk)->hash() == b->hash()) {
-                            if(a_found) { return true; }
-                              b_found = true;
-                          }
-                      }
-                      SASSERT(false);
-                      return false;
-                  }
-              }
-              return a->get_id() < b->get_id();
-          }
-
-        private:
-          const app_ref_vector& m_skolems;
-        };
     };
 
     inline bool pred_transformer::use_native_mbp () {return ctx.use_native_mbp ();}

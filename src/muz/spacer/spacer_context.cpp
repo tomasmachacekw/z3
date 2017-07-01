@@ -366,34 +366,6 @@ expr_ref pred_transformer::get_formulas(unsigned level, bool add_axioms)
     return pm.mk_and(res);
 }
 
-expr_ref pred_transformer::get_propagation_formula(decl2rel const& pts, unsigned level)
-{
-    expr_ref result(m), tmp1(m), tmp2(m);
-    expr_ref_vector conj(m);
-    if (level == 0) {
-        conj.push_back(initial_state());
-    } else {
-        conj.push_back(transition());
-    }
-    conj.push_back(get_formulas(level, true));
-    obj_map<expr, datalog::rule const*>::iterator it = m_tag2rule.begin(), end = m_tag2rule.end();
-    for (; level > 0 && it != end; ++it) {
-        expr* tag = it->m_key;
-        datalog::rule const* r = it->m_value;
-        if (!r) { continue; }
-        find_predecessors(*r, m_predicates);
-        for (unsigned i = 0; i < m_predicates.size(); ++i) {
-            func_decl* d = m_predicates[i];
-            pred_transformer & pt = *pts.find(d);
-            tmp1 = pt.get_formulas(level-1, false);
-            TRACE("spacer", tout << mk_pp(tmp1, m) << "\n";);
-            pm.formula_n2o(tmp1, tmp2, i, false);
-            conj.push_back(m.mk_implies(tag, tmp2));
-        }
-    }
-    return pm.mk_and(conj);
-}
-
 bool pred_transformer::propagate_to_next_level (unsigned src_level)
 {return m_frames.propagate_to_next_level (src_level);}
 
@@ -1174,11 +1146,6 @@ void pred_transformer::add_premises(decl2rel const& pts, unsigned lvl, expr_ref_
     }
 }
 
-void pred_transformer::close(expr* e)
-{
-    //m_reachable.add_reachable(e);
-}
-
 void pred_transformer::add_premises(decl2rel const& pts, unsigned lvl, datalog::rule& rule, expr_ref_vector& r)
 {
     find_predecessors(rule, m_predicates);
@@ -1914,8 +1881,7 @@ context::context(fixedpoint_params const&     params,
     m_use_qlemmas (params.spacer_qlemmas ()),
     m_weak_abs(params.spacer_weak_abs()),
     m_use_restarts(params.spacer_restarts()),
-    m_restart_initial_threshold(params.spacer_restart_initial_threshold()),
-    m_skolems(m)
+    m_restart_initial_threshold(params.spacer_restart_initial_threshold())
 {}
 
 context::~context()
@@ -2328,7 +2294,6 @@ lbool context::solve(unsigned from_lvl)
         if (m_last_result == l_false) {
             simplify_formulas();
             m_last_result = l_false;
-            //TRACE("spacer",  display_certificate(tout););
             IF_VERBOSE(1, {
                     expr_ref_vector refs(m);
                     vector<relation_info> rs;
@@ -3530,30 +3495,6 @@ bool context::check_invariant(unsigned lvl, func_decl* fn)
     return result == l_false;
 }
 
-void context::display_certificate (std::ostream& strm) const { }
-
-/*    void context::display_certificate(std::ostream& strm) const {
-      switch(m_last_result) {
-      case l_false: {
-      expr_ref_vector refs(m);
-      vector<relation_info> rs;
-      get_level_property(m_inductive_lvl, refs, rs);
-      inductive_property ex(m, const_cast<model_converter_ref&>(m_mc), rs);
-      strm << ex.to_string();
-      break;
-      }
-      case l_true: {
-      strm << mk_pp(mk_sat_answer(), m);
-      break;
-      }
-      case l_undef: {
-      strm << "unknown";
-      break;
-      }
-      }
-      }
-*/
-
 expr_ref context::get_constraints (unsigned level)
 {
     expr_ref res(m);
@@ -3599,15 +3540,6 @@ void context::add_constraints (unsigned level, expr_ref c)
             if (m_rels.find (to_app (e1)->get_decl (), r))
             { r->add_lemma(e2, level); }
         }
-    }
-}
-
-void context::ensure_skolems(ptr_vector<sort>& sorts)
-{
-    unsigned size = sorts.size();
-    for (unsigned v = m_skolems.size(); v < size; v++) {
-        std::string str = "zk!" + datalog::to_string(v);
-        m_skolems.push_back(m.mk_const(symbol(str.c_str()), sorts[v]));
     }
 }
 
