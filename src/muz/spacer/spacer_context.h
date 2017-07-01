@@ -265,8 +265,8 @@ class pred_transformer {
     ptr_vector<datalog::rule>    m_rules;   // rules used to derive transformer
     prop_solver                  m_solver;  // solver context
     solver*                      m_reach_ctx; // context for reachability facts
-    frames                       m_frames;
     pobs                         m_pobs;
+    frames                       m_frames;
     reach_fact_ref_vector        m_reach_facts; // reach facts
     /// Number of initial reachability facts
     unsigned                     m_rf_init_sz;
