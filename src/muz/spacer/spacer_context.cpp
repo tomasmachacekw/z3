@@ -3412,17 +3412,6 @@ void context::reset_statistics()
     m_create_children_watch.reset ();
 }
 
-
-/*    std::ostream& context::display(std::ostream& out) const {
-      decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
-      for (; it != end; ++it) {
-      it->m_value->display(out);
-      }
-      m_search.display(out);
-      return out;
-      }
-*/
-
 bool context::check_invariant(unsigned lvl)
 {
     decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
