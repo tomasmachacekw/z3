@@ -1486,11 +1486,11 @@ pob* pred_transformer::pobs::mk_pob(pob *parent,
         auto &buf = m_pobs[p.post()];
         for (unsigned i = 0, sz = buf.size(); i < sz; ++i) {
             pob *f = buf.get(i);
-            if (f->parent() == parent) {
+        if (f->parent() == parent) {
                 f->inherit(p);
-                return f;
-            }
+            return f;
         }
+    }
     }
 
     pob_ref n = alloc(pob, parent, m_pt, level, depth);
@@ -1929,7 +1929,7 @@ context::context(fixedpoint_params const&     params,
     m_pm(params.pdr_max_num_contexts(), m),
     m_query_pred(m),
     m_query(0),
-    m_search(),
+    m_pob_queue(),
     m_last_result(l_undef),
     m_inductive_lvl(0),
     m_expanded_lvl(0),
@@ -1951,7 +1951,7 @@ context::~context()
 void context::reset()
 {
     TRACE("spacer", tout << "\n";);
-    m_search.reset();
+    m_pob_queue.reset();
     decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
     for (; it != end; ++it) {
         dealloc(it->m_value);
@@ -2620,7 +2620,7 @@ lbool context::solve_core (unsigned from_lvl)
     unsigned lvl = from_lvl;
 
     pob *root = m_query->mk_pob(nullptr,from_lvl,0,m.mk_true());
-    m_search.set_root (*root);
+    m_pob_queue.set_root (*root);
 
     unsigned max_level = get_params ().pdr_max_level ();
 
@@ -2634,8 +2634,8 @@ lbool context::solve_core (unsigned from_lvl)
         if (lvl > 0 && !get_params ().pdr_skip_propagate ())
             if (propagate(m_expanded_lvl, lvl, UINT_MAX)) { return l_false; }
 
-        m_search.inc_level ();
-        lvl = m_search.max_level ();
+        m_pob_queue.inc_level ();
+        lvl = m_pob_queue.max_level ();
         m_stats.m_max_depth = std::max(m_stats.m_max_depth, lvl);
         IF_VERBOSE(1,verbose_stream() << "Entering level "<< lvl << "\n";);
 
@@ -2665,13 +2665,13 @@ bool context::check_reachability ()
 
     pob_ref last_reachable;
 
-    if (get_params().reset_obligation_queue()) { m_search.reset(); }
+    if (get_params().reset_obligation_queue()) { m_pob_queue.reset(); }
 
     unsigned initial_size = m_stats.m_num_lemmas;
     unsigned threshold = m_restart_initial_threshold;
     unsigned luby_idx = 1;
 
-    while (m_search.top()) {
+    while (m_pob_queue.top()) {
         pob_ref node;
         checkpoint ();
 
@@ -2679,7 +2679,7 @@ bool context::check_reachability ()
             checkpoint ();
             node = last_reachable;
             last_reachable = NULL;
-            if (m_search.is_root(*node)) { return true; }
+            if (m_pob_queue.is_root(*node)) { return true; }
             if (is_reachable (*node->parent())) {
                 last_reachable = node->parent ();
                 SASSERT(last_reachable->is_closed());
@@ -2690,31 +2690,31 @@ bool context::check_reachability ()
             }
         }
 
-        SASSERT (m_search.top ());
+        SASSERT (m_pob_queue.top ());
         // -- remove all closed nodes and updated all dirty nodes
         // -- this is necessary because there is no easy way to
         // -- remove nodes from the priority queue.
-        while (m_search.top ()->is_closed () ||
-               m_search.top()->is_dirty()) {
-            pob_ref n = m_search.top ();
-            m_search.pop ();
+        while (m_pob_queue.top ()->is_closed () ||
+               m_pob_queue.top()->is_dirty()) {
+            pob_ref n = m_pob_queue.top ();
+            m_pob_queue.pop ();
             if (n->is_closed()) {
                 IF_VERBOSE (1,
                             verbose_stream () << "Deleting closed node: "
                             << n->pt ().head ()->get_name ()
                             << "(" << n->level () << ", " << n->depth () << ")"
                             << " " << n->post ()->get_id () << "\n";);
-                if (m_search.is_root(*n)) { return true; }
-                SASSERT (m_search.top ());
+                if (m_pob_queue.is_root(*n)) { return true; }
+                SASSERT (m_pob_queue.top ());
             } else if (n->is_dirty()) {
                 n->clean ();
                 // -- the node n might not be at the top after it is cleaned
-                m_search.push (*n);
+                m_pob_queue.push (*n);
             } else
             { UNREACHABLE(); }
         }
 
-        SASSERT (m_search.top ());
+        SASSERT (m_pob_queue.top ());
 
         if (m_use_restarts && m_stats.m_num_lemmas - initial_size > threshold) {
             luby_idx++;
@@ -2726,37 +2726,37 @@ bool context::check_reachability ()
                         << " :restart_threshold " << threshold
                         << ")\n";);
             // -- clear obligation queue up to the root
-            while (!m_search.is_root(*m_search.top())) { m_search.pop(); }
+            while (!m_pob_queue.is_root(*m_pob_queue.top())) { m_pob_queue.pop(); }
             initial_size = m_stats.m_num_lemmas;
         }
 
-        node = m_search.top ();
-        SASSERT (node->level () <= m_search.max_level ());
+        node = m_pob_queue.top ();
+        SASSERT (node->level () <= m_pob_queue.max_level ());
         switch (expand_node(*node)) {
         case l_true:
-            SASSERT (m_search.top () == node.get ());
-            m_search.pop ();
+            SASSERT (m_pob_queue.top () == node.get ());
+            m_pob_queue.pop ();
             last_reachable = node;
             last_reachable->close ();
-            if (m_search.is_root(*node)) { return true; }
+            if (m_pob_queue.is_root(*node)) { return true; }
             break;
         case l_false:
-            SASSERT (m_search.top () == node.get ());
-            m_search.pop ();
+            SASSERT (m_pob_queue.top () == node.get ());
+            m_pob_queue.pop ();
 
             if (node->is_dirty()) { node->clean(); }
 
             node->inc_level ();
             if (get_params ().pdr_flexible_trace () &&
-                (node->level () >= m_search.max_level () ||
-                 m_search.max_level () - node->level ()
+                (node->level () >= m_pob_queue.max_level () ||
+                 m_pob_queue.max_level () - node->level ()
                  <= get_params ().pdr_flexible_trace_depth ()))
-            { m_search.push(*node); }
+            { m_pob_queue.push(*node); }
 
-            if (m_search.is_root(*node)) { return false; }
+            if (m_pob_queue.is_root(*node)) { return false; }
             break;
         case l_undef:
-            // SASSERT (m_search.top () != node.get ());
+            // SASSERT (m_pob_queue.top () != node.get ());
             break;
         }
     }
@@ -2776,13 +2776,13 @@ bool context::is_reachable(pob &n)
     TRACE ("spacer",
            tout << "is-reachable: " << n.pt().head()->get_name()
            << " level: " << n.level()
-           << " depth: " << (n.depth () - m_search.min_depth ()) << "\n"
+           << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
            << mk_pp(n.post(), m) << "\n";);
 
     stopwatch watch;
     IF_VERBOSE (1, verbose_stream () << "is-reachable: " << n.pt ().head ()->get_name ()
                 << " (" << n.level () << ", "
-                << (n.depth () - m_search.min_depth ()) << ") "
+                << (n.depth () - m_pob_queue.min_depth ()) << ") "
                 << (n.use_farkas_generalizer () ? "FAR " : "SUB ")
                 << n.post ()->get_id ();
                 verbose_stream().flush ();
@@ -2841,9 +2841,9 @@ bool context::is_reachable(pob &n)
             next->set_derivation(deriv.detach());
 
             // remove the current node from the queue if it is at the top
-            if (m_search.top() == &n) { m_search.pop(); }
+            if (m_pob_queue.top() == &n) { m_pob_queue.pop(); }
 
-            m_search.push(*next);
+            m_pob_queue.push(*next);
         }
     }
 
@@ -2865,7 +2865,7 @@ lbool context::expand_node(pob& n)
     TRACE ("spacer",
            tout << "expand-node: " << n.pt().head()->get_name()
            << " level: " << n.level()
-           << " depth: " << (n.depth () - m_search.min_depth ()) << "\n"
+           << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
            << mk_pp(n.post(), m) << "\n";);
 
     STRACE ("spacer.expand-add",
@@ -2877,19 +2877,19 @@ lbool context::expand_node(pob& n)
 
             tout << "expand-node: " << n.pt().head()->get_name()
             << " level: " << n.level()
-            << " depth: " << (n.depth () - m_search.min_depth ()) << "\n"
+            << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
             << mk_pp(t, m, p) << "\n\n";);
 
     TRACE ("core_array_eq",
            tout << "expand-node: " << n.pt().head()->get_name()
            << " level: " << n.level()
-           << " depth: " << (n.depth () - m_search.min_depth ()) << "\n"
+           << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
            << mk_pp(n.post(), m) << "\n";);
 
     stopwatch watch;
     IF_VERBOSE (1, verbose_stream () << "expand: " << n.pt ().head ()->get_name ()
                 << " (" << n.level () << ", "
-                << (n.depth () - m_search.min_depth ()) << ") "
+                << (n.depth () - m_pob_queue.min_depth ()) << ") "
                 << (n.use_farkas_generalizer () ? "FAR " : "SUB ")
                 << " w(" << n.weakness() << ") "
                 << n.post ()->get_id ();
@@ -2910,7 +2910,7 @@ lbool context::expand_node(pob& n)
 
 
     if (get_params().pdr_flexible_trace() && n.pt().is_blocked(n, uses_level)) {
-        // if (!m_search.is_root (n)) n.close ();
+        // if (!m_pob_queue.is_root (n)) n.close ();
         IF_VERBOSE (1, verbose_stream () << " K "
                     << std::fixed << std::setprecision(2)
                     << watch.get_seconds () << "\n";);
@@ -2964,9 +2964,9 @@ lbool context::expand_node(pob& n)
                     next->set_derivation (deriv.detach());
 
                     // remove the current node from the queue if it is at the top
-                    if (m_search.top() == &n) { m_search.pop(); }
+                    if (m_pob_queue.top() == &n) { m_pob_queue.pop(); }
 
-                    m_search.push (*next);
+                    m_pob_queue.push (*next);
                 }
             }
 
@@ -3343,7 +3343,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     if (m_weak_abs && (!mev.is_true(T) || !mev.is_true(phi)))
     { kid->reset_derivation(); }
 
-    m_search.push (*kid);
+    m_pob_queue.push (*kid);
     m_stats.m_num_queries++;
     return true;
 }

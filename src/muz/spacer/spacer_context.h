@@ -700,7 +700,7 @@ class context {
     decl2rel             m_rels;         // Map from relation predicate to fp-operator.
     func_decl_ref        m_query_pred;
     pred_transformer*    m_query;
-    mutable pob_queue m_search;
+    mutable pob_queue    m_pob_queue;
     lbool                m_last_result;
     unsigned             m_inductive_lvl;
     unsigned             m_expanded_lvl;
@@ -829,7 +829,7 @@ public:
 
     proof_ref get_proof() const;
 
-    pob& get_root() const { return m_search.get_root(); }
+    pob& get_root() const { return m_pob_queue.get_root(); }
 
     expr_ref get_constraints (unsigned lvl);
     void add_constraints (unsigned lvl, expr_ref c);
