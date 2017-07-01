@@ -210,14 +210,15 @@ class pred_transformer {
         void add_frame () {m_size++;}
         void inherit_frames (frames &other) {
             for (unsigned i = 0, sz = other.m_lemmas.size (); i < sz; ++i) {
-                add_lemma(other.m_lemmas [i]->get_expr(),
-                          other.m_lemmas [i]->level(),
-                          other.m_lemmas[i]->get_bindings());
+                lemma_ref lem = alloc(lemma, m_pt.get_ast_manager(),
+                                      other.m_lemmas[i]->get_expr (),
+                                      other.m_lemmas[i]->level());
+                lem->add_binding(other.m_lemmas[i]->get_bindings());
+                add_lemma(lem.get());
             }
             m_sorted = false;
         }
 
-        bool add_lemma (expr * lemma, unsigned level, app_ref_vector& binding);
         bool add_lemma (lemma *lem);
         void propagate_to_infinity (unsigned level);
         bool propagate_to_next_level (unsigned level);
@@ -344,11 +345,7 @@ public:
     bool propagate_to_next_level(unsigned level);
     void propagate_to_infinity(unsigned level);
     /// \brief  Add a lemma to the current context and all users
-    bool add_lemma(expr * lemma, unsigned lvl, app_ref_vector& binding);
-    bool add_lemma(expr * lemma, unsigned lvl) {
-        app_ref_vector binding(m);
-        return add_lemma(lemma, lvl, binding);
-    }
+    bool add_lemma(expr * lemma, unsigned lvl);
     bool add_lemma(lemma* lem) {return m_frames.add_lemma(lem);}
     expr* get_reach_case_var (unsigned idx) const;
     bool has_reach_facts () const { return !m_reach_facts.empty () ;}

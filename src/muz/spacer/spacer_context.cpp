@@ -438,19 +438,9 @@ void pred_transformer::add_lemma_core(lemma* lemma)
     { m_use [i]->add_lemma_from_child(*this, lemma, next_level(lvl)); }
 }
 
-bool pred_transformer::add_lemma (expr * lemma, unsigned lvl, app_ref_vector& binding)
-{
-    bool res = false;
-
-    expr_ref_vector lemmas (m);
-    expr_ref nlemma (m);
-    flatten_and (lemma, lemmas);
-    for (unsigned i = 0, sz = lemmas.size(); i < sz; ++i) {
-        normalize (lemmas.get (i), nlemma);
-        res |= m_frames.add_lemma (nlemma, lvl, binding);
-    }
-
-    return res;
+bool pred_transformer::add_lemma (expr *e, unsigned lvl) {
+    lemma_ref lem = alloc(lemma, m, e, lvl);
+    return m_frames.add_lemma(lem.get());
 }
 
 void pred_transformer::add_lemma_from_child (pred_transformer& child,
@@ -693,8 +683,13 @@ void pred_transformer::add_cover(unsigned level, expr* property)
     rep->set_substitution(&sub);
     (*rep)(result);
     TRACE("spacer", tout << "cover:\n" << mk_pp(result, m) << "\n";);
+
     // add the property.
-    add_lemma (result, level);
+    expr_ref_vector lemmas(m);
+    flatten_and(result, lemmas);
+    for (unsigned i = 0, sz = lemmas.size(); i < sz; ++i) {
+        add_lemma(lemmas.get(i), level);
+    }
 }
 
 void pred_transformer::propagate_to_infinity (unsigned level)
@@ -1209,7 +1204,10 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_ref_count(0), m(manager),
     m_body(body, m), m_cube(m),
     m_bindings(m), m_lvl(lvl),
-    m_pob(0), m_new_pob(false) {}
+    m_pob(0), m_new_pob(false) {
+    SASSERT(m_body);
+    normalize(m_body, m_body);
+}
 
 lemma::lemma(pob_ref const &p) :
     m_ref_count(0), m(p->get_ast_manager()),
@@ -1225,6 +1223,7 @@ void lemma::mk_expr_core() {
 
         // make a clause by negating the cube
         m_body = ::push_not(::mk_and(m_cube));
+        normalize(m_body, m_body);
 
         if (!m_pob->is_ground() && has_zk_const(m_body)) {
             app_ref_vector zks(m);
@@ -1248,9 +1247,12 @@ void lemma::mk_expr_core() {
             }
         }
         m_new_pob = false;
+        return;
     }
     else if (!m_cube.empty()) {
         m_body = ::push_not(::mk_and(m_cube));
+        normalize(m_body, m_body);
+        return;
     }
     else {
         UNREACHABLE();
@@ -1361,48 +1363,6 @@ bool pred_transformer::frames::add_lemma(lemma *lem)
     return true;
 }
 
-
-bool pred_transformer::frames::add_lemma(expr * lem, unsigned level, app_ref_vector& binding)
-{
-    TRACE ("spacer", tout << "add-lemma: " << pp_level (level) << " "
-           << m_pt.head ()->get_name () << " "
-           << mk_pp(lem, m_pt.get_ast_manager()) << "\n";);
-
-    for (unsigned i = 0, sz = m_lemmas.size(); i < sz; ++i) {
-        if (m_lemmas [i]->get_expr() == lem) {
-            // extend bindings if needed
-            if (!binding.empty()) {
-                m_lemmas [i]->add_binding(binding);
-            }
-            // if the lemma is at a higher level, skip it
-            // XXX if there are new bindings, we need to assert new instances
-            if (m_lemmas [i]->level() >= level) {
-                TRACE ("spacer", tout << "Already at a higher level: "
-                       << pp_level (m_lemmas [i]->level ()) << "\n";);
-                return false;
-            }
-
-            // update level of the existing lemma
-            m_lemmas [i]->set_level (level);
-            // assert lemma in the solver
-            m_pt.add_lemma_core (m_lemmas[i]);
-            // move the lemma to its new place to maintain sortedness
-            for (unsigned j = i; (j+1) < sz && m_lt (m_lemmas [j+1], m_lemmas[j]); ++j) {
-                m_lemmas.swap (j, j+1);
-            }
-
-            return true;
-        }
-    }
-
-    // did not find, create new lemma
-    lemma *phi = alloc(lemma, m_pt.get_ast_manager(), lem, level);
-    phi->add_binding(binding);
-    m_lemmas.push_back(phi);
-    m_sorted = false;
-    m_pt.add_lemma_core(phi);
-    return true;
-}
 
 void pred_transformer::frames::propagate_to_infinity (unsigned level)
 {
