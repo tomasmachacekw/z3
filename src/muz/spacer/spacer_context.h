@@ -48,10 +48,9 @@ class context;
 typedef obj_map<datalog::rule const, app_ref_vector*> rule2inst;
 typedef obj_map<func_decl, pred_transformer*> decl2rel;
 
-class model_node;
-typedef model_node pob;
+class pob;
 typedef ref<pob> pob_ref;
-typedef sref_vector<model_node> pob_ref_vector;
+typedef sref_vector<pob> pob_ref_vector;
 
 class reach_fact;
 typedef ref<reach_fact> reach_fact_ref;
@@ -101,7 +100,7 @@ class lemma;
 typedef ref<lemma> lemma_ref;
 typedef sref_vector<lemma> lemma_ref_vector;
 
-typedef model_node pob;
+typedef pob pob;
 
 // a lemma
 class lemma {
@@ -360,7 +359,7 @@ public:
     expr* get_last_reach_case_var () const;
 
 
-    lbool is_reachable(model_node& n, expr_ref_vector* core, model_ref *model,
+    lbool is_reachable(pob& n, expr_ref_vector* core, model_ref *model,
                        unsigned& uses_level, bool& is_concrete,
                        datalog::rule const*& r,
                        vector<bool>& reach_pred_used,
@@ -389,22 +388,21 @@ public:
     app* extend_initial (expr *e);
 
     /// \brief Returns true if the obligation is already blocked by current lemmas
-    bool is_blocked (model_node &n, unsigned &uses_level);
+    bool is_blocked (pob &n, unsigned &uses_level);
     /// \brief Returns true if the obligation is already blocked by current quantified lemmas
-    bool is_qblocked (model_node &n);
+    bool is_qblocked (pob &n);
 
 };
 
 
-typedef pob_ref model_node_ref;
 /**
  * A node in the search tree.
  */
-class model_node {
+class pob {
     friend class context;
     unsigned m_ref_count;
     /// parent node
-    model_node_ref          m_parent;
+    pob_ref          m_parent;
     /// predicate transformer
     pred_transformer&       m_pt;
     /// post-condition decided by this node
@@ -428,12 +426,12 @@ class model_node {
     /// derivation representing the position of this node in the parent's rule
     scoped_ptr<derivation>   m_derivation;
 
-    ptr_vector<model_node>  m_kids;
+    ptr_vector<pob>  m_kids;
 public:
-    model_node (model_node* parent, pred_transformer& pt,
+    pob (pob* parent, pred_transformer& pt,
                 unsigned level, unsigned depth=0);
 
-    ~model_node() {if(m_parent) { m_parent->erase_child(*this); }}
+    ~pob() {if(m_parent) { m_parent->erase_child(*this); }}
 
     unsigned weakness() {return m_weakness;}
     void bump_weakness() {m_weakness++;}
@@ -448,7 +446,7 @@ public:
     /// detaches derivation from the node without deallocating
     derivation* detach_derivation () {return m_derivation.detach ();}
 
-    model_node* parent () const { return m_parent.get (); }
+    pob* parent () const { return m_parent.get (); }
 
     pred_transformer& pt () const { return m_pt; }
     ast_manager& get_ast_manager () const { return m_pt.get_ast_manager (); }
@@ -477,8 +475,8 @@ public:
     bool is_closed () const { return !m_open; }
     void close();
 
-    void add_child (model_node &v) {m_kids.push_back (&v);}
-    void erase_child (model_node &v) {m_kids.erase (&v);}
+    void add_child (pob &v) {m_kids.push_back (&v);}
+    void erase_child (pob &v) {m_kids.erase (&v);}
 
     bool is_ground () { return m_binding.empty (); }
     app_ref_vector const &get_binding() const {return m_binding;}
@@ -497,21 +495,21 @@ public:
 };
 
 
-struct model_node_lt :
-        public std::binary_function<const model_node*, const model_node*, bool>
-{bool operator() (const model_node *pn1, const model_node *pn2) const;};
+struct pob_lt :
+        public std::binary_function<const pob*, const pob*, bool>
+{bool operator() (const pob *pn1, const pob *pn2) const;};
 
-struct model_node_gt :
-        public std::binary_function<const model_node*, const model_node*, bool> {
-    model_node_lt lt;
-    bool operator() (const model_node *n1, const model_node *n2) const
+struct pob_gt :
+        public std::binary_function<const pob*, const pob*, bool> {
+    pob_lt lt;
+    bool operator() (const pob *n1, const pob *n2) const
         {return lt(n2, n1);}
 };
 
-struct model_node_ref_gt :
-        public std::binary_function<const model_node_ref&, const model_ref &, bool> {
-    model_node_gt gt;
-    bool operator() (const model_node_ref &n1, const model_node_ref &n2) const
+struct pob_ref_gt :
+        public std::binary_function<const pob_ref&, const model_ref &, bool> {
+    pob_gt gt;
+    bool operator() (const pob_ref &n1, const pob_ref &n2) const
         {return gt (n1.get (), n2.get ());}
 };
 
@@ -549,7 +547,7 @@ class derivation {
 
 
     /// parent model node
-    model_node&                         m_parent;
+    pob&                         m_parent;
 
     /// the rule corresponding to this derivation
     const datalog::rule &m_rule;
@@ -564,9 +562,9 @@ class derivation {
     app_ref_vector                      m_evars;
     /// -- create next child using given model as the guide
     /// -- returns NULL if there is no next child
-    model_node* create_next_child (model_evaluator_util &mev);
+    pob* create_next_child (model_evaluator_util &mev);
 public:
-    derivation (model_node& parent, datalog::rule const& rule,
+    derivation (pob& parent, datalog::rule const& rule,
                 expr *trans, app_ref_vector const &evars);
     void add_premise (pred_transformer &pt, unsigned oidx,
                       expr * summary, bool must, const ptr_vector<app> *aux_vars = NULL);
@@ -574,14 +572,14 @@ public:
     /// creates the first child. Must be called after all the premises
     /// are added. The model must be valid for the premises
     /// Returns NULL if no child exits
-    model_node *create_first_child (model_evaluator_util &mev);
+    pob *create_first_child (model_evaluator_util &mev);
 
     /// Create the next child. Must summary of the currently active
     /// premise must be consistent with the transition relation
-    model_node *create_next_child ();
+    pob *create_next_child ();
 
     datalog::rule const& get_rule () const { return m_rule; }
-    model_node& get_parent () const { return m_parent; }
+    pob& get_parent () const { return m_parent; }
     ast_manager &get_ast_manager () const {return m_parent.get_ast_manager ();}
     manager &get_manager () const {return m_parent.get_manager ();}
     context &get_context() const {return m_parent.get_context();}
@@ -589,21 +587,21 @@ public:
 
 
 class model_search {
-    model_node_ref  m_root;
+    pob_ref  m_root;
     unsigned m_max_level;
     unsigned m_min_depth;
 
-    std::priority_queue<model_node_ref, std::vector<model_node_ref>,
-                        model_node_ref_gt>     m_obligations;
+    std::priority_queue<pob_ref, std::vector<pob_ref>,
+                        pob_ref_gt>     m_obligations;
 
 public:
     model_search(): m_root(NULL), m_max_level(0), m_min_depth(0) {}
     ~model_search();
 
     void reset();
-    model_node * top ();
+    pob * top ();
     void pop () {m_obligations.pop ();}
-    void push (model_node &n) {m_obligations.push (&n);}
+    void push (pob &n) {m_obligations.push (&n);}
 
     void inc_level ()
         {
@@ -613,9 +611,9 @@ public:
             if(m_root && m_obligations.empty()) { m_obligations.push(m_root); }
         }
 
-    model_node& get_root() const { return *m_root.get (); }
-    void set_root(model_node& n);
-    bool is_root (model_node& n) const {return m_root.get () == &n;}
+    pob& get_root() const { return *m_root.get (); }
+    void set_root(pob& n);
+    bool is_root (pob& n) const {return m_root.get () == &n;}
 
     unsigned max_level () {return m_max_level;}
     unsigned min_depth () {return m_min_depth;}
@@ -694,11 +692,11 @@ class context {
     bool check_reachability ();
     bool propagate(unsigned min_prop_lvl, unsigned max_prop_lvl,
                    unsigned full_prop_lvl);
-    bool is_reachable(model_node &n);
-    lbool expand_node(model_node& n);
-    reach_fact *mk_reach_fact (model_node& n, model_evaluator_util &mev,
+    bool is_reachable(pob &n);
+    lbool expand_node(pob& n);
+    reach_fact *mk_reach_fact (pob& n, model_evaluator_util &mev,
                                datalog::rule const& r);
-    bool create_children(model_node& n, datalog::rule const& r,
+    bool create_children(pob& n, datalog::rule const& r,
                          model_evaluator_util &model,
                          const vector<bool>& reach_pred_used);
     expr_ref mk_sat_answer() const;
@@ -802,7 +800,7 @@ public:
 
     proof_ref get_proof() const;
 
-    model_node& get_root() const { return m_search.get_root(); }
+    pob& get_root() const { return m_search.get_root(); }
 
     expr_ref get_constraints (unsigned lvl);
     void add_constraints (unsigned lvl, expr_ref c);

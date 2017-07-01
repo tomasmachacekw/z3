@@ -670,7 +670,7 @@ void pred_transformer::propagate_to_infinity (unsigned level)
 
 
 /// \brief Returns true if the obligation is already blocked by current lemmas
-bool pred_transformer::is_blocked (model_node &n, unsigned &uses_level)
+bool pred_transformer::is_blocked (pob &n, unsigned &uses_level)
 {
     ensure_level (n.level ());
     prop_solver::scoped_level _sl (m_solver, n.level ());
@@ -684,7 +684,7 @@ bool pred_transformer::is_blocked (model_node &n, unsigned &uses_level)
     return res == l_false;
 }
 
-bool pred_transformer::is_qblocked (model_node &n)
+bool pred_transformer::is_qblocked (pob &n)
 {
     // XXX Trivial implementation to get us started
     smt::kernel solver (m, get_manager ().fparams2());
@@ -707,7 +707,7 @@ bool pred_transformer::is_qblocked (model_node &n)
 // return a property that blocks state and is implied by the
 // predicate transformer (or some unfolding of it).
 //
-lbool pred_transformer::is_reachable(model_node& n, expr_ref_vector* core,
+lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
                                      model_ref* model, unsigned& uses_level,
                                      bool& is_concrete, datalog::rule const*& r,
                                      vector<bool>& reach_pred_used,
@@ -1500,7 +1500,7 @@ app* pred_transformer::extend_initial (expr *e)
 // ----------------
 // derivation
 
-derivation::derivation (model_node& parent, datalog::rule const& rule,
+derivation::derivation (pob& parent, datalog::rule const& rule,
                         expr *trans, app_ref_vector const &evars) :
     m_parent (parent),
     m_rule (rule),
@@ -1565,14 +1565,14 @@ void derivation::add_premise (pred_transformer &pt,
 
 
 
-model_node *derivation::create_first_child (model_evaluator_util &mev)
+pob *derivation::create_first_child (model_evaluator_util &mev)
 {
     if (m_premises.empty()) { return NULL; }
     m_active = 0;
     return create_next_child(mev);
 }
 
-model_node *derivation::create_next_child (model_evaluator_util &mev)
+pob *derivation::create_next_child (model_evaluator_util &mev)
 {
     timeit _timer (is_trace_enabled("spacer_timeit"),
                    "spacer::derivation::create_next_child",
@@ -1666,7 +1666,7 @@ model_node *derivation::create_next_child (model_evaluator_util &mev)
     /* The level and depth are taken from the parent, not the sibling.
        The reasoning is that the sibling has not been checked before,
        and lower level is a better starting point. */
-    model_node *n = alloc (model_node, &m_parent,
+    pob *n = alloc (pob, &m_parent,
                            m_premises[m_active].pt (),
                            prev_level (m_parent.level ()),
                            m_parent.depth ());
@@ -1681,7 +1681,7 @@ model_node *derivation::create_next_child (model_evaluator_util &mev)
     return n;
 }
 
-model_node *derivation::create_next_child ()
+pob *derivation::create_next_child ()
 {
     if (m_active + 1 >= m_premises.size()) { return NULL; }
 
@@ -1763,7 +1763,7 @@ model_node *derivation::create_next_child ()
     return create_next_child (mev);
 }
 
-model_node::model_node (model_node* parent, pred_transformer& pt,
+pob::pob (pob* parent, pred_transformer& pt,
                         unsigned level, unsigned depth):
     m_ref_count (0),
     m_parent (parent), m_pt (pt),
@@ -1775,12 +1775,12 @@ model_node::model_node (model_node* parent, pred_transformer& pt,
 {if(m_parent) { m_parent->add_child(*this); }}
 
 
-void model_node::set_post(expr* post) {
+void pob::set_post(expr* post) {
     app_ref_vector b(get_ast_manager());
     set_post(post, b);
 }
 
-void model_node::set_post(expr* post, app_ref_vector const &b) {
+void pob::set_post(expr* post, app_ref_vector const &b) {
     normalize(post, m_post);
 
     m_binding.reset();
@@ -1805,14 +1805,14 @@ void model_node::set_post(expr* post, app_ref_vector const &b) {
     sub(m_post);
 }
 
-void model_node::clean () {
+void pob::clean () {
     if(m_new_post) {
         m_post = m_new_post;
         m_new_post.reset();
     }
 }
 
-void model_node::close () {
+void pob::close () {
     if(!m_open) { return; }
 
     reset ();
@@ -1821,7 +1821,7 @@ void model_node::close () {
     { m_kids [i]->close(); }
 }
 
-void model_node::get_skolems(app_ref_vector &v) {
+void pob::get_skolems(app_ref_vector &v) {
     for (unsigned i = 0, sz = m_binding.size(); i < sz; ++i) {
         expr* e;
 
@@ -1835,7 +1835,7 @@ void model_node::get_skolems(app_ref_vector &v) {
 // ----------------
 // model_search
 
-model_node* model_search::top ()
+pob* model_search::top ()
 {
     /// nothing in the queue
     if (m_obligations.empty()) { return NULL; }
@@ -1849,7 +1849,7 @@ model_node* model_search::top ()
     return m_obligations.top ().get ();
 }
 
-void model_search::set_root(model_node& root)
+void model_search::set_root(pob& root)
 {
     m_root = &root;
     m_max_level = root.level ();
@@ -2580,7 +2580,7 @@ lbool context::solve_core (unsigned from_lvl)
 
     unsigned lvl = from_lvl;
 
-    model_node *root = alloc (model_node, 0, *m_query, from_lvl, 0);
+    pob *root = alloc (pob, 0, *m_query, from_lvl, 0);
     root->set_post (m.mk_true ());
     m_search.set_root (*root);
 
@@ -2625,7 +2625,7 @@ bool context::check_reachability ()
                    "spacer::context::check_reachability",
                    verbose_stream ());
 
-    model_node_ref last_reachable;
+    pob_ref last_reachable;
 
     if (get_params().reset_obligation_queue()) { m_search.reset(); }
 
@@ -2634,7 +2634,7 @@ bool context::check_reachability ()
     unsigned luby_idx = 1;
 
     while (m_search.top()) {
-        model_node_ref node;
+        pob_ref node;
         checkpoint ();
 
         while (last_reachable) {
@@ -2658,7 +2658,7 @@ bool context::check_reachability ()
         // -- remove nodes from the priority queue.
         while (m_search.top ()->is_closed () ||
                m_search.top()->is_dirty()) {
-            model_node_ref n = m_search.top ();
+            pob_ref n = m_search.top ();
             m_search.pop ();
             if (n->is_closed()) {
                 IF_VERBOSE (1,
@@ -2728,7 +2728,7 @@ bool context::check_reachability ()
 }
 
 /// check whether node n is concretely reachable
-bool context::is_reachable(model_node &n)
+bool context::is_reachable(pob &n)
 {
     scoped_watch _w_(m_is_reach_watch);
     TRACE ("spacer",
@@ -2783,7 +2783,7 @@ bool context::is_reachable(model_node &n)
 
     // if n has a derivation, create a new child and report l_undef
     // otherwise if n has no derivation or no new children, report l_true
-    model_node *next = NULL;
+    pob *next = NULL;
     if (n.has_derivation()) {
         next = n.get_derivation ().create_next_child ();
         if (next) {
@@ -2810,7 +2810,7 @@ bool context::is_reachable(model_node &n)
 }
 
 //this processes a goal and creates sub-goal
-lbool context::expand_node(model_node& n)
+lbool context::expand_node(pob& n)
 {
     TRACE ("spacer",
            tout << "expand-node: " << n.pt().head()->get_name()
@@ -2898,7 +2898,7 @@ lbool context::expand_node(model_node& n)
 
             // if n has a derivation, create a new child and report l_undef
             // otherwise if n has no derivation or no new children, report l_true
-            model_node *next = NULL;
+            pob *next = NULL;
             if (n.has_derivation()) {
                 next = n.get_derivation ().create_next_child ();
                 checkpoint ();
@@ -3082,7 +3082,7 @@ bool context::propagate(unsigned min_prop_lvl,
     return false;
 }
 
-reach_fact *context::mk_reach_fact (model_node& n, model_evaluator_util &mev,
+reach_fact *context::mk_reach_fact (pob& n, model_evaluator_util &mev,
                                     const datalog::rule& r)
 {
     timeit _timer1 (is_trace_enabled("spacer_timeit"),
@@ -3173,7 +3173,7 @@ reach_fact *context::mk_reach_fact (model_node& n, model_evaluator_util &mev,
 /**
    \brief create children states from model cube.
 */
-bool context::create_children(model_node& n, datalog::rule const& r,
+bool context::create_children(pob& n, datalog::rule const& r,
                               model_evaluator_util &mev,
                               const vector<bool> &reach_pred_used)
 {
@@ -3269,7 +3269,7 @@ bool context::create_children(model_node& n, datalog::rule const& r,
     }
 
     // create post for the first child and add to queue
-    model_node* kid = deriv->create_first_child (mev);
+    pob* kid = deriv->create_first_child (mev);
 
     // -- failed to create derivation, cleanup and bail out
     if (!kid) {
@@ -3445,12 +3445,12 @@ void context::add_constraints (unsigned level, expr_ref c)
     }
 }
 
-inline bool model_node_lt::operator() (const model_node *pn1, const model_node *pn2) const
+inline bool pob_lt::operator() (const pob *pn1, const pob *pn2) const
 {
     SASSERT (pn1);
     SASSERT (pn2);
-    const model_node& n1 = *pn1;
-    const model_node& n2 = *pn2;
+    const pob& n1 = *pn1;
+    const pob& n2 = *pn2;
 
     if (n1.level() != n2.level()) { return n1.level() < n2.level(); }
 
