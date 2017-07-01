@@ -402,7 +402,7 @@ bool pred_transformer::propagate_to_next_level (unsigned src_level)
 void pred_transformer::add_lemma_core(lemma* lemma)
 {
     unsigned lvl = lemma->level();
-    expr* l = lemma->get();
+    expr* l = lemma->get_expr();
     SASSERT(is_clause(m, l));
 
     TRACE("spacer", tout << "add-lemma-core: " << pp_level (lvl)
@@ -458,7 +458,7 @@ void pred_transformer::add_lemma_from_child (pred_transformer& child,
 {
     ensure_level(lvl);
     expr_ref_vector fmls(m);
-    mk_assumptions(child.head(), lemma->get(), fmls);
+    mk_assumptions(child.head(), lemma->get_expr(), fmls);
 
     for (unsigned i = 0; i < fmls.size(); ++i) {
         expr_ref_vector inst(m);
@@ -1205,15 +1205,110 @@ void pred_transformer::inherit_properties(pred_transformer& other)
 }
 
 
+lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
+    m_ref_count(0), m(manager),
+    m_body(body, m), m_cube(m),
+    m_bindings(m), m_lvl(lvl),
+    m_pob(0), m_new_pob(false) {}
+
+lemma::lemma(pob_ref const &p) :
+    m_ref_count(0), m(p->get_ast_manager()),
+    m_body(m), m_cube(m),
+    m_bindings(m), m_lvl(p->level()),
+    m_pob(p), m_new_pob(m_pob) {SASSERT(m_pob);}
+
+void lemma::mk_expr_core() {
+    if (m_body) return;
+
+    if (m_pob) {
+        mk_cube_core();
+
+        // make a clause by negating the cube
+        m_body = ::push_not(::mk_and(m_cube));
+
+        if (!m_pob->is_ground() && has_zk_const(m_body)) {
+            app_ref_vector zks(m);
+            m_pob->get_skolems(zks);
+            zks.reverse();
+            expr_abstract(m, 0,
+                          zks.size(), (expr* const*)zks.c_ptr(), m_body,
+                          m_body);
+            ptr_buffer<sort> sorts;
+            svector<symbol> names;
+            for (unsigned i=0, sz=zks.size(); i < sz; ++i) {
+                sorts.push_back(get_sort(zks.get(i)));
+                names.push_back(zks.get(i)->get_decl()->get_name());
+            }
+            m_body = m.mk_quantifier(true, zks.size(),
+                                     sorts.c_ptr(),
+                                     names.c_ptr(),
+                                     m_body, 0, symbol(m_body->get_id()));
+            if (m_new_pob) {
+                add_binding(m_pob->get_binding());
+            }
+        }
+        m_new_pob = false;
+    }
+    else if (!m_cube.empty()) {
+        m_body = ::push_not(::mk_and(m_cube));
+    }
+    else {
+        UNREACHABLE();
+    }
+    SASSERT(m_body);
+}
+void lemma::mk_cube_core() {
+    if (!m_cube.empty()) {return;}
+    expr_ref cube(m);
+    if (m_pob || m_body) {
+        if(m_pob) {
+            cube = m_pob->post();
+        }
+        else if (m_body) {
+            // no quantifiers for now
+            SASSERT(!is_quantifier(m_body));
+            cube = m_body;
+            cube = ::push_not(cube);
+        }
+        flatten_and(cube, m_cube);
+        if (m_cube.empty()) {
+            m_cube.push_back(m.mk_true());
+        }
+        else {
+            std::sort(m_cube.c_ptr(), m_cube.c_ptr() + m_cube.size(), ast_lt_proc());
+        }
+    }
+    else {
+        UNREACHABLE();
+    }
+}
+expr* lemma::get_expr() {
+    mk_expr_core();
+    return m_body;
+}
+expr_ref_vector const &lemma::get_cube() {
+    mk_cube_core();
+    return m_cube;
+}
+
+void lemma::update_cube (pob_ref const &p, expr_ref_vector &cube) {
+    SASSERT(m_pob);
+    SASSERT(m_pob.get() == &p);
+    m_cube.reset();
+    m_body.reset();
+    m_cube.append(cube);
+    if (m_cube.empty()) {m_cube.push_back(m.mk_true());}
+}
+
 void lemma::mk_insts(expr_ref_vector &out, expr* e)
 {
-    expr *lem = e == nullptr ? m_fml : e;
+    expr *lem = e == nullptr ? get_expr() : e;
     if (!is_quantifier (lem) || m_bindings.empty()) {return;}
 
     expr *body = to_quantifier(lem)->get_expr();
     unsigned num_decls = to_quantifier(lem)->get_num_decls();
     expr_ref inst(m);
-        var_subst vs(m, false);
+    var_subst vs(m, false);
     for (unsigned i = 0,
              sz = m_bindings.size() / num_decls,
              off = 0;
@@ -1230,10 +1325,10 @@ bool pred_transformer::frames::add_lemma(lemma *lem)
 {
     TRACE("spacer", tout << "add-lemma: " << pp_level(lem->level()) << " "
           << m_pt.head()->get_name() << " "
-          << mk_pp(lem->get(), m_pt.get_ast_manager()) << "\n";);
+          << mk_pp(lem->get_expr(), m_pt.get_ast_manager()) << "\n";);
 
     for (unsigned i = 0, sz = m_lemmas.size(); i < sz; ++i) {
-        if (m_lemmas [i]->get() == lem->get()) {
+        if (m_lemmas [i]->get_expr() == lem->get_expr()) {
             // extend bindings if needed
             if (!lem->get_bindings().empty()) {
                 m_lemmas [i]->add_binding(lem->get_bindings());
@@ -1274,7 +1369,7 @@ bool pred_transformer::frames::add_lemma(expr * lem, unsigned level, app_ref_vec
            << mk_pp(lem, m_pt.get_ast_manager()) << "\n";);
 
     for (unsigned i = 0, sz = m_lemmas.size(); i < sz; ++i) {
-        if (m_lemmas [i]->get() == lem) {
+        if (m_lemmas [i]->get_expr() == lem) {
             // extend bindings if needed
             if (!binding.empty()) {
                 m_lemmas [i]->add_binding(binding);
@@ -1344,7 +1439,7 @@ bool pred_transformer::frames::propagate_to_next_level (unsigned level)
 
 
         unsigned solver_level;
-        expr * curr = m_lemmas [i]->get ();
+        expr * curr = m_lemmas [i]->get_expr ();
         if (m_pt.is_invariant(tgt_level, curr, solver_level)) {
             m_lemmas [i]->set_level (solver_level);
             m_pt.add_lemma_core (m_lemmas [i]);
@@ -1392,7 +1487,7 @@ void pred_transformer::frames::simplify_formulas ()
         unsigned begin = j;
         for (; j < lemmas_size && m_lemmas[j]->level() <= level; ++j) {
             if (m_lemmas[j]->level() == level) {
-                g->assert_expr(m_lemmas[j]->get());
+                g->assert_expr(m_lemmas[j]->get_expr());
             }
         }
         unsigned end = j;
@@ -1416,7 +1511,7 @@ void pred_transformer::frames::simplify_formulas ()
             for (unsigned k = 0; k < r->size(); ++k) {
                 found = false;
                 for (unsigned n = begin; n < end; ++n) {
-                    if (m_lemmas[n]->get() == r->form(k)) {
+                    if (m_lemmas[n]->get_expr() == r->form(k)) {
                         new_lemmas.push_back(m_lemmas[n]);
                         found = true;
                         break;
@@ -1717,7 +1812,7 @@ model_node *derivation::create_next_child ()
                         !ground);
             // keep track of implicitly quantified variables
             m_evars.append (vars);
-    }
+        }
     }
 
     m_active++;
@@ -3030,38 +3125,21 @@ lbool context::expand_node(model_node& n)
             expr_ref_vector& core = cores[i].first;
             std::sort (core.c_ptr (), core.c_ptr () + core.size (), ast_lt_proc ());
             uses_level = cores[i].second;
-            expr_ref lemma (m_pm.mk_not_and(core), m);
+
+            lemma_ref lemma = alloc(class lemma, pob_ref(&n));
+            lemma->set_level(uses_level);
+            lemma->update_cube(lemma->get_pob(), core);
 
             TRACE("spacer", tout << "invariant state: "
                   << (is_infty_level(uses_level)?"(inductive)":"")
-                  <<  mk_pp (lemma, m) << "\n";);
+                  <<  mk_pp(lemma->get_expr(), m) << "\n";);
 
-            app_ref_vector bindings(m);
-            if (!n.is_ground() && has_zk_const(lemma)) {
-                app_ref_vector zks(m);
-                n.get_skolems(zks);
-                zks.reverse();
-                expr_abstract(m, 0,
-                              zks.size(), (expr* const*)zks.c_ptr(), lemma,
-                              lemma);
-                ptr_buffer<sort> sorts;
-                    svector<symbol> names;
-                for (unsigned i=0, sz=zks.size(); i < sz; ++i) {
-                    sorts.push_back(get_sort(zks.get(i)));
-                    names.push_back(zks.get(i)->get_decl()->get_name());
-                    lemma = m.mk_quantifier(true, zks.size(),
-                                             sorts.c_ptr (),
-                                             names.c_ptr (),
-                                            lemma, 0, symbol(lemma->get_id()));
-                    bindings.append(n.get_binding());
-                    }
-                }
-            bool v = n.pt().add_lemma (lemma, uses_level, bindings);
+            bool v = n.pt().add_lemma (lemma.get());
             if (v) { m_stats.m_num_lemmas++; }
 
             // Optionally update the node to be the negation of the lemma
             if (v && get_params().use_lemma_as_cti()) {
-                n.new_post (m_pm.mk_and (core));
+                n.new_post (mk_and(lemma->get_cube()));
                 n.set_farkas_generalizer (false);
             }
             CASSERT("spacer", n.level() == 0 || check_invariant(n.level()-1));

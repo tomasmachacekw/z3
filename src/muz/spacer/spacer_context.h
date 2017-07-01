@@ -41,7 +41,6 @@ namespace datalog {
 namespace spacer {
 
     class pred_transformer;
-    class model_node;
     class derivation;
     class model_search;
     class context;
@@ -49,9 +48,14 @@ namespace spacer {
     typedef obj_map<datalog::rule const, app_ref_vector*> rule2inst;
     typedef obj_map<func_decl, pred_transformer*> decl2rel;
 
-  class reach_fact;
-  typedef ref<reach_fact> reach_fact_ref;
-  typedef sref_vector<reach_fact> reach_fact_ref_vector;
+class model_node;
+typedef model_node pob;
+typedef ref<pob> pob_ref;
+typedef sref_vector<model_node> pob_ref_vector;
+
+class reach_fact;
+typedef ref<reach_fact> reach_fact_ref;
+typedef sref_vector<reach_fact> reach_fact_ref_vector;
 
 class reach_fact {
     unsigned m_ref_count;
@@ -97,29 +101,40 @@ class lemma;
 typedef ref<lemma> lemma_ref;
 typedef sref_vector<lemma> lemma_ref_vector;
 
+typedef model_node pob;
+
 // a lemma
 class lemma {
     unsigned m_ref_count;
 
     ast_manager &m;
-    expr_ref m_fml;
+    expr_ref m_body;
+    expr_ref_vector m_cube;
     app_ref_vector m_bindings;
     unsigned m_lvl;
+    pob_ref m_pob;
+    bool m_new_pob;
 
+    void mk_expr_core();
+    void mk_cube_core();
 public:
-    lemma (ast_manager &manager, expr * fml, unsigned lvl) :
-        m_ref_count(0), m(manager), m_fml (fml, m), m_bindings(m), m_lvl(lvl) {}
+    lemma(ast_manager &manager, expr * fml, unsigned lvl);
+    lemma(pob_ref const &p);
+    lemma(const lemma &other) = delete;
 
-    lemma (const lemma &other)
-        : m(other.m), m_fml (other.m_fml), m_bindings(other.m_bindings), m_lvl (other.m_lvl) {}
+    expr *get_expr();
+    expr_ref_vector const &get_cube();
+    void update_cube(pob_ref const &p, expr_ref_vector &cube);
 
-    expr * get () const {return m_fml.get ();}
+    bool has_pob() {return m_pob;}
+    pob_ref &get_pob() {return m_pob;}
+
     unsigned level () const {return m_lvl;}
-    void set_level (unsigned lvl) { m_lvl = lvl;}
-    app_ref_vector& get_bindings() { return m_bindings; }
-    void add_binding(app_ref_vector& binding) {m_bindings.append(binding);}
-    void mk_insts(expr_ref_vector& inst, expr* fml = nullptr);
-    bool is_ground () const { return ::is_quantifier (m_fml); }
+    void set_level (unsigned lvl) {m_lvl = lvl;}
+    app_ref_vector& get_bindings() {return m_bindings;}
+    void add_binding(app_ref_vector const &binding) {m_bindings.append(binding);}
+    void mk_insts(expr_ref_vector& inst, expr* e = nullptr);
+    bool is_ground () {return !is_quantifier (get_expr());}
 
     void inc_ref () {++m_ref_count;}
     void dec_ref ()
@@ -130,11 +145,11 @@ public:
     }
 };
 
-struct lemma_lt_proc : public std::binary_function<const lemma*, const lemma *, bool> {
-    bool operator() (const lemma *a, const lemma *b) {
+struct lemma_lt_proc : public std::binary_function<lemma*, lemma *, bool> {
+    bool operator() (lemma *a, lemma *b) {
         return (a->level () < b->level ()) ||
             (a->level () == b->level () &&
-             ast_lt_proc() (a->get (), b->get ()));
+             ast_lt_proc() (a->get_expr (), b->get_expr ()));
     }
 };
 
@@ -176,27 +191,31 @@ class pred_transformer {
         pred_transformer& pt () {return m_pt;}
 
 
-        void get_frame_lemmas (unsigned level, expr_ref_vector &out)
-            {
-                for (unsigned i = 0, sz = m_lemmas.size (); i < sz; ++i)
-                    if(m_lemmas[i]->level() == level) { out.push_back(m_lemmas[i]->get()); }
-            }
-        void get_frame_geq_lemmas (unsigned level, expr_ref_vector &out)
-            {
-                for (unsigned i = 0, sz = m_lemmas.size (); i < sz; ++i)
-                    if(m_lemmas [i]->level() >= level) { out.push_back(m_lemmas[i]->get()); }
-            }
+        void get_frame_lemmas (unsigned level, expr_ref_vector &out) {
+            for (unsigned i = 0, sz = m_lemmas.size (); i < sz; ++i)
+                if(m_lemmas[i]->level() == level) {
+                    out.push_back(m_lemmas[i]->get_expr());
+                }
+        }
+        void get_frame_geq_lemmas (unsigned level, expr_ref_vector &out) {
+            for (unsigned i = 0, sz = m_lemmas.size (); i < sz; ++i)
+                if(m_lemmas [i]->level() >= level) {
+                    out.push_back(m_lemmas[i]->get_expr());
+                }
+        }
 
 
         unsigned size () const {return m_size;}
         unsigned lemma_size () const {return m_lemmas.size ();}
         void add_frame () {m_size++;}
-        void inherit_frames (frames &other)
-            {
-                for (unsigned i = 0, sz = other.m_lemmas.size (); i < sz; ++i)
-                { add_lemma(other.m_lemmas [i]->get(), other.m_lemmas [i]->level(), other.m_lemmas[i]->get_bindings()); }
-                m_sorted = false;
+        void inherit_frames (frames &other) {
+            for (unsigned i = 0, sz = other.m_lemmas.size (); i < sz; ++i) {
+                add_lemma(other.m_lemmas [i]->get_expr(),
+                          other.m_lemmas [i]->level(),
+                          other.m_lemmas[i]->get_bindings());
             }
+            m_sorted = false;
+        }
 
         bool add_lemma (expr * lemma, unsigned level, app_ref_vector& binding);
         bool add_lemma (lemma *lem);
@@ -382,8 +401,8 @@ public:
 
 };
 
-  typedef ref<model_node> model_node_ref;
 
+typedef pob_ref model_node_ref;
   /**
    * A node in the search tree.
    */
