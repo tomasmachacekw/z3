@@ -161,6 +161,52 @@ public:
 
 typedef obj_equiv_class<expr, ast_manager> expr_equiv_class;
 
+
+/**
+   Factors input vector v into equivalence classes and the rest
+ */
+inline void factor_eqs(expr_ref_vector &v, expr_equiv_class &equiv) {
+    ast_manager &m = v.get_manager();
+    arith_util arith(m);
+    expr *e1, *e2;
+
+    flatten_and(v);
+    unsigned j = 0;
+    for (unsigned i = 0; i < v.size(); ++i) {
+        if (m.is_eq(v.get(i), e1, e2)) {
+            if (arith.is_zero(e1)) {
+                expr* t;
+                t = e1; e1 = e2; e2 = t;
+            }
+
+            // y + -1*x == 0
+            if (arith.is_zero(e2) && arith.is_add(e1) &&
+                to_app(e1)->get_num_args() == 2) {
+                expr *a0, *a1, *x;
+
+                a0 = to_app(e1)->get_arg(0);
+                a1 = to_app(e1)->get_arg(1);
+
+                if (arith.is_times_minus_one(a1, x)) {
+                    e1 = a0;
+                    e2 = x;
+                }
+                else if (arith.is_times_minus_one(a0, x)) {
+                    e1 = a1;
+                    e2 = x;
+                }
+            }
+            equiv.merge(e1, e2);
+        }
+        else {
+            if (j < i) {v[j] = v.get(i);}
+            j++;
+        }
+    }
+    v.shrink(j);
+}
+
+
 }
 
 #endif

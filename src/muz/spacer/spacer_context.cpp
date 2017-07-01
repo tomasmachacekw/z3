@@ -74,42 +74,6 @@ Notes:
 #include "expr_abstract.h"
 #include "obj_equiv_class.h"
 
-namespace {
-using namespace spacer;
-inline expr_equiv_class remove_eq_conds_tmp(expr_ref_vector& e)
-{
-    ast_manager& m = e.get_manager();
-    arith_util m_a(m);
-    expr_equiv_class eq_classes(m);
-    flatten_and(e);
-    expr_ref_vector res(m);
-    for (unsigned i = 0; i < e.size(); i++) {
-        expr*e1, *e2;
-        if (m.is_eq(e[i].get(), e1, e2)) {
-            if (m_a.is_add(e1) && e2 == m_a.mk_int(0)) {
-                app* f = to_app(e1);
-                expr*first=f->get_arg(0);
-                expr*snd=f->get_arg(1);
-                if (m_a.is_mul(snd)) {
-                    app*mult=to_app(snd);
-                    if (m_a.is_minus_one(mult->get_arg(0))) {
-                        e1 = first;
-                        e2 = mult->get_arg(1);
-                    }
-                }
-            }
-            eq_classes.merge(e1, e2);
-        } else
-        { res.push_back(e[i].get()); }
-    }
-    e.reset();
-    e.append(res);
-    return eq_classes;
-}
-}
-
-
-
 namespace spacer {
 
 // ----------------
@@ -1678,10 +1642,15 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
     if(get_context().get_params().spacer_use_eqclass()) {
         expr_ref_vector tmp(m);
         tmp.push_back(post);
-        expr_equiv_class eq_classes(remove_eq_conds_tmp(tmp));
-        for(expr_equiv_class::equiv_iterator eq_c = eq_classes.begin(); eq_c!=eq_classes.end();++eq_c) {
+        flatten_and(tmp);
+        expr_equiv_class eq_classes(m);
+        factor_eqs(tmp, eq_classes);
+
+        for(expr_equiv_class::equiv_iterator eq_c = eq_classes.begin();
+            eq_c!=eq_classes.end();++eq_c) {
             expr* representative = *(*eq_c).begin();
-            for(expr_equiv_class::iterator it = (*eq_c).begin(); it!=(*eq_c).end(); ++it) {
+            for(expr_equiv_class::iterator it = (*eq_c).begin();
+                it!=(*eq_c).end(); ++it) {
                 if(!m.is_value(*it)) {
                     representative = *it;
                     break;

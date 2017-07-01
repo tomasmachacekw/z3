@@ -27,40 +27,6 @@ Revision History:
 #include "obj_equiv_class.h"
 
 
-namespace {
-using namespace spacer;
-inline expr_equiv_class remove_eq_conds_tmp(expr_ref_vector& e)
-{
-    ast_manager& m = e.get_manager();
-    arith_util m_a(m);
-    expr_equiv_class eq_classes(m);
-    flatten_and(e);
-    expr_ref_vector res(m);
-    for (unsigned i = 0; i < e.size(); i++) {
-        expr*e1, *e2;
-        if (m.is_eq(e[i].get(), e1, e2)) {
-            if (m_a.is_add(e1) && e2 == m_a.mk_int(0)) {
-                app* f = to_app(e1);
-                expr*first = f->get_arg(0);
-                expr*snd = f->get_arg(1);
-                if (m_a.is_mul(snd)) {
-                    app*mult = to_app(snd);
-                    if (m_a.is_minus_one(mult->get_arg(0))) {
-                        e1 = first;
-                        e2 = mult->get_arg(1);
-                    }
-                }
-            }
-            eq_classes.merge(e1, e2);
-        } else
-        { res.push_back(e[i].get()); }
-    }
-    e.reset();
-    e.append(res);
-    return eq_classes;
-}
-}
-
 namespace spacer {
 void lemma_sanity_checker::operator()(lemma_ref &lemma) {
     unsigned uses_level;
@@ -292,7 +258,8 @@ void lemma_eq_generalizer::operator() (lemma_ref &lemma)
     core.append (lemma->get_cube());
 
     bool dirty = false;
-    expr_equiv_class eq_classes(remove_eq_conds_tmp(core));
+    expr_equiv_class eq_classes(m);
+    factor_eqs(core, eq_classes);
     for (expr_equiv_class::equiv_iterator eq_c = eq_classes.begin();
          eq_c != eq_classes.end(); ++eq_c) {
         unsigned nb_elem = 0;
