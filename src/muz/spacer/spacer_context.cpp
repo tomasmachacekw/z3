@@ -2382,8 +2382,15 @@ void context::get_rules_along_trace(datalog::rule_ref_vector& rules)
 
 model_ref context::get_model()
 {
-    return model_ref ();
+    model_ref model;
+    expr_ref_vector refs(m);
+    vector<relation_info> rs;
+    get_level_property(m_inductive_lvl, refs, rs);
+    inductive_property ex(m, const_cast<model_converter_ref&>(m_mc), rs);
+    ex.to_model (model);
+    return model;
 }
+
 proof_ref context::get_proof() const
 {
     return proof_ref (m);
