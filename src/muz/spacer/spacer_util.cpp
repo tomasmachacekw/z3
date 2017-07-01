@@ -56,7 +56,9 @@ Notes:
 #include "spacer_legacy_mev.h"
 #include "qe_mbp.h"
 
-#include "arith_bounds_tactic.h"
+#include "tactical.h"
+#include "propagate_values_tactic.h"
+#include "propagate_ineqs_tactic.h"
 
 namespace spacer {
 
@@ -926,30 +928,34 @@ class implicant_picker {
       ipick (formula, res);
   }
 
-void simplify_bounds(expr_ref_vector& lemmas)
-{
-      ast_manager& m = lemmas.m();
+void simplify_bounds (expr_ref_vector &cube) {
+    ast_manager &m = cube.m();
 
-      goal_ref g(alloc(goal, m, false, false, false));
-      for (unsigned i = 0; i < lemmas.size(); ++i) {
-          g->assert_expr(lemmas[i].get());
-      }
 
-      expr_ref tmp(m);
-      model_converter_ref mc;
-      proof_converter_ref pc;
-      expr_dependency_ref core(m);
-      goal_ref_buffer result;
-      tactic_ref simplifier = mk_arith_bounds_tactic(m);
-      (*simplifier)(g, result, mc, pc, core);
-      SASSERT(result.size() == 1);
-      goal* r = result[0];
+    scoped_no_proof _no_pf_(m);
 
-      lemmas.reset();
-      for (unsigned i = 0; i < r->size(); ++i) {
-          lemmas.push_back(r->form(i));
-      }
-  }
+    goal_ref g(alloc(goal, m, false, false, false));
+    for (unsigned i = 0, sz = cube.size(); i < sz; ++i) {
+        g->assert_expr(cube.get(i));
+    }
+
+    model_converter_ref mc;
+    proof_converter_ref pc;
+    expr_dependency_ref dep(m);
+    goal_ref_buffer goals;
+    tactic_ref prop_values = mk_propagate_values_tactic(m);
+    tactic_ref prop_bounds = mk_propagate_ineqs_tactic(m);
+    tactic_ref t = and_then(prop_values.get(), prop_bounds.get());
+
+    (*t)(g, goals, mc, pc, dep);
+    SASSERT(goals.size() == 1);
+
+    g = goals[0];
+    cube.reset();
+    for (unsigned i = 0; i < g->size(); ++i) {
+        cube.push_back(g->form(i));
+    }
+}
 
   /// Adhoc arithmetic rewriter
 struct adhoc_rewriter_cfg : public default_rewriter_cfg {
