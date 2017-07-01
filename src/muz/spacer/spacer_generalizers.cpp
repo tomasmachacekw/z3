@@ -28,6 +28,7 @@ Revision History:
 
 
 namespace {
+using namespace spacer;
 inline expr_equiv_class remove_eq_conds_tmp(expr_ref_vector& e)
 {
     ast_manager& m = e.get_manager();
