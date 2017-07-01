@@ -119,11 +119,12 @@ pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head):
     ctx(ctx), m_head(head, m),
     m_sig(m), m_solver(pm, ctx.get_params(), head->get_name()),
     m_reach_ctx (pm.mk_fresh3 ()),
-    m_frames (*this),
-    m_reach_facts (), m_rf_init_sz (0),
-    m_transition(m), m_initial_state(m), m_extend_lit (m),
-    m_all_init (false),
-    m_reach_case_vars (m)
+    m_frames(*this),
+    m_pobs(*this),
+    m_reach_facts(), m_rf_init_sz(0),
+    m_transition(m), m_initial_state(m), m_extend_lit(m),
+    m_all_init(false),
+    m_reach_case_vars(m)
 {
     init_sig ();
     app_ref v(m);
@@ -1473,6 +1474,39 @@ void pred_transformer::frames::simplify_formulas ()
     }
 }
 
+pob* pred_transformer::pobs::mk_pob(pob *parent,
+                                    unsigned level, unsigned depth,
+                                    expr *post, app_ref_vector const &b) {
+
+    // create a new pob and set its post to normalize it
+    pob p(parent, m_pt, level, depth, false);
+    p.set_post(post, b);
+
+    if (m_pobs.contains(p.post())) {
+        auto &buf = m_pobs[p.post()];
+        for (unsigned i = 0, sz = buf.size(); i < sz; ++i) {
+            pob *f = buf.get(i);
+            if (f->parent() == parent) {
+                f->inherit(p);
+                return f;
+            }
+        }
+    }
+
+    pob_ref n = alloc(pob, parent, m_pt, level, depth);
+    n->set_post(post, b);
+
+    m_pinned.push_back(n.get());
+    if (m_pobs.contains(n->post())) {
+        m_pobs[n->post()].push_back(n.get());
+    }
+    else {
+        pob_buffer buf;
+        buf.push_back(n.get());
+        m_pobs.insert(n->post(), buf);
+    }
+    return n.get();
+}
 
 app* pred_transformer::extend_initial (expr *e)
 {
@@ -1666,11 +1700,9 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
     /* The level and depth are taken from the parent, not the sibling.
        The reasoning is that the sibling has not been checked before,
        and lower level is a better starting point. */
-    pob *n = alloc (pob, &m_parent,
-                           m_premises[m_active].pt (),
-                           prev_level (m_parent.level ()),
-                           m_parent.depth ());
-    n->set_post(post, m_evars);
+    pob *n = m_premises[m_active].pt().mk_pob(&m_parent,
+                                              prev_level (m_parent.level ()),
+                                              m_parent.depth (), post, m_evars);
 
     IF_VERBOSE (1, verbose_stream ()
                 << "\n\tcreate_child: " << n->pt ().head ()->get_name ()
@@ -1764,15 +1796,18 @@ pob *derivation::create_next_child ()
 }
 
 pob::pob (pob* parent, pred_transformer& pt,
-                        unsigned level, unsigned depth):
+          unsigned level, unsigned depth, bool add_to_parent):
     m_ref_count (0),
     m_parent (parent), m_pt (pt),
     m_post (m_pt.get_ast_manager ()),
     m_binding(m_pt.get_ast_manager()),
     m_new_post (m_pt.get_ast_manager ()),
     m_level (level), m_depth (depth),
-    m_open (true), m_use_farkas (true), m_weakness(0)
-{if(m_parent) { m_parent->add_child(*this); }}
+    m_open (true), m_use_farkas (true), m_weakness(0) {
+    if(add_to_parent && m_parent) {
+        m_parent->add_child(*this);
+    }
+}
 
 
 void pob::set_post(expr* post) {
@@ -1803,6 +1838,24 @@ void pob::set_post(expr* post, app_ref_vector const &b) {
         sub.insert (e, pinned.back());
     }
     sub(m_post);
+}
+
+void pob::inherit(pob const &p) {
+    SASSERT(m_parent == p.m_parent);
+    SASSERT(&m_pt == &p.m_pt);
+    SASSERT(m_post == p.m_post);
+    SASSERT(!m_new_post);
+
+    m_binding.reset();
+    m_binding.append(p.m_binding);
+
+    m_level = p.m_level;
+    m_depth = p.m_depth;
+    m_open = p.m_open;
+    m_use_farkas = p.m_use_farkas;
+    m_weakness = p.m_weakness;
+
+    m_derivation = nullptr;
 }
 
 void pob::clean () {
@@ -2566,8 +2619,7 @@ lbool context::solve_core (unsigned from_lvl)
 
     unsigned lvl = from_lvl;
 
-    pob *root = alloc (pob, 0, *m_query, from_lvl, 0);
-    root->set_post (m.mk_true ());
+    pob *root = m_query->mk_pob(nullptr,from_lvl,0,m.mk_true());
     m_search.set_root (*root);
 
     unsigned max_level = get_params ().pdr_max_level ();
@@ -2704,7 +2756,7 @@ bool context::check_reachability ()
             if (m_search.is_root(*node)) { return false; }
             break;
         case l_undef:
-            SASSERT (m_search.top () != node.get ());
+            // SASSERT (m_search.top () != node.get ());
             break;
         }
     }
@@ -2717,6 +2769,10 @@ bool context::check_reachability ()
 bool context::is_reachable(pob &n)
 {
     scoped_watch _w_(m_is_reach_watch);
+    // XXX hold a reference for n during this call.
+    // XXX Should convert is_reachable() to accept pob_ref as argument
+    pob_ref nref(&n);
+
     TRACE ("spacer",
            tout << "is-reachable: " << n.pt().head()->get_name()
            << " level: " << n.level()
@@ -2770,11 +2826,19 @@ bool context::is_reachable(pob &n)
     // if n has a derivation, create a new child and report l_undef
     // otherwise if n has no derivation or no new children, report l_true
     pob *next = NULL;
-    if (n.has_derivation()) {
-        next = n.get_derivation ().create_next_child ();
+    scoped_ptr<derivation> deriv;
+    if (n.has_derivation()) {deriv = n.detach_derivation();}
+
+    // -- close n, it is reachable
+    // -- don't worry about removing n from the obligation queue
+    n.close ();
+
+    if (deriv) {
+        next = deriv->create_next_child ();
         if (next) {
+            SASSERT(!next->is_closed());
             // move derivation over to the next obligation
-            next->set_derivation(n.detach_derivation ());
+            next->set_derivation(deriv.detach());
 
             // remove the current node from the queue if it is at the top
             if (m_search.top() == &n) { m_search.pop(); }
@@ -2783,9 +2847,9 @@ bool context::is_reachable(pob &n)
         }
     }
 
-    // -- close n, it is reachable
-    // -- don't worry about removing n from the obligation queue
-    n.close ();
+    // either deriv was a nullptr or it was moved into next
+    SASSERT(!deriv);
+
 
     IF_VERBOSE(1, verbose_stream () << (next ? " X " : " T ")
                << std::fixed << std::setprecision(2)
@@ -2885,12 +2949,19 @@ lbool context::expand_node(pob& n)
             // if n has a derivation, create a new child and report l_undef
             // otherwise if n has no derivation or no new children, report l_true
             pob *next = NULL;
-            if (n.has_derivation()) {
-                next = n.get_derivation ().create_next_child ();
+            scoped_ptr<derivation> deriv;
+            if (n.has_derivation()) {deriv = n.detach_derivation();}
+
+            // -- close n, it is reachable
+            // -- don't worry about removing n from the obligation queue
+            n.close ();
+
+            if (deriv) {
+                next = deriv->create_next_child ();
                 checkpoint ();
                 if (next) {
                     // move derivation over to the next obligation
-                    next->set_derivation (n.detach_derivation ());
+                    next->set_derivation (deriv.detach());
 
                     // remove the current node from the queue if it is at the top
                     if (m_search.top() == &n) { m_search.pop(); }
@@ -2899,9 +2970,6 @@ lbool context::expand_node(pob& n)
                 }
             }
 
-            // -- close n, it is reachable
-            // -- don't worry about removing n from the obligation queue
-            n.close ();
 
             IF_VERBOSE(1, verbose_stream () << (next ? " X " : " T ")
                        << std::fixed << std::setprecision(2)

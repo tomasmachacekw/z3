@@ -228,7 +228,29 @@ class pred_transformer {
 
     };
 
+    /**
+        manager of proof-obligations (pobs)
+     */
+    class pobs {
+        typedef ptr_buffer<pob, 1> pob_buffer;
+        typedef obj_map<expr, pob_buffer > expr2pob_buffer;
 
+        pred_transformer &m_pt;
+
+        expr2pob_buffer m_pobs;
+        pob_ref_vector m_pinned;
+    public:
+        pobs(pred_transformer &pt) : m_pt(pt) {}
+        pob* mk_pob(pob *parent, unsigned level, unsigned depth,
+                    expr *post, app_ref_vector const &b);
+
+        pob* mk_pob(pob *parent, unsigned level, unsigned depth,
+                    expr *post) {
+            app_ref_vector b(m_pt.get_ast_manager());
+            return mk_pob (parent, level, depth, post, b);
+        }
+
+    };
 
     typedef obj_map<datalog::rule const, expr*> rule2expr;
     typedef obj_map<datalog::rule const, ptr_vector<app> > rule2apps;
@@ -244,7 +266,7 @@ class pred_transformer {
     prop_solver                  m_solver;  // solver context
     solver*                      m_reach_ctx; // context for reachability facts
     frames                       m_frames;
-
+    pobs                         m_pobs;
     reach_fact_ref_vector        m_reach_facts; // reach facts
     /// Number of initial reachability facts
     unsigned                     m_rf_init_sz;
@@ -358,6 +380,15 @@ public:
     reach_fact* get_last_reach_fact () const { return m_reach_facts.back (); }
     expr* get_last_reach_case_var () const;
 
+    pob* mk_pob(pob *parent, unsigned level, unsigned depth,
+                expr *post, app_ref_vector const &b){
+        return m_pobs.mk_pob(parent, level, depth, post, b);
+    }
+
+    pob* mk_pob(pob *parent, unsigned level, unsigned depth,
+                expr *post) {
+        return m_pobs.mk_pob(parent, level, depth, post);
+    }
 
     lbool is_reachable(pob& n, expr_ref_vector* core, model_ref *model,
                        unsigned& uses_level, bool& is_concrete,
@@ -396,7 +427,7 @@ public:
 
 
 /**
- * A node in the search tree.
+ * A proof obligation.
  */
 class pob {
     friend class context;
@@ -429,7 +460,7 @@ class pob {
     ptr_vector<pob>  m_kids;
 public:
     pob (pob* parent, pred_transformer& pt,
-                unsigned level, unsigned depth=0);
+         unsigned level, unsigned depth=0, bool add_to_parent=true);
 
     ~pob() {if(m_parent) { m_parent->erase_child(*this); }}
 
@@ -439,6 +470,7 @@ public:
 
     void inc_level () {m_level++; m_depth++;reset_weakness();}
 
+    void inherit(pob const &p);
     void set_derivation (derivation *d) {m_derivation = d;}
     bool has_derivation () const {return (bool)m_derivation;}
     derivation &get_derivation() const {return *m_derivation.get ();}
@@ -459,7 +491,7 @@ public:
     bool use_farkas_generalizer () const {return m_use_farkas;}
     void set_farkas_generalizer (bool v) {m_use_farkas = v;}
 
-    expr* post () const { return m_post.get (); }
+    expr* post() const { return m_post.get (); }
     void set_post(expr *post);
     void set_post(expr *post, app_ref_vector const &b);
 
