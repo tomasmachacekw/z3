@@ -1182,6 +1182,11 @@ lemma::lemma(pob_ref const &p) :
     m_bindings(m), m_lvl(p->level()),
     m_pob(p), m_new_pob(m_pob) {SASSERT(m_pob);}
 
+lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) : lemma(p) {
+    update_cube(p, cube);
+    set_level(lvl);
+}
+
 void lemma::mk_expr_core() {
     if (m_body) return;
 
@@ -1250,6 +1255,17 @@ void lemma::mk_cube_core() {
     else {
         UNREACHABLE();
     }
+}
+bool lemma::is_false() {
+    // a lemma is false if
+    // 1. it is defined by a cube, and the cube contains a single literal 'true'
+    // 2. it is defined by a body, and the body is a single literal false
+    // 3. it is defined by a pob, and the pob post is false
+    if (m_cube.size() == 1) {return m.is_true(m_cube.get(0));}
+    else if (m_body) {return m.is_false(m_body);}
+    else if (m_pob) {return m.is_true(m_pob->post());}
+
+    return false;
 }
 expr* lemma::get_expr() {
     mk_expr_core();
@@ -1886,7 +1902,7 @@ context::context(fixedpoint_params const&     params,
 
 context::~context()
 {
-    reset_core_generalizers();
+    reset_lemma_generalizers();
     reset();
 }
 
@@ -1966,7 +1982,7 @@ void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
 void context::update_rules(datalog::rule_set& rules)
 {
     decl2rel rels;
-    init_core_generalizers(rules);
+    init_lemma_generalizers(rules);
     init_rules(rules, rels);
     decl2rel::iterator it = rels.begin(), end = rels.end();
     for (; it != end; ++it) {
@@ -2017,9 +2033,7 @@ void context::add_cover(int level, func_decl* p, expr* property)
 }
 
 void context::add_invariant (func_decl *p, expr *property)
-{
-    add_cover (infty_level(), p, property);
-}
+{add_cover (infty_level(), p, property);}
 
 expr_ref context::get_reachable(func_decl *p)
 {
@@ -2028,104 +2042,6 @@ expr_ref context::get_reachable(func_decl *p)
     { return expr_ref(m.mk_false(), m); }
     return pt->get_reachable();
 }
-
-class context::classifier_proc {
-    ast_manager& m;
-    arith_util a;
-    bool m_is_bool;
-    bool m_is_bool_arith;
-    bool m_has_arith;
-    bool m_is_dl;
-    bool m_is_utvpi;
-public:
-    classifier_proc(ast_manager& m, datalog::rule_set& rules):
-        m(m), a(m), m_is_bool(true), m_is_bool_arith(true), m_has_arith(false), m_is_dl(false), m_is_utvpi(false)
-        {
-            classify(rules);
-        }
-    void operator()(expr* e)
-        {
-            if (m_is_bool) {
-                if (!m.is_bool(e)) {
-                    m_is_bool = false;
-                } else if (is_var(e)) {
-                    // no-op.
-                } else if (!is_app(e)) {
-                    m_is_bool = false;
-                } else if (to_app(e)->get_num_args() > 0 &&
-                           to_app(e)->get_family_id() != m.get_basic_family_id()) {
-                    m_is_bool = false;
-                }
-            }
-
-            m_has_arith = m_has_arith || a.is_int_real(e);
-
-            if (m_is_bool_arith) {
-                if (!m.is_bool(e) && !a.is_int_real(e)) {
-                    m_is_bool_arith = false;
-                } else if (is_var(e)) {
-                    // no-op
-                } else if (!is_app(e)) {
-                    m_is_bool_arith = false;
-                } else if (to_app(e)->get_num_args() > 0 &&
-                           to_app(e)->get_family_id() != m.get_basic_family_id() &&
-                           to_app(e)->get_family_id() != a.get_family_id()) {
-                    m_is_bool_arith = false;
-                }
-            }
-        }
-
-    bool is_bool() const { return m_is_bool; }
-
-    bool is_bool_arith() const { return m_is_bool_arith; }
-
-    bool is_dl() const { return m_is_dl; }
-
-    bool is_utvpi() const { return m_is_utvpi; }
-
-private:
-
-    void classify(datalog::rule_set& rules)
-        {
-            expr_fast_mark1 mark;
-            datalog::rule_set::iterator it = rules.begin(), end = rules.end();
-            for (; it != end; ++it) {
-                datalog::rule& r = *(*it);
-                classify_pred(mark, r.get_head());
-                unsigned utsz = r.get_uninterpreted_tail_size();
-                for (unsigned i = 0; i < utsz; ++i) {
-                    classify_pred(mark, r.get_tail(i));
-                }
-                for (unsigned i = utsz; i < r.get_tail_size(); ++i) {
-                    quick_for_each_expr(*this, mark, r.get_tail(i));
-                }
-            }
-            mark.reset();
-
-            m_is_dl = false;
-            m_is_utvpi = false;
-            if (m_has_arith) {
-                ptr_vector<expr> forms;
-                for (it = rules.begin(); it != end; ++it) {
-                    datalog::rule& r = *(*it);
-                    unsigned utsz = r.get_uninterpreted_tail_size();
-                    forms.push_back(r.get_head());
-                    for (unsigned i = utsz; i < r.get_tail_size(); ++i) {
-                        forms.push_back(r.get_tail(i));
-                    }
-                }
-                m_is_dl = is_difference_logic(m, forms.size(), forms.c_ptr());
-                m_is_utvpi = m_is_dl || is_utvpi_logic(m, forms.size(), forms.c_ptr());
-            }
-        }
-
-    void classify_pred(expr_fast_mark1& mark, app* pred)
-        {
-            for (unsigned i = 0; i < pred->get_num_args(); ++i) {
-                quick_for_each_expr(*this, mark, pred->get_arg(i));
-            }
-        }
-};
 
 bool context::validate()
 {
@@ -2214,17 +2130,16 @@ bool context::validate()
 }
 
 
-void context::reset_core_generalizers()
+void context::reset_lemma_generalizers()
 {
-    std::for_each(m_core_generalizers.begin(), m_core_generalizers.end(), delete_proc<core_generalizer>());
-    m_core_generalizers.reset();
+    std::for_each(m_lemma_generalizers.begin(), m_lemma_generalizers.end(),
+                  delete_proc<lemma_generalizer>());
+    m_lemma_generalizers.reset();
 }
 
-void context::init_core_generalizers(datalog::rule_set& rules)
+void context::init_lemma_generalizers(datalog::rule_set& rules)
 {
-    reset_core_generalizers();
-    classifier_proc classify(m, rules);
-    bool use_mc = m_params.pdr_use_multicore_generalizer();
+    reset_lemma_generalizers();
     m.toggle_proof_mode(PGM_FINE);
     smt_params &fparams = m_pm.fparams ();
     if (!m_params.spacer_eq_prop ()) {
@@ -2242,26 +2157,28 @@ void context::init_core_generalizers(datalog::rule_set& rules)
     fparams.m_mbqi = m_params.spacer_mbqi();
 
     if (get_params().spacer_lemma_sanity_check()) {
-        m_core_generalizers.push_back(alloc(unsat_core_sanity_checker, *this));
+        m_lemma_generalizers.push_back(alloc(lemma_sanity_checker, *this));
     }
 
     if (get_params().spacer_use_eqclass()) {
-        m_core_generalizers.push_back (alloc (core_eq_generalizer, *this));
+        m_lemma_generalizers.push_back (alloc(lemma_eq_generalizer, *this));
     }
 
     // -- AG: commented out because it is causing performance issues at the moment
-    //m_core_generalizers.push_back (alloc (unsat_core_generalizer, *this));
+    //m_lemma_generalizers.push_back (alloc (unsat_core_generalizer, *this));
 
-    if (!use_mc && m_params.pdr_use_inductive_generalizer()) {
-        m_core_generalizers.push_back(alloc(core_bool_inductive_generalizer, *this, 0));
+    if (m_params.pdr_use_inductive_generalizer()) {
+        m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer, *this, 0));
     }
 
-    if (m_params.use_array_eq_generalizer ())
-    { m_core_generalizers.push_back(alloc(core_array_eq_generalizer, *this)); }
+    if (m_params.use_array_eq_generalizer()) {
+        m_lemma_generalizers.push_back(alloc(lemma_array_eq_generalizer, *this));
+    }
 
 }
 
-void context::get_level_property(unsigned lvl, expr_ref_vector& res, vector<relation_info>& rs) const
+void context::get_level_property(unsigned lvl, expr_ref_vector& res,
+                                 vector<relation_info>& rs) const
 {
     decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
     for (; it != end; ++it) {
@@ -3027,48 +2944,33 @@ lbool context::expand_node(model_node& n)
               for (unsigned j = 0; j < cube.size(); ++j)
                   tout << mk_pp(cube[j].get(), m) << "\n";);
 
-        core_generalizer::cores cores;
-        cores.push_back (std::make_pair(cube, uses_level));
 
-        // -- run all core generalizers
+        pob_ref nref(&n);
+        // -- create lemma from a pob and last unsat core
+        lemma_ref lemma = alloc(class lemma, pob_ref(&n), cube, uses_level);
+
+        // -- run all lemma generalizers
         for (unsigned i = 0;
              // -- only generalize if lemma was constructed using farkas
-             n.use_farkas_generalizer () &&
-                 !cores.empty() && i < m_core_generalizers.size();
-             ++i) {
+             n.use_farkas_generalizer () && !lemma->is_false() &&
+                 i < m_lemma_generalizers.size(); ++i) {
             checkpoint ();
-            core_generalizer::cores new_cores;
-            for (unsigned j = 0; j < cores.size(); ++j)
-                (*m_core_generalizers[i])(n, cores[j].first, cores[j].second,
-                                          new_cores);
-            cores.reset ();
-            cores.append (new_cores);
+            (*m_lemma_generalizers[i])(lemma);
         }
 
-        // -- convert cores into lemmas
-        for (unsigned i = 0; i < cores.size(); ++i) {
-            expr_ref_vector& core = cores[i].first;
-            std::sort (core.c_ptr (), core.c_ptr () + core.size (), ast_lt_proc ());
-            uses_level = cores[i].second;
+        TRACE("spacer", tout << "invariant state: "
+              << (is_infty_level(lemma->level())?"(inductive)":"")
+              <<  mk_pp(lemma->get_expr(), m) << "\n";);
 
-            lemma_ref lemma = alloc(class lemma, pob_ref(&n));
-            lemma->set_level(uses_level);
-            lemma->update_cube(lemma->get_pob(), core);
+        bool v = n.pt().add_lemma (lemma.get());
+        if (v) { m_stats.m_num_lemmas++; }
 
-            TRACE("spacer", tout << "invariant state: "
-                  << (is_infty_level(uses_level)?"(inductive)":"")
-                  <<  mk_pp(lemma->get_expr(), m) << "\n";);
-
-            bool v = n.pt().add_lemma (lemma.get());
-            if (v) { m_stats.m_num_lemmas++; }
-
-            // Optionally update the node to be the negation of the lemma
-            if (v && get_params().use_lemma_as_cti()) {
-                n.new_post (mk_and(lemma->get_cube()));
-                n.set_farkas_generalizer (false);
-            }
-            CASSERT("spacer", n.level() == 0 || check_invariant(n.level()-1));
+        // Optionally update the node to be the negation of the lemma
+        if (v && get_params().use_lemma_as_cti()) {
+            n.new_post (mk_and(lemma->get_cube()));
+            n.set_farkas_generalizer (false);
         }
+        CASSERT("spacer", n.level() == 0 || check_invariant(n.level()-1));
 
 
         IF_VERBOSE(1, verbose_stream () << " F "
@@ -3077,8 +2979,8 @@ lbool context::expand_node(model_node& n)
 
         return l_false;
     }
-        //something went wrong
     case l_undef:
+        // something went wrong
         if (n.weakness() < 100 /* MAX_WEAKENSS */) {
             bool has_new_child = false;
             SASSERT(m_weak_abs);
@@ -3421,8 +3323,8 @@ void context::collect_statistics(statistics& st) const
                m_create_children_watch.get_seconds ());
     m_pm.collect_statistics(st);
 
-    for (unsigned i = 0; i < m_core_generalizers.size(); ++i) {
-        m_core_generalizers[i]->collect_statistics(st);
+    for (unsigned i = 0; i < m_lemma_generalizers.size(); ++i) {
+        m_lemma_generalizers[i]->collect_statistics(st);
     }
 
     // brunch out
@@ -3444,8 +3346,8 @@ void context::reset_statistics()
     m_stats.reset();
     m_pm.reset_statistics();
 
-    for (unsigned i = 0; i < m_core_generalizers.size(); ++i) {
-        m_core_generalizers[i]->reset_statistics();
+    for (unsigned i = 0; i < m_lemma_generalizers.size(); ++i) {
+        m_lemma_generalizers[i]->reset_statistics();
     }
 
     m_init_rules_watch.reset ();

@@ -12,7 +12,7 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2011-11-22.
-
+    Arie Gurfinkel
 Revision History:
 
 --*/
@@ -25,16 +25,19 @@ Revision History:
 
 namespace spacer {
 
-// can be used to check whether produced core is really implied by frame and therefore valid
-// TODO: or negation?
-class unsat_core_sanity_checker : public core_generalizer {
+// can be used to check whether produced core is really implied by
+// frame and therefore valid TODO: or negation?
+class lemma_sanity_checker : public lemma_generalizer {
 public:
-    unsat_core_sanity_checker(context& ctx) : core_generalizer(ctx) {}
-    virtual ~unsat_core_sanity_checker() {}
-    virtual void operator()(model_node& n, expr_ref_vector& core, unsigned& uses_level);
+    lemma_sanity_checker(context& ctx) : lemma_generalizer(ctx) {}
+    virtual ~lemma_sanity_checker() {}
+    virtual void operator()(lemma_ref &lemma);
 };
 
-class core_bool_inductive_generalizer : public core_generalizer {
+/**
+ * Boolean inductive generalization by dropping literals
+ */
+class lemma_bool_inductive_generalizer : public lemma_generalizer {
 
     struct stats {
         unsigned count;
@@ -48,15 +51,16 @@ class core_bool_inductive_generalizer : public core_generalizer {
     stats m_st;
 
 public:
-    core_bool_inductive_generalizer(context& ctx, unsigned failure_limit) : core_generalizer(ctx), m_failure_limit(failure_limit) {}
-    virtual ~core_bool_inductive_generalizer() {}
-    virtual void operator()(model_node& n, expr_ref_vector& core, unsigned& uses_level);
+    lemma_bool_inductive_generalizer(context& ctx, unsigned failure_limit) :
+        lemma_generalizer(ctx), m_failure_limit(failure_limit) {}
+    virtual ~lemma_bool_inductive_generalizer() {}
+    virtual void operator()(lemma_ref &lemma);
 
     virtual void collect_statistics(statistics& st) const;
     virtual void reset_statistics() {m_st.reset();}
 };
 
-class unsat_core_generalizer : public core_generalizer {
+class unsat_core_generalizer : public lemma_generalizer {
     struct stats {
         unsigned count;
         unsigned num_failures;
@@ -67,27 +71,27 @@ class unsat_core_generalizer : public core_generalizer {
 
     stats m_st;
 public:
-    unsat_core_generalizer(context &ctx) : core_generalizer(ctx) {}
+    unsat_core_generalizer(context &ctx) : lemma_generalizer(ctx) {}
     virtual ~unsat_core_generalizer() {}
-    virtual void operator()(model_node &n, expr_ref_vector &core, unsigned& uses_level);
+    virtual void operator()(lemma_ref &lemma);
 
     virtual void collect_statistics(statistics &st) const;
     virtual void reset_statistics() {m_st.reset();}
 };
 
-class core_array_eq_generalizer : public core_generalizer {
+class lemma_array_eq_generalizer : public lemma_generalizer {
 public:
-    core_array_eq_generalizer(context &ctx) : core_generalizer(ctx) {}
-    virtual ~core_array_eq_generalizer() {}
-    virtual void operator()(model_node& n, expr_ref_vector& core, unsigned &uses_level);
+    lemma_array_eq_generalizer(context &ctx) : lemma_generalizer(ctx) {}
+    virtual ~lemma_array_eq_generalizer() {}
+    virtual void operator()(lemma_ref &lemma);
 
 };
 
-class core_eq_generalizer : public core_generalizer {
+class lemma_eq_generalizer : public lemma_generalizer {
 public:
-    core_eq_generalizer(context &ctx) : core_generalizer(ctx) {}
-    virtual ~core_eq_generalizer() {}
-    virtual void operator()(model_node& n, expr_ref_vector& core, unsigned &uses_level);
+    lemma_eq_generalizer(context &ctx) : lemma_generalizer(ctx) {}
+    virtual ~lemma_eq_generalizer() {}
+    virtual void operator()(lemma_ref &lemma);
 };
 
 

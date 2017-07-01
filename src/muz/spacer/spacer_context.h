@@ -120,9 +120,12 @@ class lemma {
 public:
     lemma(ast_manager &manager, expr * fml, unsigned lvl);
     lemma(pob_ref const &p);
+    lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl);
     lemma(const lemma &other) = delete;
 
+    ast_manager &get_ast_manager() {return m;}
     expr *get_expr();
+    bool is_false();
     expr_ref_vector const &get_cube();
     void update_cube(pob_ref const &p, expr_ref_vector &cube);
 
@@ -624,29 +627,21 @@ typedef pob_ref model_node_ref;
   };
 
 
-    // 'state' is unsatisfiable at 'level' with 'core'.
-    // Minimize or weaken core.
-    class core_generalizer {
-    protected:
-        context& m_ctx;
-    public:
-        typedef vector<std::pair<expr_ref_vector,unsigned> > cores;
-        core_generalizer(context& ctx): m_ctx(ctx) {}
-        virtual ~core_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector& core, unsigned& uses_level) = 0;
-    virtual void operator()(model_node& n, expr_ref_vector const& core, unsigned uses_level, cores& new_cores)
-    {
-            new_cores.push_back(std::make_pair(core, uses_level));
-            if (!core.empty()) {
-                (*this)(n, new_cores.back().first, new_cores.back().second);
-            }
-        }
-        virtual void collect_statistics(statistics& st) const {}
-        virtual void reset_statistics() {}
-    };
+/**
+ * Generalizers (strengthens) a lemma
+ */
+class lemma_generalizer {
+protected:
+    context& m_ctx;
+public:
+    lemma_generalizer(context& ctx): m_ctx(ctx) {}
+    virtual ~lemma_generalizer() {}
+    virtual void operator()(lemma_ref &lemma) = 0;
+    virtual void collect_statistics(statistics& st) const {}
+    virtual void reset_statistics() {}
+};
 
 
-    // AK: need to clean this up!
     class context {
 
         struct stats {
@@ -682,7 +677,7 @@ typedef pob_ref model_node_ref;
         lbool                m_last_result;
         unsigned             m_inductive_lvl;
         unsigned             m_expanded_lvl;
-        ptr_vector<core_generalizer>  m_core_generalizers;
+        ptr_buffer<lemma_generalizer>  m_lemma_generalizers;
         stats                m_stats;
         model_converter_ref  m_mc;
         proof_converter_ref  m_pc;
@@ -715,8 +710,7 @@ typedef pob_ref model_node_ref;
 
 
         // Initialization
-        class classifier_proc;
-        void init_core_generalizers(datalog::rule_set& rules);
+        void init_lemma_generalizers(datalog::rule_set& rules);
 
         bool check_invariant(unsigned lvl);
         bool check_invariant(unsigned lvl, func_decl* fn);
@@ -727,7 +721,7 @@ typedef pob_ref model_node_ref;
 
         void simplify_formulas();
 
-        void reset_core_generalizers();
+        void reset_lemma_generalizers();
 
         bool validate();
 
