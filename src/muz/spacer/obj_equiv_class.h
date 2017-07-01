@@ -206,6 +206,25 @@ inline void factor_eqs(expr_ref_vector &v, expr_equiv_class &equiv) {
     v.shrink(j);
 }
 
+/**
+ * converts equivalence classes to equalities
+ */
+inline void equiv_to_expr(expr_equiv_class &equiv, expr_ref_vector &out) {
+    ast_manager &m = out.get_manager();
+    for (auto eq_class : equiv) {
+        expr *rep = nullptr;
+        for (expr *elem : eq_class) {
+            if (!m.is_value (elem)) {
+                rep = elem;
+                break;
+            }
+        }
+        SASSERT(rep);
+        for (expr *elem : eq_class) {
+            if (rep != elem) {out.push_back (m.mk_eq (rep, elem));}
+        }
+    }
+}
 
 }
 

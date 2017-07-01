@@ -1645,25 +1645,8 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
         flatten_and(tmp);
         expr_equiv_class eq_classes(m);
         factor_eqs(tmp, eq_classes);
-
-        for(expr_equiv_class::equiv_iterator eq_c = eq_classes.begin();
-            eq_c!=eq_classes.end();++eq_c) {
-            expr* representative = *(*eq_c).begin();
-            for(expr_equiv_class::iterator it = (*eq_c).begin();
-                it!=(*eq_c).end(); ++it) {
-                if(!m.is_value(*it)) {
-                    representative = *it;
-                    break;
-                }
-            }
-            for(expr_equiv_class::iterator it = (*eq_c).begin(); it!=(*eq_c).end(); ++it) {
-                if(*it != representative)
-                { tmp.push_back(m.mk_eq(*it, representative)); }
-            }
-        }
-
-        if (tmp.size () > 1)
-        { std::sort(tmp.c_ptr(), tmp.c_ptr() + tmp.size(), ast_lt_proc()); }
+        equiv_to_expr(eq_classes, tmp);
+        std::sort(tmp.c_ptr(), tmp.c_ptr() + tmp.size(), ast_lt_proc());
         post = mk_and (tmp);
     }
 
