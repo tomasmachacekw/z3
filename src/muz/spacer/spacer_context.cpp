@@ -1639,6 +1639,15 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
                                 m_premises [m_active].get_oidx (), m_evars.empty());
 
 
+    {
+        // simplify bounds
+        expr_ref_vector tmp(m);
+        tmp.push_back(post);
+        flatten_and(tmp);
+        simplify_bounds(tmp);
+        post = mk_and(tmp);
+    }
+
     if(get_context().get_params().spacer_use_eqclass()) {
         expr_ref_vector tmp(m);
         tmp.push_back(post);
