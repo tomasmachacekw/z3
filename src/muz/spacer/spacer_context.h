@@ -40,13 +40,13 @@ namespace datalog {
 
 namespace spacer {
 
-    class pred_transformer;
-    class derivation;
-    class model_search;
-    class context;
+class pred_transformer;
+class derivation;
+class model_search;
+class context;
 
-    typedef obj_map<datalog::rule const, app_ref_vector*> rule2inst;
-    typedef obj_map<func_decl, pred_transformer*> decl2rel;
+typedef obj_map<datalog::rule const, app_ref_vector*> rule2inst;
+typedef obj_map<func_decl, pred_transformer*> decl2rel;
 
 class model_node;
 typedef model_node pob;
@@ -68,15 +68,15 @@ class reach_fact {
 
     bool m_init;
 
-  public:
+public:
     reach_fact (ast_manager &m, const datalog::rule &rule,
                 expr* fact, const ptr_vector<app> &aux_vars,
                 bool init = false) :
-      m_ref_count (0), m_fact (fact, m), m_aux_vars (aux_vars),
-      m_rule(rule), m_init (init) {}
+        m_ref_count (0), m_fact (fact, m), m_aux_vars (aux_vars),
+        m_rule(rule), m_init (init) {}
     reach_fact (ast_manager &m, const datalog::rule &rule,
                 expr* fact, bool init = false) :
-      m_ref_count (0), m_fact (fact, m), m_rule(rule), m_init (init) {}
+        m_ref_count (0), m_fact (fact, m), m_rule(rule), m_init (init) {}
 
     bool is_init () {return m_init;}
     const datalog::rule& get_rule () {return m_rule;}
@@ -89,12 +89,12 @@ class reach_fact {
 
     void inc_ref () {++m_ref_count;}
     void dec_ref ()
-    {
-      SASSERT (m_ref_count > 0);
-      --m_ref_count;
-        if(m_ref_count == 0) { dealloc(this); }
-    }
-  };
+        {
+            SASSERT (m_ref_count > 0);
+            --m_ref_count;
+            if(m_ref_count == 0) { dealloc(this); }
+        }
+};
 
 
 class lemma;
@@ -141,11 +141,11 @@ public:
 
     void inc_ref () {++m_ref_count;}
     void dec_ref ()
-    {
-      SASSERT (m_ref_count > 0);
-      --m_ref_count;
-        if(m_ref_count == 0) { dealloc(this); }
-    }
+        {
+            SASSERT (m_ref_count > 0);
+            --m_ref_count;
+            if(m_ref_count == 0) { dealloc(this); }
+        }
 };
 
 struct lemma_lt_proc : public std::binary_function<lemma*, lemma *, bool> {
@@ -397,11 +397,11 @@ public:
 
 
 typedef pob_ref model_node_ref;
-  /**
-   * A node in the search tree.
-   */
-  class model_node {
-      friend class context;
+/**
+ * A node in the search tree.
+ */
+class model_node {
+    friend class context;
     unsigned m_ref_count;
     /// parent node
     model_node_ref          m_parent;
@@ -429,122 +429,122 @@ typedef pob_ref model_node_ref;
     scoped_ptr<derivation>   m_derivation;
 
     ptr_vector<model_node>  m_kids;
-  public:
-      model_node (model_node* parent, pred_transformer& pt,
-                  unsigned level, unsigned depth=0);
+public:
+    model_node (model_node* parent, pred_transformer& pt,
+                unsigned level, unsigned depth=0);
 
-      ~model_node() {if(m_parent) { m_parent->erase_child(*this); }}
+    ~model_node() {if(m_parent) { m_parent->erase_child(*this); }}
 
-      unsigned weakness() {return m_weakness;}
-      void bump_weakness() {m_weakness++;}
-      void reset_weakness() {m_weakness=0;}
+    unsigned weakness() {return m_weakness;}
+    void bump_weakness() {m_weakness++;}
+    void reset_weakness() {m_weakness=0;}
 
-      void inc_level () {m_level++; m_depth++;reset_weakness();}
+    void inc_level () {m_level++; m_depth++;reset_weakness();}
 
-      void set_derivation (derivation *d) {m_derivation = d;}
-      bool has_derivation () const {return (bool)m_derivation;}
-      derivation &get_derivation() const {return *m_derivation.get ();}
-      void reset_derivation () {set_derivation (NULL);}
-      /// detaches derivation from the node without deallocating
-      derivation* detach_derivation () {return m_derivation.detach ();}
+    void set_derivation (derivation *d) {m_derivation = d;}
+    bool has_derivation () const {return (bool)m_derivation;}
+    derivation &get_derivation() const {return *m_derivation.get ();}
+    void reset_derivation () {set_derivation (NULL);}
+    /// detaches derivation from the node without deallocating
+    derivation* detach_derivation () {return m_derivation.detach ();}
 
-      model_node* parent () const { return m_parent.get (); }
+    model_node* parent () const { return m_parent.get (); }
 
-      pred_transformer& pt () const { return m_pt; }
-      ast_manager& get_ast_manager () const { return m_pt.get_ast_manager (); }
-      manager& get_manager () const { return m_pt.get_manager (); }
-      context& get_context () const {return m_pt.get_context ();}
+    pred_transformer& pt () const { return m_pt; }
+    ast_manager& get_ast_manager () const { return m_pt.get_ast_manager (); }
+    manager& get_manager () const { return m_pt.get_manager (); }
+    context& get_context () const {return m_pt.get_context ();}
 
-      unsigned level () const { return m_level; }
-      unsigned depth () const {return m_depth;}
+    unsigned level () const { return m_level; }
+    unsigned depth () const {return m_depth;}
 
-      bool use_farkas_generalizer () const {return m_use_farkas;}
-      void set_farkas_generalizer (bool v) {m_use_farkas = v;}
+    bool use_farkas_generalizer () const {return m_use_farkas;}
+    void set_farkas_generalizer (bool v) {m_use_farkas = v;}
 
-      expr* post () const { return m_post.get (); }
-      void set_post(expr *post);
-      void set_post(expr *post, app_ref_vector const &b);
+    expr* post () const { return m_post.get (); }
+    void set_post(expr *post);
+    void set_post(expr *post, app_ref_vector const &b);
 
-      /// indicate that a new post should be set for the node
-      void new_post(expr *post) {if(post != m_post) {m_new_post = post;}}
-      /// true if the node needs to be updated outside of the priority queue
-      bool is_dirty () {return m_new_post;}
-      /// clean a dirty node
-      void clean();
+    /// indicate that a new post should be set for the node
+    void new_post(expr *post) {if(post != m_post) {m_new_post = post;}}
+    /// true if the node needs to be updated outside of the priority queue
+    bool is_dirty () {return m_new_post;}
+    /// clean a dirty node
+    void clean();
 
-      void reset () {clean (); m_derivation = NULL; m_open = true;}
+    void reset () {clean (); m_derivation = NULL; m_open = true;}
 
-      bool is_closed () const { return !m_open; }
-      void close();
+    bool is_closed () const { return !m_open; }
+    void close();
 
-      void add_child (model_node &v) {m_kids.push_back (&v);}
-      void erase_child (model_node &v) {m_kids.erase (&v);}
+    void add_child (model_node &v) {m_kids.push_back (&v);}
+    void erase_child (model_node &v) {m_kids.erase (&v);}
 
-      bool is_ground () { return m_binding.empty (); }
-      app_ref_vector const &get_binding() const {return m_binding;}
-      /*
-       * Return skolem variables that appear in post
-       */
-      void get_skolems(app_ref_vector& v);
+    bool is_ground () { return m_binding.empty (); }
+    app_ref_vector const &get_binding() const {return m_binding;}
+    /*
+     * Return skolem variables that appear in post
+     */
+    void get_skolems(app_ref_vector& v);
 
-      void inc_ref () {++m_ref_count;}
-      void dec_ref ()
-          {
-              --m_ref_count;
-              if(m_ref_count == 0) { dealloc(this); }
-          }
+    void inc_ref () {++m_ref_count;}
+    void dec_ref ()
+        {
+            --m_ref_count;
+            if(m_ref_count == 0) { dealloc(this); }
+        }
 
-  };
+};
 
 
-  struct model_node_lt :
-    public std::binary_function<const model_node*, const model_node*, bool>
-  {bool operator() (const model_node *pn1, const model_node *pn2) const;};
+struct model_node_lt :
+        public std::binary_function<const model_node*, const model_node*, bool>
+{bool operator() (const model_node *pn1, const model_node *pn2) const;};
 
-  struct model_node_gt :
-    public std::binary_function<const model_node*, const model_node*, bool> {
+struct model_node_gt :
+        public std::binary_function<const model_node*, const model_node*, bool> {
     model_node_lt lt;
     bool operator() (const model_node *n1, const model_node *n2) const
-    {return lt(n2, n1);}
-  };
+        {return lt(n2, n1);}
+};
 
-  struct model_node_ref_gt :
-    public std::binary_function<const model_node_ref&, const model_ref &, bool> {
+struct model_node_ref_gt :
+        public std::binary_function<const model_node_ref&, const model_ref &, bool> {
     model_node_gt gt;
     bool operator() (const model_node_ref &n1, const model_node_ref &n2) const
-    {return gt (n1.get (), n2.get ());}
-  };
+        {return gt (n1.get (), n2.get ());}
+};
 
 
-  /**
-   */
-  class derivation {
+/**
+ */
+class derivation {
     /// a single premise of a derivation
     class premise {
-      pred_transformer &m_pt;
-      /// origin order in the rule
-      unsigned m_oidx;
-      /// summary fact corresponding to the premise
-      expr_ref m_summary;
-      ///  whether this is a must or may premise
-      bool m_must;
-      app_ref_vector m_ovars;
+        pred_transformer &m_pt;
+        /// origin order in the rule
+        unsigned m_oidx;
+        /// summary fact corresponding to the premise
+        expr_ref m_summary;
+        ///  whether this is a must or may premise
+        bool m_must;
+        app_ref_vector m_ovars;
 
     public:
-      premise (pred_transformer &pt, unsigned oidx, expr *summary, bool must,
-               const ptr_vector<app> *aux_vars = NULL);
-      premise (const premise &p);
+        premise (pred_transformer &pt, unsigned oidx, expr *summary, bool must,
+                 const ptr_vector<app> *aux_vars = NULL);
+        premise (const premise &p);
 
-      bool is_must () {return m_must;}
-      expr * get_summary () {return m_summary.get ();}
-      app_ref_vector &get_ovars () {return m_ovars;}
-      unsigned get_oidx () {return m_oidx;}
-      pred_transformer &pt () {return m_pt;}
+        bool is_must () {return m_must;}
+        expr * get_summary () {return m_summary.get ();}
+        app_ref_vector &get_ovars () {return m_ovars;}
+        unsigned get_oidx () {return m_oidx;}
+        pred_transformer &pt () {return m_pt;}
 
-      /// \brief Updated the summary.
-      /// The new summary is over n-variables.
-      void set_summary (expr * summary, bool must,
-                        const ptr_vector<app> *aux_vars = NULL);
+        /// \brief Updated the summary.
+        /// The new summary is over n-variables.
+        void set_summary (expr * summary, bool must,
+                          const ptr_vector<app> *aux_vars = NULL);
     };
 
 
@@ -565,7 +565,7 @@ typedef pob_ref model_node_ref;
     /// -- create next child using given model as the guide
     /// -- returns NULL if there is no next child
     model_node* create_next_child (model_evaluator_util &mev);
-  public:
+public:
     derivation (model_node& parent, datalog::rule const& rule,
                 expr *trans, app_ref_vector const &evars);
     void add_premise (pred_transformer &pt, unsigned oidx,
@@ -585,10 +585,10 @@ typedef pob_ref model_node_ref;
     ast_manager &get_ast_manager () const {return m_parent.get_ast_manager ();}
     manager &get_manager () const {return m_parent.get_manager ();}
     context &get_context() const {return m_parent.get_context();}
-  };
+};
 
 
-  class model_search {
+class model_search {
     model_node_ref  m_root;
     unsigned m_max_level;
     unsigned m_min_depth;
@@ -596,7 +596,7 @@ typedef pob_ref model_node_ref;
     std::priority_queue<model_node_ref, std::vector<model_node_ref>,
                         model_node_ref_gt>     m_obligations;
 
-  public:
+public:
     model_search(): m_root(NULL), m_max_level(0), m_min_depth(0) {}
     ~model_search();
 
@@ -606,12 +606,12 @@ typedef pob_ref model_node_ref;
     void push (model_node &n) {m_obligations.push (&n);}
 
     void inc_level ()
-    {
-      SASSERT (!m_obligations.empty () || m_root);
-        m_max_level++;
-        m_min_depth++;
-        if(m_root && m_obligations.empty()) { m_obligations.push(m_root); }
-    }
+        {
+            SASSERT (!m_obligations.empty () || m_root);
+            m_max_level++;
+            m_min_depth++;
+            if(m_root && m_obligations.empty()) { m_obligations.push(m_root); }
+        }
 
     model_node& get_root() const { return *m_root.get (); }
     void set_root(model_node& n);
@@ -624,7 +624,7 @@ typedef pob_ref model_node_ref;
 
     //std::ostream& display(std::ostream& out) const;
     expr_ref get_trace(context const& ctx);
-  };
+};
 
 
 /**
@@ -642,173 +642,173 @@ public:
 };
 
 
-    class context {
+class context {
 
-        struct stats {
-            unsigned m_num_queries;
-            unsigned m_num_reach_queries;
-            unsigned m_num_reuse_reach;
-            unsigned m_max_query_lvl;
-            unsigned m_max_depth;
-            unsigned m_cex_depth;
-            unsigned m_expand_node_undef;
-            unsigned m_num_lemmas;
-            unsigned m_num_restarts;
-            stats() { reset(); }
-            void reset() { memset(this, 0, sizeof(*this)); }
-        };
-
-        // stat watches
-        stopwatch m_solve_watch;
-        stopwatch m_propagate_watch;
-        stopwatch m_reach_watch;
-        stopwatch m_is_reach_watch;
-        stopwatch m_create_children_watch;
-        stopwatch m_init_rules_watch;
-
-        fixedpoint_params const&    m_params;
-        ast_manager&         m;
-        datalog::context*    m_context;
-        manager              m_pm;
-        decl2rel             m_rels;         // Map from relation predicate to fp-operator.
-        func_decl_ref        m_query_pred;
-        pred_transformer*    m_query;
-        mutable model_search m_search;
-        lbool                m_last_result;
-        unsigned             m_inductive_lvl;
-        unsigned             m_expanded_lvl;
-        ptr_buffer<lemma_generalizer>  m_lemma_generalizers;
-        stats                m_stats;
-        model_converter_ref  m_mc;
-        proof_converter_ref  m_pc;
-        bool                 m_use_native_mbp;
-        bool                 m_ground_cti;
-        bool                 m_instantiate;
-        bool                 m_use_qlemmas;
-        bool                 m_weak_abs;
-        bool                 m_use_restarts;
-        unsigned             m_restart_initial_threshold;
-
-        // Functions used by search.
-        lbool solve_core (unsigned from_lvl = 0);
-        bool check_reachability ();
-        bool propagate(unsigned min_prop_lvl, unsigned max_prop_lvl,
-                       unsigned full_prop_lvl);
-        bool is_reachable(model_node &n);
-        lbool expand_node(model_node& n);
-        reach_fact *mk_reach_fact (model_node& n, model_evaluator_util &mev,
-                                   datalog::rule const& r);
-        bool create_children(model_node& n, datalog::rule const& r,
-                             model_evaluator_util &model,
-                             const vector<bool>& reach_pred_used);
-        expr_ref mk_sat_answer() const;
-        expr_ref mk_unsat_answer() const;
-
-        // Generate inductive property
-        void get_level_property(unsigned lvl, expr_ref_vector& res,
-                                vector<relation_info> & rs) const;
-
-
-        // Initialization
-        void init_lemma_generalizers(datalog::rule_set& rules);
-
-        bool check_invariant(unsigned lvl);
-        bool check_invariant(unsigned lvl, func_decl* fn);
-
-        void checkpoint();
-
-        void init_rules(datalog::rule_set& rules, decl2rel& transformers);
-
-        void simplify_formulas();
-
-        void reset_lemma_generalizers();
-
-        bool validate();
-
-        unsigned get_cex_depth ();
-
-    public:
-        /**
-           Initial values of predicates are stored in corresponding relations in dctx.
-
-           We check whether there is some reachable state of the relation checked_relation.
-        */
-        context(
-            fixedpoint_params const&  params,
-            ast_manager&       m);
-
-        ~context();
-
-        fixedpoint_params const& get_params() const { return m_params; }
-        bool use_native_mbp () {return m_use_native_mbp;}
-        bool use_ground_cti () {return m_ground_cti;}
-        bool use_instantiate () { return m_instantiate; }
-        bool use_qlemmas () {return m_use_qlemmas; }
-
-        ast_manager&      get_ast_manager() const { return m; }
-        manager&          get_manager() { return m_pm; }
-        decl2rel const&   get_pred_transformers() const { return m_rels; }
-        pred_transformer& get_pred_transformer(func_decl* p) const
-        { return *m_rels.find(p); }
-        datalog::context& get_datalog_context() const
-        { SASSERT(m_context); return *m_context; }
-        expr_ref          get_answer();
-        /**
-         * get bottom-up (from query) sequence of ground predicate instances
-         * (for e.g. P(0,1,0,0,3)) that together form a ground derivation to query
-         */
-        expr_ref          get_ground_sat_answer ();
-
-        void collect_statistics(statistics& st) const;
-        void reset_statistics();
-
-        std::ostream& display(std::ostream& strm) const;
-
-        void display_certificate(std::ostream& strm) const {}
-
-        lbool solve(unsigned from_lvl = 0);
-
-        lbool solve_from_lvl (unsigned from_lvl);
-
-        void reset();
-
-        void set_query(func_decl* q) { m_query_pred = q; }
-
-        void set_unsat() { m_last_result = l_false; }
-
-        void set_model_converter(model_converter_ref& mc) { m_mc = mc; }
-
-        void get_rules_along_trace (datalog::rule_ref_vector& rules);
-
-        model_converter_ref get_model_converter() { return m_mc; }
-
-        void set_proof_converter(proof_converter_ref& pc) { m_pc = pc; }
-
-        void update_rules(datalog::rule_set& rules);
-
-        void set_axioms(expr* axioms) { m_pm.set_background(axioms); }
-
-        unsigned get_num_levels(func_decl* p);
-
-        expr_ref get_cover_delta(int level, func_decl* p_orig, func_decl* p);
-
-        void add_cover(int level, func_decl* pred, expr* property);
-
-        expr_ref get_reachable (func_decl* p);
-
-        void add_invariant (func_decl *pred, expr* property);
-
-        model_ref get_model();
-
-        proof_ref get_proof() const;
-
-        model_node& get_root() const { return m_search.get_root(); }
-
-        expr_ref get_constraints (unsigned lvl);
-        void add_constraints (unsigned lvl, expr_ref c);
+    struct stats {
+        unsigned m_num_queries;
+        unsigned m_num_reach_queries;
+        unsigned m_num_reuse_reach;
+        unsigned m_max_query_lvl;
+        unsigned m_max_depth;
+        unsigned m_cex_depth;
+        unsigned m_expand_node_undef;
+        unsigned m_num_lemmas;
+        unsigned m_num_restarts;
+        stats() { reset(); }
+        void reset() { memset(this, 0, sizeof(*this)); }
     };
 
-    inline bool pred_transformer::use_native_mbp () {return ctx.use_native_mbp ();}
+    // stat watches
+    stopwatch m_solve_watch;
+    stopwatch m_propagate_watch;
+    stopwatch m_reach_watch;
+    stopwatch m_is_reach_watch;
+    stopwatch m_create_children_watch;
+    stopwatch m_init_rules_watch;
+
+    fixedpoint_params const&    m_params;
+    ast_manager&         m;
+    datalog::context*    m_context;
+    manager              m_pm;
+    decl2rel             m_rels;         // Map from relation predicate to fp-operator.
+    func_decl_ref        m_query_pred;
+    pred_transformer*    m_query;
+    mutable model_search m_search;
+    lbool                m_last_result;
+    unsigned             m_inductive_lvl;
+    unsigned             m_expanded_lvl;
+    ptr_buffer<lemma_generalizer>  m_lemma_generalizers;
+    stats                m_stats;
+    model_converter_ref  m_mc;
+    proof_converter_ref  m_pc;
+    bool                 m_use_native_mbp;
+    bool                 m_ground_cti;
+    bool                 m_instantiate;
+    bool                 m_use_qlemmas;
+    bool                 m_weak_abs;
+    bool                 m_use_restarts;
+    unsigned             m_restart_initial_threshold;
+
+    // Functions used by search.
+    lbool solve_core (unsigned from_lvl = 0);
+    bool check_reachability ();
+    bool propagate(unsigned min_prop_lvl, unsigned max_prop_lvl,
+                   unsigned full_prop_lvl);
+    bool is_reachable(model_node &n);
+    lbool expand_node(model_node& n);
+    reach_fact *mk_reach_fact (model_node& n, model_evaluator_util &mev,
+                               datalog::rule const& r);
+    bool create_children(model_node& n, datalog::rule const& r,
+                         model_evaluator_util &model,
+                         const vector<bool>& reach_pred_used);
+    expr_ref mk_sat_answer() const;
+    expr_ref mk_unsat_answer() const;
+
+    // Generate inductive property
+    void get_level_property(unsigned lvl, expr_ref_vector& res,
+                            vector<relation_info> & rs) const;
+
+
+    // Initialization
+    void init_lemma_generalizers(datalog::rule_set& rules);
+
+    bool check_invariant(unsigned lvl);
+    bool check_invariant(unsigned lvl, func_decl* fn);
+
+    void checkpoint();
+
+    void init_rules(datalog::rule_set& rules, decl2rel& transformers);
+
+    void simplify_formulas();
+
+    void reset_lemma_generalizers();
+
+    bool validate();
+
+    unsigned get_cex_depth ();
+
+public:
+    /**
+       Initial values of predicates are stored in corresponding relations in dctx.
+
+       We check whether there is some reachable state of the relation checked_relation.
+    */
+    context(
+        fixedpoint_params const&  params,
+        ast_manager&       m);
+
+    ~context();
+
+    fixedpoint_params const& get_params() const { return m_params; }
+    bool use_native_mbp () {return m_use_native_mbp;}
+    bool use_ground_cti () {return m_ground_cti;}
+    bool use_instantiate () { return m_instantiate; }
+    bool use_qlemmas () {return m_use_qlemmas; }
+
+    ast_manager&      get_ast_manager() const { return m; }
+    manager&          get_manager() { return m_pm; }
+    decl2rel const&   get_pred_transformers() const { return m_rels; }
+    pred_transformer& get_pred_transformer(func_decl* p) const
+        { return *m_rels.find(p); }
+    datalog::context& get_datalog_context() const
+        { SASSERT(m_context); return *m_context; }
+    expr_ref          get_answer();
+    /**
+     * get bottom-up (from query) sequence of ground predicate instances
+     * (for e.g. P(0,1,0,0,3)) that together form a ground derivation to query
+     */
+    expr_ref          get_ground_sat_answer ();
+
+    void collect_statistics(statistics& st) const;
+    void reset_statistics();
+
+    std::ostream& display(std::ostream& strm) const;
+
+    void display_certificate(std::ostream& strm) const {}
+
+    lbool solve(unsigned from_lvl = 0);
+
+    lbool solve_from_lvl (unsigned from_lvl);
+
+    void reset();
+
+    void set_query(func_decl* q) { m_query_pred = q; }
+
+    void set_unsat() { m_last_result = l_false; }
+
+    void set_model_converter(model_converter_ref& mc) { m_mc = mc; }
+
+    void get_rules_along_trace (datalog::rule_ref_vector& rules);
+
+    model_converter_ref get_model_converter() { return m_mc; }
+
+    void set_proof_converter(proof_converter_ref& pc) { m_pc = pc; }
+
+    void update_rules(datalog::rule_set& rules);
+
+    void set_axioms(expr* axioms) { m_pm.set_background(axioms); }
+
+    unsigned get_num_levels(func_decl* p);
+
+    expr_ref get_cover_delta(int level, func_decl* p_orig, func_decl* p);
+
+    void add_cover(int level, func_decl* pred, expr* property);
+
+    expr_ref get_reachable (func_decl* p);
+
+    void add_invariant (func_decl *pred, expr* property);
+
+    model_ref get_model();
+
+    proof_ref get_proof() const;
+
+    model_node& get_root() const { return m_search.get_root(); }
+
+    expr_ref get_constraints (unsigned lvl);
+    void add_constraints (unsigned lvl, expr_ref c);
 };
+
+inline bool pred_transformer::use_native_mbp () {return ctx.use_native_mbp ();}
+}
 
 #endif
