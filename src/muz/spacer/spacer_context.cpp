@@ -1244,7 +1244,7 @@ expr_ref_vector const &lemma::get_cube() {
 
 void lemma::update_cube (pob_ref const &p, expr_ref_vector &cube) {
     SASSERT(m_pob);
-    SASSERT(m_pob.get() == &p);
+    SASSERT(m_pob.get() == p.get());
     m_cube.reset();
     m_body.reset();
     m_cube.append(cube);
@@ -1451,11 +1451,11 @@ pob* pred_transformer::pobs::mk_pob(pob *parent,
         auto &buf = m_pobs[p.post()];
         for (unsigned i = 0, sz = buf.size(); i < sz; ++i) {
             pob *f = buf.get(i);
-        if (f->parent() == parent) {
+            if (f->parent() == parent) {
                 f->inherit(p);
-            return f;
+                return f;
+            }
         }
-    }
     }
 
     pob_ref n = alloc(pob, parent, m_pt, level, depth);
