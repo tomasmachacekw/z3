@@ -1033,7 +1033,7 @@ struct adhoc_rewriter_cfg : public default_rewriter_cfg {
       adhoc_rw (out.get (), out);
 
       // sort arguments of top-level AND
-    if (out.m().is_and(out)) {
+      if (out.m().is_and(out)) {
           expr_ref_vector v(out.m());
           flatten_and (out, v);
           std::stable_sort (v.c_ptr(), v.c_ptr () + v.size (), ast_lt_proc());
