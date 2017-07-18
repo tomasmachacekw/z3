@@ -2816,7 +2816,7 @@ bool context::is_reachable(pob &n)
     }
 
     // either deriv was a nullptr or it was moved into next
-    SASSERT(!deriv);
+    SASSERT(!next || !deriv);
 
 
     IF_VERBOSE(1, verbose_stream () << (next ? " X " : " T ")
