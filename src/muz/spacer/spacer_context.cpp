@@ -1645,26 +1645,6 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
                                 m_premises [m_active].get_oidx (), m_evars.empty());
 
 
-    {
-        // simplify bounds
-        expr_ref_vector tmp(m);
-        tmp.push_back(post);
-        flatten_and(tmp);
-        simplify_bounds(tmp);
-        post = mk_and(tmp);
-    }
-
-    if(get_context().get_params().spacer_use_eqclass()) {
-        expr_ref_vector tmp(m);
-        tmp.push_back(post);
-        flatten_and(tmp);
-        expr_equiv_class eq_classes(m);
-        factor_eqs(tmp, eq_classes);
-        equiv_to_expr(eq_classes, tmp);
-        std::sort(tmp.c_ptr(), tmp.c_ptr() + tmp.size(), ast_lt_proc());
-        post = mk_and (tmp);
-    }
-
     /* The level and depth are taken from the parent, not the sibling.
        The reasoning is that the sibling has not been checked before,
        and lower level is a better starting point. */

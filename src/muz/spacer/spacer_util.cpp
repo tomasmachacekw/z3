@@ -60,6 +60,8 @@ Notes:
 #include "propagate_values_tactic.h"
 #include "propagate_ineqs_tactic.h"
 
+#include "obj_equiv_class.h"
+
 namespace spacer {
 
     /////////////////////////
@@ -1032,15 +1034,25 @@ struct adhoc_rewriter_cfg : public default_rewriter_cfg {
       rewriter_tpl<adhoc_rewriter_cfg> adhoc_rw (out.m (), false, adhoc_cfg);
       adhoc_rw (out.get (), out);
 
-      // sort arguments of top-level AND
       if (out.m().is_and(out)) {
           expr_ref_vector v(out.m());
           flatten_and (out, v);
-          std::stable_sort (v.c_ptr(), v.c_ptr () + v.size (), ast_lt_proc());
 
-          simplify_bounds (v);
+          if (v.size() > 1) {
 
-          out = mk_and (v);
+              // remove redundant inequalities
+              simplify_bounds (v);
+
+              // pick non-constant value representative for equivalence classes
+              expr_equiv_class eq_classes(out.m());
+              factor_eqs(v, eq_classes);
+              equiv_to_expr(eq_classes, v);
+
+              // sort arguments of the top-level and
+              std::stable_sort (v.c_ptr(), v.c_ptr () + v.size (), ast_lt_proc());
+
+              out = mk_and (v);
+          }
       }
   }
 
