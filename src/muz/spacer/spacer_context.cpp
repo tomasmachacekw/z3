@@ -1443,6 +1443,12 @@ pob* pred_transformer::pobs::mk_pob(pob *parent,
                                     unsigned level, unsigned depth,
                                     expr *post, app_ref_vector const &b) {
 
+    if (!m_pt.ctx.get_params().spacer_reuse_pobs()) {
+        pob* n = alloc(pob, parent, m_pt, level, depth);
+        n->set_post(post, b);
+        return n;
+    }
+
     // create a new pob and set its post to normalize it
     pob p(parent, m_pt, level, depth, false);
     p.set_post(post, b);
