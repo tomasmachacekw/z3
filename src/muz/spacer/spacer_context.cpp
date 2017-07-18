@@ -1458,19 +1458,19 @@ pob* pred_transformer::pobs::mk_pob(pob *parent,
         }
     }
 
-    pob_ref n = alloc(pob, parent, m_pt, level, depth);
+    pob* n = alloc(pob, parent, m_pt, level, depth);
     n->set_post(post, b);
+    m_pinned.push_back(n);
 
-    m_pinned.push_back(n.get());
     if (m_pobs.contains(n->post())) {
-        m_pobs[n->post()].push_back(n.get());
+        m_pobs[n->post()].push_back(n);
     }
     else {
         pob_buffer buf;
-        buf.push_back(n.get());
+        buf.push_back(n);
         m_pobs.insert(n->post(), buf);
     }
-    return n.get();
+    return n;
 }
 
 app* pred_transformer::extend_initial (expr *e)
