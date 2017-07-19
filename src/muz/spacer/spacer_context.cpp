@@ -1764,7 +1764,7 @@ void pob::set_post(expr* post) {
 }
 
 void pob::set_post(expr* post, app_ref_vector const &b) {
-    normalize(post, m_post);
+    normalize(post, m_post, false);
 
     m_binding.reset();
     if (b.empty()) return;

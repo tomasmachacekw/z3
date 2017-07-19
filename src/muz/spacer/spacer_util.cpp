@@ -1014,47 +1014,50 @@ struct adhoc_rewriter_cfg : public default_rewriter_cfg {
       {rational val; return m_util.is_numeral (n, val) && val.is_one ();}
   };
 
-  void normalize (expr *e, expr_ref &out)
-  {
+void normalize (expr *e, expr_ref &out, bool use_simplify_bounds)
+{
 
-      params_ref params;
-      // arith_rewriter
-      params.set_bool ("sort_sums", true);
-      params.set_bool ("gcd_rounding", true);
-      params.set_bool ("arith_lhs", true);
-      // poly_rewriter
-      params.set_bool ("som", true);
-      params.set_bool ("flat", true);
+    params_ref params;
+    // arith_rewriter
+    params.set_bool ("sort_sums", true);
+    params.set_bool ("gcd_rounding", true);
+    params.set_bool ("arith_lhs", true);
+    // poly_rewriter
+    params.set_bool ("som", true);
+    params.set_bool ("flat", true);
 
-      // apply rewriter
-      th_rewriter rw(out.m(), params);
-      rw (e, out);
+    // apply rewriter
+    th_rewriter rw(out.m(), params);
+    rw (e, out);
 
-      adhoc_rewriter_cfg adhoc_cfg(out.m ());
-      rewriter_tpl<adhoc_rewriter_cfg> adhoc_rw (out.m (), false, adhoc_cfg);
-      adhoc_rw (out.get (), out);
+    adhoc_rewriter_cfg adhoc_cfg(out.m ());
+    rewriter_tpl<adhoc_rewriter_cfg> adhoc_rw (out.m (), false, adhoc_cfg);
+    adhoc_rw (out.get (), out);
 
-      if (out.m().is_and(out)) {
-          expr_ref_vector v(out.m());
-          flatten_and (out, v);
+    if (out.m().is_and(out)) {
+        expr_ref_vector v(out.m());
+        flatten_and (out, v);
 
-          if (v.size() > 1) {
+        if (v.size() > 1) {
 
-              // remove redundant inequalities
-              simplify_bounds (v);
+            if (use_simplify_bounds) {
+                // remove redundant inequalities
+                simplify_bounds (v);
 
-              // pick non-constant value representative for equivalence classes
-              expr_equiv_class eq_classes(out.m());
-              factor_eqs(v, eq_classes);
-              equiv_to_expr(eq_classes, v);
+                // pick non-constant value representative for
+                // equivalence classes
+                expr_equiv_class eq_classes(out.m());
+                factor_eqs(v, eq_classes);
+                equiv_to_expr(eq_classes, v);
+            }
 
-              // sort arguments of the top-level and
-              std::stable_sort (v.c_ptr(), v.c_ptr () + v.size (), ast_lt_proc());
+            // sort arguments of the top-level and
+            std::stable_sort (v.c_ptr(), v.c_ptr () + v.size (), ast_lt_proc());
 
-              out = mk_and (v);
-          }
-      }
-  }
+            out = mk_and (v);
+        }
+    }
+}
 
     // rewrite term such that the pretty printing is easier to read
 struct adhoc_rewriter_rpp : public default_rewriter_cfg {
