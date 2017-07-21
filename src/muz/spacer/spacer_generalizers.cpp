@@ -32,8 +32,8 @@ void lemma_sanity_checker::operator()(lemma_ref &lemma) {
     unsigned uses_level;
     expr_ref_vector cube(lemma->get_ast_manager());
     cube.append(lemma->get_cube());
-    VERIFY(!lemma->get_pob()->pt().check_inductive(lemma->level(),
-                                                   cube, uses_level));
+    ENSURE(lemma->get_pob()->pt().check_inductive(lemma->level(),
+                                                  cube, uses_level));
 }
 
 
