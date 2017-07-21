@@ -1368,6 +1368,9 @@ bool pred_transformer::frames::propagate_to_next_level (unsigned level)
 
 void pred_transformer::frames::simplify_formulas ()
 {
+    // number of subsumed lemmas
+    unsigned num_sumbsumed = 0;
+
     // ensure that the lemmas are sorted
     sort();
     ast_manager &m = m_pt.get_ast_manager ();
@@ -1401,24 +1404,36 @@ void pred_transformer::frames::simplify_formulas ()
         }
         unsigned end = j;
 
-        if (g->size() <= 0) { continue; }
+        unsigned sz = end - begin;
+        // no lemmas at current level, move to next level
+        if (sz <= 0) {continue;}
 
-        (*simplifier) (g, result, mc, pc, core);
-        SASSERT (result.size () == 1);
-        goal *r = result [0];
+        // exactly one lemma at current level, nothing to
+        // simplify. move to next level
+        if (sz == 1) {
+            new_lemmas.push_back(m_lemmas[begin]);
+            continue;
+        }
+
+        // more than one lemma at current level. simplify.
+        (*simplifier)(g, result, mc, pc, core);
+        SASSERT(result.size () == 1);
+        goal *r = result[0];
 
         // no simplification happened, copy all the lemmas
-        if (r->size () == end - begin) {
+        if (r->size () == sz) {
             for (unsigned n = begin; n < end; ++n) {
                 new_lemmas.push_back (m_lemmas[n]);
             }
         }
         // something got simplified, find out which lemmas remain
         else {
-            // XXX linear search. optimize if needed
-            bool found;
+            num_sumbsumed += (sz - r->size());
+            // For every expression in the result, copy corresponding
+            // lemma into new_lemmas
+            // XXX linear search. optimize if needed.
             for (unsigned k = 0; k < r->size(); ++k) {
-                found = false;
+                bool found = false;
                 for (unsigned n = begin; n < end; ++n) {
                     if (m_lemmas[n]->get_expr() == r->form(k)) {
                         new_lemmas.push_back(m_lemmas[n]);
@@ -1426,11 +1441,24 @@ void pred_transformer::frames::simplify_formulas ()
                         break;
                     }
                 }
+                if (!found) {
+                    verbose_stream() << "Failed to find a lemma for: "
+                                     << mk_pp(r->form(k), m) << "\n";
+                    verbose_stream() << "Available lemmas are: ";
+                    for (unsigned n = begin; n < end; ++n) {
+                        verbose_stream() << n << ": "
+                                         << mk_pp(m_lemmas[n]->get_expr(), m)
+                                         << "\n";
+                    }
+                }
+                ENSURE(found);
                 SASSERT(found);
             }
         }
     }
 
+    SASSERT(new_lemmas.size() + num_sumbsumed == m_lemmas.size());
+    ENSURE(new_lemmas.size() + num_sumbsumed == m_lemmas.size());
     if (new_lemmas.size() < m_lemmas.size()) {
         m_lemmas.reset();
         m_lemmas.append(new_lemmas);
