@@ -14,19 +14,19 @@
 
 namespace spacer
 {
-    
+
 #pragma mark - unsat_core_plugin_lemma
 
 void unsat_core_plugin_lemma::compute_partial_core(proof* step)
 {
     SASSERT(m_learner.is_a_marked(step));
     SASSERT(m_learner.is_b_marked(step));
-    
+
     for (unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
     {
         SASSERT(m_learner.m.is_proof(step->get_arg(i)));
         proof* premise = to_app(step->get_arg(i));
-        
+
         if (m_learner.is_b_open (premise))
         {
             // by IH, premises that are AB marked are already closed
@@ -39,42 +39,50 @@ void unsat_core_plugin_lemma::compute_partial_core(proof* step)
 
 void unsat_core_plugin_lemma::add_lowest_split_to_core(proof* step) const
 {
+    SASSERT(m_learner.is_b_open(step));
     ast_manager &m = m_learner.m;
+
     ptr_vector<proof> todo;
     todo.push_back(step);
-    
+
     while (!todo.empty())
     {
-        proof* current = todo.back();
+        proof* pf = todo.back();
         todo.pop_back();
-        
+
         // if current step hasn't been processed,
-        if (!m_learner.is_closed(current))
+        if (!m_learner.is_closed(pf))
         {
-            m_learner.set_closed(current, true);
-            SASSERT(!m_learner.is_a_marked(current)); // by I.H. the step must be already visited
-            
-            // and the current step needs to be interpolated:
-            if (m_learner.is_b_marked(current))
+            m_learner.set_closed(pf, true);
+            // the step is b-marked and not closed.
+            // by I.H. the step must be already visited
+            // so if it is also a-marked, it must be closed
+            SASSERT(m_learner.is_b_marked(pf));
+            SASSERT(!m_learner.is_a_marked(pf));
+
+            // the current step needs to be interpolated:
+            expr* fact = m_learner.m.get_fact(pf);
+            // if we trust the current step and we are able to use it
+            if (m_learner.is_b_pure (pf) &&
+                (m.is_asserted(pf) || is_literal(m, fact)))
             {
-                expr* fact = m_learner.m.get_fact(current);
-                // if we trust the current step and we are able to use it
-                if (m_learner.is_b_pure (current))
+                // just add it to the core
+                m_learner.add_lemma_to_core(fact);
+            }
+            // otherwise recurse on premises
+            else
+            {
+                for (unsigned i = 0, sz =  m_learner.m.get_num_parents(pf);
+                     i < sz; ++i)
                 {
-                    // just add it to the core
-                    m_learner.add_lemma_to_core(fact);
-                }
-                // otherwise recurse on premises
-                else
-                {
-                    for (unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
-                    {
-                        SASSERT(m_learner.m.is_proof(step->get_arg(i)));
-                        proof* premise = m.get_parent (step, i);
+                    SASSERT(m_learner.m.is_proof(pf->get_arg(i)));
+                    proof* premise = m.get_parent (pf, i);
+                    if (m_learner.is_b_open(premise)) {
                         todo.push_back(premise);
                     }
                 }
             }
+
         }
     }
 }
@@ -98,10 +106,10 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
        d->get_num_parameters() >= m_learner.m.get_num_parents(step) + 2) // the following parameters are the Farkas coefficients
     {
         SASSERT(m_learner.m.has_fact(step));
-        
+
         ptr_vector<app> literals;
         vector<rational> coefficients;
-        
+
         /* The farkas lemma represents a subproof starting from premise(-set)s A, BNP and BP(ure) and
          * ending in a disjunction D. We need to compute the contribution of BP, i.e. a formula, which
          * is entailed by BP and together with A and BNP entails D.
@@ -126,33 +134,33 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
          * as workaround we take the absolute value of the provided coefficients.
          */
         parameter const* params = d->get_parameters() + 2; // point to the first Farkas coefficient
-        
+
         STRACE("spacer.farkas",
             verbose_stream() << "Farkas input: "<< "\n";
             for (unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
             {
                 SASSERT(m_learner.m.is_proof(step->get_arg(i)));
                 proof *prem = m.get_parent (step, i);
-                
+
                 rational coef;
                 VERIFY(params[i].is_rational(coef));
-                
+
                 bool b_pure = m_learner.is_b_pure (prem);
                 verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m_learner.m.get_fact(prem), m_learner.m) << "\n";
             }
         );
-        
+
         bool can_be_closed = true;
-        
+
         for(unsigned i = 0; i < m.get_num_parents(step); ++i)
         {
             SASSERT(m_learner.m.is_proof(step->get_arg(i)));
             proof * premise = m.get_parent (step, i);
-            
+
             if (m_learner.is_b_open (premise))
             {
                 SASSERT(!m_learner.is_a_marked(premise));
-                
+
                 if (m_learner.is_b_pure (step))
                 {
                     if (!m_use_constant_from_a)
@@ -166,7 +174,7 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
                 else
                 {
                     can_be_closed = false;
-                    
+
                     if (m_use_constant_from_a)
                     {
                         rational coefficient;
@@ -187,11 +195,11 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
                 }
             }
         }
-        
+
         if (m_use_constant_from_a)
         {
             params += m_learner.m.get_num_parents(step); // point to the first Farkas coefficient, which corresponds to a formula in the conclusion
-            
+
             // the conclusion can either be a single formula or a disjunction of several formulas, we have to deal with both situations
             if (m_learner.m.get_num_parents(step) + 2 < d->get_num_parameters())
             {
@@ -205,16 +213,16 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
                     args = _or->get_args();
                 }
                 SASSERT(m_learner.m.get_num_parents(step) + 2 + num_args == d->get_num_parameters());
-                
+
                 bool_rewriter brw(m_learner.m);
                 for (unsigned i = 0; i < num_args; ++i)
                 {
                     expr* premise = args[i];
-                    
+
                     expr_ref negatedPremise(m_learner.m);
                     brw.mk_not(premise, negatedPremise);
                     literals.push_back(to_app(negatedPremise));
-                    
+
                     rational coefficient;
                     VERIFY(params[i].is_rational(coefficient));
                     coefficients.push_back(abs(coefficient));
@@ -229,7 +237,7 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
 
             expr_ref res(m_learner.m);
             compute_linear_combination(coefficients, literals, res);
-            
+
             m_learner.add_lemma_to_core(res);
         }
     }
@@ -238,7 +246,7 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
 void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rational>& coefficients, const ptr_vector<app>& literals, expr_ref& res)
 {
     SASSERT(literals.size() == coefficients.size());
-    
+
     ast_manager& m = res.get_manager();
     smt::farkas_util util(m);
     if (m_use_constant_from_a)
@@ -259,13 +267,13 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         res = mk_not(m, negated_linear_combination);
     }
 }
-    
+
 #pragma mark - unsat_core_plugin_farkas_optimized
     void unsat_core_plugin_farkas_lemma_optimized::compute_partial_core(proof* step)
     {
         SASSERT(m_learner.is_a_marked(step));
         SASSERT(m_learner.is_b_marked(step));
-        
+
         func_decl* d = step->get_decl();
         symbol sym;
         if(!m_learner.is_closed(step) && // if step is not already interpolated
@@ -276,36 +284,36 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
            d->get_num_parameters() >= m_learner.m.get_num_parents(step) + 2) // the following parameters are the Farkas coefficients
         {
             SASSERT(m_learner.m.has_fact(step));
-            
+
             vector<std::pair<app*,rational> > linear_combination; // collects all summands of the linear combination
-            
+
             parameter const* params = d->get_parameters() + 2; // point to the first Farkas coefficient
-            
+
             STRACE("spacer.farkas",
                verbose_stream() << "Farkas input: "<< "\n";
                for (unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
                {
                    SASSERT(m_learner.m.is_proof(step->get_arg(i)));
                    proof *prem = m.get_parent (step, i);
-                   
+
                    rational coef;
                    VERIFY(params[i].is_rational(coef));
-                   
+
                    bool b_pure = m_learner.is_b_pure (prem);
                    verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m_learner.m.get_fact(prem), m_learner.m) << "\n";
                }
             );
-    
+
             bool can_be_closed = true;
             for(unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
             {
                 SASSERT(m_learner.m.is_proof(step->get_arg(i)));
                 proof * premise = to_app(step->get_arg(i));
-                
+
                 if (m_learner.is_b_marked(premise) && !m_learner.is_closed(premise))
                 {
                     SASSERT(!m_learner.is_a_marked(premise));
-                    
+
                     if (m_learner.only_contains_symbols_b(m_learner.m.get_fact(step)) && !m_learner.is_h_marked(step))
                     {
                         rational coefficient;
@@ -318,7 +326,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                     }
                 }
             }
-            
+
             // only if all b-premises can be used directly, close the step and add linear combinations for later processing
             if (can_be_closed)
             {
@@ -330,7 +338,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             }
         }
     }
-    
+
     struct farkas_optimized_less_than_pairs
     {
         inline bool operator() (const std::pair<app*,rational>& pair1, const std::pair<app*,rational>& pair2) const
@@ -338,7 +346,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             return (pair1.first->get_id() < pair2.first->get_id());
         }
     };
-    
+
     void unsat_core_plugin_farkas_lemma_optimized::finalize()
     {
         if(m_linear_combinations.empty())
@@ -349,7 +357,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             for (auto& linear_combination : m_linear_combinations) {
             SASSERT(linear_combination.size() > 0);
             });
-        
+
         // 1. construct ordered basis
         ptr_vector<app> ordered_basis;
         obj_map<app, unsigned> map;
@@ -365,7 +373,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 }
             }
         }
-        
+
         // 2. populate matrix
         spacer_matrix matrix(m_linear_combinations.size(), ordered_basis.size());
 
@@ -377,7 +385,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 matrix.set(i, map[pair.first], pair.second);
             }
         }
-        
+
         // 3. perform gaussian elimination
         unsigned i = matrix.perform_gaussian_elimination();
 
@@ -397,16 +405,16 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             SASSERT(literals.size() > 0);
             expr_ref linear_combination(m);
             compute_linear_combination(coefficients, literals, linear_combination);
-        
+
             m_learner.add_lemma_to_core(linear_combination);
         }
-        
+
     }
 
     void unsat_core_plugin_farkas_lemma_optimized::compute_linear_combination(const vector<rational>& coefficients, const ptr_vector<app>& literals, expr_ref& res)
             {
         SASSERT(literals.size() == coefficients.size());
-                    
+
         ast_manager& m = res.get_manager();
         smt::farkas_util util(m);
         for(unsigned i = 0; i < literals.size(); ++i)
@@ -417,7 +425,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         SASSERT(m.is_not(negated_linear_combination));
         res = mk_not(m, negated_linear_combination); //TODO: rewrite the get-method to return nonnegated stuff?
                     }
-                    
+
 #pragma mark - unsat_core_plugin_farkas_bounded
 
     void unsat_core_plugin_farkas_lemma_bounded::finalize()
@@ -444,7 +452,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 }
             }
         }
-        
+
         // 2. populate matrix
         spacer_matrix matrix(m_linear_combinations.size(), ordered_basis.size());
 
@@ -469,13 +477,13 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             {
             coeffs.push_back(expr_ref_vector(m));
         }
-        
+
         vector<expr_ref_vector> bounded_vectors;
         for (unsigned j=0; j < matrix.num_cols(); ++j)
         {
             bounded_vectors.push_back(expr_ref_vector(m));
         }
-        
+
         // 4. find smallest n using guess and check algorithm
         for(unsigned n = 1; true; ++n)
         {
@@ -492,7 +500,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 decl = m.mk_func_decl(symbol(name.c_str()), 0, (sort*const*)0, util.mk_int());
                 coeffs[i].push_back(m.mk_const(decl));
             }
-            
+
             // we need s_jn
             for (unsigned j=0; j < matrix.num_cols(); ++j)
             {
@@ -506,7 +514,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
 
                 bounded_vectors[j].push_back(s_jn);
             }
-                
+
             // assert bounds for all s_jn
             for (unsigned l=0; l < n; ++l)
                 {
@@ -520,7 +528,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                     s->assert_expr(ub);
                     }
                 }
-                
+
             // assert: forall i,j: a_ij = sum_k w_ik * s_jk
             for (unsigned i=0; i < matrix.num_rows(); ++i)
                 {
@@ -539,16 +547,16 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                     s->assert_expr(eq);
                     }
                 }
-                
+
             // check result
             lbool res = s->check_sat(0,0);
-                
+
             // if sat extract model and add corresponding linear combinations to core
             if (res == lbool::l_true)
                 {
                 model_ref model;
                 s->get_model(model);
-        
+
                 for (int k=0; k < n; ++k)
         {
             ptr_vector<app> literals;
@@ -567,7 +575,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                     SASSERT(!literals.empty()); // since then previous outer loop would have found solution already
             expr_ref linear_combination(m);
             compute_linear_combination(coefficients, literals, linear_combination);
-            
+
             m_learner.add_lemma_to_core(linear_combination);
         }
                 return;
@@ -577,22 +585,22 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
 
 #pragma mark - unsat_core_plugin_min_cut
     unsat_core_plugin_min_cut::unsat_core_plugin_min_cut(unsat_core_learner& learner, ast_manager& m) : unsat_core_plugin(learner), m(m){}
-    
+
     void unsat_core_plugin_min_cut::compute_partial_core(proof* step)
     {
         ptr_vector<proof> todo;
-        
+
         SASSERT(m_learner.is_a_marked(step));
         SASSERT(m_learner.is_b_marked(step));
         SASSERT(m.get_num_parents(step) > 0);
         SASSERT(!m_learner.is_closed(step));
         todo.push_back(step);
-        
+
         while (!todo.empty())
         {
             proof* current = todo.back();
             todo.pop_back();
-            
+
             if (!m_learner.is_closed(current) && !m_visited.is_marked(current))
             {
                 m_visited.mark(current, true);
@@ -601,18 +609,17 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         }
         m_learner.set_closed(step, true);
     }
-    
+
     void unsat_core_plugin_min_cut::advance_to_lowest_partial_cut(proof* step, ptr_vector<proof>& todo2)
     {
         bool is_sink = true;
 
         ast_manager &m = m_learner.m;
         ptr_vector<proof> todo;
-        
-        for (unsigned i = 0; i < m.get_num_parents(step); ++i)
+
+        for (unsigned i = 0, sz = m.get_num_parents(step); i < sz; ++i)
         {
-            SASSERT(m.is_proof(step->get_arg(i)));
-            proof* premise = to_app(step->get_arg(i));
+            proof* premise = m.get_parent (step, i);
             {
                 if (m_learner.is_b_marked(premise))
                 {
@@ -624,17 +631,19 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         {
             proof* current = todo.back();
             todo.pop_back();
-            
+
             // if current step hasn't been processed,
             if (!m_learner.is_closed(current))
             {
                 SASSERT(!m_learner.is_a_marked(current)); // by I.H. the step must be already visited
-                
+
                 // and the current step needs to be interpolated:
                 if (m_learner.is_b_marked(current))
                 {
                     // if we trust the current step and we are able to use it
-                    if (m_learner.is_b_pure (current))
+                    if (m_learner.is_b_pure (current) &&
+                        (m.is_asserted(current) ||
+                         is_literal(m, m.get_fact(current))))
                     {
                         // add corresponding edges and continue original traversel
                         if (m_learner.is_a_marked(step))
@@ -661,7 +670,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 }
             }
         }
-        
+
         if (is_sink)
         {
             add_edge(step, nullptr);
@@ -687,21 +696,21 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             {
                 unsigned node_other = m_min_cut.new_node();
                 node_i = m_min_cut.new_node();
-                
+
                 m_proof_to_node_minus.insert(i, node_other);
                 m_proof_to_node_plus.insert(i, node_i);
-                
+
                 if (node_i >= m_node_to_formula.size())
                 {
                     m_node_to_formula.resize(node_i + 1);
                 }
                 m_node_to_formula[node_other] = m.get_fact(i);
                 m_node_to_formula[node_i] = m.get_fact(i);
-                
+
                 m_min_cut.add_edge(node_other, node_i, 1);
             }
         }
-        
+
         if (j == nullptr)
         {
             node_j = 1;
@@ -720,27 +729,27 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
 
                 m_proof_to_node_minus.insert(j, node_j);
                 m_proof_to_node_plus.insert(j, node_other);
-                
+
                 if (node_other >= m_node_to_formula.size())
                 {
                     m_node_to_formula.resize(node_other + 1);
                 }
                 m_node_to_formula[node_j] = m.get_fact(j);
                 m_node_to_formula[node_other] = m.get_fact(j);
-                
+
                 m_min_cut.add_edge(node_j, node_other, 1);
             }
         }
-        
+
         // finally connect nodes
         m_min_cut.add_edge(node_i, node_j, 1);
     }
-    
+
     void unsat_core_plugin_min_cut::finalize()
     {
         vector<unsigned int> cut_nodes;
         m_min_cut.compute_min_cut(cut_nodes);
-        
+
         for (unsigned cut_node : cut_nodes)
         {
             m_learner.add_lemma_to_core(m_node_to_formula[cut_node]);
