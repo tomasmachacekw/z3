@@ -2146,10 +2146,6 @@ void context::init_lemma_generalizers(datalog::rule_set& rules)
 
     fparams.m_mbqi = m_params.spacer_mbqi();
 
-    if (get_params().spacer_lemma_sanity_check()) {
-        m_lemma_generalizers.push_back(alloc(lemma_sanity_checker, *this));
-    }
-
     if (get_params().spacer_use_eqclass()) {
         m_lemma_generalizers.push_back (alloc(lemma_eq_generalizer, *this));
     }
@@ -2163,6 +2159,10 @@ void context::init_lemma_generalizers(datalog::rule_set& rules)
 
     if (m_params.use_array_eq_generalizer()) {
         m_lemma_generalizers.push_back(alloc(lemma_array_eq_generalizer, *this));
+    }
+
+    if (get_params().spacer_lemma_sanity_check()) {
+        m_lemma_generalizers.push_back(alloc(lemma_sanity_checker, *this));
     }
 
 }
