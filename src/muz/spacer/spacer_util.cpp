@@ -59,6 +59,7 @@ Notes:
 #include "tactical.h"
 #include "propagate_values_tactic.h"
 #include "propagate_ineqs_tactic.h"
+#include "arith_bounds_tactic.h"
 
 #include "obj_equiv_class.h"
 
@@ -929,6 +930,32 @@ class implicant_picker {
       implicant_picker ipick (mev);
       ipick (formula, res);
   }
+
+void simplify_bounds_old(expr_ref_vector& cube) {
+    ast_manager& m = cube.m();
+
+    scoped_no_proof _no_pf_(m);
+    goal_ref g(alloc(goal, m, false, false, false));
+
+    for (unsigned i = 0; i < cube.size(); ++i) {
+        g->assert_expr(cube.get(i));
+    }
+
+    expr_ref tmp(m);
+    model_converter_ref mc;
+    proof_converter_ref pc;
+    expr_dependency_ref core(m);
+    goal_ref_buffer result;
+    tactic_ref simplifier = mk_arith_bounds_tactic(m);
+    (*simplifier)(g, result, mc, pc, core);
+    SASSERT(result.size() == 1);
+    goal* r = result[0];
+
+    cube.reset();
+    for (unsigned i = 0; i < r->size(); ++i) {
+        cube.push_back(r->form(i));
+    }
+}
 
 void simplify_bounds (expr_ref_vector &cube) {
     ast_manager &m = cube.m();
