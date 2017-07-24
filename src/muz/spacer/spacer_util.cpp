@@ -1041,7 +1041,9 @@ struct adhoc_rewriter_cfg : public default_rewriter_cfg {
       {rational val; return m_util.is_numeral (n, val) && val.is_one ();}
   };
 
-void normalize (expr *e, expr_ref &out, bool use_simplify_bounds)
+void normalize (expr *e, expr_ref &out,
+                bool use_simplify_bounds,
+                bool use_factor_eqs)
 {
 
     params_ref params;
@@ -1066,20 +1068,20 @@ void normalize (expr *e, expr_ref &out, bool use_simplify_bounds)
         flatten_and (out, v);
 
         if (v.size() > 1) {
+            // sort arguments of the top-level and
+            std::stable_sort (v.c_ptr(), v.c_ptr () + v.size (), ast_lt_proc());
 
             if (use_simplify_bounds) {
                 // remove redundant inequalities
                 simplify_bounds (v);
-
+            }
+            if (use_factor_eqs) {
                 // pick non-constant value representative for
                 // equivalence classes
                 expr_equiv_class eq_classes(out.m());
                 factor_eqs(v, eq_classes);
                 equiv_to_expr(eq_classes, v);
             }
-
-            // sort arguments of the top-level and
-            std::stable_sort (v.c_ptr(), v.c_ptr () + v.size (), ast_lt_proc());
 
             out = mk_and (v);
         }

@@ -1792,7 +1792,8 @@ void pob::set_post(expr* post) {
 }
 
 void pob::set_post(expr* post, app_ref_vector const &b) {
-    normalize(post, m_post, false);
+    normalize(post, m_post, true,
+              m_pt.get_context().get_params().spacer_use_eqclass());
 
     m_binding.reset();
     if (b.empty()) return;
