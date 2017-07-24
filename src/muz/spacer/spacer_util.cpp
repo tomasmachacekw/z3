@@ -957,7 +957,7 @@ void simplify_bounds_old(expr_ref_vector& cube) {
     }
 }
 
-void simplify_bounds (expr_ref_vector &cube) {
+void simplify_bounds_new (expr_ref_vector &cube) {
     ast_manager &m = cube.m();
 
 
@@ -984,6 +984,10 @@ void simplify_bounds (expr_ref_vector &cube) {
     for (unsigned i = 0; i < g->size(); ++i) {
         cube.push_back(g->form(i));
     }
+}
+
+void simplify_bounds(expr_ref_vector &cube) {
+    simplify_bounds_new(cube);
 }
 
   /// Adhoc arithmetic rewriter
