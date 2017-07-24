@@ -341,7 +341,8 @@ void pred_transformer::add_lemma_core(lemma* lemma)
 {
     unsigned lvl = lemma->level();
     expr* l = lemma->get_expr();
-    SASSERT(is_clause(m, l));
+    SASSERT(!lemma->is_ground() || is_clause(m, l));
+    SASSERT(!is_quantifier(l) || is_clause(m, to_quantifier(l)->get_expr()));
 
     TRACE("spacer", tout << "add-lemma-core: " << pp_level (lvl)
           << " " << head ()->get_name ()
