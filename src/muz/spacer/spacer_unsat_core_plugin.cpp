@@ -308,12 +308,13 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             for(unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
             {
                 SASSERT(m_learner.m.is_proof(step->get_arg(i)));
-                proof * premise = to_app(step->get_arg(i));
+                proof * premise = m.get_parent (step, i);
 
                 if (m_learner.is_b_marked(premise) && !m_learner.is_closed(premise))
                 {
                     SASSERT(!m_learner.is_a_marked(premise));
 
+                    // XXX AG: why is this condition is based on step and not on premise?
                     if (m_learner.only_contains_symbols_b(m_learner.m.get_fact(step)) && !m_learner.is_h_marked(step))
                     {
                         rational coefficient;
