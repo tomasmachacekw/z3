@@ -149,7 +149,6 @@ void compute_implicant_literals (model_evaluator_util &mev,
                                  expr_ref_vector &formula, expr_ref_vector &res);
 void simplify_bounds (expr_ref_vector &lemmas);
 void normalize(expr *e, expr_ref &out, bool use_simplify_bounds = true, bool factor_eqs = false);
-void rewriteForPrettyPrinting (expr *e, expr_ref &out);
 
 /** ground expression by replacing all free variables by skolem constants */
 void ground_expr (expr *e, expr_ref &out, app_ref_vector &vars);
@@ -162,6 +161,17 @@ void get_select_indices (expr* fml, app_ref_vector& indices, ast_manager& m);
 
 void find_decls (expr* fml, app_ref_vector& decls, std::string& prefix);
 
+/** extended pretty-printer
+ * used for debugging
+ * disables aliasing of common sub-expressions
+*/
+struct mk_epp : public mk_pp {
+    params_ref m_epp_params;
+    expr_ref m_epp_expr;
+    mk_epp(ast *t, ast_manager &m, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = 0);
+    void rw(expr *e, expr_ref &out);
+
+};
 
 }
 

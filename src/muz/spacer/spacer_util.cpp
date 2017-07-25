@@ -1092,26 +1092,26 @@ void normalize (expr *e, expr_ref &out,
     }
 }
 
-    // rewrite term such that the pretty printing is easier to read
+// rewrite term such that the pretty printing is easier to read
 struct adhoc_rewriter_rpp : public default_rewriter_cfg {
-        ast_manager &m;
-        arith_util m_arith;
+    ast_manager &m;
+    arith_util m_arith;
 
-        adhoc_rewriter_rpp (ast_manager &manager) : m(manager), m_arith(m) {}
+    adhoc_rewriter_rpp (ast_manager &manager) : m(manager), m_arith(m) {}
 
-        bool is_le(func_decl const * n) const
+    bool is_le(func_decl const * n) const
         { return is_decl_of(n, m_arith.get_family_id (), OP_LE); }
-        bool is_ge(func_decl const * n) const
+    bool is_ge(func_decl const * n) const
         { return is_decl_of(n, m_arith.get_family_id (), OP_GE); }
-        bool is_lt(func_decl const * n) const
+    bool is_lt(func_decl const * n) const
         { return is_decl_of(n, m_arith.get_family_id (), OP_LT); }
-        bool is_gt(func_decl const * n) const
+    bool is_gt(func_decl const * n) const
         { return is_decl_of(n, m_arith.get_family_id (), OP_GT); }
-        bool is_zero (expr const * n) const
+    bool is_zero (expr const * n) const
         {rational val; return m_arith.is_numeral(n, val) && val.is_zero();}
 
-        br_status reduce_app (func_decl * f, unsigned num, expr * const * args,
-                              expr_ref & result, proof_ref & result_pr)
+    br_status reduce_app (func_decl * f, unsigned num, expr * const * args,
+                          expr_ref & result, proof_ref & result_pr)
         {
             br_status st = BR_FAILED;
             expr *e1, *e2, *e3, *e4;
@@ -1134,46 +1134,56 @@ struct adhoc_rewriter_rpp : public default_rewriter_cfg {
                 if (is_le(f)) {
                     result = m_arith.mk_le(e1, rhs);
                     st = BR_DONE;
-            } else if (is_lt(f)) {
+                } else if (is_lt(f)) {
                     result = m_arith.mk_lt(e1, rhs);
                     st = BR_DONE;
-            } else if (is_ge(f)) {
+                } else if (is_ge(f)) {
                     result = m_arith.mk_ge(e1, rhs);
                     st = BR_DONE;
-            } else if (is_gt(f)) {
+                } else if (is_gt(f)) {
                     result = m_arith.mk_gt(e1, rhs);
                     st = BR_DONE;
-            } else
-            { UNREACHABLE(); }
+                } else
+                { UNREACHABLE(); }
             }
             // simplify negation of ordering predicate
             else if (m.is_not (f)) {
                 if (m_arith.is_lt(args[0], e1, e2)) {
                     result = m_arith.mk_ge(e1, e2);
                     st = BR_DONE;
-            } else if (m_arith.is_le(args[0], e1, e2)) {
+                } else if (m_arith.is_le(args[0], e1, e2)) {
                     result = m_arith.mk_gt(e1, e2);
                     st = BR_DONE;
-            } else if (m_arith.is_gt(args[0], e1, e2)) {
+                } else if (m_arith.is_gt(args[0], e1, e2)) {
                     result = m_arith.mk_le(e1, e2);
                     st = BR_DONE;
-            } else if (m_arith.is_ge(args[0], e1, e2)) {
+                } else if (m_arith.is_ge(args[0], e1, e2)) {
                     result = m_arith.mk_lt(e1, e2);
                     st = BR_DONE;
                 }
             }
-
             return st;
         }
 
-    };
+};
+mk_epp::mk_epp(ast *t, ast_manager &m, unsigned indent,
+               unsigned num_vars, char const * var_prefix) :
+    mk_pp (t, m, m_epp_params, indent, num_vars, var_prefix), m_epp_expr(m) {
+    m_epp_params.set_uint("min_alias_size", UINT_MAX);
+    m_epp_params.set_uint("max_depth", UINT_MAX);
 
-    void rewriteForPrettyPrinting (expr *e, expr_ref &out)
-    {
-        adhoc_rewriter_rpp adhoc_rpp(out.m());
-        rewriter_tpl<adhoc_rewriter_rpp> adhoc_rw (out.m (), false, adhoc_rpp);
-        adhoc_rw (e, out);
+    if (is_expr (m_ast)) {
+        rw(to_expr(m_ast), m_epp_expr);
+        m_ast = m_epp_expr;
     }
+}
+
+void mk_epp::rw(expr *e, expr_ref &out)
+{
+    adhoc_rewriter_rpp cfg(out.m());
+    rewriter_tpl<adhoc_rewriter_rpp> arw(out.m(), false, cfg);
+    arw(e, out);
+}
 
     void ground_expr (expr *e, expr_ref &out, app_ref_vector &vars)
     {

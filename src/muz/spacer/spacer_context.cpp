@@ -353,14 +353,9 @@ void pred_transformer::add_lemma_core(lemma* lemma)
           << " " << mk_pp (l, m) << "\n";);
 
     STRACE ("spacer.expand-add",
-            params_ref p;
-            p.set_uint("min_alias_size", UINT_MAX);
-            p.set_uint("max_depth", UINT_MAX);
-            expr_ref t (m);
-            rewriteForPrettyPrinting (l, t);
             tout << "add-lemma: " << pp_level (lvl) << " "
             << head ()->get_name () << " "
-            << mk_pp (t, m, p) << "\n\n";);
+            << mk_epp (l, m) << "\n\n";);
 
 
     if (is_infty_level(lvl)) { m_stats.m_num_invariants++; }
@@ -2848,16 +2843,10 @@ lbool context::expand_node(pob& n)
            << mk_pp(n.post(), m) << "\n";);
 
     STRACE ("spacer.expand-add",
-            params_ref p;
-            p.set_uint("min_alias_size", UINT_MAX);
-            p.set_uint("max_depth", UINT_MAX);
-            expr_ref t(m);
-            rewriteForPrettyPrinting (n.post(), t);
-
             tout << "expand-node: " << n.pt().head()->get_name()
             << " level: " << n.level()
             << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
-            << mk_pp(t, m, p) << "\n\n";);
+            << mk_epp(n.post(), m) << "\n\n";);
 
     TRACE ("core_array_eq",
            tout << "expand-node: " << n.pt().head()->get_name()
