@@ -3546,7 +3546,7 @@ namespace smt {
                 return false;
                 }
                 if (cmr == quantifier_manager::UNKNOWN) {
-                IF_VERBOSE(1, verbose_stream() << "(smt.giveup quantifiers)\n";);
+                IF_VERBOSE(2, verbose_stream() << "(smt.giveup quantifiers)\n";);
                     // giving up
                     m_last_search_failure = QUANTIFIERS;
                     status                = l_undef;
