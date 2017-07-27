@@ -38,56 +38,81 @@ void lemma_sanity_checker::operator()(lemma_ref &lemma) {
 
 
 // ------------------------
-// core_bool_inductive_generalizer
+// lemma_bool_inductive_generalizer
+/// Inductive generalization by dropping and expanding literals
+void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
+    if (lemma->get_cube().empty()) return;
 
-// main propositional induction generalizer.
-// drop literals one by one from the core and check if the core is still inductive.
-//
-void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma)
-{
     m_st.count++;
     scoped_watch _w_(m_st.watch);
-    if (lemma->get_cube().size() <= 1) {
-        return;
-    }
+
     unsigned uses_level;
     pred_transformer &pt = lemma->get_pob()->pt();
-    ast_manager& m = pt.get_ast_manager();
+    ast_manager &m = pt.get_ast_manager();
+
     expr_ref_vector cube(m);
     cube.append(lemma->get_cube());
-    TRACE("spacer", for (unsigned i = 0; i < cube.size(); ++i)
-                    { tout << mk_pp(cube[i].get(), m) << "\n"; });
-    unsigned num_failures = 0, i = 0, old_size = cube.size();
-    ptr_vector<expr> processed;
 
-    while (i < cube.size() && 1 < cube.size() &&
-           (!m_failure_limit || num_failures <= m_failure_limit)) {
+    bool dirty = false;
+    expr_ref true_expr(m.mk_true(), m);
+    ptr_vector<expr> processed;
+    expr_ref_vector extra_lits(m);
+
+    unsigned i = 0, num_failures = 0;
+    while (i < cube.size() &&
+           (!m_failure_limit || num_failures < m_failure_limit)) {
         expr_ref lit(m);
-        lit = cube[i].get();
-        cube[i] = m.mk_true();
-        if (pt.check_inductive(lemma->level(), cube, uses_level)) {
+        lit = cube.get(i);
+        cube[i] = true_expr;
+        if (cube.size() > 1 &&
+            pt.check_inductive(lemma->level(), cube, uses_level)) {
             num_failures = 0;
-            for (i = 0; i < cube.size() && processed.contains(cube.get(i)); ++i);
-        }
-        else {
-            cube[i] = lit;
-            processed.push_back(lit);
-            ++num_failures;
-            ++m_st.num_failures;
-            ++i;
+            dirty = true;
+            for (i = 0; i < cube.size() &&
+                     processed.contains(cube.get(i)); ++i);
+        } else {
+            // check if the literal can be expanded and any single
+            // literal in the expansion can replace it
+            extra_lits.reset();
+            extra_lits.push_back(lit);
+            expand_literals(m, extra_lits);
+            SASSERT(extra_lits.size() > 0);
+            bool found = false;
+            if (extra_lits.get(0) != lit) {
+                SASSERT(extra_lits.size() > 1);
+                for (unsigned j = 0, sz = extra_lits.size(); !found && j < sz; ++j) {
+                    cube[i] = extra_lits.get(j);
+                    if (pt.check_inductive(lemma->level(), cube, uses_level)) {
+                        num_failures = 0;
+                        dirty = true;
+                        found = true;
+                        processed.push_back(extra_lits.get(j));
+                        for (i = 0; i < cube.size() &&
+                                 processed.contains(cube.get(i)); ++i);
+                    }
+                }
+            }
+            if (!found) {
+                cube[i] = lit;
+                processed.push_back(lit);
+                ++num_failures;
+                ++m_st.num_failures;
+                ++i;
+            }
         }
     }
-    IF_VERBOSE(2, verbose_stream() << "old size: " << old_size
-               << " new size: " << cube.size() << "\n";);
-    TRACE("spacer", tout << "old size: " << old_size
-          << " new size: " << cube.size() << "\n";);
 
-    if (old_size > cube.size()) {
-        lemma->update_cube (lemma->get_pob(), cube);
+    if (dirty) {
+        TRACE("spacer",
+               tout << "Generalized from:\n" << mk_and(lemma->get_cube())
+               << "\ninto\n" << mk_and(cube) << "\n";);
+
+        lemma->update_cube(lemma->get_pob(), cube);
         SASSERT(uses_level >= lemma->level());
         lemma->set_level(uses_level);
     }
 }
+
 void lemma_bool_inductive_generalizer::collect_statistics(statistics &st) const
 {
     st.update("time.spacer.solve.reach.gen.bool_ind", m_st.watch.get_seconds());
