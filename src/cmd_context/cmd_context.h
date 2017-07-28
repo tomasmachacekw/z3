@@ -42,6 +42,7 @@ Notes:
 
 class func_decls {
     func_decl * m_decls;
+    bool signatures_collide(func_decl* f, func_decl* g) const;
 public:
     func_decls():m_decls(0) {}
     func_decls(ast_manager & m, func_decl * f);
@@ -189,6 +190,8 @@ protected:
     svector<sf_pair>             m_func_decls_stack;
     svector<symbol>              m_psort_decls_stack;
     svector<symbol>              m_macros_stack;
+    ptr_vector<pdecl>            m_psort_inst_stack;
+
     // 
     ptr_vector<pdecl>            m_aux_pdecls;
     ptr_vector<expr>             m_assertions;
@@ -200,6 +203,7 @@ protected:
         unsigned m_psort_decls_stack_lim;
         unsigned m_macros_stack_lim;
         unsigned m_aux_pdecls_lim;
+        unsigned m_psort_inst_stack_lim;
         // only m_assertions_lim is relevant when m_global_decls = true
         unsigned m_assertions_lim;
     };
@@ -219,7 +223,7 @@ protected:
     public:
         dt_eh(cmd_context & owner);
         virtual ~dt_eh();
-        virtual void operator()(sort * dt);
+        virtual void operator()(sort * dt, pdecl* pd);
     };
 
     friend class dt_eh;
@@ -245,6 +249,7 @@ protected:
     void restore_macros(unsigned old_sz);
     void restore_aux_pdecls(unsigned old_sz);
     void restore_assertions(unsigned old_sz);
+    void restore_psort_inst(unsigned old_sz);
 
     void erase_func_decl_core(symbol const & s, func_decl * f);
     void erase_psort_decl_core(symbol const & s);
