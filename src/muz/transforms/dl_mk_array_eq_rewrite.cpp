@@ -11,7 +11,7 @@ Author:
 
     Julien Braine
 
-Revision History:   
+Revision History:
 
 --*/
 
@@ -25,7 +25,7 @@ Revision History:
 #include"fixedpoint_params.hpp"
 #include "../spacer/obj_equiv_class.h"
 
-namespace datalog { 
+namespace datalog {
 
   mk_array_eq_rewrite::mk_array_eq_rewrite(
         context & ctx, unsigned priority):
@@ -35,7 +35,7 @@ namespace datalog {
         m_a(m)
   {
   }
-  
+
   rule_set * mk_array_eq_rewrite::operator()(rule_set const & source)
   {
     src_set = &source;
@@ -66,7 +66,7 @@ namespace datalog {
       new_tail.push_back(r.get_tail(i));
     }
 
-    expr_equiv_class array_eq_classes(m);
+    spacer::expr_equiv_class array_eq_classes(m);
     for(unsigned i=nb_predicates;i<tail_size;i++)
     {
       expr* cond = r.get_tail(i);
@@ -81,10 +81,12 @@ namespace datalog {
       }
     }
 
-    for(expr_equiv_class::equiv_iterator c_eq = array_eq_classes.begin(); c_eq != array_eq_classes.end();++c_eq)
+    for(spacer::expr_equiv_class::equiv_iterator c_eq = array_eq_classes.begin();
+        c_eq != array_eq_classes.end();++c_eq)
     {
       expr* representative = *(*c_eq).begin();
-      for(expr_equiv_class::iterator it = (*c_eq).begin(); it!=(*c_eq).end(); ++it)
+      for(spacer::expr_equiv_class::iterator it = (*c_eq).begin();
+          it!=(*c_eq).end(); ++it)
       {
         if(!is_var(*it))
         {
@@ -92,12 +94,14 @@ namespace datalog {
           break;
         }
       }
-      for(expr_equiv_class::iterator it = (*c_eq).begin(); it!=(*c_eq).end(); ++it)
+      for(spacer::expr_equiv_class::iterator it = (*c_eq).begin();
+          it!=(*c_eq).end(); ++it)
       {
         for(unsigned i=0;i<new_tail.size();i++)
           new_tail[i] = replace(new_tail[i].get(), representative, *it);
       }
-      for(expr_equiv_class::iterator it = (*c_eq).begin(); it!=(*c_eq).end(); ++it)
+      for(spacer::expr_equiv_class::iterator it = (*c_eq).begin();
+          it!=(*c_eq).end(); ++it)
       {
         new_tail.push_back(m.mk_eq(*it, representative));
       }
@@ -115,7 +119,7 @@ namespace datalog {
     proof_ref pr(m);
     src_manager->mk_rule(m.mk_implies(m.mk_and(res_conjs.size(), res_conjs.c_ptr()), r.get_head()), pr, dest, r.name());
   }
-  
+
   expr* mk_array_eq_rewrite::replace(expr* e, expr* new_val, expr* old_val)
   {
     if(e==old_val)
@@ -134,4 +138,3 @@ namespace datalog {
   }
 
 }
-

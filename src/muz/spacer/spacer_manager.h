@@ -336,6 +336,10 @@ public:
         m_contexts3.reset_statistics();
     }
 };
+
+app* mk_zk_const (ast_manager &m, unsigned idx, sort *s);
+void find_zk_const(expr* e, app_ref_vector &out);
+bool has_zk_const(expr* e);
 }
 
 #endif

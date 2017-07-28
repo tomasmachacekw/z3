@@ -328,5 +328,59 @@ bool manager::try_get_state_decl_from_atom(expr * atom, func_decl *& state)
     }
 }
 
+/**
+ * Create a new skolem constant
+ */
+app* mk_zk_const(ast_manager &m, unsigned idx, sort *s) {
+    std::stringstream name;
+    name << "sk!" << idx;
+    return m.mk_const(symbol(name.str().c_str()), s);
+}
 
+namespace find_zk_const_ns {
+struct proc {
+    app_ref_vector &m_out;
+    proc (app_ref_vector &out) : m_out(out) {}
+    void operator() (var const * n) const {}
+    void operator() (app *n) const {
+        if (is_uninterp_const(n) &&
+            n->get_decl()->get_name().str().compare (0, 3, "sk!") == 0) {
+            m_out.push_back (n);
+        }
+    }
+    void operator() (quantifier const *n) const {}
 };
+}
+
+void find_zk_const(expr *e, app_ref_vector &res) {
+    find_zk_const_ns::proc p(res);
+    for_each_expr (p, e);
+}
+
+namespace has_zk_const_ns {
+struct found {};
+struct proc {
+    void operator() (var const *n) const {}
+    void operator() (app const *n) const {
+        if (is_uninterp_const(n) &&
+            n->get_decl()->get_name().str().compare(0, 3, "sk!") == 0) {
+            throw found();
+        }
+    }
+    void operator() (quantifier const *n) const {}
+};
+}
+
+
+bool has_zk_const(expr *e){
+    has_zk_const_ns::proc p;
+    try {
+        for_each_expr(p, e);
+    }
+    catch (has_zk_const_ns::found) {
+        return true;
+    }
+    return false;
+}
+
+}

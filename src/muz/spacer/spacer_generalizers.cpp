@@ -7,11 +7,12 @@ Module Name:
 
 Abstract:
 
-    Generalizers of satisfiable states and unsat cores.
+    Lemma generalizers.
 
 Author:
 
     Nikolaj Bjorner (nbjorner) 2011-11-20.
+    Arie Gurfinkel
 
 Revision History:
 
@@ -19,7 +20,6 @@ Revision History:
 
 
 #include "spacer_context.h"
-#include "spacer_farkas_learner.h"
 #include "spacer_generalizers.h"
 #include "expr_abstract.h"
 #include "var_subst.h"
@@ -27,108 +27,114 @@ Revision History:
 #include "obj_equiv_class.h"
 
 
-namespace {
-inline expr_equiv_class remove_eq_conds_tmp(expr_ref_vector& e)
-{
-    ast_manager& m = e.get_manager();
-    arith_util m_a(m);
-    expr_equiv_class eq_classes(m);
-    flatten_and(e);
-    expr_ref_vector res(m);
-    for (unsigned i = 0; i < e.size(); i++) {
-        expr*e1, *e2;
-        if (m.is_eq(e[i].get(), e1, e2)) {
-            if (m_a.is_add(e1) && e2 == m_a.mk_int(0)) {
-                app* f = to_app(e1);
-                expr*first = f->get_arg(0);
-                expr*snd = f->get_arg(1);
-                if (m_a.is_mul(snd)) {
-                    app*mult = to_app(snd);
-                    if (m_a.is_minus_one(mult->get_arg(0))) {
-                        e1 = first;
-                        e2 = mult->get_arg(1);
-                    }
-                }
-            }
-            eq_classes.merge(e1, e2);
-        } else
-        { res.push_back(e[i].get()); }
-    }
-    e.reset();
-    e.append(res);
-    return eq_classes;
-}
-}
-
 namespace spacer {
-void unsat_core_sanity_checker::operator()(model_node& n, expr_ref_vector& core, unsigned& uses_level)
-{
-    if (!n.pt().check_inductive(n.level(), core, uses_level)) {
-        verbose_stream() << "\n\nunsound core!\n";
-        SASSERT(false);
-    }
+void lemma_sanity_checker::operator()(lemma_ref &lemma) {
+    unsigned uses_level;
+    expr_ref_vector cube(lemma->get_ast_manager());
+    cube.append(lemma->get_cube());
+    ENSURE(lemma->get_pob()->pt().check_inductive(lemma->level(),
+                                                  cube, uses_level));
 }
 
 
 // ------------------------
-// core_bool_inductive_generalizer
+// lemma_bool_inductive_generalizer
+/// Inductive generalization by dropping and expanding literals
+void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
+    if (lemma->get_cube().empty()) return;
 
-// main propositional induction generalizer.
-// drop literals one by one from the core and check if the core is still inductive.
-//
-void core_bool_inductive_generalizer::operator()(model_node& n, expr_ref_vector& core, unsigned& uses_level)
-{
     m_st.count++;
     scoped_watch _w_(m_st.watch);
-    if (core.size() <= 1) {
-        return;
-    }
-    ast_manager& m = core.get_manager();
-    TRACE("spacer", for (unsigned i = 0; i < core.size(); ++i) { tout << mk_pp(core[i].get(), m) << "\n"; });
-    unsigned num_failures = 0, i = 0, old_core_size = core.size();
-    ptr_vector<expr> processed;
 
-    while (i < core.size() && 1 < core.size() && (!m_failure_limit || num_failures <= m_failure_limit)) {
+    unsigned uses_level;
+    pred_transformer &pt = lemma->get_pob()->pt();
+    ast_manager &m = pt.get_ast_manager();
+
+    expr_ref_vector cube(m);
+    cube.append(lemma->get_cube());
+
+    bool dirty = false;
+    expr_ref true_expr(m.mk_true(), m);
+    ptr_vector<expr> processed;
+    expr_ref_vector extra_lits(m);
+
+    unsigned i = 0, num_failures = 0;
+    while (i < cube.size() &&
+           (!m_failure_limit || num_failures < m_failure_limit)) {
         expr_ref lit(m);
-        lit = core[i].get();
-        core[i] = m.mk_true();
-        if (n.pt().check_inductive(n.level(), core, uses_level)) {
+        lit = cube.get(i);
+        cube[i] = true_expr;
+        if (cube.size() > 1 &&
+            pt.check_inductive(lemma->level(), cube, uses_level)) {
             num_failures = 0;
-            for (i = 0; i < core.size() && processed.contains(core[i].get()); ++i);
+            dirty = true;
+            for (i = 0; i < cube.size() &&
+                     processed.contains(cube.get(i)); ++i);
         } else {
-            core[i] = lit;
-            processed.push_back(lit);
-            ++num_failures;
-            m_st.num_failures++;
-            ++i;
+            // check if the literal can be expanded and any single
+            // literal in the expansion can replace it
+            extra_lits.reset();
+            extra_lits.push_back(lit);
+            expand_literals(m, extra_lits);
+            SASSERT(extra_lits.size() > 0);
+            bool found = false;
+            if (extra_lits.get(0) != lit) {
+                SASSERT(extra_lits.size() > 1);
+                for (unsigned j = 0, sz = extra_lits.size(); !found && j < sz; ++j) {
+                    cube[i] = extra_lits.get(j);
+                    if (pt.check_inductive(lemma->level(), cube, uses_level)) {
+                        num_failures = 0;
+                        dirty = true;
+                        found = true;
+                        processed.push_back(extra_lits.get(j));
+                        for (i = 0; i < cube.size() &&
+                                 processed.contains(cube.get(i)); ++i);
+                    }
+                }
+            }
+            if (!found) {
+                cube[i] = lit;
+                processed.push_back(lit);
+                ++num_failures;
+                ++m_st.num_failures;
+                ++i;
+            }
         }
     }
-    IF_VERBOSE(2, verbose_stream() << "old size: " << old_core_size << " new size: " << core.size() << "\n";);
-    TRACE("spacer", tout << "old size: " << old_core_size << " new size: " << core.size() << "\n";);
+
+    if (dirty) {
+        TRACE("spacer",
+               tout << "Generalized from:\n" << mk_and(lemma->get_cube())
+               << "\ninto\n" << mk_and(cube) << "\n";);
+
+        lemma->update_cube(lemma->get_pob(), cube);
+        SASSERT(uses_level >= lemma->level());
+        lemma->set_level(uses_level);
+    }
 }
-void core_bool_inductive_generalizer::collect_statistics(statistics &st) const
+
+void lemma_bool_inductive_generalizer::collect_statistics(statistics &st) const
 {
     st.update("time.spacer.solve.reach.gen.bool_ind", m_st.watch.get_seconds());
     st.update("bool inductive gen", m_st.count);
     st.update("bool inductive gen failures", m_st.num_failures);
 }
 
-void unsat_core_generalizer::operator()(model_node &n, expr_ref_vector &core, unsigned& uses_level)
+void unsat_core_generalizer::operator()(lemma_ref &lemma)
 {
     m_st.count++;
     scoped_watch _w_(m_st.watch);
-    ast_manager &m = core.get_manager();
+    ast_manager &m = lemma->get_ast_manager();
 
-    expr_ref lemma(m);
-    lemma = mk_and(core);
-    lemma = mk_not(m, lemma);
+    pred_transformer &pt = lemma->get_pob()->pt();
 
-    unsigned old_sz = core.size();
-    unsigned old_level = uses_level;
-    core.reset();
+    unsigned old_sz = lemma->get_cube().size();
+    unsigned old_level = lemma->level();
 
+    unsigned uses_level;
+    expr_ref_vector core(m);
     bool r;
-    r = n.pt().is_invariant(n.level(), lemma, uses_level, &core);
+    r = pt.is_invariant(lemma->level(), lemma->get_expr(), uses_level, &core);
     SASSERT(r);
 
     CTRACE("spacer", old_sz > core.size(),
@@ -137,6 +143,10 @@ void unsat_core_generalizer::operator()(model_node &n, expr_ref_vector &core, un
     CTRACE("spacer", old_level < uses_level,
            tout << "unsat core moved lemma up from: "
            << old_level << " to " << uses_level << "\n";);
+    if (old_sz > core.size()) {
+        lemma->update_cube(lemma->get_pob(), core);
+        lemma->set_level(uses_level);
+    }
 }
 
 void unsat_core_generalizer::collect_statistics(statistics &st) const
@@ -168,19 +178,21 @@ public:
 };
 }
 
-void core_array_eq_generalizer::operator()
-(model_node &n, expr_ref_vector& core, unsigned &uses_level)
+void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
 {
     TRACE("core_array_eq", tout << "Looking for equalities\n";);
 
     // -- find array constants
-    ast_manager &m = m_ctx.get_ast_manager();
+    ast_manager &m = lemma->get_ast_manager();
     manager &pm = m_ctx.get_manager();
 
+    expr_ref_vector core(m);
     expr_ref v(m);
-    v = pm.mk_and(core);
     func_decl_set symb;
     collect_array_proc cap(m, symb);
+
+    core.append (lemma->get_cube());
+    v = mk_and(core);
     for_each_expr(cap, v);
 
     TRACE("core_array_eq",
@@ -204,7 +216,8 @@ void core_array_eq_generalizer::operator()
 
     for (unsigned i = 0, sz = vsymbs.size(); i < sz; ++i)
         for (unsigned j = i + 1; j < sz; ++j)
-        { eqs.push_back(m.mk_eq(m.mk_const(vsymbs.get(i)), m.mk_const(vsymbs.get(j)))); }
+        { eqs.push_back(m.mk_eq(m.mk_const(vsymbs.get(i)),
+                                m.mk_const(vsymbs.get(j)))); }
 
     smt::kernel solver(m, m_ctx.get_manager().fparams2());
     expr_ref_vector lits(m);
@@ -249,34 +262,33 @@ void core_array_eq_generalizer::operator()
           << mk_pp(pm.mk_and(lits), m) << "\n";);
 
 
+    pred_transformer &pt = lemma->get_pob()->pt();
     // -- check if it is consistent with the transition relation
     unsigned uses_level1;
-    if (n.pt().check_inductive(n.level(), lits, uses_level1)) {
+    if (pt.check_inductive(lemma->level(), lits, uses_level1)) {
         TRACE("core_array_eq", tout << "Inductive!\n";);
-        core.reset();
-        core.append(lits);
-        uses_level = uses_level1;
+        lemma->update_cube(lemma->get_pob(),lits);
+        lemma->set_level(uses_level1);
         return;
     } else
     { TRACE("core_array_eq", tout << "Not-Inductive!\n";);}
 }
 
-void core_eq_generalizer::operator()
-(model_node &n, expr_ref_vector& core, unsigned &uses_level)
+void lemma_eq_generalizer::operator() (lemma_ref &lemma)
 {
     TRACE("core_eq", tout << "Transforming equivalence classes\n";);
 
     ast_manager &m = m_ctx.get_ast_manager();
-    expr_equiv_class eq_classes(remove_eq_conds_tmp(core));
-    for (expr_equiv_class::equiv_iterator eq_c = eq_classes.begin(); eq_c != eq_classes.end(); ++eq_c) {
-        unsigned nb_elem = 0;
-        for (expr_equiv_class::iterator a = (*eq_c).begin(); a != (*eq_c).end(); ++a) {
-            nb_elem++;
-            expr_equiv_class::iterator b(a);
-            for (++b; b != (*eq_c).end(); ++b) {
-                core.push_back(m.mk_eq(*a, *b));
-            }
-        }
+    expr_ref_vector core(m);
+    core.append (lemma->get_cube());
+
+    bool dirty;
+    expr_equiv_class eq_classes(m);
+    factor_eqs(core, eq_classes);
+    // create all possible equalities to allow for simple inductive generalization
+    dirty = equiv_to_expr_full(eq_classes, core);
+    if (dirty) {
+        lemma->update_cube(lemma->get_pob(), core);
     }
 }
 };

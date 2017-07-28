@@ -12,7 +12,7 @@ Author:
 
     Julien Braine
 
-Revision History:   
+Revision History:
 
 --*/
 
@@ -26,7 +26,7 @@ Revision History:
 #include"fixedpoint_params.hpp"
 #include "../spacer/obj_equiv_class.h"
 
-namespace datalog { 
+namespace datalog {
 
   mk_array_instantiation::mk_array_instantiation(
         context & ctx, unsigned priority):
@@ -38,7 +38,7 @@ namespace datalog {
         ownership(m)
   {
   }
-  
+
   rule_set * mk_array_instantiation::operator()(rule_set const & source)
   {
     std::cout<<"Array Instantiation called with parameters :"
@@ -178,7 +178,7 @@ namespace datalog {
     for(unsigned i=0;i<n_args.size(); i++)
     {
       if(m_a.is_select(n_args[i]))
-      { 
+      {
         app*select = to_app(n_args[i]);
         for(unsigned j=1;j<select->get_num_args();j++)
         {
@@ -199,7 +199,7 @@ namespace datalog {
       if(m_a.is_select(new_args[i].get()))
       {
         new_args[i] = mk_select_var(new_args[i].get());
-      } 
+      }
     }
     sort_ref_vector new_sorts(m);
     for(unsigned i=0;i<new_args.size();i++)
@@ -244,7 +244,8 @@ namespace datalog {
   expr_ref_vector mk_array_instantiation::retrieve_all_selects(expr*array)
   {
     expr_ref_vector all_selects(m);
-    for(expr_equiv_class::iterator it = eq_classes.begin(array); it != eq_classes.end(array); ++it)
+    for(spacer::expr_equiv_class::iterator it = eq_classes.begin(array);
+        it != eq_classes.end(array); ++it)
     {
       selects.insert_if_not_there(*it, ptr_vector<expr>());
       ptr_vector<expr>& select_ops = selects[*it];
@@ -262,7 +263,7 @@ namespace datalog {
         dummy_args.push_back(m.mk_var(cnt, get_array_domain(get_sort(array), i)));
         cnt++;
       }
-      all_selects.push_back(m_a.mk_select(dummy_args.size(), dummy_args.c_ptr()));  
+      all_selects.push_back(m_a.mk_select(dummy_args.size(), dummy_args.c_ptr()));
     }
     return all_selects;
   }
@@ -270,7 +271,7 @@ namespace datalog {
 
   expr_ref_vector mk_array_instantiation::instantiate_pred(app*old_pred)
   {
-    
+
     unsigned nb_old_args=old_pred->get_num_args();
     //Stores, for each old position, the list of a new possible arguments
     vector<expr_ref_vector> arg_correspondance;
@@ -296,9 +297,9 @@ namespace datalog {
       }
     }
     //Now, we need to deal with every combination
-   
+
     expr_ref_vector res(m);
-   
+
     svector<unsigned> chosen(arg_correspondance.size(), 0u);
     while(1)
     {
@@ -321,4 +322,3 @@ namespace datalog {
     }
   }
 }
-	
