@@ -12,7 +12,7 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2011-11-26.
-
+    Arie Gurfinkel
 Revision History:
 
 --*/

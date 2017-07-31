@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2011 Microsoft Corporation
+Copyright (c) 2017 Microsoft Corporation and Arie Gurfinkel
 
 Module Name:
 
@@ -11,7 +11,6 @@ Abstract:
 
 Author:
 
-    Krystof Hoder (t-khoder) 2011-9-22.
 
 Revision History:
 

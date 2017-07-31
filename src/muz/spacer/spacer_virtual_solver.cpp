@@ -1,3 +1,22 @@
+/**
+Copyright (c) 2017 Arie Gurfinkel
+
+Module Name:
+
+    spacer_virtual_solver.cpp
+
+Abstract:
+
+   multi-solver view of a single smt::kernel
+
+Author:
+
+    Arie Gurfinkel
+
+Notes:
+
+--*/
+
 #include "spacer_virtual_solver.h"
 #include "ast_util.h"
 #include "ast_pp_util.h"

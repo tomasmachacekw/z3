@@ -1,5 +1,5 @@
-/*++
-Copyright (c) 2011 Microsoft Corporation
+/**++
+Copyright (c) 2017 Microsoft Corporation and Arie Gurfinkel
 
 Module Name:
 
@@ -7,17 +7,16 @@ Module Name:
 
 Abstract:
 
-    SPACER for datalog
+    SPACER predicate transformers and search context.
 
 Author:
 
-    Anvesh Komuravelli
     Arie Gurfinkel
+    Anvesh Komuravelli
 
-Revision History:
+    Based on muz/pdr/pdr_context.h by Nikolaj Bjorner (nbjorner)
 
-    Based on ../pdr/pdr_context.h by
-     Nikolaj Bjorner (nbjorner)
+Notes:
 
 --*/
 

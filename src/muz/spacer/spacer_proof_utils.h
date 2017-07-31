@@ -1,3 +1,20 @@
+/*++
+Copyright (c) 2017 Arie Gurfinkel
+
+Module Name:
+
+    spacer_proof_utils.cpp
+
+Abstract:
+    Utilities to traverse and manipulate proofs
+
+Author:
+    Bernhard Gleiss
+    Arie Gurfinkel
+
+Revision History:
+
+--*/
 
 #ifndef _SPACER_PROOF_UTILS_H_
 #define _SPACER_PROOF_UTILS_H_

@@ -1,4 +1,11 @@
-// Included from the middle of spacer_context.h
+/**++
+  Copyright (c) 2017 Arie Gurfinkel
+
+  Legacy implementations of frames. To be removed.
+
+  Notes: this file is included from the middle of spacer_context.h
+*/
+
 class legacy_frames
 {
     pred_transformer &m_pt;

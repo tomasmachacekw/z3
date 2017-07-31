@@ -1,26 +1,5 @@
 /*++
-Spacer
-Copyright (c) 2015 Carnegie Mellon University.
-All Rights Reserved.
-
-THIS SOFTWARE IS PROVIDED "AS IS," WITH NO WARRANTIES
-WHATSOEVER. CARNEGIE MELLON UNIVERSITY EXPRESSLY DISCLAIMS TO THE
-FULLEST EXTENT PERMITTEDBY LAW ALL EXPRESS, IMPLIED, AND STATUTORY
-WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
-NON-INFRINGEMENT OF PROPRIETARY RIGHTS.
-
-Released under a modified MIT license, please see SPACER_LICENSE.txt
-for full terms.  DM-0002483
-
-Spacer includes and/or makes use of the following Third-Party Software
-subject to its own license:
-
-Z3
-Copyright (c) Microsoft Corporation
-All rights reserved.
-
-Released under the MIT License (LICENSE.txt)
+Copyright (c) 2017 Arie Gurfinkel
 
 Module Name:
 
@@ -32,7 +11,7 @@ Abstract:
 
 Author:
 
-    Arie Gurfinkel (arie) 2016-03-16
+    Arie Gurfinkel (arie)
 
 Notes:
 
@@ -54,10 +33,10 @@ extern "C" {
 
         \code
            query ::= (exists (bound-vars) query)
-                 |  literals 
+                 |  literals
         \endcode
 
-        query returns 
+        query returns
         - Z3_L_FALSE if the query is unsatisfiable.
         - Z3_L_TRUE if the query is satisfiable. Obtain the answer by calling #Z3_fixedpoint_get_answer.
         - Z3_L_UNDEF if the query was interrupted, timed out or otherwise failed.
@@ -72,7 +51,7 @@ extern "C" {
        The previous call to Z3_fixedpoint_query must have returned Z3_L_TRUE.
 
        def_API('Z3_fixedpoint_get_ground_sat_answer', AST, (_in(CONTEXT), _in(FIXEDPOINT)))
-    */    
+    */
     Z3_ast Z3_API Z3_fixedpoint_get_ground_sat_answer(Z3_context c,Z3_fixedpoint d);
 
     /**
@@ -98,8 +77,8 @@ extern "C" {
        def_API('Z3_fixedpoint_add_invariant', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(FUNC_DECL), _in(AST)))
     */
     void Z3_API Z3_fixedpoint_add_invariant(Z3_context c, Z3_fixedpoint d, Z3_func_decl pred, Z3_ast property);
-  
-  
+
+
     /**
        Retrieve reachable states of a predicate.
        Note: this functionality is Spacer specific.
@@ -113,7 +92,7 @@ extern "C" {
 
        def_API('Z3_qe_model_project', AST, (_in(CONTEXT), _in(MODEL), _in(UINT), _in_array(2, APP), _in(AST)))
     */
-    Z3_ast Z3_API Z3_qe_model_project 
+    Z3_ast Z3_API Z3_qe_model_project
       (Z3_context c,
        Z3_model m,
        unsigned num_bounds,
@@ -139,21 +118,21 @@ extern "C" {
 
        def_API('Z3_model_extrapolate', AST, (_in(CONTEXT), _in(MODEL), _in(AST)))
     */
-    Z3_ast Z3_API Z3_model_extrapolate 
+    Z3_ast Z3_API Z3_model_extrapolate
       (Z3_context c,
        Z3_model m,
        Z3_ast fml);
 
     /**
        \brief Best-effort quantifier elimination
-       
+
        def_API ('Z3_qe_lite', AST, (_in(CONTEXT), _in(AST_VECTOR), _in(AST)))
     */
-    Z3_ast Z3_qe_lite 
+    Z3_ast Z3_qe_lite
       (Z3_context c,
        Z3_ast_vector vars,
        Z3_ast body);
-  
+
     /*@}*/
     /*@}*/
 
@@ -162,4 +141,3 @@ extern "C" {
 #endif // __cplusplus
 
 #endif
-

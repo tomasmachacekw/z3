@@ -1,3 +1,21 @@
+/*++
+Copyright (c) 2017 Arie Gurfinkel
+
+Module Name:
+
+    spacer_proof_utils.cpp
+
+Abstract:
+    Utilities to traverse and manipulate proofs
+
+Author:
+    Bernhard Gleiss
+    Arie Gurfinkel
+
+Revision History:
+
+--*/
+
 #include "spacer_proof_utils.h"
 #include "ast_util.h"
 #include "ast_pp.h"
@@ -312,4 +330,3 @@ void reduce_hypotheses(proof_ref &pr)
               );
 }
 }
-

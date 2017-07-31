@@ -1,5 +1,5 @@
 /*++
-
+Copyright (c) 2017 Arie Gurfinkel
 Module Name:
 
    spacer_marshal.h

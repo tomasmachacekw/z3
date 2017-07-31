@@ -12,7 +12,7 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2011-11-26.
-
+    Arie Gurfinkel
 Revision History:
 
 --*/
@@ -77,4 +77,3 @@ void smt_context_manager::reset_statistics()
 
 
 };
-

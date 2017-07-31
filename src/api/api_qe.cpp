@@ -1,3 +1,22 @@
+/*++
+Copyright (c) 2017 Arie Gurfinkel
+
+Module Name:
+
+    api_qe.cpp
+
+Abstract:
+
+    Model-based Projection (MBP) and Quantifier Elimination (QE) API
+
+Author:
+
+    Arie Gurfinkel (arie)
+
+Notes:
+
+--*/
+
 #include <iostream>
 #include "z3.h"
 #include "api_log_macros.h"

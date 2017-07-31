@@ -1,3 +1,8 @@
+/**
+Copyright (c) 2017 Arie Gurfinkel
+
+ Deprecated implementation of model evaluator. To be removed.
+*/
 #ifndef OLD_MEV_H
 #define OLD_MEV_H
 

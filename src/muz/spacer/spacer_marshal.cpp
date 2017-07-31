@@ -1,3 +1,14 @@
+/*++
+Copyright (c) 2017 Arie Gurfinkel
+Module Name:
+
+   spacer_marshal.cpp
+
+Abstract:
+
+   marshaling and unmarshaling of expressions
+
+   --*/
 #include "spacer_marshal.h"
 
 #include <sstream>

@@ -1,3 +1,20 @@
+/*++
+Copyright (c) 2017 Arie Gurfinkel
+
+Module Name:
+
+    spacer_unsat_core_plugin.cpp
+
+Abstract:
+   plugin for itp cores
+
+Author:
+    Bernhard Gleiss
+
+Revision History:
+
+
+--*/
 #include "spacer_unsat_core_plugin.h"
 
 #include "spacer_unsat_core_learner.h"

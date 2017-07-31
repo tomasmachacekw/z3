@@ -1,3 +1,8 @@
+/*
+  Copyright (c) 2017 Arie Gurfinkel
+
+  Legacy implementations of frames. To be removed.
+ */
 #include "spacer_context.h"
 #include <sstream>
 #include <iomanip>

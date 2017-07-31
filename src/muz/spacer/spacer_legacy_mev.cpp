@@ -1,3 +1,9 @@
+/**
+Copyright (c) 2017 Arie Gurfinkel
+
+ Deprecated implementation of model evaluator. To be removed.
+*/
+
 #include <sstream>
 #include "arith_simplifier_plugin.h"
 #include "array_decl_plugin.h"
@@ -829,4 +835,3 @@ expr_ref model_evaluator::eval(const model_ref& model, expr* e)
 
 
 }
-
