@@ -2607,7 +2607,7 @@ namespace pdr {
         
         expr_ref n_cube(m);
 
-        bool r_to_l = (m_params.order_children() == 0);
+        bool r_to_l = 1; //(m_params.order_children() == 0);
         ptr_vector<func_decl>::iterator it;
         for (ptr_vector<func_decl>::iterator fwd_it = preds.begin ();
                 fwd_it != preds.end (); fwd_it++) {
