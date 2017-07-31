@@ -3,7 +3,7 @@ Copyright (c) 2011 Microsoft Corporation
 
 Module Name:
 
-    model_evaluator_array.cpp
+    model_mev_array.cpp
 
 Abstract:
 
@@ -18,7 +18,7 @@ Revision History:
 #include"model_evaluator_params.hpp"
 #include"rewriter_types.h"
 #include"model_evaluator.h"
-#include"model_evaluator_array.h"
+#include"spacer_mev_array.h"
 #include"bool_rewriter.h"
 #include"arith_rewriter.h"
 #include"bv_rewriter.h"
@@ -79,7 +79,7 @@ bool model_evaluator_array_util::extract_array_func_interp(model& mdl, expr* a, 
             }
             eval_exprs(mdl, store);
             stores.push_back(store);
-        }        
+        }
         else_case = g->get_else();
         if (!else_case) {
             TRACE("model_evaluator", tout << "no else case " << mk_pp(a, m) << "\n";);
@@ -130,8 +130,8 @@ void model_evaluator_array_util::eval_array_eq(model& mdl, app* e, expr* arg1, e
 
     if (else1 != else2) {
         if (m.is_value(else1) && m.is_value(else2)) {
-            TRACE("model_evaluator", tout 
-                    << "defaults are different: " << mk_pp(e, m) << " " 
+            TRACE("model_evaluator", tout
+                    << "defaults are different: " << mk_pp(e, m) << " "
                     << mk_pp(else1, m) << " " << mk_pp(else2, m) << "\n";);
             res = m.mk_false ();
         }
@@ -145,10 +145,10 @@ void model_evaluator_array_util::eval_array_eq(model& mdl, app* e, expr* arg1, e
         return;
     }
 
-    expr_ref s1(m), s2(m), w1(m), w2(m);        
+    expr_ref s1(m), s2(m), w1(m), w2(m);
     expr_ref_vector args1(m), args2(m);
     args1.push_back(v1);
-    args2.push_back(v2);        
+    args2.push_back(v2);
     for (unsigned i = 0; i < store.size(); ++i) {
         args1.resize(1);
         args2.resize(1);
@@ -162,7 +162,7 @@ void model_evaluator_array_util::eval_array_eq(model& mdl, app* e, expr* arg1, e
             continue;
         }
         if (m.is_value(w1) && m.is_value(w2)) {
-            TRACE("model_evaluator", tout << "Equality evaluation: " << mk_pp(e, m) << "\n"; 
+            TRACE("model_evaluator", tout << "Equality evaluation: " << mk_pp(e, m) << "\n";
                     tout << mk_pp(s1, m) << " |-> " << mk_pp(w1, m) << "\n";
                     tout << mk_pp(s2, m) << " |-> " << mk_pp(w2, m) << "\n";);
             res = m.mk_false ();
@@ -215,4 +215,3 @@ void model_evaluator_array_util::eval(model& mdl, expr* e, expr_ref& r, bool mod
     }
     return;
 }
-

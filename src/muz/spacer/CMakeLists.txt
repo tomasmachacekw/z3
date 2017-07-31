@@ -21,6 +21,8 @@ z3_add_component(spacer
   spacer_matrix.cpp
   spacer_min_cut.cpp
   spacer_antiunify.cpp
+  spacer_mev_array.cpp
+  spacer_qe_project.cpp
   COMPONENT_DEPENDENCIES
   arith_tactics
   core_tactics

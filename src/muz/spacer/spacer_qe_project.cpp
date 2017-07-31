@@ -1,26 +1,27 @@
 /*++
-Copyright (c) 2010 Microsoft Corporation
+Copyright (c) 2010 Microsoft Corporation and Arie Gurfinkel
 
 Module Name:
 
-    qe_arith.cpp
+    spacer_qe_project.cpp
 
 Abstract:
 
     Simple projection function for real arithmetic based on Loos-W.
+    Projection functions for arrays based on MBP
 
 Author:
 
     Nikolaj Bjorner (nbjorner) 2013-09-12
+    Anvesh Komuravelli
+    Arie Gurfinkel
 
 Revision History:
-
-    Modified by Anvesh Komuravelli
 
 
 --*/
 
-#include "qe_project.h"
+#include "spacer_qe_project.h"
 #include "qe_vartest.h"
 #include "qe.h"
 #include "arith_decl_plugin.h"
@@ -33,7 +34,7 @@ Revision History:
 #include "expr_safe_replace.h"
 #include "model_evaluator.h"
 #include "qe_lite.h"
-#include "model_evaluator_array.h"
+#include "spacer_mev_array.h"
 
 namespace
 {
@@ -79,7 +80,7 @@ public:
 
     void mk_eq (app_ref_vector& aux_consts, app_ref& result, bool stores_on_rhs = true);
 };
-                    
+
 const char* peq::PARTIAL_EQ = "partial_eq";
 
 peq::peq (app* p, ast_manager& m):
@@ -193,7 +194,7 @@ namespace qe {
     class mk_atom_default : public i_nnf_atom {
     public:
         virtual void operator()(expr* e, bool pol, expr_ref& result) {
-            if (pol) result = e; 
+            if (pol) result = e;
             else result = result.get_manager().mk_not(e);
         }
     };
@@ -258,7 +259,7 @@ namespace qe {
             expr* e1, *e2;
             c.reset();
             sort* s;
-            expr_ref_vector ts(m);            
+            expr_ref_vector ts(m);
             bool is_not = m.is_not(lit, lit);
             rational mul(1);
             if (is_not) {
@@ -392,7 +393,7 @@ namespace qe {
                         }
                         else {
                             ++num_neg;
-                        }                    
+                        }
                     }
                 }
                 else return false;
@@ -649,7 +650,7 @@ namespace qe {
                     x_term_val = a.mk_numeral (mod (lcm_coeffs * var_val_num, lcm_divs),
                                                a.mk_int ());
                     TRACE ("qe",
-                            tout << "Substitution for (lcm_coeffs * x): "  
+                            tout << "Substitution for (lcm_coeffs * x): "
                                  << mk_pp (x_term_val, m) << "\n";
                           );
                 }
@@ -662,7 +663,7 @@ namespace qe {
                         new_lit = a.mk_add (m_terms.get (i), x_term_val);
                       else
                         new_lit = a.mk_add (m_terms.get (i), a.mk_uminus (x_term_val));
-                      
+
                       // XXX Our handling of divisibility constraints is very fragile.
                       // XXX Rewrite before applying divisibility to preserve syntactic structure
                       m_rw(new_lit);
@@ -875,7 +876,7 @@ namespace qe {
             m_rw(result1, result2);
             return result2;
         }
-        
+
         // ax + t = 0
         // bx + s <= 0
         // replace equality by (-t/a == -s/b), or, as = bt
@@ -1166,7 +1167,7 @@ namespace qe {
         }
 
     public:
-        arith_project_util(ast_manager& m): 
+        arith_project_util(ast_manager& m):
             m(m), a(m), m_rw(m), m_lits (m), m_terms (m) {}
 
         // OLD AND UNUSED INTERFACE
@@ -1217,7 +1218,7 @@ namespace qe {
                     model_pp (tout, mdl);
                     tout << "\n";
                   );
-            
+
             factor_mod_terms (fml, vars, mdl);
 
             TRACE ("qe",
@@ -1691,7 +1692,7 @@ namespace qe {
             }
 
             SASSERT (true_eqs.size () == nds.size ());
-            
+
             // sort true_eqs according to nesting depth
             // use insertion sort
             for (unsigned i = 1; i < num_true_eqs; i++) {
@@ -1781,10 +1782,10 @@ namespace qe {
                 TRACE ("qe",
                         tout << "projecting equalities on variable: " << mk_pp (m_v, m) << "\n";
                       );
-                
+
                 if (project (fml)) {
                     mk_result (fml);
-                    
+
                     contains_app contains_v (m, m_v);
                     if (!m_subst_term_v || contains_v (m_subst_term_v)) {
                         rem_arr_vars.push_back (m_v);
@@ -1880,7 +1881,7 @@ namespace qe {
                     expr *narg = 0;
 
                     if (!is_app (arg)) args.push_back (arg);
-                    else if (m_cache.find (arg, narg)) { 
+                    else if (m_cache.find (arg, narg)) {
                         args.push_back (narg);
                         dirty |= (arg != narg);
                         if (!args_have_stores && has_stores (narg)) {
@@ -1952,7 +1953,7 @@ namespace qe {
             lits.append (m_idx_lits);
             lits.push_back (fml);
             fml = m.mk_and (lits.size (), lits.c_ptr ());
-            // simplify all trivial expressions introduced 
+            // simplify all trivial expressions introduced
             m_rw (fml);
 
             TRACE ("qe",

@@ -65,7 +65,7 @@ Notes:
 #include "smt_value_sort.h"
 #include "proof_utils.h"
 #include "scoped_proof.h"
-#include "qe_project.h"
+#include "spacer_qe_project.h"
 #include "blast_term_ite_tactic.h"
 
 #include "timeit.h"

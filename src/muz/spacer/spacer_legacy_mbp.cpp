@@ -59,7 +59,7 @@ Notes:
 #include "model_smt2_pp.h"
 #include "scoped_proof.h"
 #include "qe_lite.h"
-#include "qe_project.h"
+#include "spacer_qe_project.h"
 #include "model_pp.h"
 #include "expr_safe_replace.h"
 

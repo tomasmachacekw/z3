@@ -32,7 +32,7 @@ Revision History:
 #include "bv_decl_plugin.h"
 
 #include "model_evaluator.h"
-#include "model_evaluator_array.h"
+#include "muz/spacer/spacer_mev_array.h"
 #include "th_rewriter.h"
 
 class model;

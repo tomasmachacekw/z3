@@ -3,7 +3,7 @@ Copyright (c) 2011 Microsoft Corporation
 
 Module Name:
 
-    model_evaluator_array.h
+    spacer_mev_array.h
 
 Abstract:
 
@@ -11,12 +11,12 @@ Abstract:
 
 Author:
    based on model_evaluator in muz/pdr/pdr_util.h
-   
+
 Revision History:
 
 --*/
-#ifndef _MODEL_EVALUATOR_ARRAY_H_
-#define _MODEL_EVALUATOR_ARRAY_H_
+#ifndef _SPACER_MEV_ARRAY_H_
+#define _SPACER_MEV_ARRAY_H_
 
 #include"ast.h"
 #include"rewriter_types.h"
@@ -50,4 +50,3 @@ public:
 };
 
 #endif
-

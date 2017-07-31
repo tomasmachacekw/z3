@@ -1,6 +1,24 @@
+/*++
+Copyright (c) 2017 Arie Gurfinkel
 
-#ifndef __QE_ARITH_H_
-#define __QE_ARITH_H_
+Module Name:
+
+    spacer_qe_project.h
+
+Abstract:
+
+    Model-based projection
+
+Author:
+
+    Anvesh Komuravelli
+    Arie Gurfinkel (arie)
+
+Notes:
+
+--*/
+#ifndef SPACER_QE_PROJECT_H_
+#define SPACER_QE_PROJECT_H_
 
 #include "model.h"
 #include "expr_map.h"
