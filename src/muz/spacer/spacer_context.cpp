@@ -717,7 +717,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
                     expr_ref a(m);
                     pm.formula_n2o (pt.get_last_reach_case_var (), a, i);
                     reach_assumps.push_back (m.mk_not (a));
-                } else if (ctx.get_params().init_reach_facts()) {
+                } else if (ctx.get_params().spacer_init_reach_facts()) {
                     reach_assumps.push_back (m.mk_not (it->m_key));
                     break;
                 }
@@ -2183,7 +2183,7 @@ void context::init_lemma_generalizers(datalog::rule_set& rules)
         m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer, *this, 0));
     }
 
-    if (m_params.use_array_eq_generalizer()) {
+    if (m_params.spacer_use_array_eq_generalizer()) {
         m_lemma_generalizers.push_back(alloc(lemma_array_eq_generalizer, *this));
     }
 
@@ -2596,7 +2596,7 @@ lbool context::solve_core (unsigned from_lvl)
     pob *root = m_query->mk_pob(nullptr,from_lvl,0,m.mk_true());
     m_pob_queue.set_root (*root);
 
-    unsigned max_level = get_params ().pdr_max_level ();
+    unsigned max_level = get_params ().spacer_max_level ();
 
     for (unsigned i = 0; i < max_level; ++i) {
         checkpoint();
@@ -2605,7 +2605,7 @@ lbool context::solve_core (unsigned from_lvl)
 
         if (check_reachability()) { return l_true; }
 
-        if (lvl > 0 && !get_params ().pdr_skip_propagate ())
+        if (lvl > 0 && !get_params ().spacer_skip_propagate ())
             if (propagate(m_expanded_lvl, lvl, UINT_MAX)) { return l_false; }
 
         m_pob_queue.inc_level ();
@@ -2639,7 +2639,7 @@ bool context::check_reachability ()
 
     pob_ref last_reachable;
 
-    if (get_params().reset_obligation_queue()) { m_pob_queue.reset(); }
+    if (get_params().spacer_reset_obligation_queue()) { m_pob_queue.reset(); }
 
     unsigned initial_size = m_stats.m_num_lemmas;
     unsigned threshold = m_restart_initial_threshold;
@@ -2988,7 +2988,7 @@ lbool context::expand_node(pob& n)
         if (v) { m_stats.m_num_lemmas++; }
 
         // Optionally update the node to be the negation of the lemma
-        if (v && get_params().use_lemma_as_cti()) {
+        if (v && get_params().spacer_use_lemma_as_cti()) {
             n.new_post (mk_and(lemma->get_cube()));
             n.set_farkas_generalizer (false);
         }
@@ -3272,7 +3272,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     derivation *deriv = alloc (derivation, n, r, phi1, vars);
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) {
         unsigned j;
-        if (get_params ().order_children () == 1)
+        if (get_params ().spacer_order_children () == 1)
             // -- reverse order
         { j = sz - i - 1; }
         else
@@ -3302,7 +3302,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     kid->set_derivation (deriv);
 
     // Optionally disable derivation optimization
-    if (!get_params().use_derivations()) { kid->reset_derivation(); }
+    if (!get_params().spacer_use_derivations()) { kid->reset_derivation(); }
 
     // -- deriviation is abstract if the current weak model does
     // -- not satisfy 'T && phi'. It is possible to recover from

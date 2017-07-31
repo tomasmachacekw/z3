@@ -8,25 +8,25 @@ import threading
 
 profiles = {
     ## skip propagation but drive the search as deep as possible
-    'bmc': ['--skip-propagate', '--use-heavy-mev', 
-            '--flexible-trace', '--keep-obligations', 
-            '--no-elim-aux'], 
+    'bmc': ['--skip-propagate',
+            '--flexible-trace', '--keep-obligations',
+            '--no-elim-aux'],
     ## default mode. Eventually this will be the best option to start with
-    'def': ['--use-heavy-mev', '--keep-obligations',
+    'def': ['--keep-obligations',
             '--flexible-trace', '--no-elim-aux'],
     ## inspired by IC3: there is a priority queue, but it is reset
     ## between propagations
-    'ic3': ['--use-heavy-mev', '--flexible-trace', '--no-elim-aux'],
-    ## inspired by gpdr: no priority queue. 
-    'gpdr': ['--use-heavy-mev', '--no-elim-aux'],
+    'ic3': ['--flexible-trace', '--no-elim-aux'],
+    ## inspired by gpdr: no priority queue.
+    'gpdr': ['--no-elim-aux'],
     ## options used for cav'15 paper
-    'cav15': ['--use-heavy-mev', '--keep-obligations',
+    'cav15': ['--keep-obligations',
               '--flexible-trace'],
-	
+
     ## three nodes in the spacer job each assigned a differnt profile
     'trifecta': ['--jobsize','3','--distprofile', 'def,ic3,gpdr'],
     'trifectar1k': ['--jobsize','3','--distprofile', 'def,ic3,gpdr', '--restart', '1000'],
-    
+
     ## use distributed mode CLI, but not running distributed, use just one node
     'solodistdef': ['--jobsize','1','--distprofile', 'def'],
     'solodistgpdr': ['--jobsize','1','--distprofile', 'gpdr'],
@@ -40,7 +40,7 @@ profiles = {
     'solodist5cpugpdr': ['--jobsize','1','--distprofile', 'gpdr'],
     'solodist5cpuic3': ['--jobsize','1','--distprofile', 'ic3'],
 
-    # solo distributed variants with restarts 
+    # solo distributed variants with restarts
     'solodistdefr1k': ['--jobsize','1','--distprofile', 'def', '--restart','1000'],
     'solodistgpdr1k': ['--jobsize','1','--distprofile', 'gpdr', '--restart','1000'],
     'solodistic3r1k': ['--jobsize','1','--distprofile', 'ic3', '--restart','1000'],
@@ -62,13 +62,13 @@ profiles = {
 def parseArgs (argv):
     import argparse as a
     p = a.ArgumentParser (description='Z3 Datalog Frontend')
-    
+
     p.add_argument ('file', metavar='BENCHMARK', help='Benchmark file')
-    p.add_argument ('--slice', 
-                    help='Enable slicing', 
+    p.add_argument ('--slice',
+                    help='Enable slicing',
                     action='store_true', default=False)
-    p.add_argument ('--inline', 
-                    help='Enable inlining', 
+    p.add_argument ('--inline',
+                    help='Enable inlining',
                     action='store_true', default=False)
     p.add_argument ('--pve',
                     help='Enable propagate_variable_equivalences in tail_simplifier',
@@ -76,7 +76,7 @@ def parseArgs (argv):
     p.add_argument ('--validate', help='Enable validation',
                     action='store_true', default=False)
     p.add_argument ('--trace', help='Trace levels to enable (spacer, pdr, dl,'
-                                    'smt-relation, etc.)', 
+                                    'smt-relation, etc.)',
                     default='')
     p.add_argument ('--answer', help='Print answer', action='store_true',
                     default=False)
@@ -104,9 +104,6 @@ def parseArgs (argv):
     p.add_argument ('--array-blast', dest='array_blast',
                     help='elim local array variables using heuristics',
                     action='store_true', default=False)
-    p.add_argument ('--use-heavy-mev', dest='use_heavy_mev',
-                    help='use heavy model evaluation routines for arrays',
-                    action='store_true', default=False)
     p.add_argument ('--smt2lib', dest='smt2lib',
                     help='input smt2 file is in smt2lib format (and not datalog)',
                     action='store_true', default=False)
@@ -122,14 +119,14 @@ def parseArgs (argv):
     p.add_argument ('--max-lvl', dest='max_lvl',
                     help='max query level', type=int,
                     action='store', default=-1)
-    p.add_argument ('--no-elim-aux', dest='elim_aux', 
-                    help='do not eliminate auxiliaries in reachability facts', 
+    p.add_argument ('--no-elim-aux', dest='elim_aux',
+                    help='do not eliminate auxiliaries in reachability facts',
                     action='store_false', default=True)
     p.add_argument ('--elim-aux', dest='elim_aux',
                     help='eliminate auxiliaries in reachability facts',
                     action='store_true')
-    p.add_argument ('--reach-dnf', dest='reach_dnf', 
-                    help='Keep reachability facts in DNF', 
+    p.add_argument ('--reach-dnf', dest='reach_dnf',
+                    help='Keep reachability facts in DNF',
                     action='store_true', default=False)
     p.add_argument ('--no-z3', dest='no_z3',
                     help='stop before running z3', default=False,
@@ -137,9 +134,9 @@ def parseArgs (argv):
     p.add_argument ('--cpu', dest='cpu', type=int,
                     action='store', help='CPU time limit (seconds)', default=-1)
     p.add_argument ('--mem', dest='mem', type=int,
-                    action='store', help='MEM limit (MB)', default=-1)   
+                    action='store', help='MEM limit (MB)', default=-1)
     p.add_argument ('--jobsize', dest='jobsize', type=int,
-                    action='store', help='number of nodes in GASNet job', default=-1)   
+                    action='store', help='number of nodes in GASNet job', default=-1)
     p.add_argument ('--distprofile', dest='distprofile',
                     action='store', help='distribution profile for spacer', default=None)
     p.add_argument ('--gasnet-spawnfn', dest='gasnet_spawnfn',
@@ -160,11 +157,11 @@ def parseArgs (argv):
             stat('profile', s)
             nargv.extend (profiles[s])
             in_p = False
-        elif s == '-p': 
+        elif s == '-p':
             in_p = True
         else: nargv.append (s)
-        
-    if in_p: 
+
+    if in_p:
         print 'WARNING: missing profile'
         sys.exit (1)
     return p.parse_args (nargv)
@@ -175,7 +172,7 @@ import os.path
 
 def isexec (fpath):
     if fpath == None: return False
-    return os.path.isfile(fpath) and os.access(fpath, os.X_OK) 
+    return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
 def which(program):
     exe_file = os.path.join ('./', program)
@@ -213,7 +210,7 @@ def compute_z3_args (args):
         z3_args += ' fixedpoint.xform.tail_simplifier_pve=true'
     else:
         z3_args += ' fixedpoint.xform.tail_simplifier_pve=false'
-        
+
     if (args.validate):
         z3_args += ' fixedpoint.pdr.validate_result=true'
 
@@ -227,7 +224,7 @@ def compute_z3_args (args):
         z3_args += ' fixedpoint.pdr.utvpi=false'
 
     if args.lazy_reach_check:
-        z3_args += ' fixedpoint.eager_reach_check=false'
+        z3_args += ' fixedpoint.spacer.eager_reach_check=false'
 
     if args.validate_theory_core:
         z3_args += ' fixedpoint.validate_theory_core=true'
@@ -239,7 +236,7 @@ def compute_z3_args (args):
         z3_args += ' fixedpoint.pdr.bfs_model_search=false'
 
     if int(args.order_children)==1:
-        z3_args += ' fixedpoint.order_children=1'
+        z3_args += ' fixedpoint.spacer.order_children=1'
 
     if args.array_blast:
         z3_args += ' fixedpoint.xform.array_blast=true'
@@ -247,23 +244,20 @@ def compute_z3_args (args):
     if args.array_blast_full:
         z3_args += ' fixedpoint.xform.array_blast_full=true'
 
-    if args.use_heavy_mev:
-        z3_args += ' fixedpoint.use_heavy_mev=true'
-
     if args.flexible_trace:
         z3_args += ' fixedpoint.pdr.flexible_trace=true'
 
     if args.skip_propagate:
-        z3_args += ' fixedpoint.pdr.skip_propagate=true'
+        z3_args += ' fixedpoint.spacer.skip_propagate=true'
 
     if args.keep_obligations:
-        z3_args += ' fixedpoint.reset_obligation_queue=false'
+        z3_args += ' fixedpoint.spacer.reset_obligation_queue=false'
 
     if int(args.max_lvl) >= 0:
-        z3_args += ' fixedpoint.pdr.max_level={}'.format (args.max_lvl)
+        z3_args += ' fixedpoint.spacer.max_level={}'.format (args.max_lvl)
 
     if args.elim_aux:
-        z3_args += ' fixedpoint.spacer.elim_aux=true' 
+        z3_args += ' fixedpoint.spacer.elim_aux=true'
     else:
         z3_args += ' fixedpoint.spacer.elim_aux=false'
 
@@ -271,7 +265,7 @@ def compute_z3_args (args):
         z3_args += ' fixedpoint.spacer.reach_dnf=true'
     else:
         z3_args += ' fixedpoint.spacer.reach_dnf=false'
-        
+
     if args.distprofile:
         z3_args += ' -profile:%s' % args.distprofile
 
@@ -285,7 +279,7 @@ def compute_z3_args (args):
         z3_args += ' fixedpoint.pmuz.node_work_budget=%d' % args.restart
         z3_args += ' fixedpoint.pmuz.node_restarts=true'
 
-        
+
     z3_args += ' ' + args.file
 
 
@@ -294,7 +288,7 @@ def compute_z3_args (args):
         for t in args.trace.split (':'):
             print t,
             z3_args += ' -tr:{}'.format (t)
-        print 
+        print
         stats.put ('Trace', args.trace)
 
     return z3_args
@@ -305,7 +299,7 @@ def compute_z3_args (args):
 class RunCmd(threading.Thread):
     def __init__(self, cmd, cpu, mem):
         threading.Thread.__init__(self)
-        self.cmd = cmd 
+        self.cmd = cmd
         self.cpu = cpu
         self.mem = mem
         self.p = None
@@ -313,14 +307,14 @@ class RunCmd(threading.Thread):
 
     def run(self):
         def set_limits ():
-            import resource as r    
+            import resource as r
             if self.cpu > 0:
                 r.setrlimit (r.RLIMIT_CPU, [self.cpu, self.cpu])
             if self.mem > 0:
                 mem_bytes = self.mem * 1024 * 1024
                 r.setrlimit (r.RLIMIT_AS, [mem_bytes, mem_bytes])
-                
-        self.p = subprocess.Popen(self.cmd, 
+
+        self.p = subprocess.Popen(self.cmd,
                 stdout=subprocess.PIPE,
                 preexec_fn=set_limits)
         self.stdout, unused = self.p.communicate()
@@ -394,11 +388,11 @@ def main (argv):
         if args.smt2lib: stat ('Result', 'CEX')
         else: stat ('Result', 'SAFE')
 
-    # set returncode    
+    # set returncode
     stat ('Status', returncode)
 
     return returncode
-    
+
 if __name__ == '__main__':
     res = 14
     try:
@@ -406,4 +400,3 @@ if __name__ == '__main__':
     finally:
         stats.brunch_print ()
     sys.exit (res)
-
