@@ -19,8 +19,9 @@ Revision History:
 #ifndef DL_ENGINE_BASE_H_
 #define DL_ENGINE_BASE_H_
 
-#include "model.h"
-#include "dl_util.h"
+
+#include "model/model.h"
+#include "muz/base/dl_util.h"
 
 namespace datalog {
     enum DL_ENGINE {
@@ -79,11 +80,9 @@ namespace datalog {
         virtual unsigned get_num_levels(func_decl* pred) {
             throw default_exception(std::string("get_num_levels is not supported for ") + m_name);
         }
-
         virtual expr_ref get_reachable(func_decl* pred) {
               throw default_exception(std::string("operation is not supported for ") + m_name);
         }
-        
         virtual expr_ref get_cover_delta(int level, func_decl* pred) {
             throw default_exception(std::string("operation is not supported for ") + m_name);
         }
@@ -93,7 +92,6 @@ namespace datalog {
         virtual void add_invariant (func_decl *pred, expr *property) {
             throw default_exception(std::string("operation is not supported for ") + m_name);
         }
-          
         virtual void display_certificate(std::ostream& out) const {
             throw default_exception(std::string("certificates are not supported for ") + m_name);
         }

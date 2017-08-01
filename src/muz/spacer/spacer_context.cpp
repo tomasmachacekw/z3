@@ -24,34 +24,33 @@ Notes:
 #include <sstream>
 #include <iomanip>
 
-#include "dl_util.h"
-#include "rewriter.h"
-#include "rewriter_def.h"
-#include "var_subst.h"
-#include "util.h"
-#include "spacer_prop_solver.h"
-#include "spacer_context.h"
-#include "spacer_generalizers.h"
-#include "for_each_expr.h"
-#include "dl_rule_set.h"
-#include "unit_subsumption_tactic.h"
-#include "model_smt2_pp.h"
-#include "dl_mk_rule_inliner.h"
-#include "ast_smt2_pp.h"
-#include "ast_ll_pp.h"
-#include "ast_util.h"
-#include "proof_checker.h"
-#include "smt_value_sort.h"
-#include "proof_utils.h"
-#include "scoped_proof.h"
-#include "spacer_qe_project.h"
-#include "blast_term_ite_tactic.h"
+#include "muz/base/dl_util.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/var_subst.h"
+#include "util/util.h"
+#include "muz/spacer/spacer_prop_solver.h"
+#include "muz/spacer/spacer_context.h"
+#include "muz/spacer/spacer_generalizers.h"
+#include "ast/for_each_expr.h"
+#include "muz/base/dl_rule_set.h"
+#include "smt/tactic/unit_subsumption_tactic.h"
+#include "model/model_smt2_pp.h"
+#include "muz/transforms/dl_mk_rule_inliner.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_util.h"
+#include "ast/proof_checker/proof_checker.h"
+#include "smt/smt_value_sort.h"
+#include "ast/scoped_proof.h"
+#include "muz/spacer/spacer_qe_project.h"
+#include "tactic/core/blast_term_ite_tactic.h"
 
-#include "timeit.h"
-#include "luby.h"
-#include "expr_safe_replace.h"
-#include "expr_abstract.h"
-#include "obj_equiv_class.h"
+#include "util/timeit.h"
+#include "util/luby.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/expr_abstract.h"
+#include "muz/spacer/obj_equiv_class.h"
 
 namespace spacer {
 
@@ -1123,7 +1122,13 @@ lemma::lemma(pob_ref const &p) :
     m_bindings(m), m_lvl(p->level()),
     m_pob(p), m_new_pob(m_pob) {SASSERT(m_pob);}
 
-lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) : lemma(p) {
+lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
+    m_ref_count(0), 
+    m(p->get_ast_manager()),
+    m_body(m), m_cube(m),
+    m_bindings(m), m_lvl(p->level()),
+    m_pob(p), m_new_pob(m_pob)
+{
     update_cube(p, cube);
     set_level(lvl);
 }

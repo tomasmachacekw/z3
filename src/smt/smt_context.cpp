@@ -17,26 +17,26 @@ Revision History:
 
 --*/
 #include<math.h>
-#include"smt_context.h"
-#include"luby.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"warning.h"
-#include"smt_quick_checker.h"
-#include"proof_checker.h"
-#include"ast_util.h"
-#include"uses_theory.h"
-#include"model.h"
-#include"smt_for_each_relevant_expr.h"
-#include"timeit.h"
-#include"well_sorted.h"
-#include"union_find.h"
-#include"smt_model_generator.h"
-#include"smt_model_checker.h"
-#include"smt_model_finder.h"
-#include"model_pp.h"
-#include"ast_smt2_pp.h"
-#include"ast_translation.h"
+#include "smt/smt_context.h"
+#include "util/luby.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "util/warning.h"
+#include "smt/smt_quick_checker.h"
+#include "ast/proof_checker/proof_checker.h"
+#include "ast/ast_util.h"
+#include "smt/uses_theory.h"
+#include "model/model.h"
+#include "smt/smt_for_each_relevant_expr.h"
+#include "util/timeit.h"
+#include "ast/well_sorted.h"
+#include "util/union_find.h"
+#include "smt/smt_model_generator.h"
+#include "smt/smt_model_checker.h"
+#include "smt/smt_model_finder.h"
+#include "model/model_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/ast_translation.h"
 
 namespace smt {
 
@@ -293,7 +293,7 @@ namespace smt {
             std::swap(lhs, rhs);
         return m_manager.mk_eq(lhs, rhs);
     }
-    
+
     void context::set_justification(bool_var v, bool_var_data& d, b_justification const& j) {
         SASSERT(validate_justification(v, d, j));
         d.set_justification(j);
@@ -2406,7 +2406,7 @@ namespace smt {
         if (m_manager.has_trace_stream())
             m_manager.trace_stream() << "[pop] " << num_scopes << " " << m_scope_lvl << "\n";
 
-        TRACE("context", tout << "backtracking: " << num_scopes << "\n";);
+        TRACE("context", tout << "backtracking: " << num_scopes << " from " << m_scope_lvl << "\n";);
         TRACE("pop_scope_detail", display(tout););
         SASSERT(num_scopes > 0);
         SASSERT(num_scopes <= m_scope_lvl);
@@ -2912,6 +2912,7 @@ namespace smt {
 
     void context::pop(unsigned num_scopes) {
         SASSERT (num_scopes > 0);
+        if (num_scopes > m_scope_lvl) return;
         pop_to_base_lvl();
         pop_scope(num_scopes);
     }
@@ -3221,7 +3222,7 @@ namespace smt {
               for (unsigned i = 0; i < sz; i++) {
                   tout << mk_pp(m_unsat_core.get(i), m_manager) << "\n";
               });
-        validate_unsat_core();        
+        validate_unsat_core();
         // theory validation of unsat core
         ptr_vector<theory>::iterator th_it = m_theory_set.begin();
         ptr_vector<theory>::iterator th_end = m_theory_set.end();
@@ -3398,8 +3399,8 @@ namespace smt {
                     if (result == l_undef) {
                         r = l_undef;
                     } else {
-                    r = l_false;
-                }
+                        r = l_false;
+                    }
                 }
                 else {
                     r = search();
@@ -3504,7 +3505,7 @@ namespace smt {
             TRACE("search_bug", tout << "status: " << status << ", inconsistent: " << inconsistent() << "\n";);
             TRACE("assigned_literals_per_lvl", display_num_assigned_literals_per_lvl(tout); 
                   tout << ", num_assigned: " << m_assigned_literals.size() << "\n";);
-            
+                                    
             if (!restart(status, curr_lvl)) {
                 break;
             }
@@ -3524,74 +3525,74 @@ namespace smt {
 
     bool context::restart(lbool& status, unsigned curr_lvl) {
 
-            if (m_last_search_failure != OK) {
-                if (status != l_false) {
-                    // build candidate model before returning
-                    mk_proto_model(status);
-                    // status = l_undef;
-                }
-            return false;
+        if (m_last_search_failure != OK) {
+            if (status != l_false) {
+                // build candidate model before returning
+                mk_proto_model(status);
+                // status = l_undef;
             }
-            
-            if (status == l_false) {
             return false;
-            }
+        }
+
+        if (status == l_false) {
+            return false;
+        }
         if (status == l_true) {
-                SASSERT(!inconsistent());
-                mk_proto_model(l_true);
-                // possible outcomes   DONE l_true, DONE l_undef, CONTINUE
-                quantifier_manager::check_model_result cmr = m_qmanager->check_model(m_proto_model.get(), m_model_generator->get_root2value());
-                if (cmr == quantifier_manager::SAT) {
-                    // done 
+            SASSERT(!inconsistent());
+            mk_proto_model(l_true);
+            // possible outcomes   DONE l_true, DONE l_undef, CONTINUE
+            quantifier_manager::check_model_result cmr = m_qmanager->check_model(m_proto_model.get(), m_model_generator->get_root2value());
+            if (cmr == quantifier_manager::SAT) {
+                // done 
                 status = l_true;
                 return false;
-                }
-                if (cmr == quantifier_manager::UNKNOWN) {
+            }
+            if (cmr == quantifier_manager::UNKNOWN) {
                 IF_VERBOSE(2, verbose_stream() << "(smt.giveup quantifiers)\n";);
-                    // giving up
-                    m_last_search_failure = QUANTIFIERS;
-                    status                = l_undef;
+                // giving up
+                m_last_search_failure = QUANTIFIERS;
+                status = l_undef;
                 return false;
-                }
             }
-            inc_limits();
+        }
+        inc_limits();
         if (status == l_true || !m_fparams.m_restart_adaptive || m_agility < m_fparams.m_restart_agility_threshold) {
-                SASSERT(!inconsistent());
+            SASSERT(!inconsistent());
                 IF_VERBOSE(2, verbose_stream() << "(smt.restarting :propagations " << m_stats.m_num_propagations 
-                           << " :decisions " << m_stats.m_num_decisions
-                           << " :conflicts " << m_stats.m_num_conflicts << " :restart " << m_restart_threshold;
-                           if (m_fparams.m_restart_strategy == RS_IN_OUT_GEOMETRIC) {
-                               verbose_stream() << " :restart-outer " << m_restart_outer_threshold;
-                           }
-                           if (m_fparams.m_restart_adaptive) {
-                               verbose_stream() << " :agility " << m_agility;
-                           }
-                           verbose_stream() << ")" << std::endl; verbose_stream().flush(););
-                // execute the restart
-                m_stats.m_num_restarts++;
-                if (m_scope_lvl > curr_lvl) {
-                    pop_scope(m_scope_lvl - curr_lvl);
-                    SASSERT(at_search_level());
-                }
-                ptr_vector<theory>::iterator it  = m_theory_set.begin();
-                ptr_vector<theory>::iterator end = m_theory_set.end();
-                for (; it != end && !inconsistent(); ++it)
-                    (*it)->restart_eh();
-                TRACE("mbqi_bug_detail", tout << "before instantiating quantifiers...\n";); 
-                if (!inconsistent()) {
-                    m_qmanager->restart_eh();                
-                }
-                if (inconsistent()) {
-                    VERIFY(!resolve_conflict());
-                    status = l_false;      
-                return false;
-                }
+                       << " :decisions " << m_stats.m_num_decisions
+                       << " :conflicts " << m_stats.m_num_conflicts << " :restart " << m_restart_threshold;
+                       if (m_fparams.m_restart_strategy == RS_IN_OUT_GEOMETRIC) {
+                           verbose_stream() << " :restart-outer " << m_restart_outer_threshold;
+                       }
+                       if (m_fparams.m_restart_adaptive) {
+                           verbose_stream() << " :agility " << m_agility;
+                       }
+                       verbose_stream() << ")" << std::endl; verbose_stream().flush(););
+            // execute the restart
+            m_stats.m_num_restarts++;
+            if (m_scope_lvl > curr_lvl) {
+                pop_scope(m_scope_lvl - curr_lvl);
+                SASSERT(at_search_level());
             }
-            if (m_fparams.m_simplify_clauses)
-                simplify_clauses();
-            if (m_fparams.m_lemma_gc_strategy == LGC_AT_RESTART)
-                del_inactive_lemmas();
-        
+            ptr_vector<theory>::iterator it  = m_theory_set.begin();
+            ptr_vector<theory>::iterator end = m_theory_set.end();
+            for (; it != end && !inconsistent(); ++it)
+                (*it)->restart_eh();
+            TRACE("mbqi_bug_detail", tout << "before instantiating quantifiers...\n";); 
+            if (!inconsistent()) {
+                m_qmanager->restart_eh();                
+            }
+            if (inconsistent()) {
+                VERIFY(!resolve_conflict());
+                status = l_false;
+                return false;
+            }
+        }
+        if (m_fparams.m_simplify_clauses)
+            simplify_clauses();
+        if (m_fparams.m_lemma_gc_strategy == LGC_AT_RESTART)
+            del_inactive_lemmas();
+
         status = l_undef;
         return true;
     }
@@ -4023,7 +4024,7 @@ namespace smt {
         }
         return false;
     }
-
+    
     /*
       \brief we record and restore relevancy information for literals in conflict clauses.
       A literal may have been marked relevant within the scope that gets popped during

@@ -25,32 +25,32 @@ Notes:
 
 
 #include <sstream>
-#include "dl_util.h"
-#include "rewriter.h"
-#include "rewriter_def.h"
-#include "var_subst.h"
-#include "util.h"
-#include "pdr_prop_solver.h"
-#include "pdr_context.h"
-#include "pdr_generalizers.h"
-#include "for_each_expr.h"
-#include "dl_rule_set.h"
-#include "unit_subsumption_tactic.h"
-#include "model_smt2_pp.h"
-#include "dl_mk_rule_inliner.h"
-#include "ast_smt2_pp.h"
-#include "qe_lite.h"
-#include "ast_ll_pp.h"
-#include "proof_checker.h"
-#include "smt_value_sort.h"
-#include "proof_utils.h"
-#include "dl_boogie_proof.h"
-#include "scoped_proof.h"
-#include "blast_term_ite_tactic.h"
-#include "model_implicant.h"
-#include "expr_safe_replace.h"
-#include "ast_util.h"
-#include "model_pp.h"
+#include "muz/base/dl_util.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/var_subst.h"
+#include "util/util.h"
+#include "muz/pdr/pdr_prop_solver.h"
+#include "muz/pdr/pdr_context.h"
+#include "muz/pdr/pdr_generalizers.h"
+#include "ast/for_each_expr.h"
+#include "muz/base/dl_rule_set.h"
+#include "smt/tactic/unit_subsumption_tactic.h"
+#include "model/model_smt2_pp.h"
+#include "muz/transforms/dl_mk_rule_inliner.h"
+#include "ast/ast_smt2_pp.h"
+#include "qe/qe_lite.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/proof_checker/proof_checker.h"
+#include "smt/smt_value_sort.h"
+#include "muz/base/proof_utils.h"
+#include "muz/base/dl_boogie_proof.h"
+#include "ast/scoped_proof.h"
+#include "tactic/core/blast_term_ite_tactic.h"
+#include "model/model_implicant.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/ast_util.h"
+#include "model/model_pp.h"
 
 namespace pdr {
 
@@ -2551,7 +2551,7 @@ namespace pdr {
             TRACE("pdr", tout << "Projected:\n" << mk_pp(phi1, m) << "\n";);
         }
         Phi.reset();
-        flatten_and (phi1, Phi);
+        flatten_and(phi1, Phi);
         if (!Phi.empty ())
         {
           // expand equality and other terms for better generalization
@@ -2604,7 +2604,7 @@ namespace pdr {
             }
 
         }
-        
+
         expr_ref n_cube(m);
 
         bool r_to_l = 1; //(m_params.order_children() == 0);
@@ -2617,9 +2617,9 @@ namespace pdr {
 
             unsigned i = (it-preds.begin ());
             pred_transformer& pt = *m_rels.find(preds[i]);
-            SASSERT(pt.head() == preds[i]);           
+            SASSERT(pt.head() == preds[i]);
             //expand_literals (m, child_states [i]);
-            expr_ref o_cube = m_pm.mk_and(child_states[i]);            
+            expr_ref o_cube = m_pm.mk_and(child_states[i]);
             m_pm.formula_o2n(o_cube, n_cube, i);
             model_node* child = alloc(model_node, &n, n_cube, pt, n.level()-1);
             ++m_stats.m_num_nodes;

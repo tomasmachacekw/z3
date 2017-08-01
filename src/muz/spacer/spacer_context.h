@@ -28,8 +28,9 @@ Notes:
 #undef max
 #endif
 #include <queue>
-#include "spacer_manager.h"
-#include "spacer_prop_solver.h"
+#include "muz/spacer/spacer_manager.h"
+#include "muz/spacer/spacer_prop_solver.h"
+
 #include "fixedpoint_params.hpp"
 
 namespace datalog {
@@ -119,7 +120,7 @@ public:
     lemma(ast_manager &manager, expr * fml, unsigned lvl);
     lemma(pob_ref const &p);
     lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl);
-    lemma(const lemma &other) = delete;
+//    lemma(const lemma &other) = delete;
 
     ast_manager &get_ast_manager() {return m;}
     expr *get_expr();
@@ -648,7 +649,7 @@ public:
 
     unsigned max_level () {return m_max_level;}
     unsigned min_depth () {return m_min_depth;}
-    unsigned size () {return m_obligations.size ();}
+    size_t size () {return m_obligations.size ();}
 
 };
 

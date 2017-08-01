@@ -23,26 +23,26 @@ Revision History:
 #undef min
 #undef max
 #endif
-#include"arith_decl_plugin.h"
-#include"map.h"
-#include"th_rewriter.h"
-#include"str_hashtable.h"
-#include"var_subst.h"
-#include"dl_costs.h"
-#include"dl_decl_plugin.h"
-#include"dl_rule_set.h"
-#include"lbool.h"
-#include"statistics.h"
-#include"params.h"
-#include"trail.h"
-#include"model_converter.h"
-#include"model2expr.h"
-#include"smt_params.h"
-#include"dl_rule_transformer.h"
-#include"expr_functors.h"
-#include"dl_engine_base.h"
-#include"bind_variables.h"
-#include"rule_properties.h"
+#include "ast/arith_decl_plugin.h"
+#include "util/map.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "util/str_hashtable.h"
+#include "ast/rewriter/var_subst.h"
+#include "muz/base/dl_costs.h"
+#include "ast/dl_decl_plugin.h"
+#include "muz/base/dl_rule_set.h"
+#include "util/lbool.h"
+#include "util/statistics.h"
+#include "util/params.h"
+#include "util/trail.h"
+#include "tactic/model_converter.h"
+#include "model/model2expr.h"
+#include "smt/params/smt_params.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "ast/expr_functors.h"
+#include "muz/base/dl_engine_base.h"
+#include "muz/base/bind_variables.h"
+#include "muz/base/rule_properties.h"
 
 struct fixedpoint_params;
 
@@ -410,7 +410,7 @@ namespace datalog {
          */
         unsigned get_num_levels(func_decl* pred);
 
-        /** 
+        /**
             Retrieve reachable facts of 'pred'.
          */
         expr_ref get_reachable(func_decl *pred);
@@ -522,7 +522,6 @@ namespace datalog {
         lbool query(expr* q);
 
         lbool query_from_lvl (expr* q, unsigned lvl);
-
         /**
            \brief retrieve model from inductive invariant that shows query is unsat.
            
@@ -559,7 +558,6 @@ namespace datalog {
            in the query that are derivable.
         */
         expr* get_answer_as_formula();
-
         /**
          * get bottom-up (from query) sequence of ground predicate instances
          * (for e.g. P(0,1,0,0,3)) that together form a ground derivation to query
