@@ -123,9 +123,6 @@ namespace datalog {
             rules.replace_rules(*new_rules);
         }
         dealloc(new_rules);
-        CTRACE("dl_rule_trace", !modified,
-               tout << "Rules after all transformations : \n";
-               rules.display(tout););
         return modified;
     }
 
