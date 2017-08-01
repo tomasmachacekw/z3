@@ -66,8 +66,6 @@ namespace datalog {
         void reset_statistics(); 
         void get_rules_along_trace(datalog::rule_ref_vector& rules);
 
-        void get_rules_along_trace(datalog::rule_ref_vector& rules);
-
         expr_ref get_answer();
 
         // direct access to (new) non-linear compiler.
