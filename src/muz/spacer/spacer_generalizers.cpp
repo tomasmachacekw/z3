@@ -331,5 +331,10 @@ void lemma_eq_generalizer::operator() (lemma_ref &lemma)
     }
 }
 
+void lemma_adhoc_generalizer:: operator() (lemma_ref &lemma)
+{
+  TRACE("genz_adhoc", tout << "Entering adhoc_generalizer\n";);
+  TRACE("genz_adhoc", tout << "with lemma:" << lemma->get_cube() << "\n";);
+}
 
 };

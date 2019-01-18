@@ -138,6 +138,14 @@ private:
 
     bool find_stride(expr_ref_vector &c, expr_ref &pattern, unsigned &stride);
 };
-}
 
+// jeff
+class lemma_adhoc_generalizer : public lemma_generalizer {
+public:
+    lemma_adhoc_generalizer(context &ctx) : lemma_generalizer(ctx) {}
+    ~lemma_adhoc_generalizer() override {}
+    void operator()(lemma_ref &lemma) override;
+};
+
+}
 #endif
