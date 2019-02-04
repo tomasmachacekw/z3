@@ -3109,7 +3109,7 @@ lbool context::solve_core (unsigned from_lvl)
         m_expanded_lvl = infty_level ();
         m_stats.m_max_query_lvl = lvl;
 
-        if (check_reachability()) { return l_true; }
+        if (check_reachability()) { dump_json(); return l_true; }
 
         if (lvl > 0 && m_use_propagate)
             if (propagate(m_expanded_lvl, lvl, UINT_MAX)) { dump_json(); return l_false; }
