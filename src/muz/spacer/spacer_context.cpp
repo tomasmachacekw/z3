@@ -2353,6 +2353,7 @@ void context::updt_params() {
     m_restart_initial_threshold = m_params.spacer_restart_initial_threshold();
     m_pdr_bfs = m_params.spacer_gpdr_bfs();
     m_use_bg_invs = m_params.spacer_use_bg_invs();
+    m_adhoc_gen = m_params.spacer_adhoc_gen();
 
     if (m_use_gpdr) {
         // set options to be compatible with GPDR
@@ -2677,7 +2678,11 @@ void context::init_lemma_generalizers()
     }
 
     if (m_validate_lemmas) {
-        m_lemma_generalizers.push_back(alloc(lemma_sanity_checker, *this));
+      m_lemma_generalizers.push_back(alloc(lemma_sanity_checker, *this));
+    }
+
+    if (m_adhoc_gen){
+      m_lemma_generalizers.push_back(alloc(lemma_adhoc_generalizer, *this));
     }
 
 }
