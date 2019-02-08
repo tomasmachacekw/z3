@@ -142,11 +142,9 @@ private:
 class lemma_adhoc_generalizer : public lemma_generalizer {
     ast_manager &m;
     arith_util m_arith;
-    // expr_ref_vector m_cube;
 
 public:
-  lemma_adhoc_generalizer(context &ctx)
-    : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m) {}
+  lemma_adhoc_generalizer(context &ctx);
   ~lemma_adhoc_generalizer() override {}
   void operator()(lemma_ref &lemma) override;
 
