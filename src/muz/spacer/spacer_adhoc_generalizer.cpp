@@ -20,6 +20,7 @@
 #include "muz/spacer/spacer_generalizers.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_sem_matcher.h"
+#include "ast/substitution/substitution.h"
 
 #include "ast/ast_util.h"
 #include "ast/expr_abstract.h"
@@ -39,24 +40,54 @@ namespace spacer {
     : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m) {}
 
 void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
-  // TRACE("spacer_adhoc_genz",
-  //   tout << "Initial cube: " << mk_and(lemma->get_cube()) << "\n";);
+  TRACE("spacer_adhoc_genz",
+    tout << "Initial cube: " << mk_and(lemma->get_cube()) << "\n";);
 
+  pred_transformer &pt = lemma->get_pob()->pt();
   pob *p = &*lemma->get_pob();
   app_ref clause(m);
-  for (auto &lms:p->lemmas()){
-    clause = to_app(lms->get_cube()[0]);
-      TRACE("spacer_adhoc_genz",
-            tout << "lms->cube: " << clause << "\n"
-            << "arg_size: " << clause->get_num_parameters() << "\n"
-            ;);
+  sem_matcher matcher(m);
+  substitution diff(m);
+  expr_ref constant(m);
+  expr_ref varPair(m);
+  expr_ref res(m);
+  expr_ref_vector buf(m), buf2(m), buf3(m);
+  bool dirty = false;
+  // bool is_matched = false;
 
-    // if (clause->get_num_args() >= 3){
-    // }
+
+  for (auto &lms:p->lemmas()){
+
+    clause = to_app(lms->get_cube()[0]);
+    TRACE("spacer_adhoc_genz",
+          tout << "lms->cube: " << clause << "\n"
+          << "depth: " << clause->get_depth() << "\n" ;);
+    if (clause->get_depth() > 2){
+      constant = clause->get_arg(1);
+      buf.push_back(to_app(clause->get_arg(0))->get_arg(0));
+      buf.push_back(to_app(clause->get_arg(0))->get_arg(1));
+      varPair = m_arith.mk_add(2, buf.c_ptr());
+      buf2.push_back(varPair);
+      buf2.push_back(constant);
+      res = m.mk_app(clause->get_decl(), 2, buf2.c_ptr());
+      buf3.push_back(res);
+      dirty = true;
+    }
+    if(dirty){
+      unsigned uses_level1;
+      TRACE("spacer_adhoc_genz", tout << "merged: " << buf3 << "\n";);
+      if(pt.check_inductive(lemma->level(), buf3, uses_level1, lemma->weakness())){
+        TRACE("spacer_adhoc_genz", tout << "YES Inductive! \n";);
+        lemma->update_cube(lemma->get_pob(), buf3);
+        lemma->set_level(uses_level1);
+      }
+    }
   }
 
+  //bool res = matcher(lemma->get_cube()[0], lms->get_cube()[0], diff, is_matched);
+
   // sem_matcher smatcher(m);
-  // pred_transformer &pt = lemma->get_pob()->pt();
+
   // expr_ref minus_one(m);
   // app_ref singleVarBound(m), doubleVarBound(m);
   // expr_ref var(m);
