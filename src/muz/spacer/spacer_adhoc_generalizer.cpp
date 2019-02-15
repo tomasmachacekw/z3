@@ -20,6 +20,7 @@
 #include "muz/spacer/spacer_generalizers.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_sem_matcher.h"
+#include "muz/spacer/spacer_antiunify.h"
 #include "ast/substitution/substitution.h"
 
 #include "ast/ast_util.h"
@@ -45,6 +46,31 @@ void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
 
   pred_transformer &pt = lemma->get_pob()->pt();
   pob *p = &*lemma->get_pob();
+
+  // parent-matching
+  unsigned i = 0;
+  sem_matcher smatcher(m);
+  anti_unifier antiU(m);
+  substitution subs1(m), subs2(m);
+  expr_ref result(m);
+  bool pos = false;
+  TRACE("adhoc_parent_matching",
+        tout << "Initial cube:" << mk_and(lemma->get_cube()) << "\n" ;);
+  while(p->parent()){
+    p = p->parent();
+    i = 0;
+    for(auto &lms:p->lemmas()){
+      TRACE("adhoc_parent_matching", tout << "Parent_" << i++ << ": "<< mk_and(lms->get_cube()) << "\n";);
+      // if(smatcher( mk_and(lms->get_cube()), mk_and(lemma->get_cube()), subs, pos)){
+      //     TRACE("adhoc_parent_matching", tout << "Matched! with " << lms->get_cube() << "\n";);
+      //   }
+      antiU( mk_and(lemma->get_cube()), mk_and(lms->get_cube()), result, subs1, subs2);
+      TRACE("adhoc_parent_matching", tout << "anti res: " << result << "\n";);
+    }
+  }
+  // end of parent-matching
+
+
   app_ref clause(m);
   sem_matcher matcher(m);
   substitution diff(m);
@@ -53,8 +79,6 @@ void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
   expr_ref res(m);
   expr_ref_vector buf(m), buf2(m), buf3(m);
   bool dirty = false;
-  // bool is_matched = false;
-
 
   for (auto &lms:p->lemmas()){
 
