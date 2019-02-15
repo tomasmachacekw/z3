@@ -40,9 +40,10 @@ namespace smt {
 
     void theory_array_base::found_unsupported_op(expr * n) {
         if (!get_context().get_fparams().m_array_fake_support && !m_found_unsupported_op) {
-            TRACE("array", tout << mk_ll_pp(n, get_manager()) << "\n";);            
-            get_context().push_trail(value_trail<context, bool>(m_found_unsupported_op));
-            m_found_unsupported_op = true;
+          TRACE("array", tout << mk_ll_pp(n, get_manager()) << "\n";);
+          get_context().push_trail(
+              value_trail<context, bool>(m_found_unsupported_op));
+          m_found_unsupported_op = true;
         }
     }
     

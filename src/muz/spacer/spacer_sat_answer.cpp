@@ -4,6 +4,7 @@
 #include "ast/scoped_proof.h"
 #include "smt/smt_solver.h"
 
+#include "tactic/portfolio/smt_strategic_solver.h"
 namespace spacer {
 
 struct ground_sat_answer_op::frame {
@@ -129,6 +130,10 @@ void ground_sat_answer_op::mk_children(frame &fr, vector<frame> &todo) {
     m_solver->assert_expr(fr.pt().rule2tag(&r));
 
     lbool res = m_solver->check_sat(0, nullptr);
+    TRACE("spacer_sat_answer", m_solver->display(tout);
+          tout << "res is " << res << "\n";
+          tout << m_solver->get_params() << "\n";);
+
     (void)res;
     VERIFY(res == l_true);
 

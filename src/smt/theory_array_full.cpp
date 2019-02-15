@@ -362,7 +362,6 @@ namespace smt {
         if (!m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
             instantiate_parent_stores_default(v);            
         }
-    }
 
     void theory_array_full::add_parent_select(theory_var v, enode * s) {
         TRACE("array", 
