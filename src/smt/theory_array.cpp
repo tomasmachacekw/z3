@@ -98,7 +98,7 @@ namespace smt {
             for (enode* store : d->m_parent_stores) {
                 SASSERT(is_store(store));
                 if (!m_params.m_array_cg || store->is_cgr()) {
-                    instantiate_axiom2b(s, store);
+                  instantiate_axiom2b(s, store);
                 }
             }
         }
