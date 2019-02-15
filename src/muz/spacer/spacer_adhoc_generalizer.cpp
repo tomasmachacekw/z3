@@ -52,25 +52,38 @@ void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
   sem_matcher smatcher(m);
   anti_unifier antiU(m);
   substitution subs1(m), subs2(m);
-  expr_ref result(m);
+  expr_ref result(m), result_buffer(m);
+  result_buffer = mk_and(lemma->get_cube());   // XXX use TRUE instead
   bool pos = false;
   TRACE("adhoc_parent_matching",
         tout << "Initial cube:" << mk_and(lemma->get_cube()) << "\n" ;);
   while(p->parent()){
-    p = p->parent();
+
     i = 0;
+    p = p->parent();
+
     for(auto &lms:p->lemmas()){
       TRACE("adhoc_parent_matching", tout << "Parent_" << i++ << ": "<< mk_and(lms->get_cube()) << "\n";);
-      // if(smatcher( mk_and(lms->get_cube()), mk_and(lemma->get_cube()), subs, pos)){
-      //     TRACE("adhoc_parent_matching", tout << "Matched! with " << lms->get_cube() << "\n";);
-      //   }
       antiU( mk_and(lemma->get_cube()), mk_and(lms->get_cube()), result, subs1, subs2);
       TRACE("adhoc_parent_matching", tout << "anti res: " << result << "\n";);
     }
+
+    // substitution sub_buffer(m);
+    // if(smatcher(result_buffer, result, sub_buffer, pos)){
+    // XXX sem_matcher is broken
+    // XXX temp solution to match with syntactic equality
+    // XXX is_app to filter out singletons
+    if(m.are_equal(result_buffer, result) && is_app(result_buffer)) {
+      TRACE("Pattern_Discovery",
+            tout << "Conseq pattern found: " << result_buffer << "\n";);
+    } else {
+      result_buffer = result;
+    }
+
   }
   // end of parent-matching
 
-
+  /*
   app_ref clause(m);
   sem_matcher matcher(m);
   substitution diff(m);
@@ -178,7 +191,7 @@ void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
   //   }
   // }
 
-
+  */
 
   }
 }
