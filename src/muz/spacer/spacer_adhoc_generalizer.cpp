@@ -31,7 +31,7 @@
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/substitution/matcher.h"
 #include "ast/expr_functors.h"
-
+#include "ast/rewriter/var_subst.h"
 
 using namespace spacer;
 
@@ -39,6 +39,8 @@ namespace spacer {
 
   lemma_adhoc_generalizer::lemma_adhoc_generalizer(context &ctx)
     : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m) {}
+
+
 
 void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
   TRACE("spacer_adhoc_genz",
@@ -52,8 +54,8 @@ void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
   sem_matcher smatcher(m);
   anti_unifier antiU(m);
   substitution subs1(m), subs2(m);
-  expr_ref result(m), result_buffer(m);
-  result_buffer = mk_and(lemma->get_cube());   // XXX use TRUE instead
+  expr_ref result(m);
+  expr_ref result_buffer(m.mk_true(), m); // mk_and(lemma->get_cube());
   bool pos = false;
   TRACE("adhoc_parent_matching",
         tout << "Initial cube:" << mk_and(lemma->get_cube()) << "\n" ;);
@@ -73,6 +75,18 @@ void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
     // XXX sem_matcher is broken
     // XXX temp solution to match with syntactic equality
     // XXX is_app to filter out singletons
+
+    // TODO sem_matcher is still no working
+
+    //  substitution sub_buffer(m);
+    //  expr_free_vars fv1, fv2;
+    //  fv1(result_buffer);
+    //  fv2(result_buffer);
+
+    // sub_buffer.reserve(2, subs1.get_num_bindings());
+    // sub_buffer.reserve_vars(fv1.size()+fv2.size());
+    // if(smatcher(result_buffer, result, sub_buffer, pos)){
+
     if(m.are_equal(result_buffer, result) && is_app(result_buffer)) {
       TRACE("Pattern_Discovery",
             tout << "Conseq pattern found: " << result_buffer << "\n";);

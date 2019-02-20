@@ -21,6 +21,7 @@ Notes:
 #include "spacer_context.h"
 #include "spacer_json.h"
 #include "spacer_util.h"
+#include "ast/rewriter/ast_counter.h"
 
 namespace spacer {
 
@@ -67,11 +68,29 @@ static std::ostream &json_marshal(std::ostream &out, ast *t, ast_manager &m) {
 }
 
 static std::ostream &json_marshal(std::ostream &out, lemma *l) {
+
+  // number of variables can be baked into the json
+  // should be at the ast level (i.e. lemma->get_expr().count_vars())
+  // XXX not quite work now!
+  int num_vars = 1;
+  var_counter counter;
+  //counter.count_vars(to_app(l->get_expr()), num_vars);
+  num_vars = counter.get_max_var(l->get_expr());
+
     out << "{"
         << R"("init_level":")" << l->init_level()
         << R"(", "level":")" << l->level()
+        << R"(", "cluster":")" << l->cluster()
+        << R"(", "num_vars":")" << num_vars
         << R"(", "expr":)";
     json_marshal(out, l->get_expr(), l->get_ast_manager());
+
+    // XXX field RAW pob => not sure if we ever want to have this
+    // out << R"(", "pob":)";
+    // if(l->has_pob()) {
+    //   out << (*(l->get_pob()));
+    // }
+
     out << "}";
     return out;
 }

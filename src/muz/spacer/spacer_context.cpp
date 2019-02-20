@@ -491,7 +491,7 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_body(body, m), m_cube(m),
     m_zks(m), m_bindings(m),
     m_pob(nullptr), m_ctp(nullptr),
-    m_lvl(lvl), m_init_lvl(m_lvl),
+    m_lvl(lvl), m_init_lvl(m_lvl), m_cluster(0),
     m_bumped(0), m_weakness(WEAKNESS_MAX),
     m_external(false), m_blocked(false),
     m_background(false) {
@@ -504,7 +504,7 @@ lemma::lemma(pob_ref const &p) :
     m_body(m), m_cube(m),
     m_zks(m), m_bindings(m),
     m_pob(p), m_ctp(nullptr),
-    m_lvl(p->level()), m_init_lvl(m_lvl),
+    m_lvl(p->level()), m_init_lvl(m_lvl), m_cluster(0),
     m_bumped(0), m_weakness(p->weakness()),
     m_external(false), m_blocked(false),
     m_background(false) {
@@ -519,7 +519,7 @@ lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
     m_body(m), m_cube(m),
     m_zks(m), m_bindings(m),
     m_pob(p), m_ctp(nullptr),
-    m_lvl(p->level()), m_init_lvl(m_lvl),
+    m_lvl(p->level()), m_init_lvl(m_lvl), m_cluster(0),
     m_bumped(0), m_weakness(p->weakness()),
     m_external(false), m_blocked(false),
     m_background(false) {
@@ -680,6 +680,16 @@ void lemma::set_level (unsigned lvl) {
     m_lvl = lvl;
 }
 
+// XXX we dont allow assigning new cluster to already clustered lemma atm
+// returns false if cluster already assigned
+bool lemma::set_cluster(unsigned new_cluster){
+  if (m_cluster){ // default cluster 0 which also means no cluster
+    return false;
+  } else {
+    m_cluster = new_cluster;
+    return m_cluster;
+  }
+}
 
 void lemma::mk_insts(expr_ref_vector &out, expr* e)
 {

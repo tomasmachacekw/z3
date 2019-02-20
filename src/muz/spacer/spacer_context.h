@@ -126,11 +126,13 @@ class lemma {
     model_ref m_ctp;           // counter-example to pushing
     unsigned m_lvl;            // current level of the lemma
     unsigned m_init_lvl;       // level at which lemma was created
+    unsigned m_cluster;            // lemma cluster number(Default: 0)
     unsigned m_bumped:16;
     unsigned m_weakness:16;
     unsigned m_external:1;    // external lemma from another solver
     unsigned m_blocked:1;     // blocked by CTP
     unsigned m_background:1;  // background assumed fact
+
 
     void mk_expr_core();
     void mk_cube_core();
@@ -174,6 +176,10 @@ public:
     unsigned level () const {return m_lvl;}
     unsigned init_level() const {return m_init_lvl;}
     void set_level (unsigned lvl);
+
+    unsigned cluster () const {return m_cluster;}
+    bool set_cluster (unsigned new_cluster);
+
     app_ref_vector& get_bindings() {return m_bindings;}
     bool has_binding(app_ref_vector const &binding);
     void add_binding(app_ref_vector const &binding);
