@@ -21,7 +21,9 @@ Notes:
 #include "spacer_context.h"
 #include "spacer_json.h"
 #include "spacer_util.h"
-#include "ast/rewriter/ast_counter.h"
+
+#include "ast/ast.h"
+
 
 namespace spacer {
 
@@ -67,21 +69,35 @@ static std::ostream &json_marshal(std::ostream &out, ast *t, ast_manager &m) {
     return out;
 }
 
+unsigned count_lits(const app * pred, ast_manager &m) {
+    unsigned n = pred->get_num_args();
+    unsigned num_lits = 0;
+    for (unsigned i = 0; i < n; i++) {
+        expr * e = pred->get_arg(i);
+        if(is_app(e)){
+          family_id fid = to_app(e)->get_family_id();
+          if(to_app(e)->get_num_args() == 0 && fid == null_family_id)
+            num_lits ++;
+          else{
+            num_lits += count_lits(to_app(e), m);
+          }
+        }
+    }
+    return num_lits;
+}
+
+
 static std::ostream &json_marshal(std::ostream &out, lemma *l) {
 
-  // number of variables can be baked into the json
-  // should be at the ast level (i.e. lemma->get_expr().count_vars())
-  // XXX not quite work now!
-  int num_vars = 1;
-  var_counter counter;
-  //counter.count_vars(to_app(l->get_expr()), num_vars);
-  num_vars = counter.get_max_var(l->get_expr());
+  TRACE("spacer_adhoc_genz", tout
+        << "get_expr: " << mk_pp(l->get_expr(), l->get_ast_manager())
+        << "\n";);
 
     out << "{"
         << R"("init_level":")" << l->init_level()
         << R"(", "level":")" << l->level()
         << R"(", "cluster":")" << l->cluster()
-        << R"(", "num_vars":")" << num_vars
+        << R"(", "num_vars":")" << count_lits(to_app(l->get_expr()), l->get_ast_manager())
         << R"(", "expr":)";
     json_marshal(out, l->get_expr(), l->get_ast_manager());
 
@@ -186,7 +202,7 @@ std::ostream &json_marshaller::marshal(std::ostream &out) const {
                     "\",\"predicate\":\"" << n->pt().head()->get_name() <<
                     "\",\"expr_id\":\"" << n->post()->get_id() <<
                     "\",\"pob_id\":\"" << pob_id <<
-                    "\",\"depth\":\"" << depth <<
+                    "\",\"depth\":\"" << depth << // XXX This doesn't feel right! why loggin same id and depth?
                     "\",\"expr\":" << pob_expr.str() << "}";
                 if (n->parent()) {
                     edges << ((unsigned)edges.tellp() == 0 ? "" : ",\n") <<
@@ -204,6 +220,7 @@ std::ostream &json_marshaller::marshal(std::ostream &out) const {
     out << "{\n\"nodes\":[\n" << nodes.str() << "\n],\n";
     out << "\"edges\":[\n" << edges.str() << "\n],\n";
     out << "\"lemmas\":{\n" << lemmas.str() << "\n}\n}\n";
+    // XXX maybe we want flatten lemmas here for LemmaVis
     return out;
 }
 
