@@ -3124,10 +3124,12 @@ lbool context::solve_core (unsigned from_lvl)
         m_expanded_lvl = infty_level ();
         m_stats.m_max_query_lvl = lvl;
 
-        if (check_reachability()) { dump_json(); return l_true; }
+        if (check_reachability())
+            { dump_json(); return l_true; }
 
         if (lvl > 0 && m_use_propagate)
-            if (propagate(m_expanded_lvl, lvl, UINT_MAX)) { dump_json(); return l_false; }
+            if (propagate(m_expanded_lvl, lvl, UINT_MAX))
+                { dump_json(); return l_false; }
 
         dump_json();
 
@@ -3535,6 +3537,12 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             checkpoint ();
             (*m_lemma_generalizers[i])(lemma);
         }
+        // XXX JEFF -- check for total lemma population before entering lemma fusion
+        if (m_stats.m_num_lemmas >= 10){
+            TRACE("spacer_lemma_fusion",
+                  tout << "Current total lemma count: " << m_stats.m_num_lemmas << "\n";);
+        }
+
         DEBUG_CODE(
             lemma_sanity_checker sanity_checker(*this);
             sanity_checker(lemma);
