@@ -5,7 +5,8 @@
 
   Abstract:
 
-  Adhoc lemma generalizer (based on quant_gen).
+  - Checks if SPACER is diverging in mining similar lemmas from the same lemma group.
+  - From the diverging lemma group make conjecture for a summarizing lemma candidate.
 
   Author:
 
@@ -15,14 +16,22 @@
 
   --*/
 
+/*
+  TODO:
+  1. distance
+  2. lift parametres upto top-level (threshold is now hard-coded to 5 while distance-threshold is hard-coded to 10)
+*/
+
+
 
 #include "muz/spacer/spacer_context.h"
 #include "muz/spacer/spacer_generalizers.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_sem_matcher.h"
 #include "muz/spacer/spacer_antiunify.h"
-#include "ast/substitution/substitution.h"
 
+#include "ast/substitution/substitution.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/ast_util.h"
 #include "ast/expr_abstract.h"
 #include "ast/rewriter/var_subst.h"
@@ -33,179 +42,198 @@
 #include "ast/expr_functors.h"
 #include "ast/rewriter/var_subst.h"
 
+
 using namespace spacer;
 
 namespace spacer {
 
-  lemma_adhoc_generalizer::lemma_adhoc_generalizer(context &ctx)
-    : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m) {}
+    lemma_adhoc_generalizer::lemma_adhoc_generalizer(context &ctx, int theta)
+        : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m), m_within_scope(m){ threshold = theta; }
+
+    bool lemma_adhoc_generalizer::is_linear_diverging(lemma_ref &lemma){
+        return false;
+    }
+
+    // Quality of the substitution (assuming no offset now)
+    int lemma_adhoc_generalizer::distance(substitution &s){
+        int dis = 0;
+        for(unsigned j = 0; j < s.get_num_bindings(); j++){
+            expr_offset r;
+            var_offset  v;
+            if(s.find(j, 0, r)){
+                s.get_binding(j, v, r); // XXX  not sure if we want to use this one?
+                TRACE("spacer_divergence_detect", tout << "sub: " << j << " = " << mk_pp(r.get_expr(), m) << "\n";);
+                expr_ref e(m);
+                e = r.get_expr();
+                if(m_arith.is_numeral(e)){
+                    dis += 1;
+                } else if (is_uninterp_const(e)){
+                    dis += 2;
+                } else if (is_app(e)){
+                    dis += 5*to_app(e)->get_depth();
+                }
+            }
+        }
+        TRACE("spacer_divergence_detect", tout << "dis: " << dis << "\n";);
+        return dis;
+    }
+
+    // Queue up related lemmas into m_within_scope
+    // For example, traverse through ancestors and collect their lemmas
+    void lemma_adhoc_generalizer::scope_in(lemma_ref &lemma, int gen){
+        m_within_scope.reset();
+        pob *p = &*lemma->get_pob();
+        pred_transformer &pt = p->pt();
+        int i = 0;
+        while( (gen < 0 || i < gen) && p->parent()){
+            // Comparing signature of two pts, continue if mismatched
+            if( pt.sig()!= p->pt().sig()){
+                TRACE("spacer_divergence_detect_dbg", tout << "pt sig mismatched: " << "\n";);
+                p = p->parent();
+                continue;
+            }
+            for(auto &lms:p->lemmas()){
+                expr_ref e = mk_and(lms->get_cube());
+                m_within_scope.push_back(e);
+            }
+            p = p->parent();
+            i++;
+        }
+    }
 
 
 
+
+    void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
+        expr_ref cube(m);
+        cube = lemma->get_expr();
+        TRACE("spacer_divergence_detect", tout << "Initial cube: " << cube << "\n";);
+        TRACE("spacer_divergence_detect", tout << "Num of literal: " << num_uninterp_const(to_app(cube)) << "\n";);
+        TRACE("spacer_divergence_detect", tout << "Num of numeral: " << num_numeral_const(to_app(cube)) << "\n";);
+
+
+        scope_in(lemma, -1);
+        int counter = 0;
+        anti_unifier antiU(m);
+        expr_ref result(m);
+        substitution subs1(m), subs2(m);
+
+        // XXX TODO Still not able to find a tight/reasonable size
+        int d = to_app(lemma->get_expr())->get_depth();
+        // int ln = d * num_uninterp_const(to_app(lemma->get_expr())) + num_numeral_const(to_app(lemma->get_expr()));
+        subs1.reserve(2, 1000);
+        subs2.reserve(2, 1000);
+
+        for(auto &s:m_within_scope){
+            TRACE("spacer_divergence_detect", tout << "s: " << mk_pp(s, m) << "\n";);
+
+            antiU(cube , s, result, subs1, subs2);
+            TRACE("spacer_divergence_detect", tout << "result: " << mk_pp(result, m) << "\n";);
+            TRACE("spacer_divergence_detect", tout << "Num of var occurances in result: " << num_vars(result) << "\n";);
+
+            int dis = distance(subs1);
+            if(dis <= 10) { counter++; }
+            if(counter >= threshold){
+                TRACE("spacer_divergence_detect", tout << "Reached repetitive lemma threshold, Abort!" << "\n";);
+                throw unknown_exception();
+            }
+        }
+    }
+
+
+    /*
 void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
   TRACE("spacer_adhoc_genz",
     tout << "Initial cube: " << mk_and(lemma->get_cube()) << "\n";);
 
-  pred_transformer &pt = lemma->get_pob()->pt();
+  if(lemma->get_cube().size() < 2){
+      TRACE("spacer_adhoc_genz", tout << "singleton cube!"  << "\n";);
+  }
+
+  // pred_transformer &pt = lemma->get_pob()->pt();
   pob *p = &*lemma->get_pob();
 
   // parent-matching
   unsigned i = 0;
+  unsigned match_count = 0;
   sem_matcher smatcher(m);
   anti_unifier antiU(m);
   substitution subs1(m), subs2(m);
   expr_ref result(m);
-  expr_ref result_buffer(m.mk_true(), m); // mk_and(lemma->get_cube());
-  bool pos = false;
-  TRACE("adhoc_parent_matching",
-        tout << "Initial cube:" << mk_and(lemma->get_cube()) << "\n" ;);
-  while(p->parent()){
+  expr_ref result_buffer(m.mk_true(), m);
 
+  subs1.reserve(2, to_app(lemma->get_expr())->get_depth());
+  subs2.reserve(2, to_app(lemma->get_expr())->get_depth());
+
+  while(p->parent()){
     i = 0;
     p = p->parent();
 
     for(auto &lms:p->lemmas()){
-      TRACE("adhoc_parent_matching", tout << "Parent_" << i++ << ": "<< mk_and(lms->get_cube()) << "\n";);
       antiU( mk_and(lemma->get_cube()), mk_and(lms->get_cube()), result, subs1, subs2);
-      TRACE("adhoc_parent_matching", tout << "anti res: " << result << "\n";);
-    }
+      int dis = smatcher.distance(result, subs1);
+      if(dis > 0 && dis < 10) {
+          TRACE("adhoc_parent_matching",
+                tout << "Parent_" << i++ << ": "<< mk_and(lms->get_cube()) << "\n"
+                << "anti res: " << result << "\n"
+                << "distance: " << dis << "\n";);
+          match_count++;
+       }
+      if(match_count >= 5){
+          TRACE("adhoc_parent_matching_long", tout << "LONG MATCHes (>=5)" << "\n"
+                << "Parent_" << i++ << ": "<< mk_and(lms->get_cube()) << "\n"
+                << "anti res: " << result << "\n"
+                << "distance: " << dis << "\n";);
 
-    // substitution sub_buffer(m);
-    // if(smatcher(result_buffer, result, sub_buffer, pos)){
-    // XXX sem_matcher is broken
-    // XXX temp solution to match with syntactic equality
-    // XXX is_app to filter out singletons
-
-    // TODO sem_matcher is still no working
-
-    //  substitution sub_buffer(m);
-    //  expr_free_vars fv1, fv2;
-    //  fv1(result_buffer);
-    //  fv2(result_buffer);
-
-    // sub_buffer.reserve(2, subs1.get_num_bindings());
-    // sub_buffer.reserve_vars(fv1.size()+fv2.size());
-    // if(smatcher(result_buffer, result, sub_buffer, pos)){
-
-    if(m.are_equal(result_buffer, result) && is_app(result_buffer)) {
-      TRACE("Pattern_Discovery",
-            tout << "Conseq pattern found: " << result_buffer << "\n";);
-    } else {
-      result_buffer = result;
-    }
-
-  }
-  // end of parent-matching
-
-  /*
-  app_ref clause(m);
-  sem_matcher matcher(m);
-  substitution diff(m);
-  expr_ref constant(m);
-  expr_ref varPair(m);
-  expr_ref res(m);
-  expr_ref_vector buf(m), buf2(m), buf3(m);
-  bool dirty = false;
-
-  for (auto &lms:p->lemmas()){
-
-    clause = to_app(lms->get_cube()[0]);
-    TRACE("spacer_adhoc_genz",
-          tout << "lms->cube: " << clause << "\n"
-          << "depth: " << clause->get_depth() << "\n" ;);
-    if (clause->get_depth() > 2){
-      constant = clause->get_arg(1);
-      buf.push_back(to_app(clause->get_arg(0))->get_arg(0));
-      buf.push_back(to_app(clause->get_arg(0))->get_arg(1));
-      varPair = m_arith.mk_add(2, buf.c_ptr());
-      buf2.push_back(varPair);
-      buf2.push_back(constant);
-      res = m.mk_app(clause->get_decl(), 2, buf2.c_ptr());
-      buf3.push_back(res);
-      dirty = true;
-    }
-    if(dirty){
-      unsigned uses_level1;
-      TRACE("spacer_adhoc_genz", tout << "merged: " << buf3 << "\n";);
-      if(pt.check_inductive(lemma->level(), buf3, uses_level1, lemma->weakness())){
-        TRACE("spacer_adhoc_genz", tout << "YES Inductive! \n";);
-        lemma->update_cube(lemma->get_pob(), buf3);
-        lemma->set_level(uses_level1);
       }
     }
   }
 
-  //bool res = matcher(lemma->get_cube()[0], lms->get_cube()[0], diff, is_matched);
+    */
 
-  // sem_matcher smatcher(m);
 
-  // expr_ref minus_one(m);
-  // app_ref singleVarBound(m), doubleVarBound(m);
-  // expr_ref var(m);
-  // expr_ref res(m);
-  // expr_ref_vector buf(m), buf2(m), buf3(m);
-  // bool dirty = false;
+    /* MISC */
 
-  // minus_one = m_arith.mk_numeral(rational(-1), true);
+    int lemma_adhoc_generalizer::num_numeral_const(app *a){
+        int count = 0;
+        for(expr *e : *a){
+            if(m_arith.is_numeral(e)){
+                count++;
+            }
+            else if(is_app(e)){
+                count += num_numeral_const(to_app(e));
+            }
+        }
+        return count;
+    }
 
-  // // expr_ref_vector core(m);
-  // // core.append(lemma->get_cube());
+    int lemma_adhoc_generalizer::num_uninterp_const(app *a){
+        int count = 0;
+        for(expr *e : *a){
+            if(is_uninterp_const(e)){
+                count++;
+            }
+            else if(is_app(e)){
+                count += num_uninterp_const(to_app(e));
+            }
+        }
+        return count;
+    }
 
-  // pob *p = &*lemma->get_pob();
 
-  // for (auto &lms:p->lemmas()){
-  //   if (lms->get_cube().size() <= 1){
-  //     continue; //Singleton lemma doesn't generalize
-  //   }
-  //   else {
-  //     TRACE("spacer_adhoc_genz", tout
-  //           << "p->lemmas: " << mk_and(lms->get_cube()) << "\n";);
+    // number of variable occurances in a given e (counting repetitive occurances)
+    int lemma_adhoc_generalizer::num_vars(expr *e){
+        int count = 0;
+        if(is_var(e)) {count++;}
+        else if(is_app(e)){
+          for(expr *x: *to_app(e)){
+             count += num_vars(x);
+          }
+        }
+        return count;
+    }
 
-  //     // FIXME sorting
-  //     singleVarBound = to_app(lms->get_cube()[0]);
-  //     doubleVarBound = to_app(lms->get_cube()[1]);
-  //     if (doubleVarBound->get_num_args() <= 1){
-  //       doubleVarBound.reset();
-  //       continue;
-  //     }
-  //     else {
-  //       TRACE("spacer_adhoc_genz", tout << "double: " << doubleVarBound << "\n";);
-  //       TRACE("spacer_adhoc_genz", tout << "single: " << singleVarBound << "\n";);
-  //       var = singleVarBound->get_arg(0);
-  //       buf2.push_back(doubleVarBound->get_arg(0));
 
-  //       buf.push_back(var);
-  //       buf.push_back(minus_one);
-  //       res = m_arith.mk_add(2, buf.c_ptr());
-  //       // res = m_arith.mk_mul(2, buf.c_ptr());
-
-  //       buf2.push_back(res);
-  //       // TRACE("spacer_adhoc_genz", tout << "added: " << res << "\n";);
-
-  //       res = m.mk_app(doubleVarBound->get_decl(), 2, buf2.c_ptr());
-  //       // res = m.mk_or( m.mk_eq(buf2.get(0), var),
-  //       //                m.mk_eq(buf2.get(0), buf2.get(1))) ;
-
-  //       //Negate and push back
-  //       buf3.push_back(m.mk_not(res));
-  //       dirty = true;
-  //     }
-  //   }
-  //   if(dirty){
-  //     unsigned uses_level1;
-  //     TRACE("spacer_adhoc_genz", tout << "merged: " << buf3 << "\n";);
-  //     if(pt.check_inductive(lemma->level(), buf3, uses_level1, lemma->weakness())){
-  //       TRACE("spacer_adhoc_genz", tout << "YES Inductive! \n";);
-  //       lemma->update_cube(lemma->get_pob(), buf3);
-  //       lemma->set_level(uses_level1);
-  //     }
-  //     else {
-  //       TRACE("spacer_adhoc_genz", tout << "NOT Inductive:( \n";);
-  //     }
-  //   }
-  // }
-
-  */
-
-  }
 }
+
+// two ways of creating pattern: 1. (one pattern against all lemmas in scope) 2. (keep having different anti-unified patterns)

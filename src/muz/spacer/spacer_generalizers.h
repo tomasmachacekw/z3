@@ -142,12 +142,27 @@ private:
 class lemma_adhoc_generalizer : public lemma_generalizer {
     ast_manager &m;
     arith_util m_arith;
+    expr_ref_vector m_within_scope;
+    int threshold;
+    typedef std::pair<unsigned, unsigned> var_offset;
+
+    //field for measuring lemma distances
+    // typedef std::pair<expr *, expr *> expr_pair;
+    // svector<expr_pair>    m_todo;
+
+private:
+    void scope_in(lemma_ref &l, int gen);
 
 public:
-  lemma_adhoc_generalizer(context &ctx);
-  ~lemma_adhoc_generalizer() override {}
-  void operator()(lemma_ref &lemma) override;
-
+    lemma_adhoc_generalizer(context &ctx, int theta);
+    ~lemma_adhoc_generalizer() override {}
+    void operator()(lemma_ref &lemma) override;
+    bool is_linear_diverging(lemma_ref &lemma);
+    int distance(substitution &s);
+    // misc functions
+    int num_uninterp_const(app *a);
+    int num_numeral_const(app *a);
+    int num_vars(expr *e);
 };
 }
 

@@ -102,10 +102,14 @@ static std::ostream &json_marshal(std::ostream &out, lemma *l) {
     json_marshal(out, l->get_expr(), l->get_ast_manager());
 
     // XXX field RAW pob => not sure if we ever want to have this
-    // out << R"(", "pob":)";
-    // if(l->has_pob()) {
-    //   out << (*(l->get_pob()));
-    // }
+    out << R"(, "pob":)";
+    if(l->has_pob()) {
+        pob_ref p = l->get_pob();
+        // std::ostringstream pob_expr;
+        // json_marshal(pob_expr, p->post(), p->get_ast_manager());
+        // out << pob_expr.str();
+        out << R"(")" << p->post()->get_id() <<  R"(")" ;
+    }
 
     out << "}";
     return out;
