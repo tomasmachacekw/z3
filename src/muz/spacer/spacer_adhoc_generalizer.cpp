@@ -18,8 +18,9 @@
 
 /*
   TODO:
-  1. distance
   2. lift parametres upto top-level (threshold is now hard-coded to 5 while distance-threshold is hard-coded to 10)
+  3. Boolean literals need to be handled seperately
+
 */
 
 
@@ -54,27 +55,40 @@ namespace spacer {
         return false;
     }
 
-    // Quality of the substitution (assuming no offset now)
+    // Quality of the substitution 
     int lemma_adhoc_generalizer::distance(substitution &s){
         int dis = 0;
         for(unsigned j = 0; j < s.get_num_bindings(); j++){
             expr_offset r;
             var_offset  v;
-            if(s.find(j, 0, r)){
-                s.get_binding(j, v, r); // XXX  not sure if we want to use this one?
-                TRACE("spacer_divergence_detect", tout << "sub: " << j << " = " << mk_pp(r.get_expr(), m) << "\n";);
-                expr_ref e(m);
-                e = r.get_expr();
-                if(m_arith.is_numeral(e)){
-                    dis += 1;
-                } else if (is_uninterp_const(e)){
-                    dis += 2;
-                } else if (is_app(e)){
-                    dis += 5*to_app(e)->get_depth();
-                }
+            // current binding is v --> r
+            s.get_binding(j, v, r);
+            expr_ref e(m);
+            e = r.get_expr();
+            TRACE("spacer_divergence_detect",
+                  tout << "num bindings: " << s.get_num_bindings() << "\n";
+                  tout << "sub: v!" << v.first << " = " << e << "\n";);
+            SASSERT(v.second == 0 && "Unexpected non-zero offset in a substitution");
+
+            // compute cost of the current expression
+            expr *e2 = nullptr; 
+            // strip negation
+            if (m.is_not(e), e2){
+                e = e2;
+            }
+
+            if (m.is_bool(e)){ // XXX Booleans are bad
+                dis += 11;
+            }
+
+            else if(m_arith.is_numeral(e)){
+                dis += 1;
+            } else if (is_uninterp_const(e)){
+                dis += 2;
+            } else if (is_app(e)){
+                dis += 6*to_app(e)->get_depth();
             }
         }
-        TRACE("spacer_divergence_detect", tout << "dis: " << dis << "\n";);
         return dis;
     }
 
@@ -86,8 +100,8 @@ namespace spacer {
         pred_transformer &pt = p->pt();
         int i = 0;
         while( (gen < 0 || i < gen) && p->parent()){
-            // Comparing signature of two pts, continue if mismatched
-            if( pt.sig()!= p->pt().sig()){
+            // Comparing signature of starting lemma against ancestors' pt sig, continue if mismatched
+            if( &pt != &(p->pt())){
                 TRACE("spacer_divergence_detect_dbg", tout << "pt sig mismatched: " << "\n";);
                 p = p->parent();
                 continue;
@@ -106,35 +120,40 @@ namespace spacer {
 
     void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
         expr_ref cube(m);
-        cube = lemma->get_expr();
-        TRACE("spacer_divergence_detect", tout << "Initial cube: " << cube << "\n";);
+        cube = mk_and(lemma->get_cube()); // lemma->get_expr();
+        TRACE("spacer_divergence_detect_dbg", tout << "Initial cube: " << cube << "\n";);
         TRACE("spacer_divergence_detect", tout << "Num of literal: " << num_uninterp_const(to_app(cube)) << "\n";);
         TRACE("spacer_divergence_detect", tout << "Num of numeral: " << num_numeral_const(to_app(cube)) << "\n";);
 
+        // pob *p = &*lemma->get_pob();
+        // pred_transformer &pt = p->pt();
 
         scope_in(lemma, -1);
         int counter = 0;
         anti_unifier antiU(m);
         expr_ref result(m);
-        substitution subs1(m), subs2(m);
 
-        // XXX TODO Still not able to find a tight/reasonable size
-        int d = to_app(lemma->get_expr())->get_depth();
-        // int ln = d * num_uninterp_const(to_app(lemma->get_expr())) + num_numeral_const(to_app(lemma->get_expr()));
-        subs1.reserve(2, 1000);
-        subs2.reserve(2, 1000);
 
         for(auto &s:m_within_scope){
+            substitution subs1(m), subs2(m);
             TRACE("spacer_divergence_detect", tout << "s: " << mk_pp(s, m) << "\n";);
-
             antiU(cube , s, result, subs1, subs2);
-            TRACE("spacer_divergence_detect", tout << "result: " << mk_pp(result, m) << "\n";);
+            
+            expr_ref applied(m);
+            subs1.apply(result, applied);
             TRACE("spacer_divergence_detect", tout << "Num of var occurances in result: " << num_vars(result) << "\n";);
 
             int dis = distance(subs1);
-            if(dis <= 10) { counter++; }
+            if(dis > 0 && dis <= 10) {
+                counter++;
+                TRACE("spacer_divergence_detect_dbg", tout
+                      << "scoped lem: " << mk_pp(s, m) << "\n"
+                      << "anti-result: " << mk_pp(result, m) << "\n"
+                      << "anti-applied: " << mk_pp(applied, m) << "\n";);
+                TRACE("spacer_divergence_detect_dbg", tout << "dis: " << dis << "\n";);
+            }
             if(counter >= threshold){
-                TRACE("spacer_divergence_detect", tout << "Reached repetitive lemma threshold, Abort!" << "\n";);
+                TRACE("spacer_divergence_detect_dbg", tout << "Reached repetitive lemma threshold, Abort!" << "\n";);
                 throw unknown_exception();
             }
         }
