@@ -84,9 +84,9 @@ namespace spacer {
             else if(m_arith.is_numeral(e)){
                 dis += 1;
             } else if (is_uninterp_const(e)){
-                dis += 2;
+                dis += 6;
             } else if (is_app(e)){
-                dis += 6*to_app(e)->get_depth();
+                dis += 6*(to_app(e)->get_depth());
             }
         }
         return dis;
@@ -121,36 +121,37 @@ namespace spacer {
     void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
         expr_ref cube(m);
         cube = mk_and(lemma->get_cube()); // lemma->get_expr();
-        TRACE("spacer_divergence_detect_dbg", tout << "Initial cube: " << cube << "\n";);
+        TRACE("spacer_divergence_detect", tout << "Initial cube: " << cube << "\n";);
         TRACE("spacer_divergence_detect", tout << "Num of literal: " << num_uninterp_const(to_app(cube)) << "\n";);
         TRACE("spacer_divergence_detect", tout << "Num of numeral: " << num_numeral_const(to_app(cube)) << "\n";);
 
         // pob *p = &*lemma->get_pob();
         // pred_transformer &pt = p->pt();
 
-        scope_in(lemma, -1);
+        scope_in(lemma, 10);
         int counter = 0;
         anti_unifier antiU(m);
         expr_ref result(m);
 
-
         for(auto &s:m_within_scope){
             substitution subs1(m), subs2(m);
+
             TRACE("spacer_divergence_detect", tout << "s: " << mk_pp(s, m) << "\n";);
             antiU(cube , s, result, subs1, subs2);
-            
             expr_ref applied(m);
             subs1.apply(result, applied);
+
             TRACE("spacer_divergence_detect", tout << "Num of var occurances in result: " << num_vars(result) << "\n";);
 
             int dis = distance(subs1);
-            if(dis > 0 && dis <= 10) {
+
+            if(dis > 0 && dis <= 6) {
                 counter++;
                 TRACE("spacer_divergence_detect_dbg", tout
                       << "scoped lem: " << mk_pp(s, m) << "\n"
                       << "anti-result: " << mk_pp(result, m) << "\n"
-                      << "anti-applied: " << mk_pp(applied, m) << "\n";);
-                TRACE("spacer_divergence_detect_dbg", tout << "dis: " << dis << "\n";);
+                      << "anti-applied: " << mk_pp(applied, m) << "\n"
+                      << "dis: " << dis << "\n";);
             }
             if(counter >= threshold){
                 TRACE("spacer_divergence_detect_dbg", tout << "Reached repetitive lemma threshold, Abort!" << "\n";);

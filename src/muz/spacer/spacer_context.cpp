@@ -2692,7 +2692,7 @@ void context::init_lemma_generalizers()
     }
 
     if (m_adhoc_gen){
-      m_lemma_generalizers.push_back(alloc(lemma_adhoc_generalizer, *this));
+        m_lemma_generalizers.push_back(alloc(lemma_adhoc_generalizer, *this, 7));
     }
 
 }
@@ -3537,11 +3537,6 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             checkpoint ();
             (*m_lemma_generalizers[i])(lemma);
         }
-        // XXX JEFF -- check for total lemma population before entering lemma fusion
-        if (m_stats.m_num_lemmas >= 10){
-            TRACE("spacer_lemma_fusion",
-                  tout << "Current total lemma count: " << m_stats.m_num_lemmas << "\n";);
-        }
 
         DEBUG_CODE(
             lemma_sanity_checker sanity_checker(*this);
@@ -3555,6 +3550,12 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
         bool v = n.pt().add_lemma (lemma.get());
         if (v) { m_stats.m_num_lemmas++; }
+
+        // // XXX JEFF -- check for total lemma population before entering lemma fusion
+        // if (m_stats.m_num_lemmas >= 10){
+        //     TRACE("spacer_lemma_fusion",
+        //           tout << "Current total lemma count: " << m_stats.m_num_lemmas << "\n";);
+        // }
 
         // Optionally update the node to be the negation of the lemma
         if (v && m_use_lemma_as_pob) {
