@@ -55,7 +55,7 @@ namespace spacer {
         return false;
     }
 
-    // Quality of the substitution 
+    // Quality of the substitution
     int lemma_adhoc_generalizer::distance(substitution &s){
         int dis = 0;
         for(unsigned j = 0; j < s.get_num_bindings(); j++){
@@ -71,7 +71,7 @@ namespace spacer {
             SASSERT(v.second == 0 && "Unexpected non-zero offset in a substitution");
 
             // compute cost of the current expression
-            expr *e2 = nullptr; 
+            expr *e2 = nullptr;
             // strip negation
             if (m.is_not(e), e2){
                 e = e2;
@@ -84,7 +84,7 @@ namespace spacer {
             else if(m_arith.is_numeral(e)){
                 dis += 1;
             } else if (is_uninterp_const(e)){
-                dis += 6;
+                dis += 2;
             } else if (is_app(e)){
                 dis += 6*(to_app(e)->get_depth());
             }
@@ -117,23 +117,29 @@ namespace spacer {
 
 
 
+    // Now we have the detection next step is generalization of lemma groups
+    // 1) monotonic conjectures (only constant terms are varying; not coefficient?)
+    //    requires we remember diff between group representative and each memeber (this would also give us the direction of constant)
+    // 2) conjectures across lemma groups
+    //
 
+    // always using cube as 1st argument to antiU; but it doesn't have to be
+    // TODO 1 lemma :: and (...) -> get_arg_num (...)
     void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
         expr_ref cube(m);
-        cube = mk_and(lemma->get_cube()); // lemma->get_expr();
+        cube = mk_and(lemma->get_cube());
         TRACE("spacer_divergence_detect", tout << "Initial cube: " << cube << "\n";);
         TRACE("spacer_divergence_detect", tout << "Num of literal: " << num_uninterp_const(to_app(cube)) << "\n";);
         TRACE("spacer_divergence_detect", tout << "Num of numeral: " << num_numeral_const(to_app(cube)) << "\n";);
-
-        // pob *p = &*lemma->get_pob();
-        // pred_transformer &pt = p->pt();
 
         scope_in(lemma, 10);
         int counter = 0;
         anti_unifier antiU(m);
         expr_ref result(m);
+        expr_ref_vector neighbours(m);
 
         for(auto &s:m_within_scope){
+
             substitution subs1(m), subs2(m);
 
             TRACE("spacer_divergence_detect", tout << "s: " << mk_pp(s, m) << "\n";);
@@ -145,6 +151,11 @@ namespace spacer {
 
             int dis = distance(subs1);
 
+            // penalize singleton cubes for experiment
+            if(!m.is_and(cube)) {
+                dis += 7;
+            }
+
             if(dis > 0 && dis <= 6) {
                 counter++;
                 TRACE("spacer_divergence_detect_dbg", tout
@@ -152,9 +163,60 @@ namespace spacer {
                       << "anti-result: " << mk_pp(result, m) << "\n"
                       << "anti-applied: " << mk_pp(applied, m) << "\n"
                       << "dis: " << dis << "\n";);
+                neighbours.push_back(s);
             }
+
             if(counter >= threshold){
+                // Try to generate good summary lemma before bailout
+                // (1). (x >= N1) && (y <= N2) ===> if N1 >= N2 then x >= y
+                if(m.is_and(cube)){
+                    app * fst = to_app(to_app(cube)->get_arg(0));
+                    app * snd = to_app(to_app(cube)->get_arg(1));
+                    TRACE("spacer_divergence_bingo",
+                          tout << " fst : " << mk_pp(fst, m) << "\n"
+                               << " snd : " << mk_pp(snd, m) << "\n"
+                          ;);
+
+                        if(m_arith.is_ge(fst) && m_arith.is_le(snd)){
+                            rational n1, n2;
+                            if(m_arith.is_numeral(fst->get_arg(1), n1) && m_arith.is_numeral(snd->get_arg(1), n2)){
+                                if(n1 > n2){
+                                    TRACE("spacer_divergence_bingo", tout << n1 << " / " << n2 << "\n";);
+                                    expr_ref_vector conjecture(m);
+                                    conjecture.push_back( m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0)) );
+                                    TRACE("spacer_divergence_bingo",
+                                          tout << mk_pp(conjecture.back(), m) << "\n";);
+                                    pred_transformer &pt = lemma->get_pob()->pt();
+                                    unsigned uses_level = 0;
+                                    if(pt.check_inductive(lemma->level(), conjecture, uses_level, lemma->weakness())){
+                                        TRACE("spacer_divergence_bingo", tout << "Inductive!" << "\n";);
+                                        lemma->update_cube(lemma->get_pob(), conjecture);
+                                        lemma->set_level(uses_level);
+                                        counter = 0;
+                                        return;
+                                    } else {
+                                        TRACE("spacer_divergence_bingo", tout << "Not inductive!" << "\n";);
+                                        return;
+                                    }
+                                }
+                            }
+
+                    }
+                }
+                // End of trying here; time to bailout!
+
                 TRACE("spacer_divergence_detect_dbg", tout << "Reached repetitive lemma threshold, Abort!" << "\n";);
+                TRACE("spacer_diverg_report",
+                      tout << "Abort due to: " << mk_pp(applied, m)
+                      << "\n--- neighbours ---\n";
+                      for(auto &l:neighbours){
+                          tout << mk_pp(l, m) << "\n";
+                      };
+                      tout << "--- other statistics ---\n"
+                      << "Number of args: " << to_app(cube)->get_num_args() << "\n"
+                      << "Number of literals: " << ((!m.is_and(cube)) ? "1" : std::to_string(to_app(cube)->get_num_args())) << "\n"
+                      << "pattern from antiU: " << mk_pp(result, m) << "\n"
+                      ;);
                 throw unknown_exception();
             }
         }
