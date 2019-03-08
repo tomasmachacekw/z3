@@ -152,9 +152,9 @@ namespace spacer {
             int dis = distance(subs1);
 
             // penalize singleton cubes for experiment
-            if(!m.is_and(cube)) {
-                dis += 7;
-            }
+            // if(!m.is_and(cube)) {
+            //     dis += 7;
+            // }
 
             if(dis > 0 && dis <= 6) {
                 counter++;
