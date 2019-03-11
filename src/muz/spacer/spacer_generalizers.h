@@ -146,12 +146,17 @@ class lemma_adhoc_generalizer : public lemma_generalizer {
     int threshold;
     typedef std::pair<unsigned, unsigned> var_offset;
 
+
+    //maintaining groups of lemmas (a map from expr to vector of substitution?)
+    
+
     //field for measuring lemma distances
     // typedef std::pair<expr *, expr *> expr_pair;
     // svector<expr_pair>    m_todo;
 
 private:
     void scope_in(lemma_ref &l, int gen);
+    void scope_in_same_pt(lemma_ref &l, int num_frames);
 
 public:
     lemma_adhoc_generalizer(context &ctx, int theta);

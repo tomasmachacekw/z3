@@ -115,6 +115,25 @@ namespace spacer {
         }
     }
 
+    // scoping in ohter lemmas sharing the same PT (within +- num_frames)
+    void lemma_adhoc_generalizer::scope_in_same_pt(lemma_ref &lemma, int num_frames){
+        m_within_scope.reset();
+        pob *p = &*lemma->get_pob();
+        pred_transformer &pt = p->pt();
+        expr_ref_vector lemmas_with_same_pt(m);
+        TRACE("spacer_divergence_detect_samept", tout << "L: " << mk_pp(mk_and(lemma->get_cube()), m) << "\n";);
+        int i = 0; // pt.get_num_levels() > num_frames ? (pt.get_num_levels() - num_frames) : num_frames;
+        while(i <= pt.get_num_levels()){
+            pt.get_lemmas_at_frame(i, lemmas_with_same_pt);
+            // for (auto &e:lemmas_with_same_pt){
+            // }
+            m_within_scope.push_back(mk_and(lemmas_with_same_pt));
+            i++;
+            TRACE("spacer_divergence_detect_samept",
+                  tout << i << " : " << mk_pp(mk_and(lemmas_with_same_pt), m) << "\n";
+                  );
+        }
+    }
 
 
     // Now we have the detection next step is generalization of lemma groups
@@ -128,9 +147,12 @@ namespace spacer {
     void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
         expr_ref cube(m);
         cube = mk_and(lemma->get_cube());
-        TRACE("spacer_divergence_detect", tout << "Initial cube: " << cube << "\n";);
+        TRACE("spacer_divergence_detect_samept", tout << "Initial cube: " << cube << "\n";);
         TRACE("spacer_divergence_detect", tout << "Num of literal: " << num_uninterp_const(to_app(cube)) << "\n";);
         TRACE("spacer_divergence_detect", tout << "Num of numeral: " << num_numeral_const(to_app(cube)) << "\n";);
+
+        scope_in_same_pt(lemma, 5);
+
 
         scope_in(lemma, 10);
         int counter = 0;
