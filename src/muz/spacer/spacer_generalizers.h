@@ -144,11 +144,11 @@ class lemma_adhoc_generalizer : public lemma_generalizer {
     arith_util m_arith;
     expr_ref_vector m_within_scope;
     int threshold;
+    bool diverge_bailout;
     typedef std::pair<unsigned, unsigned> var_offset;
 
 
     //maintaining groups of lemmas (a map from expr to vector of substitution?)
-    
 
     //field for measuring lemma distances
     // typedef std::pair<expr *, expr *> expr_pair;
@@ -157,9 +157,10 @@ class lemma_adhoc_generalizer : public lemma_generalizer {
 private:
     void scope_in(lemma_ref &l, int gen);
     void scope_in_same_pt(lemma_ref &l, int num_frames);
+    void uninterp_consts(app *a, expr_ref_vector &out);
 
 public:
-    lemma_adhoc_generalizer(context &ctx, int theta);
+    lemma_adhoc_generalizer(context &ctx, int theta, bool if_bailout);
     ~lemma_adhoc_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
     bool is_linear_diverging(lemma_ref &lemma);

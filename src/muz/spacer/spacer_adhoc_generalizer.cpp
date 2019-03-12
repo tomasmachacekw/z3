@@ -48,8 +48,14 @@ using namespace spacer;
 
 namespace spacer {
 
-    lemma_adhoc_generalizer::lemma_adhoc_generalizer(context &ctx, int theta)
-        : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m), m_within_scope(m){ threshold = theta; }
+    lemma_adhoc_generalizer::lemma_adhoc_generalizer(context &ctx, int theta, bool if_bailout)
+        : lemma_generalizer(ctx),
+          m(ctx.get_ast_manager()),
+          m_arith(m),
+          m_within_scope(m){
+        threshold = theta;
+        diverge_bailout = if_bailout;
+    }
 
     bool lemma_adhoc_generalizer::is_linear_diverging(lemma_ref &lemma){
         return false;
@@ -151,7 +157,7 @@ namespace spacer {
         TRACE("spacer_divergence_detect", tout << "Num of literal: " << num_uninterp_const(to_app(cube)) << "\n";);
         TRACE("spacer_divergence_detect", tout << "Num of numeral: " << num_numeral_const(to_app(cube)) << "\n";);
 
-        scope_in_same_pt(lemma, 5);
+        // scope_in_same_pt(lemma, 5);
 
 
         scope_in(lemma, 10);
@@ -225,8 +231,29 @@ namespace spacer {
 
                     }
                 }
-                // End of trying here; time to bailout!
 
+                // chc-lia-0008
+                // pattern: x * A + y * B + (n_1 * C) >= n_2
+                // candidate: x * A + y * B >= (-1 * n_1 * C) + n_2
+                // candidate: A + B >= (-1 * n_1 * C) + n_2
+                if(is_app(result) && m_arith.is_ge(to_app(result))){
+                    app * pattern = to_app(result);
+                    if(num_uninterp_const(pattern) == num_vars(result) + 1){
+                        expr_ref_vector uni_consts(m);
+                        uninterp_consts(pattern, uni_consts);
+                        TRACE("spacer_diverg_report",
+                              tout << "Got here for 0008!" << "\n";
+                              for(auto &c:uni_consts){
+                                  tout << mk_pp(c, m) <<"\n";
+                              };);
+                    }
+                }
+
+                // 1) Monotonic coefficient
+                // 2) Monotonic numeric constant
+
+                if(diverge_bailout){
+                // End of trying here; time to bailout!
                 TRACE("spacer_divergence_detect_dbg", tout << "Reached repetitive lemma threshold, Abort!" << "\n";);
                 TRACE("spacer_diverg_report",
                       tout << "Abort due to: " << mk_pp(applied, m)
@@ -240,61 +267,10 @@ namespace spacer {
                       << "pattern from antiU: " << mk_pp(result, m) << "\n"
                       ;);
                 throw unknown_exception();
+                }
             }
         }
     }
-
-
-    /*
-void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
-  TRACE("spacer_adhoc_genz",
-    tout << "Initial cube: " << mk_and(lemma->get_cube()) << "\n";);
-
-  if(lemma->get_cube().size() < 2){
-      TRACE("spacer_adhoc_genz", tout << "singleton cube!"  << "\n";);
-  }
-
-  // pred_transformer &pt = lemma->get_pob()->pt();
-  pob *p = &*lemma->get_pob();
-
-  // parent-matching
-  unsigned i = 0;
-  unsigned match_count = 0;
-  sem_matcher smatcher(m);
-  anti_unifier antiU(m);
-  substitution subs1(m), subs2(m);
-  expr_ref result(m);
-  expr_ref result_buffer(m.mk_true(), m);
-
-  subs1.reserve(2, to_app(lemma->get_expr())->get_depth());
-  subs2.reserve(2, to_app(lemma->get_expr())->get_depth());
-
-  while(p->parent()){
-    i = 0;
-    p = p->parent();
-
-    for(auto &lms:p->lemmas()){
-      antiU( mk_and(lemma->get_cube()), mk_and(lms->get_cube()), result, subs1, subs2);
-      int dis = smatcher.distance(result, subs1);
-      if(dis > 0 && dis < 10) {
-          TRACE("adhoc_parent_matching",
-                tout << "Parent_" << i++ << ": "<< mk_and(lms->get_cube()) << "\n"
-                << "anti res: " << result << "\n"
-                << "distance: " << dis << "\n";);
-          match_count++;
-       }
-      if(match_count >= 5){
-          TRACE("adhoc_parent_matching_long", tout << "LONG MATCHes (>=5)" << "\n"
-                << "Parent_" << i++ << ": "<< mk_and(lms->get_cube()) << "\n"
-                << "anti res: " << result << "\n"
-                << "distance: " << dis << "\n";);
-
-      }
-    }
-  }
-
-    */
-
 
     /* MISC */
 
@@ -324,6 +300,17 @@ void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
         return count;
     }
 
+    void lemma_adhoc_generalizer::uninterp_consts(app *a, expr_ref_vector &out){
+        for(expr *e : *a){
+            if(is_uninterp_const(e)){
+                out.push_back(e);
+            }
+            else if(is_app(e)){
+                uninterp_consts(to_app(e), out);
+            }
+        }
+
+    }
 
     // number of variable occurances in a given e (counting repetitive occurances)
     int lemma_adhoc_generalizer::num_vars(expr *e){

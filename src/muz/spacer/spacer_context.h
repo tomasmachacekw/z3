@@ -989,6 +989,7 @@ class context {
     bool                 m_pdr_bfs;
     bool                 m_use_bg_invs;
     bool                 m_adhoc_gen;
+    bool                 m_diverge_bailout;
     unsigned             m_diverge_depth;
     unsigned             m_push_pob_max_depth;
     unsigned             m_max_level;
