@@ -2364,7 +2364,7 @@ void context::updt_params() {
     m_pdr_bfs = m_params.spacer_gpdr_bfs();
     m_use_bg_invs = m_params.spacer_use_bg_invs();
     m_adhoc_gen = m_params.spacer_adhoc_gen();
-    m_diverge_bailout = m_params.spacer_diverge_bailout() || (m_params.spacer_diverge_depth() != 7);
+    m_diverge_bailout = (m_params.spacer_diverge_depth() != 7) ? true : m_params.spacer_diverge_bailout();
     m_diverge_depth = m_params.spacer_diverge_depth();
 
     if (m_use_gpdr) {
