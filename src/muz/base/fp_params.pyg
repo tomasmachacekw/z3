@@ -179,5 +179,6 @@ def_module_params('fp',
                           ('spacer.gpdr.bfs', BOOL, True, 'Use BFS exploration strategy for expanding model search'),
                           ('spacer.use_bg_invs', BOOL, False, 'Enable external background invariants'),
                           ('spacer.adhoc_gen', BOOL, False, 'Generalize lemmas across lemma generations'),
+                          ('spacer.diverge_bailout', BOOL, False, 'Enabling diverge detection and bailout mechanism'),
                           ('spacer.diverge_depth', UINT, 7, 'Depth for divergence detection mechanism'),
                           ))
