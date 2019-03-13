@@ -131,13 +131,12 @@ namespace spacer {
         int i = 0; // pt.get_num_levels() > num_frames ? (pt.get_num_levels() - num_frames) : num_frames;
         while(i <= pt.get_num_levels()){
             pt.get_lemmas_at_frame(i, lemmas_with_same_pt);
-            // for (auto &e:lemmas_with_same_pt){
-            // }
             m_within_scope.push_back(mk_and(lemmas_with_same_pt));
             i++;
             TRACE("spacer_divergence_detect_samept",
                   tout << i << " : " << mk_pp(mk_and(lemmas_with_same_pt), m) << "\n";
                   );
+            lemmas_with_same_pt.reset();
         }
     }
 
@@ -157,10 +156,10 @@ namespace spacer {
         TRACE("spacer_divergence_detect", tout << "Num of literal: " << num_uninterp_const(to_app(cube)) << "\n";);
         TRACE("spacer_divergence_detect", tout << "Num of numeral: " << num_numeral_const(to_app(cube)) << "\n";);
 
-        // scope_in_same_pt(lemma, 5);
-
-
+        // XXX Different scoping
+        scope_in_same_pt(lemma, 5);
         scope_in(lemma, 10);
+
         int counter = 0;
         anti_unifier antiU(m);
         expr_ref result(m);
@@ -179,7 +178,7 @@ namespace spacer {
 
             int dis = distance(subs1);
 
-            // penalize singleton cubes for experiment
+            // XXX penalize singleton cubes for experiment
             // if(!m.is_and(cube)) {
             //     dis += 7;
             // }
@@ -195,6 +194,25 @@ namespace spacer {
             }
 
             if(counter >= threshold){
+
+                /* among neighbours, finding best antiU pattern */
+                /* This gives more robustness against communtative operators */
+                substitution subsa(m), subsb(m);
+                int min_dis = 6;
+                expr_ref min_result(m);
+                for(auto &n:neighbours){
+                    subsa.reset();
+                    subsb.reset();
+                    antiU(cube , n, result, subsa, subsb);
+                    int dis = distance(subsa);
+                    if(dis < min_dis){
+                        min_dis = dis;
+                        min_result = result;
+                    }
+                }
+                result = min_result;
+
+                /* Mitigation */
                 // Try to generate good summary lemma before bailout
                 // (1). (x >= N1) && (y <= N2) ===> if N1 >= N2 then x >= y
                 if(m.is_and(cube)){
@@ -239,21 +257,40 @@ namespace spacer {
                 if(is_app(result) && m_arith.is_ge(to_app(result))){
                     app * pattern = to_app(result);
                     if(num_uninterp_const(pattern) == num_vars(result) + 1){
-                        expr_ref_vector uni_consts(m);
+                        expr_ref_vector uni_consts(m), var_coeff(m);
                         uninterp_consts(pattern, uni_consts);
+                        uninterp_consts_with_var_coeff(pattern, var_coeff, false);
                         TRACE("spacer_diverg_report",
-                              tout << "Got here for 0008!" << "\n";
-                              for(auto &c:uni_consts){
+                              tout << "Found pattern similar to 0008.smt2" << "\n";
+                              tout << "Pattern: " << mk_pp(result, m) << "\n";
+                              tout << "Uninterpreted Const with Var coeff:" << "\n";
+                              for(expr * c:var_coeff){
                                   tout << mk_pp(c, m) <<"\n";
-                              };);
+                              }
+                              ;);
+                        expr_ref_vector conjecture(m);
+                        conjecture.push_back(m_arith.mk_lt(m_arith.mk_add(var_coeff.get(0), var_coeff.get(1))
+                                                           , m_arith.mk_int(0)));
+                        if(check_inductive_and_update(lemma, conjecture)){ return; };
                     }
                 }
+
+
+                // if(is_app(result)){
+                //     app * pattern = to_app(result);
+                //     // if there exists a _var_ (i.e. placeholder for substitution)
+                //     if(num_vars(result) >= 1){
+
+                //     } else{
+
+                //     }
+                // }
 
                 // 1) Monotonic coefficient
                 // 2) Monotonic numeric constant
 
-                if(diverge_bailout){
                 // End of trying here; time to bailout!
+                if(diverge_bailout){
                 TRACE("spacer_divergence_detect_dbg", tout << "Reached repetitive lemma threshold, Abort!" << "\n";);
                 TRACE("spacer_diverg_report",
                       tout << "Abort due to: " << mk_pp(applied, m)
@@ -312,6 +349,21 @@ namespace spacer {
 
     }
 
+    void lemma_adhoc_generalizer::uninterp_consts_with_var_coeff(app *a
+                                                                 , expr_ref_vector &out
+                                                                 , bool has_var_coeff)
+    {
+        for(expr *e : *a){
+            if(is_uninterp_const(e) && has_var_coeff){
+                out.push_back(e);
+            }
+            else if(is_app(e)){
+                uninterp_consts_with_var_coeff(to_app(e), out, m_arith.is_mul(e) && (num_vars(e)>=1) );
+            }
+        }
+
+    }
+
     // number of variable occurances in a given e (counting repetitive occurances)
     int lemma_adhoc_generalizer::num_vars(expr *e){
         int count = 0;
@@ -324,7 +376,19 @@ namespace spacer {
         return count;
     }
 
-
+    bool lemma_adhoc_generalizer::check_inductive_and_update(lemma_ref &lemma, expr_ref_vector conj){
+        TRACE("spacer_adhoc_gen", tout << "Attempt to update lemma with: "
+              << mk_pp(conj.back(), m) << "\n";);
+        pred_transformer &pt = lemma->get_pob()->pt();
+        unsigned uses_level = 0;
+        if(pt.check_inductive(lemma->level(), conj, uses_level, lemma->weakness())){
+            tout << "Inductive!" << "\n";
+            lemma->update_cube(lemma->get_pob(), conj);
+            lemma->set_level(uses_level);
+            return true;
+        } else {
+            tout << "Not inductive!" << "\n";
+            return false;
+        }
+    }
 }
-
-// two ways of creating pattern: 1. (one pattern against all lemmas in scope) 2. (keep having different anti-unified patterns)

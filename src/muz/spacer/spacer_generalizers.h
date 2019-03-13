@@ -158,6 +158,9 @@ private:
     void scope_in(lemma_ref &l, int gen);
     void scope_in_same_pt(lemma_ref &l, int num_frames);
     void uninterp_consts(app *a, expr_ref_vector &out);
+    void uninterp_consts_with_var_coeff(app *a, expr_ref_vector &out, bool has_var_coeff);
+    bool check_inductive_and_update(lemma_ref &l, expr_ref_vector conj);
+
 
 public:
     lemma_adhoc_generalizer(context &ctx, int theta, bool if_bailout);
