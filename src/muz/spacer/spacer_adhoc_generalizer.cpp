@@ -129,17 +129,22 @@ namespace spacer {
         expr_ref_vector lemmas_with_same_pt(m);
         TRACE("spacer_divergence_detect_samept", tout << "L: " << mk_pp(mk_and(lemma->get_cube()), m) << "\n";);
         int i = 0; // pt.get_num_levels() > num_frames ? (pt.get_num_levels() - num_frames) : num_frames;
-        while(i <= pt.get_num_levels()){
-            pt.get_lemmas_at_frame(i, lemmas_with_same_pt);
-            m_within_scope.push_back(mk_and(lemmas_with_same_pt));
-            i++;
-            TRACE("spacer_divergence_detect_samept",
-                  tout << i << " : " << mk_pp(mk_and(lemmas_with_same_pt), m) << "\n";
-                  );
-            lemmas_with_same_pt.reset();
-        }
-    }
+        // while(i <= pt.get_num_levels()){
+        //     pt.get_lemmas_at_frame(i, lemmas_with_same_pt);
+        //     if(m.is_true(mk_and(lemmas_with_same_pt)) || m.is_false(mk_and(lemmas_with_same_pt))){
+        //         i++;
+        //         continue;
+        //     }
+        //     tout << i << " : " << mk_pp(mk_and(lemmas_with_same_pt), m) << ")\n";
+        //     m_within_scope.push_back(mk_and(lemmas_with_same_pt));
 
+        //     i++;
+        //     lemmas_with_same_pt.reset();
+        pt.get_lemmas_at_frame(pt.get_num_levels(), lemmas_with_same_pt);
+        for(auto &e:lemmas_with_same_pt){
+            tout << i++ << " : " << mk_pp(e, m) << ")\n";
+        }
+        }
 
     // Now we have the detection next step is generalization of lemma groups
     // 1) monotonic conjectures (only constant terms are varying; not coefficient?)
@@ -210,81 +215,48 @@ namespace spacer {
                         min_result = result;
                     }
                 }
+                // XXX this will make pattern for lia-0010 too specific!
+                // TODO We really need true sorting on lemmas (might be expensive so only do on the neighbours)
                 result = min_result;
 
                 /* Mitigation */
                 // Try to generate good summary lemma before bailout
-                // (1). (x >= N1) && (y <= N2) ===> if N1 >= N2 then x >= y
-                if(m.is_and(cube)){
-                    app * fst = to_app(to_app(cube)->get_arg(0));
-                    app * snd = to_app(to_app(cube)->get_arg(1));
-                    TRACE("spacer_divergence_bingo",
-                          tout << " fst : " << mk_pp(fst, m) << "\n"
-                               << " snd : " << mk_pp(snd, m) << "\n"
-                          ;);
+                // (1). (x >= N1) && (y <= N2) ===> if N1 > N2 then x > y
+                // if(m.is_and(cube)){
+                //     app * fst = to_app(to_app(cube)->get_arg(0));
+                //     app * snd = to_app(to_app(cube)->get_arg(1));
+                //     TRACE("spacer_divergence_bingo",
+                //           tout << " fst : " << mk_pp(fst, m) << "\n"
+                //                << " snd : " << mk_pp(snd, m) << "\n"
+                //           ;);
 
-                        if(m_arith.is_ge(fst) && m_arith.is_le(snd)){
-                            rational n1, n2;
-                            if(m_arith.is_numeral(fst->get_arg(1), n1) && m_arith.is_numeral(snd->get_arg(1), n2)){
-                                if(n1 > n2){
-                                    TRACE("spacer_divergence_bingo", tout << n1 << " / " << n2 << "\n";);
-                                    expr_ref_vector conjecture(m);
-                                    conjecture.push_back( m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0)) );
-                                    TRACE("spacer_divergence_bingo",
-                                          tout << mk_pp(conjecture.back(), m) << "\n";);
-                                    pred_transformer &pt = lemma->get_pob()->pt();
-                                    unsigned uses_level = 0;
-                                    if(pt.check_inductive(lemma->level(), conjecture, uses_level, lemma->weakness())){
-                                        TRACE("spacer_divergence_bingo", tout << "Inductive!" << "\n";);
-                                        lemma->update_cube(lemma->get_pob(), conjecture);
-                                        lemma->set_level(uses_level);
-                                        counter = 0;
-                                        return;
-                                    } else {
-                                        TRACE("spacer_divergence_bingo", tout << "Not inductive!" << "\n";);
-                                        return;
-                                    }
-                                }
-                            }
-
-                    }
-                }
-
-                // chc-lia-0008
-                // pattern: x * A + y * B + (n_1 * C) >= n_2
-                // candidate: x * A + y * B >= (-1 * n_1 * C) + n_2
-                // candidate: A + B >= (-1 * n_1 * C) + n_2
-                if(is_app(result) && m_arith.is_ge(to_app(result))){
-                    app * pattern = to_app(result);
-                    if(num_uninterp_const(pattern) == num_vars(result) + 1){
-                        expr_ref_vector uni_consts(m), var_coeff(m);
-                        uninterp_consts(pattern, uni_consts);
-                        uninterp_consts_with_var_coeff(pattern, var_coeff, false);
-                        TRACE("spacer_diverg_report",
-                              tout << "Found pattern similar to 0008.smt2" << "\n";
-                              tout << "Pattern: " << mk_pp(result, m) << "\n";
-                              tout << "Uninterpreted Const with Var coeff:" << "\n";
-                              for(expr * c:var_coeff){
-                                  tout << mk_pp(c, m) <<"\n";
-                              }
-                              ;);
-                        expr_ref_vector conjecture(m);
-                        conjecture.push_back(m_arith.mk_lt(m_arith.mk_add(var_coeff.get(0), var_coeff.get(1))
-                                                           , m_arith.mk_int(0)));
-                        if(check_inductive_and_update(lemma, conjecture)){ return; };
-                    }
-                }
-
-
-                // if(is_app(result)){
-                //     app * pattern = to_app(result);
-                //     // if there exists a _var_ (i.e. placeholder for substitution)
-                //     if(num_vars(result) >= 1){
-
-                //     } else{
+                //         if(m_arith.is_ge(fst) && m_arith.is_le(snd)){
+                //             rational n1, n2;
+                //             if(m_arith.is_numeral(fst->get_arg(1), n1) && m_arith.is_numeral(snd->get_arg(1), n2)){
+                //                 if(n1 > n2){
+                //                     TRACE("spacer_divergence_bingo", tout << n1 << " / " << n2 << "\n";);
+                //                     expr_ref_vector conjecture(m);
+                //                     conjecture.push_back( m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0)) );
+                //                     if(check_inductive_and_update(lemma, conjecture)){ return; };
+                //                 }
+                //             }
 
                 //     }
                 // }
+
+
+                if(is_app(result)){
+                    app * pattern = to_app(result);
+                    expr_ref out(m);
+                    if(cross_halfplanes(pattern, out)){
+                    }
+                    out.reset();
+                    if(monotonic_coeffcient(pattern, out)){
+                        expr_ref_vector conjecture(m);
+                        conjecture.push_back(out);
+                        if(check_inductive_and_update(lemma, conjecture)){ return; };
+                    }
+                }
 
                 // 1) Monotonic coefficient
                 // 2) Monotonic numeric constant
@@ -390,5 +362,45 @@ namespace spacer {
             tout << "Not inductive!" << "\n";
             return false;
         }
+    }
+
+    bool lemma_adhoc_generalizer::cross_halfplanes(app *pattern, expr_ref &out){
+        if(m.is_and(pattern) && pattern->get_num_args() == 2){
+            app * fst = to_app(pattern->get_arg(0));
+            app * snd = to_app(pattern->get_arg(1));
+            TRACE("spacer_divergence_bingo",
+                  tout << " fst : " << mk_pp(fst, m) << "\n"
+                       << " snd : " << mk_pp(snd, m) << "\n"
+                  ;);
+            return false;
+        }
+        return false;
+    }
+
+    // chc-lia-0008
+    // pattern: x * A + y * B + (n_1 * C) >= n_2
+    // candidate: x * A + y * B >= (-1 * n_1 * C) + n_2
+    // candidate: A + B >= (-1 * n_1 * C) + n_2
+    bool lemma_adhoc_generalizer::monotonic_coeffcient(app *pattern, expr_ref &out){
+        if(m_arith.is_ge(pattern) || m_arith.is_gt(pattern)){
+            // XXX lia-0010 has the same number of uninterp consts and vars!
+            // TODO Refine this so it really finds the "var * uninterp" pattern
+            if(num_uninterp_const(pattern) == num_vars(pattern) + 1){
+                expr_ref_vector uni_consts(m), var_coeff(m);
+                uninterp_consts(pattern, uni_consts);
+                uninterp_consts_with_var_coeff(pattern, var_coeff, false);
+                TRACE("spacer_diverg_report",
+                      tout << "Found pattern similar to 0008.smt2" << "\n";
+                      tout << "Pattern: " << mk_pp(pattern, m) << "\n";
+                      tout << "Uninterpreted Const with Var coeff:" << "\n";
+                      for(expr * c:var_coeff){
+                          tout << mk_pp(c, m) <<"\n";
+                      }
+                      ;);
+                out = m_arith.mk_lt(m_arith.mk_add(var_coeff.get(0), var_coeff.get(1)), m_arith.mk_int(0));
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -168,10 +168,30 @@ public:
     void operator()(lemma_ref &lemma) override;
     bool is_linear_diverging(lemma_ref &lemma);
     int distance(substitution &s);
-    // misc functions
+
+
+    /* individual Lemma Generalization strategies */
+
+    // cross half planes
+    /* (X >= N1) && (y <= N2) ---> if N1 > N2 then (x > y) */
+    bool cross_halfplanes(app *pattern, expr_ref &out);
+
+    // monotonic coefficient
+    /* N * (x + y + ...) >= (K * z + K2) ---> (x + y + ...) >= 0 */
+    bool monotonic_coeffcient(app *pattern, expr_ref &out);
+
+    // monotonic constant term
+    /*  */
+
+    // mononomials
+    /* (>= x N1) and (>= x N2) ... --->  */
+
+    /* MISC */
     int num_uninterp_const(app *a);
     int num_numeral_const(app *a);
     int num_vars(expr *e);
+
+
 };
 }
 
