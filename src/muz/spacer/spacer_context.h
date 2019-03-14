@@ -1144,6 +1144,11 @@ public:
     solver* mk_solver0() {return m_pool0->mk_solver();}
     solver* mk_solver1() {return m_pool1->mk_solver();}
     solver* mk_solver2() {return m_pool2->mk_solver();}
+
+    //functions to count the number of variables in an app and decide to split
+    bool should_split(pob& n);
+    unsigned count_var(app* a);
+    unsigned max_dim_literals(pob& p);
 };
 
 inline bool pred_transformer::use_native_mbp () {return ctx.use_native_mbp ();}

@@ -3383,7 +3383,40 @@ void context::predecessor_eh()
             m_callbacks[i]->predecessor_eh();
     }
 }
-
+bool context::should_split(pob& n)
+{
+  if (n.get_no_ua()<10 && max_dim_literals(n) > 3)
+    return true;
+  else
+    return false;
+}
+unsigned context::count_var(app* a)
+{
+  unsigned count =0;
+  for(expr* e: *a)
+    {
+      if(is_uninterp_const(e)) count++;
+      else if(is_app(e))
+        count+=count_var(to_app(e));
+    }
+  return count;
+}
+unsigned context::max_dim_literals(pob& n)
+{
+  expr* exp = n.post();
+  if(! (is_app(exp) && m.is_and(exp)))
+    return 0;
+  app* a = to_app(exp);
+  unsigned max = 1;
+  unsigned noArgs = a->get_num_args();
+  for(unsigned i = 0 ; i < noArgs;i++)
+    {
+      expr* arg = a->get_arg(i);
+      //if(is_lia(arg))
+      max = std::max(count_var(to_app(arg)),max);
+    }
+  return max;
+}
 /// Checks whether the given pob is reachable
 /// returns l_true if reachable, l_false if unreachable
 /// returns l_undef if reachability cannot be decided
@@ -3433,8 +3466,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     vector<bool> reach_pred_used;
     unsigned num_reuse_reach = 0;
 
-
-    if (m_push_pob && n.pt().is_blocked(n, uses_level)) {
+    bool is_blocked =n.pt().is_blocked(n, uses_level,&model);
+    if (m_push_pob && is_blocked ) {
         // if (!m_pob_queue.is_root (n)) n.close ();
         IF_VERBOSE (1, verbose_stream () << " K "
                     << std::fixed << std::setprecision(2)
@@ -3443,12 +3476,24 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         out.push_back(&n);
         return l_false;
     }
-
+ 
     if (/* XXX noop */ n.pt().is_qblocked(n)) {
         STRACE("spacer_progress",
                tout << "This pob can be blocked by instantiation\n";);
     }
-
+    if(!is_blocked  && should_split(n))
+    {
+      //never split it more than 10 times. 
+      assert(n.get_no_ua() < 10);
+      n.incr_no_ua();
+      IF_VERBOSE(1,verbose_stream()<<"going to split " << n.get_no_ua()<<"\n");
+        pob* new_pob=ua_formula(n,model );
+        //need to ensure that new_pob has a higher priority than n
+        out.push_back(&(*new_pob));
+        out.push_back(&n);
+        return l_false;
+    }
+    model=nullptr;
     predecessor_eh();
 
     lbool res = n.pt ().is_reachable (n, &cube, &model, uses_level, is_concrete, r,
