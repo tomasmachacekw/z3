@@ -590,7 +590,7 @@ public:
                               app *rule_tag, unsigned pos);
     // exposing frame api
     void get_lemmas_at_frame(unsigned level, expr_ref_vector &out) const {
-        m_frames.get_frame_lemmas(level, out);
+        m_frames.get_frame_geq_lemmas(level, out, false);
     }
 };
 
