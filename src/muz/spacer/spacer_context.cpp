@@ -24,6 +24,7 @@ Notes:
 #include <sstream>
 #include <iomanip>
 
+#include "spacer_underApproximate.h"
 #include "muz/base/dl_util.h"
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
