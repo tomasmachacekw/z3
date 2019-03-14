@@ -24,6 +24,7 @@ Notes:
 #include <sstream>
 #include <iomanip>
 
+#include "spacer_underApproximate.h"
 #include "muz/base/dl_util.h"
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
@@ -69,7 +70,7 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_new_post (m_pt.get_ast_manager ()),
     m_level (level), m_depth (depth),
     m_open (true), m_use_farkas (true), m_in_queue(false),
-    m_weakness(0), m_blocked_lvl(0) {
+    m_weakness(0), m_blocked_lvl(0),m_ua(0) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -1288,13 +1289,12 @@ void pred_transformer::get_pred_bg_invs(expr_ref_vector& out) {
 
 
 /// \brief Returns true if the obligation is already blocked by current lemmas
-bool pred_transformer::is_blocked (pob &n, unsigned &uses_level)
+bool pred_transformer::is_blocked (pob &n, unsigned &uses_level, model_ref* model = nullptr)
 {
     ensure_level (n.level ());
     prop_solver::scoped_level _sl (*m_solver, n.level ());
     m_solver->set_core (nullptr);
-    m_solver->set_model (nullptr);
-
+    m_solver->set_model (model);
     expr_ref_vector post(m), _aux(m);
     post.push_back (n.post ());
     // this only uses the lemmas at the current level
@@ -3384,7 +3384,40 @@ void context::predecessor_eh()
             m_callbacks[i]->predecessor_eh();
     }
 }
-
+bool context::should_split(pob& n)
+{
+  if (n.get_no_ua()<10 && max_dim_literals(n) > 3)
+    return true;
+  else
+    return false;
+}
+unsigned context::count_var(app* a)
+{
+  unsigned count =0;
+  for(expr* e: *a)
+    {
+      if(is_uninterp_const(e)) count++;
+      else if(is_app(e))
+        count+=count_var(to_app(e));
+    }
+  return count;
+}
+unsigned context::max_dim_literals(pob& n)
+{
+  expr* exp = n.post();
+  if(! (is_app(exp) && m.is_and(exp)))
+    return 0;
+  app* a = to_app(exp);
+  unsigned max = 1;
+  unsigned noArgs = a->get_num_args();
+  for(unsigned i = 0 ; i < noArgs;i++)
+    {
+      expr* arg = a->get_arg(i);
+      //if(is_lia(arg))
+      max = std::max(count_var(to_app(arg)),max);
+    }
+  return max;
+}
 /// Checks whether the given pob is reachable
 /// returns l_true if reachable, l_false if unreachable
 /// returns l_undef if reachability cannot be decided
@@ -3434,8 +3467,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     vector<bool> reach_pred_used;
     unsigned num_reuse_reach = 0;
 
-
-    if (m_push_pob && n.pt().is_blocked(n, uses_level)) {
+    bool is_blocked =n.pt().is_blocked(n, uses_level,&model);
+    if (m_push_pob && is_blocked ) {
         // if (!m_pob_queue.is_root (n)) n.close ();
         IF_VERBOSE (1, verbose_stream () << " K "
                     << std::fixed << std::setprecision(2)
@@ -3444,12 +3477,24 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         out.push_back(&n);
         return l_false;
     }
-
+ 
     if (/* XXX noop */ n.pt().is_qblocked(n)) {
         STRACE("spacer_progress",
                tout << "This pob can be blocked by instantiation\n";);
     }
-
+    if(!is_blocked  && should_split(n))
+    {
+      //never split it more than 10 times. 
+      assert(n.get_no_ua() < 10);
+      n.incr_no_ua();
+      IF_VERBOSE(1,verbose_stream()<<"going to split " << n.get_no_ua()<<"\n");
+        pob* new_pob=ua_formula(n,model );
+        //need to ensure that new_pob has a higher priority than n
+        out.push_back(&(*new_pob));
+        out.push_back(&n);
+        return l_false;
+    }
+    model=nullptr;
     predecessor_eh();
 
     lbool res = n.pt ().is_reachable (n, &cube, &model, uses_level, is_concrete, r,
