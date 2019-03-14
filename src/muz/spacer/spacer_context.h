@@ -572,7 +572,7 @@ public:
     app* extend_initial (expr *e);
 
     /// \brief Returns true if the obligation is already blocked by current lemmas
-    bool is_blocked (pob &n, unsigned &uses_level);
+    bool is_blocked (pob &n, unsigned &uses_level, model_ref * model);
     /// \brief Returns true if the obligation is already blocked by current quantified lemmas
     bool is_qblocked (pob &n);
 
@@ -638,6 +638,8 @@ class pob {
     std::map<unsigned, stopwatch> m_expand_watches;
     unsigned m_blocked_lvl;
 
+    //the number of times it has been under approximated
+    unsigned m_ua;
 public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
@@ -721,6 +723,8 @@ public:
         --m_ref_count;
         if (m_ref_count == 0) {dealloc(this);}
     }
+    unsigned get_no_ua(){return m_ua;}
+    void incr_no_ua(){++m_ua;}
 
     std::ostream &display(std::ostream &out, bool full = false) const;
     class on_expand_event

@@ -69,7 +69,7 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_new_post (m_pt.get_ast_manager ()),
     m_level (level), m_depth (depth),
     m_open (true), m_use_farkas (true), m_in_queue(false),
-    m_weakness(0), m_blocked_lvl(0) {
+    m_weakness(0), m_blocked_lvl(0),m_ua(0) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -1288,13 +1288,12 @@ void pred_transformer::get_pred_bg_invs(expr_ref_vector& out) {
 
 
 /// \brief Returns true if the obligation is already blocked by current lemmas
-bool pred_transformer::is_blocked (pob &n, unsigned &uses_level)
+bool pred_transformer::is_blocked (pob &n, unsigned &uses_level, model_ref* model = nullptr)
 {
     ensure_level (n.level ());
     prop_solver::scoped_level _sl (*m_solver, n.level ());
     m_solver->set_core (nullptr);
-    m_solver->set_model (nullptr);
-
+    m_solver->set_model (model);
     expr_ref_vector post(m), _aux(m);
     post.push_back (n.post ());
     // this only uses the lemmas at the current level
