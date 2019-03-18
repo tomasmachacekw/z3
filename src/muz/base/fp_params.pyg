@@ -181,4 +181,5 @@ def_module_params('fp',
                           ('spacer.adhoc_gen', BOOL, False, 'Generalize lemmas across lemma generations'),
                           ('spacer.diverge_bailout', BOOL, False, 'Enabling diverge detection and bailout mechanism'),
                           ('spacer.diverge_depth', UINT, 7, 'Depth for divergence detection mechanism'),
+                          ('spacer.split_pob', BOOL, False, 'Enable POB splitting'),
                           ))

@@ -2364,6 +2364,7 @@ void context::updt_params() {
     m_pdr_bfs = m_params.spacer_gpdr_bfs();
     m_use_bg_invs = m_params.spacer_use_bg_invs();
     m_adhoc_gen = m_params.spacer_adhoc_gen();
+    m_split_pob = m_params.spacer_split_pob();
     m_diverge_bailout = (m_params.spacer_diverge_depth() != 7) ? true : m_params.spacer_diverge_bailout();
     m_diverge_depth = m_params.spacer_diverge_depth();
 
@@ -3483,7 +3484,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                tout << "This pob can be blocked by instantiation\n";);
     }
 
-    if(!is_blocked  && should_split(n))
+    if(!is_blocked  && should_split(n) && m_split_pob)
     {
       //never split it more than 10 times.
       SASSERT(n.get_no_ua() < 10);

@@ -159,7 +159,7 @@ namespace spacer {
     void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
         expr_ref cube(m);
         cube = mk_and(lemma->get_cube());
-        TRACE("spacer_divergence_detect_samept", tout << "Initial cube: " << cube << "\n";);
+        TRACE("spacer_divergence_detect", tout << "Initial cube: " << cube << "\n";);
         TRACE("spacer_divergence_detect", tout << "Num of literal: " << num_uninterp_const(to_app(cube)) << "\n";);
         TRACE("spacer_divergence_detect", tout << "Num of numeral: " << num_numeral_const(to_app(cube)) << "\n";);
 
@@ -243,14 +243,28 @@ namespace spacer {
                         rational n1, n2;
                         if(m_arith.is_numeral(fst->get_arg(1), n1) && m_arith.is_numeral(snd->get_arg(1), n2)){
                             if(n1 > n2){
-                                    TRACE("spacer_divergence_bingo", tout << n1 << " / " << n2 << "\n";);
-                                    expr_ref_vector conjecture(m);
-                                    conjecture.push_back( m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0)) );
-                                    if(check_inductive_and_update(lemma, conjecture)){ return; };
+                                TRACE("spacer_divergence_bingo", tout << n1 << " / " << n2 << "\n";);
+                                expr_ref_vector conjecture(m);
+                                conjecture.push_back( m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0)) );
+                                if(check_inductive_and_update(lemma, conjecture)){ return; };
                                 }
                             }
 
                     }
+                    // XXX Hackish approach for 0007
+                    // if(m_arith.is_le(fst) && m_arith.is_ge(snd)){
+                    //     rational n1, n2;
+                    //     if(m_arith.is_numeral(fst->get_arg(1), n1) && m_arith.is_numeral(snd->get_arg(1), n2)){
+                    //         if(n2 > n1){
+                    //             TRACE("spacer_divergence_bingo", tout << n1 << " / " << n2 << "\n";);
+                    //             expr_ref_vector conjecture(m);
+
+                    //             conjecture.push_back( m_arith.mk_eq(m_arith.mk_add(fst->get_arg(0),m_arith.mk_int(1))
+                    //                                                                , snd->get_arg(0)) );
+                    //             if(check_inductive_and_update(lemma, conjecture)){ return; };
+                    //         }
+                    //     }
+                    // }
                 }
 
 
