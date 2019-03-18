@@ -3386,7 +3386,7 @@ void context::predecessor_eh()
 }
 bool context::should_split(pob& n)
 {
-  if (n.get_no_ua()<10 && max_dim_literals(n) > 3)
+  if (n.get_no_ua()<10 && max_dim_literals(n) > 3 )
     return true;
   else
     return false;
@@ -3405,7 +3405,7 @@ unsigned context::count_var(app* a)
 unsigned context::max_dim_literals(pob& n)
 {
   expr* exp = n.post();
-  if(! (is_app(exp) && m.is_and(exp)))
+  if(! is_app(exp))
     return 0;
   app* a = to_app(exp);
   unsigned max = 1;
@@ -3477,22 +3477,28 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         out.push_back(&n);
         return l_false;
     }
- 
+
     if (/* XXX noop */ n.pt().is_qblocked(n)) {
         STRACE("spacer_progress",
                tout << "This pob can be blocked by instantiation\n";);
     }
+
     if(!is_blocked  && should_split(n))
     {
-      //never split it more than 10 times. 
+      //never split it more than 10 times.
       assert(n.get_no_ua() < 10);
       n.incr_no_ua();
-      IF_VERBOSE(1,verbose_stream()<<"going to split " << n.get_no_ua()<<"\n");
-        pob* new_pob=ua_formula(n,model );
-        //need to ensure that new_pob has a higher priority than n
-        out.push_back(&(*new_pob));
-        out.push_back(&n);
-        return l_false;
+      TRACE("under_approximate", tout<<"going to split " << n.get_no_ua()<<"\n";);
+      spacer::under_approx ua(m);
+      pob* new_pob=ua.ua_formula(n,model);
+      //TODO need to ensure that new_pob has a higher priority than n
+      if(new_pob != nullptr)
+        {
+          TRACE("under_approximate", tout<<"pob"<<mk_pp(n.post(),m)<<" is split into"<<mk_pp(new_pob->post(),m)<<"\n";);
+          out.push_back(&(*new_pob));
+          out.push_back(&n);
+          return l_undef;
+        }
     }
     model=nullptr;
     predecessor_eh();
