@@ -165,9 +165,9 @@ namespace spacer {
 
         // XXX Different scoping
         // Using this scope will make 0017 sat
-        scope_in_same_pt(lemma, 5);
+        // scope_in_same_pt(lemma, 5);
         // This scope solves 0008
-        //scope_in(lemma, 10);
+        scope_in(lemma, 10);
 
         int counter = 0;
         anti_unifier antiU(m);
@@ -292,9 +292,6 @@ namespace spacer {
                         };
                     }
                 }
-
-                // 1) Monotonic coefficient
-                // 2) Monotonic numeric constant
 
                 // End of trying here; time to bailout!
                 if(diverge_bailout){
@@ -424,14 +421,14 @@ namespace spacer {
     // pattern: x * A + y * B + (n_1 * C) >= n_2
     // candidate: x * A + y * B >= (-1 * n_1 * C) + n_2
     // candidate: A + B >= (-1 * n_1 * C) + n_2
+    // candidate: A + B >= 0
     bool lemma_adhoc_generalizer::monotonic_coeffcient(app *pattern, expr_ref &out){
+        expr_ref_vector uni_consts(m), var_coeff(m);
         if(m_arith.is_ge(pattern) || m_arith.is_gt(pattern)){
-            // XXX lia-0010 has the same number of uninterp consts and vars!
-            // TODO Refine this so it really finds the "var * uninterp" pattern
-            if(num_uninterp_const(pattern) == num_vars(pattern) + 1){
-                expr_ref_vector uni_consts(m), var_coeff(m);
+            uninterp_consts_with_var_coeff(pattern, var_coeff, false);
+            // If we have uninterp_consts_with_var_coeff
+            if(var_coeff.size() > 0){
                 uninterp_consts(pattern, uni_consts);
-                uninterp_consts_with_var_coeff(pattern, var_coeff, false);
                 TRACE("spacer_diverg_report",
                       tout << "Found pattern similar to 0008.smt2" << "\n";
                       tout << "Pattern: " << mk_pp(pattern, m) << "\n";
@@ -440,7 +437,12 @@ namespace spacer {
                           tout << mk_pp(c, m) <<"\n";
                       }
                       ;);
-                out = m_arith.mk_lt(m_arith.mk_add(var_coeff.get(0), var_coeff.get(1)), m_arith.mk_int(0));
+                expr_ref sum(m);
+                sum = var_coeff.get(0);
+                for(int i = 1; i < var_coeff.size(); i++){
+                    sum = m_arith.mk_add(sum, var_coeff.get(i));
+                }
+                out = m_arith.mk_lt(sum, m_arith.mk_int(0));
                 return true;
             }
         }
