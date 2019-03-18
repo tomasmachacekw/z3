@@ -145,7 +145,7 @@ namespace spacer {
     }
     //computes a lower or upper bound for uninterpreted constant var
     //if var not in l, returns no bounds
-    bound ua_variable(model_ref model,app_ref l,expr_ref_vector phi,expr* var)
+    bound ua_variable(model_ref model,app_ref l,expr* var)
     {
       rational coeff(1);
       expr * lhs = getLHS(l);
@@ -185,7 +185,7 @@ namespace spacer {
       vars_bound v;
       for (expr* e : variables)
         {
-          v[e->get_id()] = ua_variable(ortho_project,l,phi,e);
+          v[e->get_id()] = ua_variable(ortho_project,l,e);
         }
       return v;
     }
@@ -195,50 +195,70 @@ namespace spacer {
     {
       vars_bound v;
       arith_util m_arith(m);
-      app * e = to_app(n.post());
+      expr * e = to_app(n.post());
+      app_ref e_app(m);
       SASSERT(is_app(e));
       expr_ref_vector ua_pob(m);
-
-      for(unsigned i =0 ; i < e->get_num_args();i++)
+      if(m.is_not(to_app(e)))
         {
-          expr* temp = e->get_arg(i);
-          if(!(is_app(temp) && is_arith(to_app(temp))))
-            return nullptr;
-          app_ref rewrite(m);
-          if(m.is_not(to_app(temp)))
-            get_negated_child(to_app(temp),rewrite);
-          else
-            rewrite=to_app(temp);
+          get_negated_child(to_app(e),e_app);
+        }
+      else
+        {
+          e_app = to_app(e);
+        }
+      if(is_arith(e_app))
+        {
+          //There is only one literal. A single call to ua_literal is enough
           app_ref normalized_expr(m);
-          normalize_le(rewrite,normalized_expr);
-          TRACE("under_approximate", tout<< "literal is "<< mk_pp(temp,m)<<" normalized literal is " << mk_pp(normalized_expr,m)<< " LHS is "<< mk_pp(getLHS(normalized_expr),m)<<" RHS is " << mk_pp(getRHS(normalized_expr),m) <<"\n";);
-
+          normalize_le(e_app,normalized_expr);
           expr_ref_vector phi(m);
-          for(unsigned j=0;j<e->get_num_args();j++)
-            if(j!=i)
-              phi.push_back(&(*(e->get_arg(j))));
-
-          vars_bound t= ua_literal(model,normalized_expr,phi);
-          vars_bound::iterator itr = t.begin();
-          while(itr != t.end())
+          phi.push_back(m.mk_true());
+          v=ua_literal(model,normalized_expr,phi);
+        }
+      else
+        {
+          for(unsigned i =0 ; i < e_app->get_num_args();i++)
             {
-              if(v.find(itr->first) != v.end())
-                {
-                  if(itr->second.first != nullptr && is_less_than(v[itr->first].first,itr->second.first))
-                    v[itr->first].first = itr->second.first;
-                  if(itr->second.second != nullptr && is_less_than(itr->second.second,v[itr->first].second))
-                    v[itr->first].second = itr->second.second;
-                }
+              expr* temp = e_app->get_arg(i);
+              if(!(is_app(temp) && is_arith(to_app(temp))))
+                return nullptr;
+              app_ref rewrite(m);
+              if(m.is_not(to_app(temp)))
+                get_negated_child(to_app(temp),rewrite);
               else
+                rewrite=to_app(temp);
+              app_ref normalized_expr(m);
+              normalize_le(rewrite,normalized_expr);
+              TRACE("under_approximate", tout<< "literal is "<< mk_pp(temp,m)<<" normalized literal is " << mk_pp(normalized_expr,m)<< " LHS is "<< mk_pp(getLHS(normalized_expr),m)<<" RHS is " << mk_pp(getRHS(normalized_expr),m) <<"\n";);
+
+              expr_ref_vector phi(m);
+              for(unsigned j=0;j<e_app->get_num_args();j++)
+                if(j!=i)
+                  phi.push_back(&(*(e_app->get_arg(j))));
+
+              vars_bound t= ua_literal(model,normalized_expr,phi);
+              vars_bound::iterator itr = t.begin();
+              while(itr != t.end())
                 {
-                  v[itr->first] = itr->second;
+                  if(v.find(itr->first) != v.end())
+                    {
+                      if(itr->second.first != nullptr && is_less_than(v[itr->first].first,itr->second.first))
+                        v[itr->first].first = itr->second.first;
+                      if(itr->second.second != nullptr && is_less_than(itr->second.second,v[itr->first].second))
+                        v[itr->first].second = itr->second.second;
+                    }
+                  else
+                    {
+                      v[itr->first] = itr->second;
+                    }
+                  itr++;
                 }
-              itr++;
             }
         }
       //construct pob
       expr_ref_vector variables(m);
-      get_uninterp_const(e,variables);
+      get_uninterp_const(e_app,variables);
       for(expr* variable : variables)
         {
           if(v.find(variable->get_id()) !=v.end())
