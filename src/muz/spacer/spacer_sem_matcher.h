@@ -24,6 +24,8 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "util/hashtable.h"
 
+#include "ast/rewriter/ast_counter.h"
+
 namespace spacer {
 /**
    \brief Functor for matching expressions.

@@ -3486,7 +3486,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     if(!is_blocked  && should_split(n))
     {
       //never split it more than 10 times.
-      assert(n.get_no_ua() < 10);
+      SASSERT(n.get_no_ua() < 10);
       n.incr_no_ua();
       TRACE("under_approximate", tout<<"going to split " << n.get_no_ua()<<"\n";);
       spacer::under_approx ua(m);
