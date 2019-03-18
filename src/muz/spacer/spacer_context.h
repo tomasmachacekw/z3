@@ -269,6 +269,19 @@ class pred_transformer {
                     out.push_back(lemma->get_expr());
             }
         }
+        void get_frame_geq_lemmas_cube (unsigned level, expr_ref_vector &out,
+                                        bool with_bg = false) const {
+            for (auto &lemma : m_lemmas) {
+                if (lemma->level() >= level) {
+                    out.push_back(mk_and(lemma->get_cube()));
+                }
+            }
+            if (with_bg) {
+                for (auto &lemma : m_bg_invs)
+                    out.push_back(mk_and(lemma->get_cube()));
+            }
+        }
+
 
         const lemma_ref_vector& get_bg_invs() const {return m_bg_invs;}
         unsigned size() const {return m_size;}
@@ -588,9 +601,10 @@ public:
     void update_solver_with_rfs(prop_solver *solver,
                               const pred_transformer &pt,
                               app *rule_tag, unsigned pos);
-    // exposing frame api
+
+    // exposing frame api (getting the cube instead)
     void get_lemmas_at_frame(unsigned level, expr_ref_vector &out) const {
-        m_frames.get_frame_geq_lemmas(level, out, false);
+        m_frames.get_frame_geq_lemmas_cube(level, out, false);
     }
 };
 

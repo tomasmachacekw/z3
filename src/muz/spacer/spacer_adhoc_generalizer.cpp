@@ -30,6 +30,7 @@
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_sem_matcher.h"
 #include "muz/spacer/spacer_antiunify.h"
+#include "muz/spacer/spacer_util.h"
 
 #include "ast/substitution/substitution.h"
 #include "ast/arith_decl_plugin.h"
@@ -142,7 +143,8 @@ namespace spacer {
         //     lemmas_with_same_pt.reset();
         pt.get_lemmas_at_frame(pt.get_num_levels(), lemmas_with_same_pt);
         for(auto &e:lemmas_with_same_pt){
-            tout << i++ << " : " << mk_pp(e, m) << ")\n";
+            tout << i++ << " : " << mk_pp(e, m) << "\n";
+            m_within_scope.push_back(e);
         }
         }
 
@@ -162,8 +164,10 @@ namespace spacer {
         TRACE("spacer_divergence_detect", tout << "Num of numeral: " << num_numeral_const(to_app(cube)) << "\n";);
 
         // XXX Different scoping
+        // Using this scope will make 0017 sat
         scope_in_same_pt(lemma, 5);
-        scope_in(lemma, 10);
+        // This scope solves 0008
+        //scope_in(lemma, 10);
 
         int counter = 0;
         anti_unifier antiU(m);
@@ -205,6 +209,11 @@ namespace spacer {
                 substitution subsa(m), subsb(m);
                 int min_dis = 6;
                 expr_ref min_result(m);
+                expr_ref normedCube(m);
+                normalize(cube, normedCube, true, false);
+                TRACE("spacer_diverg_report", tout << "Cube: " << mk_pp(cube, m) << "\n";);
+                tout << "normed cube: " << mk_pp(normedCube, m) << "\n";
+
                 for(auto &n:neighbours){
                     subsa.reset();
                     subsb.reset();
@@ -222,39 +231,65 @@ namespace spacer {
                 /* Mitigation */
                 // Try to generate good summary lemma before bailout
                 // (1). (x >= N1) && (y <= N2) ===> if N1 > N2 then x > y
-                // if(m.is_and(cube)){
-                //     app * fst = to_app(to_app(cube)->get_arg(0));
-                //     app * snd = to_app(to_app(cube)->get_arg(1));
-                //     TRACE("spacer_divergence_bingo",
-                //           tout << " fst : " << mk_pp(fst, m) << "\n"
-                //                << " snd : " << mk_pp(snd, m) << "\n"
-                //           ;);
+                if(m.is_and(cube)){
+                    app * fst = to_app(to_app(cube)->get_arg(0));
+                    app * snd = to_app(to_app(cube)->get_arg(1));
+                    TRACE("spacer_divergence_bingo",
+                          tout << " fst : " << mk_pp(fst, m) << "\n"
+                               << " snd : " << mk_pp(snd, m) << "\n"
+                          ;);
 
-                //         if(m_arith.is_ge(fst) && m_arith.is_le(snd)){
-                //             rational n1, n2;
-                //             if(m_arith.is_numeral(fst->get_arg(1), n1) && m_arith.is_numeral(snd->get_arg(1), n2)){
-                //                 if(n1 > n2){
-                //                     TRACE("spacer_divergence_bingo", tout << n1 << " / " << n2 << "\n";);
-                //                     expr_ref_vector conjecture(m);
-                //                     conjecture.push_back( m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0)) );
-                //                     if(check_inductive_and_update(lemma, conjecture)){ return; };
-                //                 }
-                //             }
+                    if(m_arith.is_ge(fst) && m_arith.is_le(snd)){
+                        rational n1, n2;
+                        if(m_arith.is_numeral(fst->get_arg(1), n1) && m_arith.is_numeral(snd->get_arg(1), n2)){
+                            if(n1 > n2){
+                                    TRACE("spacer_divergence_bingo", tout << n1 << " / " << n2 << "\n";);
+                                    expr_ref_vector conjecture(m);
+                                    conjecture.push_back( m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0)) );
+                                    if(check_inductive_and_update(lemma, conjecture)){ return; };
+                                }
+                            }
 
-                //     }
-                // }
+                    }
+                }
 
 
                 if(is_app(result)){
                     app * pattern = to_app(result);
                     expr_ref out(m);
-                    if(cross_halfplanes(pattern, out)){
-                    }
+                    expr_ref_vector conjecture(m);
+
+                    // XXX Ideally replaces code above
+                    // if(cross_halfplanes(to_app(cube), out)){
+                    //     conjecture.push_back(out);
+                    //     if(check_inductive_and_update(lemma, conjecture)){
+                    //         TRACE("spacer_diverg_report",
+                    //               tout << "Pattern discovered due to: " << mk_pp(applied, m)
+                    //               << "\n--- neighbours ---\n";
+                    //               for(auto &l:neighbours){
+                    //                   tout << mk_pp(l, m) << "\n";
+                    //               };
+                    //               tout << "Inductive invariant found: " << mk_pp(out, m) << "\n"
+                    //               ;);
+                    //         return;
+                    //     };
+                    // }
+
                     out.reset();
                     if(monotonic_coeffcient(pattern, out)){
-                        expr_ref_vector conjecture(m);
+                        // ENSURE(out);
                         conjecture.push_back(out);
-                        if(check_inductive_and_update(lemma, conjecture)){ return; };
+                        if(check_inductive_and_update(lemma, conjecture)){
+                            TRACE("spacer_diverg_report",
+                                  tout << "Pattern discovered due to: " << mk_pp(applied, m)
+                                  << "\n--- neighbours ---\n";
+                                  for(auto &l:neighbours){
+                                      tout << mk_pp(l, m) << "\n";
+                                  };
+                                  tout << "Inductive invariant found: " << mk_pp(out, m) << "\n"
+                                  ;);
+                            return;
+                        };
                     }
                 }
 
@@ -372,7 +407,15 @@ namespace spacer {
                   tout << " fst : " << mk_pp(fst, m) << "\n"
                        << " snd : " << mk_pp(snd, m) << "\n"
                   ;);
-            return false;
+            if(m_arith.is_ge(fst) && m_arith.is_le(snd)){
+                rational n1, n2;
+                if(m_arith.is_numeral(fst->get_arg(1), n1) && m_arith.is_numeral(snd->get_arg(1), n2)){
+                    if(n1 > n2){
+                        out = m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0));
+                        return true;
+                    }
+                }
+            }
         }
         return false;
     }
