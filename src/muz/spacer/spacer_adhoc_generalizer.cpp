@@ -21,6 +21,9 @@
   2. lift parametres upto top-level (threshold is now hard-coded to 5 while distance-threshold is hard-coded to 10)
   3. Boolean literals need to be handled seperately
 
+  TRACE flags:
+  1. spacer_diverge_report: for conclusive summary
+  2. spacer_diverge_dbg: for debugging information
 */
 
 
@@ -72,7 +75,7 @@ namespace spacer {
             s.get_binding(j, v, r);
             expr_ref e(m);
             e = r.get_expr();
-            TRACE("spacer_divergence_detect",
+            TRACE("spacer_diverge_dbg",
                   tout << "num bindings: " << s.get_num_bindings() << "\n"
                        << "sub: v!" << v.first << " = " << e << "\n";);
             SASSERT(v.second == 0 && "Unexpected non-zero offset in a substitution");
@@ -101,51 +104,54 @@ namespace spacer {
 
     // Queue up related lemmas into m_within_scope
     // For example, traverse through ancestors and collect their lemmas
-    void lemma_adhoc_generalizer::scope_in(lemma_ref &lemma, int gen){
-        m_within_scope.reset();
-        pob *p = &*lemma->get_pob();
-        pred_transformer &pt = p->pt();
-        int i = 0;
-        while( (gen < 0 || i < gen) && p->parent()){
-            // Comparing signature of starting lemma against ancestors' pt sig, continue if mismatched
-            if( &pt != &(p->pt())){
-                TRACE("spacer_divergence_detect_dbg", tout << "pt sig mismatched: " << "\n";);
-                p = p->parent();
-                continue;
-            }
-            for(auto &lms:p->lemmas()){
-                expr_ref e = mk_and(lms->get_cube());
-                m_within_scope.push_back(e);
-            }
-            p = p->parent();
-            i++;
-        }
-    }
+    // void lemma_adhoc_generalizer::scope_in(lemma_ref &lemma, int gen){
+    //     m_within_scope.reset();
+    //     pob *p = &*lemma->get_pob();
+    //     pred_transformer &pt = p->pt();
+    //     int i = 0;
+    //     while( (gen < 0 || i < gen) && p->parent()){
+    //         // Comparing signature of starting lemma against ancestors' pt sig, continue if mismatched
+    //         if( &pt != &(p->pt())){
+    //             TRACE("spacer_diverge_dbg", tout << "pt sig mismatched: " << "\n";);
+    //             p = p->parent();
+    //             continue;
+    //         }
+    //         for(auto &lms:p->lemmas()){
+    //             expr_ref e = mk_and(lms->get_cube());
+    //             m_within_scope.push_back(e);
+    //         }
+    //         p = p->parent();
+    //         i++;
+    //     }
+    // }
 
-    // scoping in ohter lemmas sharing the same PT (within +- num_frames)
-    void lemma_adhoc_generalizer::scope_in_same_pt(lemma_ref &lemma, int num_frames){
+    void lemma_adhoc_generalizer::scope_in_leq(lemma_ref &lemma, int num_frames){
         m_within_scope.reset();
-        pob *p = &*lemma->get_pob();
-        pred_transformer &pt = p->pt();
-        expr_ref_vector lemmas_with_same_pt(m);
-        TRACE("spacer_divergence_detect_samept", tout << "L: " << mk_pp(mk_and(lemma->get_cube()), m) << "\n";);
-        int i = 0; // pt.get_num_levels() > num_frames ? (pt.get_num_levels() - num_frames) : num_frames;
-        // while(i <= pt.get_num_levels()){
-        //     pt.get_lemmas_at_frame(i, lemmas_with_same_pt);
-        //     if(m.is_true(mk_and(lemmas_with_same_pt)) || m.is_false(mk_and(lemmas_with_same_pt))){
-        //         i++;
-        //         continue;
-        //     }
-        //     tout << i << " : " << mk_pp(mk_and(lemmas_with_same_pt), m) << ")\n";
-        //     m_within_scope.push_back(mk_and(lemmas_with_same_pt));
-
-        //     i++;
-        //     lemmas_with_same_pt.reset();
-        pt.get_lemmas_at_frame(pt.get_num_levels(), lemmas_with_same_pt);
-        for(auto &e:lemmas_with_same_pt){
-            TRACE("spacer_divergence_detect_samept", tout << i++ << " : " << mk_pp(e, m) << "\n";);
-            m_within_scope.push_back(e);
+        pred_transformer &pt = (&*lemma->get_pob())->pt();
+        lemma_ref_vector lemmas_with_same_pt;
+        pt.get_lemmas_at_frame_leq(pt.get_num_levels(), lemmas_with_same_pt);
+        TRACE("spacer_diverge_dbg",
+              tout << "Lem: " << mk_pp(mk_and(lemma->get_cube()), m) << "\n"
+                   << "pt.get_num_levels(): " << pt.get_num_levels() << "\n"
+                   << "size of lemmas_with_same_pt: " << lemmas_with_same_pt.size() << "\n";
+              for(auto &l: lemmas_with_same_pt){
+                  tout << mk_pp(mk_and(l->get_cube()), m) << "\n";
+              };);
+        for(auto &l: lemmas_with_same_pt){
+            if(l->level()!=0)
+                m_within_scope.push_back(mk_and(l->get_cube()));
+        };
         }
+
+    void lemma_adhoc_generalizer::scope_in_geq(lemma_ref &lemma, int num_frames){
+        m_within_scope.reset();
+        pred_transformer &pt = (&*lemma->get_pob())->pt();
+        lemma_ref_vector lemmas_with_same_pt;
+        pt.get_lemmas_at_frame_geq(pt.get_num_levels(), lemmas_with_same_pt);
+        for(auto &l: lemmas_with_same_pt){
+            if(l->level()!=0)
+                m_within_scope.push_back(mk_and(l->get_cube()));
+        };
         }
 
     // Now we have the detection next step is generalization of lemma groups
@@ -159,34 +165,36 @@ namespace spacer {
     void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
         expr_ref cube(m);
         cube = mk_and(lemma->get_cube());
-        TRACE("spacer_divergence_detect", tout << "Initial cube: " << cube << "\n";);
-        TRACE("spacer_divergence_detect", tout << "Num of literal: " << num_uninterp_const(to_app(cube)) << "\n";);
-        TRACE("spacer_divergence_detect", tout << "Num of numeral: " << num_numeral_const(to_app(cube)) << "\n";);
+        TRACE("spacer_diverge_dbg_neighbours",
+              tout << "Initial cube: " << cube << "\n"
+                   << "Num of literal: " << num_uninterp_const(to_app(cube)) << "\n"
+                   << "Num of numeral: " << num_numeral_const(to_app(cube)) << "\n";);
 
-        // XXX Different scoping
-        // Using this scope will make 0017 sat
-        // scope_in_same_pt(lemma, 5);
-        // This scope solves 0008
-        scope_in(lemma, 10);
+        scope_in_geq(lemma, 5);
+        // scope_in_leq(lemma, 5);
+
+        TRACE("spacer_diverge_dbg_neighbours",
+              for(auto &s:m_within_scope){
+                  tout << "s_leq: " << mk_pp(s, m) << "\n";
+              };);
 
         int counter = 0;
-        anti_unifier antiU(m);
-        expr_ref result(m);
-        expr_ref_vector neighbours(m);
-
-        for(auto &s:m_within_scope){
-
+        int i;
+        for(i = 0; i < m_within_scope.size(); i++){
+            expr_ref s(m);
+            s = m_within_scope.get(i);
+            anti_unifier antiU(m);
+            expr_ref result(m);
             substitution subs1(m), subs2(m);
+            expr_ref_vector neighbours(m);
 
-            TRACE("spacer_divergence_detect", tout << "s: " << mk_pp(s, m) << "\n";);
             antiU(cube , s, result, subs1, subs2);
             expr_ref applied(m);
             subs1.apply(result, applied);
-
-            TRACE("spacer_divergence_detect", tout << "Num of var occurances in result: " << num_vars(result) << "\n";);
-
             int dis = distance(subs1);
-
+            TRACE("spacer_diverge_dbg_neighbours",
+                  tout << "s: " << mk_pp(s, m) << " dis: " << dis << "\n";
+                ;);
             // XXX penalize singleton cubes for experiment
             // if(!m.is_and(cube)) {
             //     dis += 7;
@@ -194,7 +202,7 @@ namespace spacer {
 
             if(dis > 0 && dis <= 6) {
                 counter++;
-                TRACE("spacer_divergence_detect_dbg", tout
+                TRACE("spacer_diverge_dbg", tout
                       << "scoped lem: " << mk_pp(s, m) << "\n"
                       << "anti-result: " << mk_pp(result, m) << "\n"
                       << "anti-applied: " << mk_pp(applied, m) << "\n"
@@ -204,17 +212,17 @@ namespace spacer {
             }
 
             if(counter >= threshold){
-
                 /* among neighbours, finding best antiU pattern */
                 /* This gives more robustness against communtative operators */
                 substitution subsa(m), subsb(m);
                 int min_dis = 6;
                 expr_ref min_result(m);
-                expr_ref normedCube(m);
-                normalize(cube, normedCube, true, false);
-                TRACE("spacer_diverg_report",
-                      tout << "Cube: " << mk_pp(cube, m) << "\n"
-                           << "normed cube: " << mk_pp(normedCube, m) << "\n";);
+
+                // expr_ref normedCube(m);
+                // normalize(cube, normedCube, true, false);
+                // TRACE("spacer_diverge_report",
+                //       tout << "Cube: " << mk_pp(cube, m) << "\n"
+                //            << "normed cube: " << mk_pp(normedCube, m) << "\n";);
 
                 for(auto &n:neighbours){
                     subsa.reset();
@@ -236,7 +244,7 @@ namespace spacer {
                 if(m.is_and(cube)){
                     app * fst = to_app(to_app(cube)->get_arg(0));
                     app * snd = to_app(to_app(cube)->get_arg(1));
-                    TRACE("spacer_divergence_bingo",
+                    TRACE("spacer_diverge_dbg_neighbours",
                           tout << " fst : " << mk_pp(fst, m) << "\n"
                                << " snd : " << mk_pp(snd, m) << "\n"
                           ;);
@@ -245,10 +253,20 @@ namespace spacer {
                         rational n1, n2;
                         if(m_arith.is_numeral(fst->get_arg(1), n1) && m_arith.is_numeral(snd->get_arg(1), n2)){
                             if(n1 > n2){
-                                TRACE("spacer_divergence_bingo", tout << n1 << " / " << n2 << "\n";);
+                                TRACE("spacer_diverge_dbg", tout << n1 << " / " << n2 << "\n";);
                                 expr_ref_vector conjecture(m);
                                 conjecture.push_back( m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0)) );
-                                if(check_inductive_and_update(lemma, conjecture)){ return; };
+                                if(check_inductive_and_update(lemma, conjecture)){
+                                    TRACE("spacer_diverge_report",
+                                          tout << "Pattern discovered due to: " << mk_pp(applied, m)
+                                          << "\n--- neighbours ---\n";
+                                          for(auto &l:neighbours){
+                                              tout << mk_pp(l, m) << "\n";
+                                          };
+                                          tout << "Inductive invariant found: " << mk_pp(conjecture.get(0), m) << "\n"
+                                          ;);
+                                    return;
+                                };
                                 }
                             }
 
@@ -296,7 +314,7 @@ namespace spacer {
                         // ENSURE(out);
                         conjecture.push_back(out);
                         if(check_inductive_and_update(lemma, conjecture)){
-                            TRACE("spacer_diverg_report",
+                            TRACE("spacer_diverge_report",
                                   tout << "Pattern discovered due to: " << mk_pp(applied, m)
                                        << "\n--- neighbours ---\n";
                                   for(auto &l:neighbours){
@@ -311,8 +329,8 @@ namespace spacer {
 
                 // End of trying here; time to bailout!
                 if(diverge_bailout){
-                TRACE("spacer_divergence_detect_dbg", tout << "Reached repetitive lemma threshold, Abort!" << "\n";);
-                TRACE("spacer_diverg_report",
+                TRACE("spacer_diverge_report", tout << "Reached repetitive lemma threshold, Abort!" << "\n";);
+                TRACE("spacer_diverge_report",
                       tout << "Abort due to: " << mk_pp(applied, m)
                       << "\n--- neighbours ---\n";
                       for(auto &l:neighbours){
@@ -397,17 +415,17 @@ namespace spacer {
     }
 
     bool lemma_adhoc_generalizer::check_inductive_and_update(lemma_ref &lemma, expr_ref_vector conj){
-        TRACE("spacer_adhoc_gen", tout << "Attempt to update lemma with: "
+        TRACE("spacer_diverge_dbg", tout << "Attempt to update lemma with: "
               << mk_pp(conj.back(), m) << "\n";);
         pred_transformer &pt = lemma->get_pob()->pt();
         unsigned uses_level = 0;
         if(pt.check_inductive(lemma->level(), conj, uses_level, lemma->weakness())){
-            TRACE("spacer_adhoc_gen", tout << "Inductive!" << "\n";);
+            TRACE("spacer_diverge_dbg", tout << "Inductive!" << "\n";);
             lemma->update_cube(lemma->get_pob(), conj);
             lemma->set_level(uses_level);
             return true;
         } else {
-            TRACE("spacer_adhoc_gen", tout << "Not inductive!" << "\n";);
+            TRACE("spacer_diverge_dbg", tout << "Not inductive!" << "\n";);
             return false;
         }
     }
@@ -416,7 +434,7 @@ namespace spacer {
         if(m.is_and(pattern) && pattern->get_num_args() == 2){
             app * fst = to_app(pattern->get_arg(0));
             app * snd = to_app(pattern->get_arg(1));
-            TRACE("spacer_divergence_bingo",
+            TRACE("spacer_diverge_dbg",
                   tout << " fst : " << mk_pp(fst, m) << "\n"
                        << " snd : " << mk_pp(snd, m) << "\n"
                   ;);
@@ -445,7 +463,7 @@ namespace spacer {
             // If we have uninterp_consts_with_var_coeff
             if(var_coeff.size() > 0){
                 uninterp_consts(pattern, uni_consts);
-                TRACE("spacer_diverg_report",
+                TRACE("spacer_diverge_report",
                       tout << "Found pattern similar to 0008.smt2" << "\n";
                       tout << "Pattern: " << mk_pp(pattern, m) << "\n";
                       tout << "Uninterpreted Const with Var coeff:" << "\n";

@@ -269,16 +269,27 @@ class pred_transformer {
                     out.push_back(lemma->get_expr());
             }
         }
-        void get_frame_geq_lemmas_cube (unsigned level, expr_ref_vector &out,
-                                        bool with_bg = false) const {
+
+        void get_frame_geq_raw_lemmas (unsigned level, lemma_ref_vector &out,
+                                       bool with_bg = false) const {
             for (auto &lemma : m_lemmas) {
-                if (lemma->level() >= level) {
-                    out.push_back(mk_and(lemma->get_cube()));
-                }
+                if (lemma->level() >= level)
+                    out.push_back(lemma);
             }
             if (with_bg) {
                 for (auto &lemma : m_bg_invs)
-                    out.push_back(mk_and(lemma->get_cube()));
+                    out.push_back(lemma);
+            }
+        }
+        void get_frame_leq_raw_lemmas (unsigned level, lemma_ref_vector &out,
+                                       bool with_bg = false) const {
+            for (auto &lemma : m_lemmas) {
+                if (lemma->level() <= level)
+                    out.push_back(lemma);
+            }
+            if (with_bg) {
+                for (auto &lemma : m_bg_invs)
+                    out.push_back(lemma);
             }
         }
 
@@ -602,9 +613,12 @@ public:
                               const pred_transformer &pt,
                               app *rule_tag, unsigned pos);
 
-    // exposing frame api (getting the cube instead)
-    void get_lemmas_at_frame(unsigned level, expr_ref_vector &out) const {
-        m_frames.get_frame_geq_lemmas_cube(level, out, false);
+    // exposing raw lemmas
+    void get_lemmas_at_frame_geq(unsigned level, lemma_ref_vector &out) const {
+        m_frames.get_frame_geq_raw_lemmas(level, out, false);
+    }
+    void get_lemmas_at_frame_leq(unsigned level, lemma_ref_vector &out) const {
+        m_frames.get_frame_leq_raw_lemmas(level, out, false);
     }
 };
 
