@@ -73,8 +73,8 @@ namespace spacer {
             expr_ref e(m);
             e = r.get_expr();
             TRACE("spacer_divergence_detect",
-                  tout << "num bindings: " << s.get_num_bindings() << "\n";
-                  tout << "sub: v!" << v.first << " = " << e << "\n";);
+                  tout << "num bindings: " << s.get_num_bindings() << "\n"
+                       << "sub: v!" << v.first << " = " << e << "\n";);
             SASSERT(v.second == 0 && "Unexpected non-zero offset in a substitution");
 
             // compute cost of the current expression
@@ -143,7 +143,7 @@ namespace spacer {
         //     lemmas_with_same_pt.reset();
         pt.get_lemmas_at_frame(pt.get_num_levels(), lemmas_with_same_pt);
         for(auto &e:lemmas_with_same_pt){
-            tout << i++ << " : " << mk_pp(e, m) << "\n";
+            TRACE("spacer_divergence_detect_samept", tout << i++ << " : " << mk_pp(e, m) << "\n";);
             m_within_scope.push_back(e);
         }
         }
@@ -198,6 +198,7 @@ namespace spacer {
                       << "scoped lem: " << mk_pp(s, m) << "\n"
                       << "anti-result: " << mk_pp(result, m) << "\n"
                       << "anti-applied: " << mk_pp(applied, m) << "\n"
+                      << "counter: " << counter << "\n"
                       << "dis: " << dis << "\n";);
                 neighbours.push_back(s);
             }
@@ -211,8 +212,9 @@ namespace spacer {
                 expr_ref min_result(m);
                 expr_ref normedCube(m);
                 normalize(cube, normedCube, true, false);
-                TRACE("spacer_diverg_report", tout << "Cube: " << mk_pp(cube, m) << "\n";);
-                tout << "normed cube: " << mk_pp(normedCube, m) << "\n";
+                TRACE("spacer_diverg_report",
+                      tout << "Cube: " << mk_pp(cube, m) << "\n"
+                           << "normed cube: " << mk_pp(normedCube, m) << "\n";);
 
                 for(auto &n:neighbours){
                     subsa.reset();
@@ -296,7 +298,7 @@ namespace spacer {
                         if(check_inductive_and_update(lemma, conjecture)){
                             TRACE("spacer_diverg_report",
                                   tout << "Pattern discovered due to: " << mk_pp(applied, m)
-                                  << "\n--- neighbours ---\n";
+                                       << "\n--- neighbours ---\n";
                                   for(auto &l:neighbours){
                                       tout << mk_pp(l, m) << "\n";
                                   };
@@ -400,12 +402,12 @@ namespace spacer {
         pred_transformer &pt = lemma->get_pob()->pt();
         unsigned uses_level = 0;
         if(pt.check_inductive(lemma->level(), conj, uses_level, lemma->weakness())){
-            tout << "Inductive!" << "\n";
+            TRACE("spacer_adhoc_gen", tout << "Inductive!" << "\n";);
             lemma->update_cube(lemma->get_pob(), conj);
             lemma->set_level(uses_level);
             return true;
         } else {
-            tout << "Not inductive!" << "\n";
+            TRACE("spacer_adhoc_gen", tout << "Not inductive!" << "\n";);
             return false;
         }
     }
