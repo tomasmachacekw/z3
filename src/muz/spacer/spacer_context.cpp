@@ -3387,7 +3387,7 @@ void context::predecessor_eh()
 }
 bool context::should_split(pob& n)
 {
-  if (n.get_no_ua()<10 && max_dim_literals(n) > 3 )
+  if (n.get_no_ua()<1 && max_dim_literals(n) > 3 )
     return true;
   else
     return false;
@@ -3486,8 +3486,9 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
     if(!is_blocked  && should_split(n) && m_split_pob)
     {
-      //never split it more than 10 times.
-      SASSERT(n.get_no_ua() < 10);
+      //Priority for pobs at the same level and depth are decided by the number of literals in the pob. If the number of literals are the same, the id of the expression is compared. We cannot guarentee that the split pob is going to be blocked before the parent pob. But we can guarentee that the split pob is going to be processed before a predecessor of the original pob.
+      //never split it more than 1 time.
+      SASSERT(n.get_no_ua() < 1);
       n.incr_no_ua();
       TRACE("under_approximate", tout<<"going to split " << n.get_no_ua()<<"\n";);
       spacer::under_approx ua(m);
