@@ -106,6 +106,7 @@ void pob::inherit(pob const &p) {
     m_open = p.m_open;
     m_use_farkas = p.m_use_farkas;
     m_weakness = p.m_weakness;
+    m_ua = p.m_ua;
 
     m_derivation = nullptr;
 }
