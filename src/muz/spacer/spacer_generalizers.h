@@ -139,6 +139,24 @@ private:
     bool find_stride(expr_ref_vector &c, expr_ref &pattern, unsigned &stride);
 };
 
+class lemma_merge_generalizer : public lemma_generalizer {
+    ast_manager &m;
+    arith_util m_arith;
+    int threshold;
+
+public:
+    lemma_merge_generalizer(context &ctx, int threshold);
+    ~lemma_merge_generalizer() override {}
+    void operator()(lemma_ref &lemma) override;
+
+private:
+    bool leq_monotonic_k(expr_ref &l, app *pattern, expr_ref &out);
+    bool leq_monotonic_neg_k(expr_ref &l, app *pattern, expr_ref &out);
+    bool merge_halfspaces(expr_ref &literal, app *pattern, expr_ref &out);
+    bool merge_lines(expr_ref &literal, app *pattern, expr_ref &out);
+    bool monotonic_coeffcient(expr_ref &literal, app *pattern, expr_ref &out);
+};
+
 class lemma_adhoc_generalizer : public lemma_generalizer {
     ast_manager &m;
     arith_util m_arith;
@@ -146,7 +164,6 @@ class lemma_adhoc_generalizer : public lemma_generalizer {
     int threshold;
     bool diverge_bailout;
     typedef std::pair<unsigned, unsigned> var_offset;
-
 
     //maintaining groups of lemmas (a map from expr to vector of substitution?)
 

@@ -3484,7 +3484,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                tout << "This pob can be blocked by instantiation\n";);
     }
 
-    if(!is_blocked  && should_split(n) && m_split_pob)
+    if(!is_blocked && should_split(n) && m_split_pob)
     {
       //Priority for pobs at the same level and depth are decided by the number of literals in the pob. If the number of literals are the same, the id of the expression is compared. We cannot guarentee that the split pob is going to be blocked before the parent pob. But we can guarentee that the split pob is going to be processed before a predecessor of the original pob.
       //never split it more than 1 time.
