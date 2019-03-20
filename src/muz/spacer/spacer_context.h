@@ -269,30 +269,7 @@ class pred_transformer {
                     out.push_back(lemma->get_expr());
             }
         }
-
-        void get_frame_geq_raw_lemmas (unsigned level, lemma_ref_vector &out,
-                                       bool with_bg = false) const {
-            for (auto &lemma : m_lemmas) {
-                if (lemma->level() >= level)
-                    out.push_back(lemma);
-            }
-            if (with_bg) {
-                for (auto &lemma : m_bg_invs)
-                    out.push_back(lemma);
-            }
-        }
-        void get_frame_leq_raw_lemmas (unsigned level, lemma_ref_vector &out,
-                                       bool with_bg = false) const {
-            for (auto &lemma : m_lemmas) {
-                if (lemma->level() <= level)
-                    out.push_back(lemma);
-            }
-            if (with_bg) {
-                for (auto &lemma : m_bg_invs)
-                    out.push_back(lemma);
-            }
-        }
-        void get_frame_all_raw_lemmas (unsigned level, lemma_ref_vector &out,
+       void get_frame_all_raw_lemmas (unsigned level, lemma_ref_vector &out,
                                        bool with_bg = false) const {
             for (auto &lemma : m_lemmas) {
                     out.push_back(lemma);
@@ -624,10 +601,22 @@ public:
 
     // exposing raw lemmas
     void get_lemmas_at_frame_geq(unsigned level, lemma_ref_vector &out) const {
-        m_frames.get_frame_geq_raw_lemmas(level, out, false);
+        lemma_ref_vector temp;
+        m_frames.get_frame_all_raw_lemmas(level, temp, false);
+        for(auto &lemma:temp){
+            if(lemma->level() >= level){
+                out.push_back(lemma);
+            }
+        }
     }
     void get_lemmas_at_frame_leq(unsigned level, lemma_ref_vector &out) const {
-        m_frames.get_frame_leq_raw_lemmas(level, out, false);
+        lemma_ref_vector temp;
+        m_frames.get_frame_all_raw_lemmas(level, temp, false);
+        for(auto &lemma:temp){
+            if(lemma->level() <= level){
+                out.push_back(lemma);
+            }
+        }
     }
 };
 
