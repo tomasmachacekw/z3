@@ -104,26 +104,26 @@ namespace spacer {
 
     // Queue up related lemmas into m_within_scope
     // For example, traverse through ancestors and collect their lemmas
-    // void lemma_adhoc_generalizer::scope_in(lemma_ref &lemma, int gen){
-    //     m_within_scope.reset();
-    //     pob *p = &*lemma->get_pob();
-    //     pred_transformer &pt = p->pt();
-    //     int i = 0;
-    //     while( (gen < 0 || i < gen) && p->parent()){
-    //         // Comparing signature of starting lemma against ancestors' pt sig, continue if mismatched
-    //         if( &pt != &(p->pt())){
-    //             TRACE("spacer_diverge_dbg", tout << "pt sig mismatched: " << "\n";);
-    //             p = p->parent();
-    //             continue;
-    //         }
-    //         for(auto &lms:p->lemmas()){
-    //             expr_ref e = mk_and(lms->get_cube());
-    //             m_within_scope.push_back(e);
-    //         }
-    //         p = p->parent();
-    //         i++;
-    //     }
-    // }
+    void lemma_adhoc_generalizer::scope_in_parents(lemma_ref &lemma, int gen){
+        m_within_scope.reset();
+        pob *p = &*lemma->get_pob();
+        pred_transformer &pt = p->pt();
+        int i = 0;
+        while( (gen < 0 || i < gen) && p->parent()){
+            // Comparing signature of starting lemma against ancestors' pt sig, continue if mismatched
+            if( &pt != &(p->pt())){
+                TRACE("spacer_diverge_dbg", tout << "pt sig mismatched: " << "\n";);
+                p = p->parent();
+                continue;
+            }
+            for(auto &lms:p->lemmas()){
+                expr_ref e = mk_and(lms->get_cube());
+                m_within_scope.push_back(e);
+            }
+            p = p->parent();
+            i++;
+        }
+    }
 
     void lemma_adhoc_generalizer::scope_in_leq(lemma_ref &lemma, int num_frames){
         m_within_scope.reset();
@@ -138,8 +138,7 @@ namespace spacer {
                   tout << mk_pp(mk_and(l->get_cube()), m) << "\n";
               };);
         for(auto &l: lemmas_with_same_pt){
-            if(l->level()!=0)
-                m_within_scope.push_back(mk_and(l->get_cube()));
+            m_within_scope.push_back(mk_and(l->get_cube()));
         };
         }
 
@@ -149,8 +148,7 @@ namespace spacer {
         lemma_ref_vector lemmas_with_same_pt;
         pt.get_lemmas_at_frame_geq(pt.get_num_levels(), lemmas_with_same_pt);
         for(auto &l: lemmas_with_same_pt){
-            if(l->level()!=0)
-                m_within_scope.push_back(mk_and(l->get_cube()));
+            m_within_scope.push_back(mk_and(l->get_cube()));
         };
         }
 
@@ -165,13 +163,14 @@ namespace spacer {
     void lemma_adhoc_generalizer::operator()(lemma_ref &lemma){
         expr_ref cube(m);
         cube = mk_and(lemma->get_cube());
-        TRACE("spacer_diverge_dbg_neighbours",
-              tout << "Initial cube: " << cube << "\n"
-                   << "Num of literal: " << num_uninterp_const(to_app(cube)) << "\n"
-                   << "Num of numeral: " << num_numeral_const(to_app(cube)) << "\n";);
+        // TRACE("spacer_diverge_dbg_neighbours",
+        //       tout << "Initial cube: " << cube << "\n"
+        //       << "Num of literal: " << num_uninterp_const(to_app(cube)) << "\n"
+        //       << "Num of numeral: " << num_numeral_const(to_app(cube)) << "\n";);
 
-        scope_in_geq(lemma, 5);
-        // scope_in_leq(lemma, 5);
+        // scope_in_geq(lemma, 5); // XXX for 0017
+        scope_in_leq(lemma, 5); // XXX still bad!
+        // scope_in_parents(lemma, 10);
 
         TRACE("spacer_diverge_dbg_neighbours",
               for(auto &s:m_within_scope){
@@ -224,108 +223,23 @@ namespace spacer {
                 //       tout << "Cube: " << mk_pp(cube, m) << "\n"
                 //            << "normed cube: " << mk_pp(normedCube, m) << "\n";);
 
-                for(auto &n:neighbours){
-                    subsa.reset();
-                    subsb.reset();
-                    antiU(cube , n, result, subsa, subsb);
-                    int dis = distance(subsa);
-                    if(dis < min_dis){
-                        min_dis = dis;
-                        min_result = result;
-                    }
-                }
-                // XXX this will make pattern for lia-0010 too specific!
-                // TODO We really need true sorting on lemmas (might be expensive so only do on the neighbours)
-                result = min_result;
+                // for(auto &n:neighbours){
+                //     subsa.reset();
+                //     subsb.reset();
+                //     antiU(cube , n, result, subsa, subsb);
+                //     int dis = distance(subsa);
+                //     if(dis < min_dis){
+                //         min_dis = dis;
+                //         min_result = result;
+                //     }
+                // }
+                // // XXX this will make pattern for lia-0010 too specific!
+                // // TODO We really need true sorting on lemmas (might be expensive so only do on the neighbours)
+                // // TODO this can make result into null! 
+                // result = min_result;
 
-                /* Mitigation */
-                // Try to generate good summary lemma before bailout
-                // (1). (x >= N1) && (y <= N2) ===> if N1 > N2 then x > y
-                if(m.is_and(cube)){
-                    app * fst = to_app(to_app(cube)->get_arg(0));
-                    app * snd = to_app(to_app(cube)->get_arg(1));
-                    TRACE("spacer_diverge_dbg_neighbours",
-                          tout << " fst : " << mk_pp(fst, m) << "\n"
-                               << " snd : " << mk_pp(snd, m) << "\n"
-                          ;);
-
-                    if(m_arith.is_ge(fst) && m_arith.is_le(snd)){
-                        rational n1, n2;
-                        if(m_arith.is_numeral(fst->get_arg(1), n1) && m_arith.is_numeral(snd->get_arg(1), n2)){
-                            if(n1 > n2){
-                                TRACE("spacer_diverge_dbg", tout << n1 << " / " << n2 << "\n";);
-                                expr_ref_vector conjecture(m);
-                                conjecture.push_back( m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0)) );
-                                if(check_inductive_and_update(lemma, conjecture)){
-                                    TRACE("spacer_diverge_report",
-                                          tout << "Pattern discovered due to: " << mk_pp(applied, m)
-                                          << "\n--- neighbours ---\n";
-                                          for(auto &l:neighbours){
-                                              tout << mk_pp(l, m) << "\n";
-                                          };
-                                          tout << "Inductive invariant found: " << mk_pp(conjecture.get(0), m) << "\n"
-                                          ;);
-                                    return;
-                                };
-                                }
-                            }
-
-                    }
-                    // XXX Hackish approach for 0007
-                    // if(m_arith.is_le(fst) && m_arith.is_ge(snd)){
-                    //     rational n1, n2;
-                    //     if(m_arith.is_numeral(fst->get_arg(1), n1) && m_arith.is_numeral(snd->get_arg(1), n2)){
-                    //         if(n2 > n1){
-                    //             TRACE("spacer_divergence_bingo", tout << n1 << " / " << n2 << "\n";);
-                    //             expr_ref_vector conjecture(m);
-
-                    //             conjecture.push_back( m_arith.mk_eq(m_arith.mk_add(fst->get_arg(0),m_arith.mk_int(1))
-                    //                                                                , snd->get_arg(0)) );
-                    //             if(check_inductive_and_update(lemma, conjecture)){ return; };
-                    //         }
-                    //     }
-                    // }
-                }
-
-
-                if(is_app(result)){
-                    app * pattern = to_app(result);
-                    expr_ref out(m);
-                    expr_ref_vector conjecture(m);
-
-                    // XXX Ideally replaces code above
-                    // if(cross_halfplanes(to_app(cube), out)){
-                    //     conjecture.push_back(out);
-                    //     if(check_inductive_and_update(lemma, conjecture)){
-                    //         TRACE("spacer_diverg_report",
-                    //               tout << "Pattern discovered due to: " << mk_pp(applied, m)
-                    //               << "\n--- neighbours ---\n";
-                    //               for(auto &l:neighbours){
-                    //                   tout << mk_pp(l, m) << "\n";
-                    //               };
-                    //               tout << "Inductive invariant found: " << mk_pp(out, m) << "\n"
-                    //               ;);
-                    //         return;
-                    //     };
-                    // }
-
-                    out.reset();
-                    if(monotonic_coeffcient(pattern, out)){
-                        // ENSURE(out);
-                        conjecture.push_back(out);
-                        if(check_inductive_and_update(lemma, conjecture)){
-                            TRACE("spacer_diverge_report",
-                                  tout << "Pattern discovered due to: " << mk_pp(applied, m)
-                                       << "\n--- neighbours ---\n";
-                                  for(auto &l:neighbours){
-                                      tout << mk_pp(l, m) << "\n";
-                                  };
-                                  tout << "Inductive invariant found: " << mk_pp(out, m) << "\n"
-                                  ;);
-                            return;
-                        };
-                    }
-                }
+                bool merge_result = merge(lemma, cube, result);
+                if(merge_result){ return; }
 
                 // End of trying here; time to bailout!
                 if(diverge_bailout){
@@ -482,4 +396,97 @@ namespace spacer {
         }
         return false;
     }
+    bool lemma_adhoc_generalizer::merge(lemma_ref &lemma, expr_ref &cube, expr_ref &result){
+        // (1). (x >= N1) && (y <= N2) ===> if N1 > N2 then x > y
+        if(m.is_and(cube)){
+            app * fst = to_app(to_app(cube)->get_arg(0));
+            app * snd = to_app(to_app(cube)->get_arg(1));
+            TRACE("spacer_diverge_dbg_neighbours",
+                  tout << " fst : " << mk_pp(fst, m) << "\n"
+                  << " snd : " << mk_pp(snd, m) << "\n"
+                  ;);
+
+            if(m_arith.is_ge(fst) && m_arith.is_le(snd)){
+                rational n1, n2;
+                if(m_arith.is_numeral(fst->get_arg(1), n1) && m_arith.is_numeral(snd->get_arg(1), n2)){
+                    if(n1 > n2){
+                        TRACE("spacer_diverge_dbg", tout << n1 << " / " << n2 << "\n";);
+                        expr_ref_vector conjecture(m);
+                        conjecture.push_back( m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0)) );
+                        if(check_inductive_and_update(lemma, conjecture)){
+                            TRACE("spacer_diverge_report",
+                                  // tout << "Pattern discovered due to: " << mk_pp(applied, m)
+                                  // << "\n--- neighbours ---\n";
+                                  // for(auto &l:neighbours){
+                                  //     tout << mk_pp(l, m) << "\n";
+                                  // };
+                                  tout << "Inductive invariant found: " << mk_pp(conjecture.get(0), m) << "\n"
+                                  ;);
+                            return true;
+                        };
+                    }
+                }
+
+            }
+            // XXX Hackish approach for 0007
+            // if(m_arith.is_le(fst) && m_arith.is_ge(snd)){
+            //     rational n1, n2;
+            //     if(m_arith.is_numeral(fst->get_arg(1), n1) && m_arith.is_numeral(snd->get_arg(1), n2)){
+            //         if(n2 > n1){
+            //             TRACE("spacer_divergence_bingo", tout << n1 << " / " << n2 << "\n";);
+            //             expr_ref_vector conjecture(m);
+
+            //             conjecture.push_back( m_arith.mk_eq(m_arith.mk_add(fst->get_arg(0),m_arith.mk_int(1))
+            //                                                                , snd->get_arg(0)) );
+            //             if(check_inductive_and_update(lemma, conjecture)){ return; };
+            //         }
+            //     }
+            // }
+
+        } // end of (1)
+
+        // (2)
+        TRACE("Why_segfault", tout << mk_pp(result, m) << "\n";);
+        if(is_app(result)){
+            app * pattern = to_app(result);
+            expr_ref out(m);
+            expr_ref_vector conjecture(m);
+
+            // XXX Ideally replaces code above
+            // if(cross_halfplanes(to_app(cube), out)){
+            //     conjecture.push_back(out);
+            //     if(check_inductive_and_update(lemma, conjecture)){
+            //         TRACE("spacer_diverg_report",
+            //               tout << "Pattern discovered due to: " << mk_pp(applied, m)
+            //               << "\n--- neighbours ---\n";
+            //               for(auto &l:neighbours){
+            //                   tout << mk_pp(l, m) << "\n";
+            //               };
+            //               tout << "Inductive invariant found: " << mk_pp(out, m) << "\n"
+            //               ;);
+            //         return;
+            //     };
+            // }
+
+            out.reset();
+            if(monotonic_coeffcient(pattern, out)){
+                // ENSURE(out);
+                conjecture.push_back(out);
+                if(check_inductive_and_update(lemma, conjecture)){
+                    TRACE("spacer_diverge_report",
+                          // tout << "Pattern discovered due to: " << mk_pp(applied, m)
+                          // << "\n--- neighbours ---\n";
+                          // for(auto &l:neighbours){
+                          //     tout << mk_pp(l, m) << "\n";
+                          // };
+                          tout << "Inductive invariant found: " << mk_pp(out, m) << "\n"
+                          ;);
+                    return true;
+                };
+            }
+        } // end of (2)
+
+        return false;
+    }
+
 }

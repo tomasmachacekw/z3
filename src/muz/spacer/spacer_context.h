@@ -292,7 +292,16 @@ class pred_transformer {
                     out.push_back(lemma);
             }
         }
-
+        void get_frame_all_raw_lemmas (unsigned level, lemma_ref_vector &out,
+                                       bool with_bg = false) const {
+            for (auto &lemma : m_lemmas) {
+                    out.push_back(lemma);
+            }
+            if (with_bg) {
+                for (auto &lemma : m_bg_invs)
+                    out.push_back(lemma);
+            }
+        }
 
         const lemma_ref_vector& get_bg_invs() const {return m_bg_invs;}
         unsigned size() const {return m_size;}

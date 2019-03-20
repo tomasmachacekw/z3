@@ -155,11 +155,13 @@ class lemma_adhoc_generalizer : public lemma_generalizer {
     // svector<expr_pair>    m_todo;
 
 private:
+    void scope_in_parents(lemma_ref &l, int gen);
     void scope_in_leq(lemma_ref &l, int gen);
     void scope_in_geq(lemma_ref &l, int num_frames);
     void uninterp_consts(app *a, expr_ref_vector &out);
     void uninterp_consts_with_var_coeff(app *a, expr_ref_vector &out, bool has_var_coeff);
     bool check_inductive_and_update(lemma_ref &l, expr_ref_vector conj);
+    bool merge(lemma_ref &lemma, expr_ref &cube, expr_ref &result);
 
 public:
     lemma_adhoc_generalizer(context &ctx, int theta, bool if_bailout);
