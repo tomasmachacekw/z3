@@ -162,6 +162,7 @@ private:
     void uninterp_consts_with_var_coeff(app *a, expr_ref_vector &out, bool has_var_coeff);
     bool check_inductive_and_update(lemma_ref &l, expr_ref_vector conj);
     bool merge(lemma_ref &lemma, expr_ref &cube, expr_ref &result);
+    bool try_on_neighbours(lemma_ref &l, expr_ref &cube);
 
 public:
     lemma_adhoc_generalizer(context &ctx, int theta, bool if_bailout);
@@ -180,7 +181,7 @@ public:
     // monotonic coefficient
     /* N * (x + y + ...) >= (K * z + K2) ---> (x + y + ...) >= 0 */
     bool monotonic_coeffcient(app *pattern, expr_ref &out);
-
+    bool normed_monotonic_coeffcient(app *pattern, expr_ref &out);
     // monotonic constant term
     /*  */
 
