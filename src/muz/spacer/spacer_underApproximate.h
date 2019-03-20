@@ -167,6 +167,8 @@ namespace spacer {
     // true if numeral(a) < numeral(b)
     bool is_less_than(expr* a , expr* b)
     {
+      SASSERT(a!=nullptr);
+      SASSERT(b!=nullptr);
       rational a_rat,b_rat;
       m_arith.is_numeral(a,a_rat);
       m_arith.is_numeral(b,b_rat);
@@ -243,9 +245,9 @@ namespace spacer {
                 {
                   if(v.find(itr->first) != v.end())
                     {
-                      if(itr->second.first != nullptr && is_less_than(v[itr->first].first,itr->second.first))
+                      if((v[itr->first].first == nullptr )|| (itr->second.first != nullptr && is_less_than(v[itr->first].first,itr->second.first)))
                         v[itr->first].first = itr->second.first;
-                      if(itr->second.second != nullptr && is_less_than(itr->second.second,v[itr->first].second))
+                      if((v[itr->first].second == nullptr) || (itr->second.second != nullptr && is_less_than(itr->second.second,v[itr->first].second)))
                         v[itr->first].second = itr->second.second;
                     }
                   else
