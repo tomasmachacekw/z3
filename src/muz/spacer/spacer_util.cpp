@@ -978,6 +978,18 @@ namespace {
         for_each_expr(cd, fml);
     }
 
+    /**
+       Auxiliary functions used in C(luster) S(plit) M(erge) project
+    */
+    int num_uninterp_const( app *a ){
+        int count = 0;
+        for (expr *e: *a){
+            if(is_uninterp_const(e)) count++;
+            else if(is_app(e))
+                count += num_uninterp_const(to_app(e));
+        }
+    }
+
 }
 
 template class rewriter_tpl<spacer::adhoc_rewriter_cfg>;

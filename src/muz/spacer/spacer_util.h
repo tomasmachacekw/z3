@@ -138,6 +138,14 @@ namespace spacer {
         void rw(expr *e, expr_ref &out);
     };
 
+    /**
+       Auxiliary functions used in C(luster) S(plit) M(erge) project
+    */
+
+    int num_uninterp_const(app *a);
+    // int num_numeral_const(app *a);
+
+
     // order by term instead of ast_lt
     struct term_order_proc {
         ast_manager &m;

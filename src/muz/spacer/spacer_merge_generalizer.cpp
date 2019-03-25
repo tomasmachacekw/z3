@@ -80,4 +80,24 @@ namespace spacer{
         // TODO port from adhoc_gen
         return false;
     }
+
+
+
+    bool lemma_merge_generalizer::check_inductive_and_update(lemma_ref &lemma, expr_ref_vector conj){
+        TRACE("CSM_dbg", tout << "Attempt to update lemma with: "
+              << mk_pp(conj.back(), m) << "\n";);
+        pred_transformer &pt = lemma->get_pob()->pt();
+        unsigned uses_level = 0;
+        if(pt.check_inductive(lemma->level(), conj, uses_level, lemma->weakness())){
+            TRACE("CSM_dbg", tout << "Inductive!" << "\n";);
+            lemma->update_cube(lemma->get_pob(), conj);
+            lemma->set_level(uses_level);
+            return true;
+        } else {
+            TRACE("CSM_dbg", tout << "Not inductive!" << "\n";);
+            return false;
+        }
+    }
+
+
 }
