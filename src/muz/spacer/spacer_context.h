@@ -269,8 +269,7 @@ class pred_transformer {
                     out.push_back(lemma->get_expr());
             }
         }
-       void get_frame_all_raw_lemmas (unsigned level, lemma_ref_vector &out,
-                                       bool with_bg = false) const {
+       void get_frame_all_lemmas (lemma_ref_vector &out, bool with_bg = false) const {
             for (auto &lemma : m_lemmas) {
                     out.push_back(lemma);
             }
@@ -599,10 +598,13 @@ public:
                               const pred_transformer &pt,
                               app *rule_tag, unsigned pos);
 
-    // exposing raw lemmas
+    // exposing fellow lemmas
+    void get_all_lemmas(lemma_ref_vector &out, bool with_bg = false) const {
+        m_frames.get_frame_all_lemmas(out, with_bg);
+    }
     void get_lemmas_at_frame_geq(unsigned level, lemma_ref_vector &out) const {
         lemma_ref_vector temp;
-        m_frames.get_frame_all_raw_lemmas(level, temp, false);
+        m_frames.get_frame_all_lemmas(temp, false);
         for(auto &lemma:temp){
             if(lemma->level() >= level){
                 out.push_back(lemma);
@@ -611,13 +613,14 @@ public:
     }
     void get_lemmas_at_frame_leq(unsigned level, lemma_ref_vector &out) const {
         lemma_ref_vector temp;
-        m_frames.get_frame_all_raw_lemmas(level, temp, false);
+        m_frames.get_frame_all_lemmas(temp, false);
         for(auto &lemma:temp){
             if(lemma->level() <= level){
                 out.push_back(lemma);
             }
         }
     }
+
 };
 
 

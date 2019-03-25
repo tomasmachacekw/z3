@@ -2695,9 +2695,10 @@ void context::init_lemma_generalizers()
     }
 
     if (m_adhoc_gen){
-        m_lemma_generalizers.push_back(alloc(lemma_adhoc_generalizer, *this, m_diverge_depth, m_diverge_bailout));
+        // m_lemma_generalizers.push_back(alloc(lemma_adhoc_generalizer, *this, m_diverge_depth, m_diverge_bailout));
+        m_lemma_generalizers.push_back(alloc(lemma_cluster, *this));
+        // m_lemma_generalizers.push_back(alloc(lemma_merge_generalizer, *this, m_diverge_depth));
     }
-
 }
 
 void context::get_level_property(unsigned lvl, expr_ref_vector& res,
@@ -3387,10 +3388,7 @@ void context::predecessor_eh()
 }
 bool context::should_split(pob& n)
 {
-  if (n.get_no_ua()<1 && max_dim_literals(n) > 3 )
-    return true;
-  else
-    return false;
+    return (n.get_no_ua() < 1 && max_dim_literals(n) > 3 );
 }
 unsigned context::count_var(app* a)
 {
@@ -3592,6 +3590,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             checkpoint ();
             (*m_lemma_generalizers[i])(lemma);
         }
+
 
         DEBUG_CODE(
             lemma_sanity_checker sanity_checker(*this);

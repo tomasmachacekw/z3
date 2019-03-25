@@ -157,6 +157,22 @@ private:
     bool monotonic_coeffcient(expr_ref &literal, app *pattern, expr_ref &out);
 };
 
+class lemma_cluster : public lemma_generalizer {
+    ast_manager &m;
+    arith_util m_arith;
+    typedef std::pair<unsigned, unsigned> var_offset;
+
+private:
+    int distance(substitution &s);
+
+public:
+    lemma_cluster(context &ctx);
+    ~lemma_cluster() override {}
+    void operator()(lemma_ref &lemma) override;
+
+};
+
+
 class lemma_adhoc_generalizer : public lemma_generalizer {
     ast_manager &m;
     arith_util m_arith;

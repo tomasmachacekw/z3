@@ -23,6 +23,7 @@ z3_add_component(spacer
   spacer_quant_generalizer.cpp
   spacer_adhoc_generalizer.cpp
   spacer_merge_generalizer.cpp
+  spacer_cluster.cpp
   spacer_callback.cpp
   spacer_json.cpp
   spacer_iuc_proof.cpp
