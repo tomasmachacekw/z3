@@ -165,6 +165,7 @@ class lemma_cluster : public lemma_generalizer {
 
 private:
     int distance(substitution &s);
+    int distance(expr_ref &antiU_result, substitution &s1, substitution &s2);
 
 public:
     lemma_cluster(context &ctx, int disT);
