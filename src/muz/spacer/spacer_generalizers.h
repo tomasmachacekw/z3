@@ -160,13 +160,14 @@ private:
 class lemma_cluster : public lemma_generalizer {
     ast_manager &m;
     arith_util m_arith;
+    int dis_threshold;
     typedef std::pair<unsigned, unsigned> var_offset;
 
 private:
     int distance(substitution &s);
 
 public:
-    lemma_cluster(context &ctx);
+    lemma_cluster(context &ctx, int disT);
     ~lemma_cluster() override {}
     void operator()(lemma_ref &lemma) override;
 

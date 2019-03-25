@@ -695,6 +695,49 @@ namespace {
         }
     }
 
+    void normalize_order(expr *e, expr_ref &out)
+    {
+
+        params_ref params;
+        // arith_rewriter
+        params.set_bool("sort_sums", true);
+        // params.set_bool("gcd_rounding", true);
+        // params.set_bool("arith_lhs", true);
+        // poly_rewriter
+        // params.set_bool("som", true);
+        // params.set_bool("flat", true);
+
+        // apply rewriter
+        th_rewriter rw(out.m(), params);
+        rw(e, out);
+
+        // adhoc_rewriter_cfg adhoc_cfg(out.m());
+        // rewriter_tpl<adhoc_rewriter_cfg> adhoc_rw(out.m(), false, adhoc_cfg);
+        // adhoc_rw(out.get(), out);
+
+        if (is_app(out)) {
+            expr_ref_vector v(out.m());
+            func_decl *fun = to_app(out)->get_decl();
+            for(int i = 0; i < to_app(out)->get_num_args(); i++){
+                v.push_back(to_app(out)->get_arg(i));
+            }
+            if (v.size() > 1) {
+                // sort arguments of the top-level and
+                term_order_proc o(out.m());
+                std::stable_sort(v.c_ptr(), v.c_ptr() + v.size(), o);
+            }
+            TRACE("spacer_normalize_order",
+                  tout << "Normalized_order:\n"
+                  << "to\n"
+                  << out << "\n"
+                  << "to\n"
+                  << v << "\n"
+
+                  ;);
+            // out = mk_app(v);
+        }
+    }
+
     // rewrite term such that the pretty printing is easier to read
     struct adhoc_rewriter_rpp : public default_rewriter_cfg {
         ast_manager &m;

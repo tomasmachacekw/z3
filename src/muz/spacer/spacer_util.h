@@ -111,7 +111,7 @@ namespace spacer {
                                     expr_ref_vector &res);
     void simplify_bounds (expr_ref_vector &lemmas);
     void normalize(expr *e, expr_ref &out, bool use_simplify_bounds = true, bool factor_eqs = false);
-
+    void normalize_order(expr *e, expr_ref &out);
     /**
      * Ground expression by replacing all free variables by skolem
      * constants. On return, out is the resulting expression, and vars is
@@ -136,6 +136,20 @@ namespace spacer {
         expr_ref m_epp_expr;
     mk_epp(ast *t, ast_manager &m, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = nullptr);
         void rw(expr *e, expr_ref &out);
+    };
+
+    // order by term instead of ast_lt
+    struct term_order_proc {
+        ast_manager &m;
+        term_order_proc(ast_manager &mgr) : m(mgr){}
+        bool operator()(ast const * n1, ast const * n2){
+            arith_util m_arith(m);
+            if(is_app(n1) && is_app(n2) && m_arith.is_mul(to_app(n1)) && m_arith.is_mul(to_app(n2))){
+                return (to_app(n1)->get_arg(1))->get_id() < (to_app(n2)->get_arg(1))->get_id();
+            } else {
+                return n1->get_id() < n2->get_id();
+            }
+        }
     };
 }
 
