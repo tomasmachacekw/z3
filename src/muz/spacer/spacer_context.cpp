@@ -33,6 +33,7 @@ Notes:
 #include "muz/spacer/spacer_prop_solver.h"
 #include "muz/spacer/spacer_context.h"
 #include "muz/spacer/spacer_generalizers.h"
+#include "muz/spacer/spacer_util.h"
 #include "ast/for_each_expr.h"
 #include "muz/base/dl_rule_set.h"
 #include "smt/tactic/unit_subsumption_tactic.h"
@@ -3390,17 +3391,6 @@ bool context::should_split(pob& n)
 {
     return (n.get_no_ua() < 1 && max_dim_literals(n) > 3 );
 }
-unsigned context::count_var(app* a)
-{
-  unsigned count =0;
-  for(expr* e: *a)
-    {
-      if(is_uninterp_const(e)) count++;
-      else if(is_app(e))
-        count+=count_var(to_app(e));
-    }
-  return count;
-}
 unsigned context::max_dim_literals(pob& n)
 {
   expr* exp = n.post();
@@ -3413,7 +3403,7 @@ unsigned context::max_dim_literals(pob& n)
     {
       expr* arg = a->get_arg(i);
       //if(is_lia(arg))
-      max = std::max(count_var(to_app(arg)),max);
+      max = std::max(unsigned(num_uninterp_const(to_app(arg))), max);
     }
   return max;
 }

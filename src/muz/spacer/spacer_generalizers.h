@@ -148,6 +148,7 @@ public:
     lemma_merge_generalizer(context &ctx, int threshold);
     ~lemma_merge_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
+    bool check_inductive_and_update(lemma_ref &lemma, expr_ref_vector conj);
 
 private:
     bool leq_monotonic_k(expr_ref &l, app *pattern, expr_ref &out);
@@ -171,62 +172,6 @@ public:
     lemma_cluster(context &ctx, int disT);
     ~lemma_cluster() override {}
     void operator()(lemma_ref &lemma) override;
-
-};
-
-
-class lemma_adhoc_generalizer : public lemma_generalizer {
-    ast_manager &m;
-    arith_util m_arith;
-    expr_ref_vector m_within_scope;
-    int threshold;
-    bool diverge_bailout;
-    typedef std::pair<unsigned, unsigned> var_offset;
-
-    //maintaining groups of lemmas (a map from expr to vector of substitution?)
-
-    //field for measuring lemma distances
-    // typedef std::pair<expr *, expr *> expr_pair;
-    // svector<expr_pair>    m_todo;
-
-private:
-    void scope_in_parents(lemma_ref &l, int gen);
-    void scope_in_leq(lemma_ref &l, int gen);
-    void scope_in_geq(lemma_ref &l, int num_frames);
-    void uninterp_consts(app *a, expr_ref_vector &out);
-    void uninterp_consts_with_var_coeff(app *a, expr_ref_vector &out, bool has_var_coeff);
-    bool check_inductive_and_update(lemma_ref &l, expr_ref_vector conj);
-    bool merge(lemma_ref &lemma, expr_ref &cube, expr_ref &result);
-
-public:
-    lemma_adhoc_generalizer(context &ctx, int theta, bool if_bailout);
-    ~lemma_adhoc_generalizer() override {}
-    void operator()(lemma_ref &lemma) override;
-    bool is_linear_diverging(lemma_ref &lemma);
-    int distance(substitution &s);
-
-
-    /* individual Lemma Generalization strategies */
-
-    // cross half planes
-    /* (X >= N1) && (y <= N2) ---> if N1 > N2 then (x > y) */
-    bool cross_halfplanes(app *pattern, expr_ref &out);
-
-    // monotonic coefficient
-    /* N * (x + y + ...) >= (K * z + K2) ---> (x + y + ...) >= 0 */
-    bool monotonic_coeffcient(app *pattern, expr_ref &out);
-
-    // monotonic constant term
-    /*  */
-
-    // mononomials
-    /* (>= x N1) and (>= x N2) ... --->  */
-
-    /* MISC */
-    int num_uninterp_const(app *a);
-    int num_numeral_const(app *a);
-    int num_vars(expr *e);
-
 
 };
 }

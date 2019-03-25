@@ -1,6 +1,8 @@
 /*
 
-  Suite of merging strategies.
+  spacer_cluster.cpp
+
+  Discover and mark lemma clusters.
 
 */
 #include <algorithm>
@@ -23,6 +25,7 @@ namespace spacer{
         dis_threshold = disT;
     }
 
+    // old distance based on single substitution!
     int lemma_cluster::distance(substitution &s){
         int dis = 0;
         for(unsigned j = 0; j < s.get_num_bindings(); j++){
@@ -44,7 +47,7 @@ namespace spacer{
     }
 
 
-    // better distance metrics
+    // better distance metrics; currently implemented as binary function
     int lemma_cluster::distance(expr_ref &antiU_result, substitution &s1, substitution &s2){
         SASSERT(s1.get_num_bindings() == s2.get_num_bindings());
         int dis = 0;
@@ -62,14 +65,16 @@ namespace spacer{
                 continue; //good match
             } // else if( is_uninterp_const(r.get_expr()) || is_uninterp_const(r2.get_expr()) ){}
             else {
-                dis += dis_threshold;
+                dis += dis_threshold; //anything else considered as bad match!
             }
         }
 
-
-        // Go through the uninterp consts
+        // Go through the uninterp consts and make sure contains
         SASSERT(uninterp_s1.size() == uninterp_s2.size());
         for(auto &u1 : uninterp_s1){
+            if(!uninterp_s2.contains(u1)){
+                dis += dis_threshold;
+            }
         }
         return dis;
     }
@@ -100,6 +105,7 @@ namespace spacer{
 
             int dis = distance(antiUni_result, subs_newLemma, subs_oldLemma);
             if(dis < dis_threshold){
+                neighbours.push_back(normalizedOldCube);
                 TRACE("distance_dbg",
                       tout
                       << "New Lemma Cube: " << mk_pp(normalizedCube, m) << "\n"
@@ -113,19 +119,22 @@ namespace spacer{
                       subs_oldLemma.display(tout);
                       tout << "\n"
                       ;);
-                neighbours.push_back(normalizedOldCube);
             }
+
+            // [TODO_Maybe] Could we decide based on dis_new == dis_old?
             // int dis_new = distance(subs_newLemma);
             // int dis_old = distance(subs_oldLemma);
-            // XXX Could we decide based on dis_new == dis_old?
+
 
         }
-        if(neighbours.size() > dis_threshold){
+        if(neighbours.size() >= dis_threshold){
             TRACE("cluster_dbg",
                   tout << "New Lemma Cube: " << mk_pp(normalizedCube, m) << "\n";
                   for(auto &n : neighbours){
                       tout << "Neighbour Cube: " << mk_pp(n, m) << "\n";
                   };);
+
+            // start marking ...
             throw unknown_exception();
         }
     }
