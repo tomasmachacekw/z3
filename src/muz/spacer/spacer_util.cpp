@@ -695,6 +695,39 @@ namespace {
         }
     }
 
+
+    // Rewriting arithmetic expressions based on term order
+    struct term_ordered_rpp : public default_rewriter_cfg {
+        ast_manager &m;
+        arith_util m_arith;
+
+        term_ordered_rpp(ast_manager &man) : m(man), m_arith(m){}
+
+        bool is_le(func_decl const * n) const { return m_arith.is_le(n); }
+        bool is_ge(func_decl const * n) const { return m_arith.is_ge(n); }
+        bool is_lt(func_decl const * n) const { return m_arith.is_lt(n); }
+        bool is_gt(func_decl const * n) const { return m_arith.is_gt(n); }
+        bool is_zero(expr const * n) const {rational val; return m_arith.is_numeral(n, val) && val.is_zero();}
+
+        br_status reduce_app(func_decl *f, unsigned num, expr * const *args,
+                             expr_ref &result, proof_ref &result_pr)
+        {
+            br_status st = BR_FAILED;
+            expr *e1, *e2, *e3, *e4;
+
+            // rewrites (<= (+ (* K1 B) (* K2 A) ) N) into (<= (+ (* K2 A) (* K1 B)) N)
+            if( (is_le(f) || is_lt(f) || is_ge(f) || is_gt(f)) &&
+                m_arith.is_add(args[0], e1, e2) &&
+                m_arith.is_mul(e2, e3, e4) ){
+                TRACE("spacer_normalize_order", tout << "Entered term order rewriter\n";);
+                // st = BR_DONE;
+            }
+            return st;
+        }
+
+    };
+
+
     void normalize_order(expr *e, expr_ref &out)
     {
 
@@ -711,32 +744,35 @@ namespace {
         th_rewriter rw(out.m(), params);
         rw(e, out);
 
-        // adhoc_rewriter_cfg adhoc_cfg(out.m());
-        // rewriter_tpl<adhoc_rewriter_cfg> adhoc_rw(out.m(), false, adhoc_cfg);
-        // adhoc_rw(out.get(), out);
+        term_ordered_rpp t_ordered(out.m());
+        rewriter_tpl<term_ordered_rpp> t_ordered_rw(out.m(), false, t_ordered);
+        SASSERT(!(out.get() == nullptr));
+        t_ordered_rw(out.get(), out);
 
-        if (is_app(out)) {
-            expr_ref_vector v(out.m());
-            func_decl *fun = to_app(out)->get_decl();
-            for(int i = 0; i < to_app(out)->get_num_args(); i++){
-                v.push_back(to_app(out)->get_arg(i));
-            }
-            if (v.size() > 1) {
-                // sort arguments of the top-level and
-                term_order_proc o(out.m());
-                std::stable_sort(v.c_ptr(), v.c_ptr() + v.size(), o);
-            }
-            TRACE("spacer_normalize_order",
-                  tout << "Normalized_order:\n"
-                  << "to\n"
-                  << out << "\n"
-                  << "to\n"
-                  << v << "\n"
-
-                  ;);
-            // out = mk_app(v);
-        }
+        // if (is_app(out)) {
+        //     expr_ref_vector v(out.m());
+        //     func_decl *fun = to_app(out)->get_decl();
+        //     for(int i = 0; i < to_app(out)->get_num_args(); i++){
+        //         v.push_back(to_app(out)->get_arg(i));
+        //     }
+        //     if (v.size() > 1) {
+        //         // sort arguments of the top-level and
+        //         term_order_proc o(out.m());
+        //         std::stable_sort(v.c_ptr(), v.c_ptr() + v.size(), o);
+        //         TRACE("spacer_normalize_order", tout << "Got here\n";);
+        //     }
+        //     TRACE("spacer_normalize_order",
+        //           tout << "Normalized_order:\n"
+        //           << "to\n"
+        //           << out << "\n"
+        //           << "to\n"
+        //           << v << "\n"
+        //           ;);
+        //     // out = mk_app(v);
+        // }
     }
+
+
 
     // rewrite term such that the pretty printing is easier to read
     struct adhoc_rewriter_rpp : public default_rewriter_cfg {
@@ -988,9 +1024,35 @@ namespace {
             else if(is_app(e))
                 count += num_uninterp_const(to_app(e));
         }
+        return count;
     }
+    void uninterp_consts(app *a, expr_ref_vector &out){
+        for(expr *e : *a){
+            if(is_uninterp_const(e)){
+                out.push_back(e);
+            }
+            else if(is_app(e)){
+                uninterp_consts(to_app(e), out);
+            }
+        }
+    }
+
+
+    // XXX TODO another good reason to do function passing!
+    // int num_numeral_const( app *a ){
+    //     int count = 0;
+    //     for (expr *e: *a){
+    //         if(m_arith.is_numeral(e)) count++;
+    //         else if(is_app(e))
+    //             count += num_uninterp_const(to_app(e));
+    //     }
+    // }
+
+
 
 }
 
 template class rewriter_tpl<spacer::adhoc_rewriter_cfg>;
 template class rewriter_tpl<spacer::adhoc_rewriter_rpp>;
+template class rewriter_tpl<spacer::term_ordered_rpp>;
+
