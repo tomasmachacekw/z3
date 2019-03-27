@@ -707,21 +707,74 @@ namespace {
         bool is_ge(func_decl const * n) const { return m_arith.is_ge(n); }
         bool is_lt(func_decl const * n) const { return m_arith.is_lt(n); }
         bool is_gt(func_decl const * n) const { return m_arith.is_gt(n); }
+        // bool is_add(func_decl const * n) const { return is_decl_of(n, , OP_ADD); }
         bool is_zero(expr const * n) const {rational val; return m_arith.is_numeral(n, val) && val.is_zero();}
+
+        bool term_order_comp(expr *e1, expr *e2){
+            return false;
+        }
+
+
+        // (* N1 A), (* N2 B)
+        br_status term_swap(expr *arg1, expr *arg2, expr_ref & res){
+            expr *a1_1, *a1_2, *a2_1, *a2_2;
+            if(m_arith.is_mul(arg1, a1_1, a1_2) && m_arith.is_mul(arg2, a2_1, a2_2)){
+                TRACE("spacer_normalize_order" ,tout << "Gote here\n";);
+                // XXX TODO flip me!
+                if(a1_2->get_id() < a2_2->get_id()){
+                    TRACE("spacer_normalize_order" ,tout << "Gote here too!\n";);
+                    res = m_arith.mk_add(arg2, arg1);
+                    return BR_DONE;
+                } else {
+                    res = m_arith.mk_add(arg1, arg2);
+                    return BR_DONE;
+                }
+            }
+            return BR_FAILED;
+        }
+
 
         br_status reduce_app(func_decl *f, unsigned num, expr * const *args,
                              expr_ref &result, proof_ref &result_pr)
         {
             br_status st = BR_FAILED;
-            expr *e1, *e2, *e3, *e4;
+
+            if( is_decl_of(f, m_arith.get_family_id(), OP_ADD) ){
+                // std::stable_sort( &args, (&args)+num  );
+                TRACE("spacer_normalize_order", tout << "AHA!\n";
+                      for(int i = 0; i < num ; i++){
+                          tout << mk_pp(args[i], m) << " <- args[" << i << "]\n";
+                      }
+                      ;);
+                result = m_arith.mk_add(num, args);
+                return BR_DONE;
+            }
+
+            // if( (is_le(f) || is_lt(f) || is_ge(f) || is_gt(f)) ){
+            //     if(m_arith.is_add(args[0], e1, e2)) {
+            //         TRACE("spacer_normalize_order", tout << "Some suffling to do!\n";
+            //               tout << mk_pp(args[0], m) << " <- a\n";
+            //               tout << mk_pp(to_app(args[0])->get_arg(0), m) << " <- a!0\n";
+            //               tout << mk_pp(to_app(args[0])->get_arg(1), m) << " <- a!1\n";
+            //               ;);
+            //         SASSERT(is_app(args[0]));
+            //         for(int i = 0; i < to_app(args[0])->get_num_args() - 2; i++){
+            //             expr_ref swap_res(m);
+            //             term_swap(to_app(args[0])->get_arg(i), to_app(args[0])->get_arg(i+1), swap_res);
+            //             TRACE("spacer_normalize_order", tout << "Swapped [0][1]!\n";
+            //                   tout << mk_pp(swap_res, m) << " <- a\n";
+            //                   ;);
+            //         }
+
+            //         expr * const * addedArgs = to_app(args[0])->get_args();
+            //         expr_ref swap_res(m);
+            //         st = term_swap(addedArgs[0], addedArgs[1], swap_res);
+            //         result = m.mk_app(f, swap_res.get(), args[1]);
+            //         return st;
+            //     }
+            // }
 
             // rewrites (<= (+ (* K1 B) (* K2 A) ) N) into (<= (+ (* K2 A) (* K1 B)) N)
-            if( (is_le(f) || is_lt(f) || is_ge(f) || is_gt(f)) &&
-                m_arith.is_add(args[0], e1, e2) &&
-                m_arith.is_mul(e2, e3, e4) ){
-                TRACE("spacer_normalize_order", tout << "Entered term order rewriter\n";);
-                // st = BR_DONE;
-            }
             return st;
         }
 
@@ -744,10 +797,11 @@ namespace {
         th_rewriter rw(out.m(), params);
         rw(e, out);
 
+        TRACE("spacer_normalize_order", tout << "OUT Before:" << mk_pp(out, out.m()) << "\n";);
         term_ordered_rpp t_ordered(out.m());
         rewriter_tpl<term_ordered_rpp> t_ordered_rw(out.m(), false, t_ordered);
-        SASSERT(!(out.get() == nullptr));
         t_ordered_rw(out.get(), out);
+        TRACE("spacer_normalize_order", tout << "OUT After :" << mk_pp(out, out.m()) << "\n";);
 
         // if (is_app(out)) {
         //     expr_ref_vector v(out.m());
