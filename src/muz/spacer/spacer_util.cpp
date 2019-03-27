@@ -703,26 +703,15 @@ namespace {
 
         term_ordered_rpp(ast_manager &man) : m(man), m_arith(m){}
 
-        bool is_le(func_decl const * n) const { return m_arith.is_le(n); }
-        bool is_ge(func_decl const * n) const { return m_arith.is_ge(n); }
-        bool is_lt(func_decl const * n) const { return m_arith.is_lt(n); }
-        bool is_gt(func_decl const * n) const { return m_arith.is_gt(n); }
         // bool is_add(func_decl const * n) const { return is_decl_of(n, , OP_ADD); }
         bool is_zero(expr const * n) const {rational val; return m_arith.is_numeral(n, val) && val.is_zero();}
-
-        bool term_order_comp(expr *e1, expr *e2){
-            return false;
-        }
-
 
         // (* N1 A), (* N2 B)
         br_status term_swap(expr *arg1, expr *arg2, expr_ref & res){
             expr *a1_1, *a1_2, *a2_1, *a2_2;
             if(m_arith.is_mul(arg1, a1_1, a1_2) && m_arith.is_mul(arg2, a2_1, a2_2)){
-                TRACE("spacer_normalize_order" ,tout << "Gote here\n";);
                 // XXX TODO flip me!
                 if(a1_2->get_id() < a2_2->get_id()){
-                    TRACE("spacer_normalize_order" ,tout << "Gote here too!\n";);
                     res = m_arith.mk_add(arg2, arg1);
                     return BR_DONE;
                 } else {
@@ -740,15 +729,27 @@ namespace {
             br_status st = BR_FAILED;
 
             if( is_decl_of(f, m_arith.get_family_id(), OP_ADD) ){
+                expr_ref_vector v(m);
+                for(int i = 0; i < num ; i++){
+                    v.push_back(args[i]);
+                }
+                term_order_proc o(m);
+                std::stable_sort(v.c_ptr(), v.c_ptr() + v.size(), o);
+                result = m_arith.mk_add(num, v.c_ptr());
+                return BR_DONE;
+            }
+
+            if( m.is_and(f) ){
                 // std::stable_sort( &args, (&args)+num  );
                 TRACE("spacer_normalize_order", tout << "AHA!\n";
                       for(int i = 0; i < num ; i++){
                           tout << mk_pp(args[i], m) << " <- args[" << i << "]\n";
                       }
                       ;);
-                result = m_arith.mk_add(num, args);
-                return BR_DONE;
+                // result = m_arith.mk_add(num, args);
+                // return BR_DONE;
             }
+
 
             // if( (is_le(f) || is_lt(f) || is_ge(f) || is_gt(f)) ){
             //     if(m_arith.is_add(args[0], e1, e2)) {

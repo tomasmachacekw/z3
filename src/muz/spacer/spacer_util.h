@@ -151,17 +151,13 @@ namespace spacer {
     struct term_order_proc {
         ast_manager &m;
         term_order_proc(ast_manager &mgr) : m(mgr){}
-        bool operator()(ast const * n1, ast const * n2){
+        bool operator()(expr *arg1, expr *arg2){
             arith_util m_arith(m);
-            if(is_app(n1) && is_app(n2) && is_uninterp_const(to_app(n1)) && is_uninterp_const(to_app(n2))){
-                return (to_app(n1)->get_arg(1))->get_id() < (to_app(n2)->get_arg(1))->get_id();
+            expr *a1_1, *a1_2, *a2_1, *a2_2;
+            if(m_arith.is_mul(arg1, a1_1, a1_2) && m_arith.is_mul(arg2, a2_1, a2_2)){
+                return (a1_2->get_id() < a2_2->get_id());
             }
-            if(is_app(n1) && is_app(n2) && m_arith.is_mul(to_app(n1)) && m_arith.is_mul(to_app(n2))){
-                term_order_proc o(m);
-                return o((to_app(n1)->get_arg(1)), (to_app(n2)->get_arg(1)));
-            } else {
-                return n1->get_id() < n2->get_id();
-            }
+            return false;
         }
     };
 }
