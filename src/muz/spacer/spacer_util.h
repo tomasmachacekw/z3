@@ -151,11 +151,34 @@ namespace spacer {
     struct term_order_proc {
         ast_manager &m;
         term_order_proc(ast_manager &mgr) : m(mgr){}
+        void uninterp_consts(app *a, expr_ref_vector &out){
+            for(expr *e : *a){
+                if(is_uninterp_const(e)){
+                    out.push_back(e);
+                }
+                else if(is_app(e)){
+                    uninterp_consts(to_app(e), out);
+                }
+            }
+        }
         bool operator()(expr *arg1, expr *arg2){
             arith_util m_arith(m);
             expr *a1_1, *a1_2, *a2_1, *a2_2;
             if(m_arith.is_mul(arg1, a1_1, a1_2) && m_arith.is_mul(arg2, a2_1, a2_2)){
-                return (a1_2->get_id() < a2_2->get_id());
+                ast_lt_proc comp;
+                return comp(a1_2, a2_2);
+                // return (a1_2->get_id() < a2_2->get_id());
+            }
+            else if (is_app(arg1) && is_app(arg2)){
+                expr_ref_vector uni_consts(m), uni_consts2(m);
+                uninterp_consts(to_app(arg1), uni_consts);
+                uninterp_consts(to_app(arg2), uni_consts2);
+                if(uni_consts.size() > 0 && uni_consts2.size() > 0){
+                    ast_lt_proc comp;
+                    expr * head = uni_consts.get(0);
+                    expr * head2 = uni_consts2.get(0);
+                    return comp(head, head2);
+                }
             }
             return false;
         }
