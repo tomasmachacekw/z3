@@ -133,6 +133,7 @@ class lemma {
     unsigned m_blocked:1;     // blocked by CTP
     unsigned m_background:1;  // background assumed fact
 
+    expr_ref_vector m_neighbours;
 
     void mk_expr_core();
     void mk_cube_core();
@@ -179,6 +180,9 @@ public:
 
     unsigned cluster () const {return m_cluster;}
     bool set_cluster (unsigned new_cluster);
+
+    expr_ref_vector const &get_neighbours() { return m_neighbours; }
+    void update_neighbours(expr_ref &pattern, expr_ref_vector &n) { m_neighbours.reset(); m_neighbours.push_back(pattern); m_neighbours.append(n); }
 
     app_ref_vector& get_bindings() {return m_bindings;}
     bool has_binding(app_ref_vector const &binding);

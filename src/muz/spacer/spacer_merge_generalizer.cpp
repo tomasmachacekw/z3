@@ -18,6 +18,26 @@ namespace spacer{
     }
 
     void lemma_merge_generalizer::operator()(lemma_ref &lemma){
+        expr_ref_vector neighbours = lemma->get_neighbours();
+        if(neighbours.size() > 0){
+            substitution subs_newLemma(m), subs_oldLemma(m);
+            expr_ref cube(m), normalizedCube(m), out(m);
+            cube = mk_and(lemma->get_cube());
+            normalize_order(cube, normalizedCube);
+            TRACE("merge_dbg",
+                  tout << "Start merging with lemma cube: " << mk_pp(normalizedCube, m) << "\n"
+                  "Discovered pattern: " << mk_pp(neighbours.get(0), m) << "\n"
+                  "Neighbours: " << mk_pp(neighbours.get(1), m) << "\n"
+                  ;);
+            bool res = monotonic_coeffcient(cube, to_app(neighbours.get(0)), out);
+            if(res){
+                expr_ref_vector conj(m);
+                conj.push_back(out);
+                if(check_inductive_and_update(lemma, conj))
+                    return;
+            }
+            throw unknown_exception();
+        }
     }
 
 
@@ -77,27 +97,81 @@ namespace spacer{
        conjecture t1 + t2 >= 0
      */
     bool lemma_merge_generalizer::monotonic_coeffcient(expr_ref &literal, app *pattern, expr_ref &out){
-        // TODO port from adhoc_gen
+        expr_ref_vector uni_consts(m), var_coeff(m);
+        if(m_arith.is_ge(pattern) || m_arith.is_gt(pattern)){
+            uninterp_consts_with_var_coeff(pattern, var_coeff, false);
+            // If we have uninterp_consts_with_var_coeff
+            if(var_coeff.size() > 0){
+                uninterp_consts(pattern, uni_consts);
+                TRACE("spacer_diverge_report",
+                      tout << "Found pattern similar to 0008.smt2" << "\n";
+                      tout << "Pattern: " << mk_pp(pattern, m) << "\n";
+                      tout << "Uninterpreted Const with Var coeff:" << "\n";
+                      for(expr * c:var_coeff){
+                          tout << mk_pp(c, m) <<"\n";
+                      }
+                      ;);
+                expr_ref sum(m);
+                sum = var_coeff.get(0);
+                for(int i = 1; i < var_coeff.size(); i++){
+                    sum = m_arith.mk_add(sum, var_coeff.get(i));
+                }
+                out = m_arith.mk_lt(sum, m_arith.mk_int(0));
+                return true;
+            }
+        }
         return false;
     }
 
-
+    /* merging over neighbours
+       if we know a < b + k and b < a + k
+       we can conjecture a == b
+     */
+    bool lemma_merge_generalizer::neighbour_equality(expr_ref_vector &neighbour, expr_ref &out){
+        return false;
+    }
 
     bool lemma_merge_generalizer::check_inductive_and_update(lemma_ref &lemma, expr_ref_vector conj){
-        TRACE("CSM_dbg", tout << "Attempt to update lemma with: "
+        TRACE("merge_dbg", tout << "Attempt to update lemma with: "
               << mk_pp(conj.back(), m) << "\n";);
         pred_transformer &pt = lemma->get_pob()->pt();
         unsigned uses_level = 0;
         if(pt.check_inductive(lemma->level(), conj, uses_level, lemma->weakness())){
-            TRACE("CSM_dbg", tout << "Inductive!" << "\n";);
+            TRACE("merge_dbg", tout << "Inductive!" << "\n";);
             lemma->update_cube(lemma->get_pob(), conj);
             lemma->set_level(uses_level);
             return true;
         } else {
-            TRACE("CSM_dbg", tout << "Not inductive!" << "\n";);
+            TRACE("merge_dbg_", tout << "Not inductive!" << "\n";);
             return false;
         }
     }
+
+    int lemma_merge_generalizer::num_vars(expr *e){
+        int count = 0;
+        if(is_var(e)) {count++;}
+        else if(is_app(e)){
+            for(expr *x: *to_app(e)){
+                count += num_vars(x);
+            }
+        }
+        return count;
+    }
+
+    void lemma_merge_generalizer::uninterp_consts_with_var_coeff(app *a,
+                                                                 expr_ref_vector &out,
+                                                                 bool has_var_coeff)
+    {
+        for(expr *e : *a){
+            if(is_uninterp_const(e) && has_var_coeff){
+                out.push_back(e);
+            }
+            else if(is_app(e)){
+                uninterp_consts_with_var_coeff(to_app(e), out, m_arith.is_mul(e) && (num_vars(e)>=1) );
+            }
+        }
+    }
+
 
 
 }

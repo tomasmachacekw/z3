@@ -74,6 +74,7 @@ namespace spacer{
         for(auto &u1 : uninterp_s1){
             if(!uninterp_s2.contains(u1)){
                 dis += dis_threshold;
+                // dis += 1;
             }
         }
         return dis;
@@ -125,17 +126,21 @@ namespace spacer{
             // int dis_new = distance(subs_newLemma);
             // int dis_old = distance(subs_oldLemma);
 
+            if(neighbours.size() >= dis_threshold){
+                TRACE("cluster_dbg",
+                      tout << "New Lemma Cube: " << mk_pp(normalizedCube, m) << "\n";
+                      for(auto &n : neighbours){
+                          tout << "Neighbour Cube: " << mk_pp(n, m) << "\n";
+                      };);
 
-        }
-        if(neighbours.size() >= dis_threshold){
-            TRACE("cluster_dbg",
-                  tout << "New Lemma Cube: " << mk_pp(normalizedCube, m) << "\n";
-                  for(auto &n : neighbours){
-                      tout << "Neighbour Cube: " << mk_pp(n, m) << "\n";
-                  };);
+                // start marking ...
+                lemma->update_neighbours(antiUni_result, neighbours);
+                return;
+                // bailout if none of above works...
+                // TODO with marking decide WHEN to give up
+                // throw unknown_exception();
+            }
 
-            // start marking ...
-            throw unknown_exception();
         }
     }
 

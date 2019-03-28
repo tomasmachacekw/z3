@@ -496,7 +496,8 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_lvl(lvl), m_init_lvl(m_lvl), m_cluster(0),
     m_bumped(0), m_weakness(WEAKNESS_MAX),
     m_external(false), m_blocked(false),
-    m_background(false) {
+    m_background(false),
+    m_neighbours(m) {
     SASSERT(m_body);
     normalize(m_body, m_body);
 }
@@ -509,7 +510,8 @@ lemma::lemma(pob_ref const &p) :
     m_lvl(p->level()), m_init_lvl(m_lvl), m_cluster(0),
     m_bumped(0), m_weakness(p->weakness()),
     m_external(false), m_blocked(false),
-    m_background(false) {
+    m_background(false),
+    m_neighbours(m) {
     SASSERT(m_pob);
     m_pob->get_skolems(m_zks);
     add_binding(m_pob->get_binding());
@@ -524,7 +526,8 @@ lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
     m_lvl(p->level()), m_init_lvl(m_lvl), m_cluster(0),
     m_bumped(0), m_weakness(p->weakness()),
     m_external(false), m_blocked(false),
-    m_background(false) {
+    m_background(false),
+    m_neighbours(m) {
     if (m_pob) {
         m_pob->get_skolems(m_zks);
         add_binding(m_pob->get_binding());
@@ -2698,7 +2701,7 @@ void context::init_lemma_generalizers()
     if (m_adhoc_gen){
         // m_lemma_generalizers.push_back(alloc(lemma_adhoc_generalizer, *this, m_diverge_depth, m_diverge_bailout));
         m_lemma_generalizers.push_back(alloc(lemma_cluster, *this, m_diverge_depth));
-        // m_lemma_generalizers.push_back(alloc(lemma_merge_generalizer, *this, m_diverge_depth));
+        m_lemma_generalizers.push_back(alloc(lemma_merge_generalizer, *this, m_diverge_depth));
     }
 }
 
