@@ -4,6 +4,7 @@
 
 */
 #include "muz/spacer/spacer_context.h"
+#include "muz/spacer/spacer_util.h"
 #include "muz/spacer/spacer_generalizers.h"
 #include "muz/spacer/spacer_manager.h"
 #include "ast/arith_decl_plugin.h"
@@ -29,8 +30,21 @@ namespace spacer{
                   "Discovered pattern: " << mk_pp(neighbours.get(0), m) << "\n"
                   "Neighbours: " << mk_pp(neighbours.get(1), m) << "\n"
                   ;);
+
             bool res = monotonic_coeffcient(cube, to_app(neighbours.get(0)), out);
             if(res){
+                TRACE("merge_dbg", tout << "mono coeff found a conjecture...\n"
+                      << mk_pp(out, m););
+                expr_ref_vector conj(m);
+                conj.push_back(out);
+                if(check_inductive_and_update(lemma, conj))
+                    return;
+            }
+
+            res = merge_halfspaces(normalizedCube, to_app(neighbours.get(0)), out);
+            if(res){
+                TRACE("merge_dbg", tout << "merge halfplanes found a conjecture...\n"
+                      << mk_pp(out, m););
                 expr_ref_vector conj(m);
                 conj.push_back(out);
                 if(check_inductive_and_update(lemma, conj))
@@ -76,11 +90,48 @@ namespace spacer{
        conjecture t1 + c' <= t2 where 0 <= c' <= c */
     // XXX potentially return expr_ref_vector for c' from 0 to c
     bool lemma_merge_generalizer::merge_halfspaces(expr_ref &literal, app *pattern, expr_ref &out){
-        rational k1, k2;
-        expr_ref t1(m), t2(m);
-        out = m_arith.mk_le(t1, t2);
-        // out = m_arith.mk_le(m_arith.mk_add(t1, m_arith.mk_int(k2 - k1)), t2);
+        if(m.is_and(pattern) && pattern->get_num_args() == 2){
+            app * concrete_fst = to_app(to_app(literal)->get_arg(0));
+            app * concrete_snd = to_app(to_app(literal)->get_arg(1));
+            app * fst = to_app(pattern->get_arg(0));
+            app * snd = to_app(pattern->get_arg(1));
+            TRACE("spacer_diverge_dbg",
+                  tout << " fst : " << mk_pp(fst, m) << "\n"
+                  << " snd : " << mk_pp(snd, m) << "\n"
+                  << " c_fst : " << mk_pp(concrete_fst, m) << "\n"
+                  << " c_snd : " << mk_pp(concrete_snd, m) << "\n"
+                  ;);
+            if(m_arith.is_ge(fst) && m_arith.is_le(snd)){
+                rational n1, n2;
+                TRACE("merge_dbg", tout << "GOT HERE >= & <=\n";);
+                if(m_arith.is_numeral(concrete_fst->get_arg(1), n1) &&
+                   m_arith.is_numeral(concrete_snd->get_arg(1), n2)){
+                    if(n1 > n2){
+                        out = m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0));
+                        return true;
+                    }
+                }
+            }
+
+            if(m_arith.is_le(fst) && m_arith.is_ge(snd)){
+                rational n1, n2;
+                TRACE("merge_dbg", tout << "GOT HERE <= & >=\n";);
+                if(m_arith.is_numeral(concrete_fst->get_arg(1), n1) &&
+                   m_arith.is_numeral(concrete_snd->get_arg(1), n2)){
+                    if(n1 < n2){
+                        out = m_arith.mk_lt(fst->get_arg(0), snd->get_arg(0));
+                        return true;
+                    }
+                }
+            }
+
+        }
         return false;
+        // rational k1, k2;
+        // expr_ref t1(m), t2(m);
+        // out = m_arith.mk_le(t1, t2);
+        // // out = m_arith.mk_le(m_arith.mk_add(t1, m_arith.mk_int(k2 - k1)), t2);
+        // return false;
     }
 
     /* with t1 = k1 && t2 = k2 , k1 + c = k2
