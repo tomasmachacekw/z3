@@ -97,8 +97,12 @@ namespace spacer {
                 dis += 2;
             } else if (is_app(e)){
                 dis += 6*(to_app(e)->get_depth());
+            } else {
+                dis += 11; // XXX Others are bad
             }
         }
+        TRACE("spacer_diverge_dbg",
+              tout << "dis: " << dis << "\n";);
         return dis;
     }
 
@@ -168,97 +172,34 @@ namespace spacer {
         //       << "Num of literal: " << num_uninterp_const(to_app(cube)) << "\n"
         //       << "Num of numeral: " << num_numeral_const(to_app(cube)) << "\n";);
 
-        // scope_in_geq(lemma, 5); // XXX for 0017
-        scope_in_leq(lemma, 5); // XXX still bad!
+        bool tried_geq = false;
+        bool res = false;
         // scope_in_parents(lemma, 10);
-
-        TRACE("spacer_diverge_dbg_neighbours",
-              for(auto &s:m_within_scope){
-                  tout << "s_leq: " << mk_pp(s, m) << "\n";
-              };);
-
-        int counter = 0;
-        int i;
-        for(i = 0; i < m_within_scope.size(); i++){
-            expr_ref s(m);
-            s = m_within_scope.get(i);
-            anti_unifier antiU(m);
-            expr_ref result(m);
-            substitution subs1(m), subs2(m);
-            expr_ref_vector neighbours(m);
-
-            antiU(cube , s, result, subs1, subs2);
-            expr_ref applied(m);
-            subs1.apply(result, applied);
-            int dis = distance(subs1);
-            TRACE("spacer_diverge_dbg_neighbours",
-                  tout << "s: " << mk_pp(s, m) << " dis: " << dis << "\n";
-                ;);
-            // XXX penalize singleton cubes for experiment
-            // if(!m.is_and(cube)) {
-            //     dis += 7;
-            // }
-
-            if(dis > 0 && dis <= 6) {
-                counter++;
-                TRACE("spacer_diverge_dbg", tout
-                      << "scoped lem: " << mk_pp(s, m) << "\n"
-                      << "anti-result: " << mk_pp(result, m) << "\n"
-                      << "anti-applied: " << mk_pp(applied, m) << "\n"
-                      << "counter: " << counter << "\n"
-                      << "dis: " << dis << "\n";);
-                neighbours.push_back(s);
-            }
-
-            if(counter >= threshold){
-                /* among neighbours, finding best antiU pattern */
-                /* This gives more robustness against communtative operators */
-                substitution subsa(m), subsb(m);
-                int min_dis = 6;
-                expr_ref min_result(m);
-
-                // expr_ref normedCube(m);
-                // normalize(cube, normedCube, true, false);
-                // TRACE("spacer_diverge_report",
-                //       tout << "Cube: " << mk_pp(cube, m) << "\n"
-                //            << "normed cube: " << mk_pp(normedCube, m) << "\n";);
-
-                // for(auto &n:neighbours){
-                //     subsa.reset();
-                //     subsb.reset();
-                //     antiU(cube , n, result, subsa, subsb);
-                //     int dis = distance(subsa);
-                //     if(dis < min_dis){
-                //         min_dis = dis;
-                //         min_result = result;
-                //     }
-                // }
-                // // XXX this will make pattern for lia-0010 too specific!
-                // // TODO We really need true sorting on lemmas (might be expensive so only do on the neighbours)
-                // // TODO this can make result into null! 
-                // result = min_result;
-
-                bool merge_result = merge(lemma, cube, result);
-                if(merge_result){ return; }
-
-                // End of trying here; time to bailout!
-                if(diverge_bailout){
-                TRACE("spacer_diverge_report", tout << "Reached repetitive lemma threshold, Abort!" << "\n";);
-                TRACE("spacer_diverge_report",
-                      tout << "Abort due to: " << mk_pp(applied, m)
-                      << "\n--- neighbours ---\n";
-                      for(auto &l:neighbours){
-                          tout << mk_pp(l, m) << "\n";
-                      };
-                      tout << "--- other statistics ---\n"
-                      << "Number of args: " << to_app(cube)->get_num_args() << "\n"
-                      << "Number of literals: " << ((!m.is_and(cube)) ? "1" : std::to_string(to_app(cube)->get_num_args())) << "\n"
-                      << "pattern from antiU: " << mk_pp(result, m) << "\n"
-                      ;);
-                throw unknown_exception();
-                }
-            }
+        scope_in_geq(lemma, 5); // XXX for 0017
+        if(m_within_scope.size() > 0){
+            res = try_on_neighbours(lemma, cube);
+            tried_geq = true;
+        } else {
+            scope_in_leq(lemma, 5);
+            res = try_on_neighbours(lemma, cube);
         }
+        // End of trying here; time to bailout!
+        if(diverge_bailout && !res && tried_geq){
+            TRACE("spacer_diverge_report", tout << "Reached repetitive lemma threshold, Abort!" << "\n";);
+            TRACE("spacer_diverge_report",
+                  tout << "Abort due to: " << mk_pp(cube, m);
+                  // << "\n--- neighbours ---\n";
+                  // for(auto &l:neighbours){
+                  //     tout << mk_pp(l, m) << "\n";
+                  // };
+                  tout << "--- other statistics ---\n"
+                  << "Number of args: " << to_app(cube)->get_num_args() << "\n"
+                  << "Number of literals: " << ((!m.is_and(cube)) ? "1" : std::to_string(to_app(cube)->get_num_args())) << "\n"
+                  // << "pattern from antiU: " << mk_pp(result, m) << "\n"
+                  ;);
+            throw unknown_exception();
+        }
+
     }
 
     /* MISC */
@@ -396,6 +337,39 @@ namespace spacer {
         }
         return false;
     }
+
+    
+    bool lemma_adhoc_generalizer::normed_monotonic_coeffcient(app *pattern, expr_ref &out){
+        expr_ref_vector uni_consts(m), var_coeff(m);
+        if(m.is_not(pattern) && is_app(pattern->get_arg(0))){
+            pattern = to_app(pattern->get_arg(0));
+            if(m_arith.is_ge(pattern) || m_arith.is_gt(pattern)){
+                uninterp_consts_with_var_coeff(pattern, var_coeff, false);
+                // If we have uninterp_consts_with_var_coeff
+                if(var_coeff.size() > 0){
+                    uninterp_consts(pattern, uni_consts);
+                    TRACE("spacer_diverge_report",
+                          tout << "Found pattern similar to 0008.smt2" << "\n";
+                          tout << "Pattern: " << mk_pp(pattern, m) << "\n";
+                          tout << "Uninterpreted Const with Var coeff:" << "\n";
+                          for(expr * c:var_coeff){
+                              tout << mk_pp(c, m) <<"\n";
+                          }
+                          ;);
+                    expr_ref sum(m);
+                    sum = var_coeff.get(0);
+                    for(int i = 1; i < var_coeff.size(); i++){
+                        sum = m_arith.mk_add(sum, var_coeff.get(i));
+                    }
+                    out = m_arith.mk_lt(sum, m_arith.mk_int(0));
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+
     bool lemma_adhoc_generalizer::merge(lemma_ref &lemma, expr_ref &cube, expr_ref &result){
         // (1). (x >= N1) && (y <= N2) ===> if N1 > N2 then x > y
         if(m.is_and(cube)){
@@ -446,7 +420,6 @@ namespace spacer {
         } // end of (1)
 
         // (2)
-        TRACE("Why_segfault", tout << mk_pp(result, m) << "\n";);
         if(is_app(result)){
             app * pattern = to_app(result);
             expr_ref out(m);
@@ -469,6 +442,23 @@ namespace spacer {
             // }
 
             out.reset();
+            if(normed_monotonic_coeffcient(pattern, out)){
+                // ENSURE(out);
+                conjecture.push_back(out);
+                if(check_inductive_and_update(lemma, conjecture)){
+                    TRACE("spacer_diverge_report",
+                          // tout << "Pattern discovered due to: " << mk_pp(applied, m)
+                          // << "\n--- neighbours ---\n";
+                          // for(auto &l:neighbours){
+                          //     tout << mk_pp(l, m) << "\n";
+                          // };
+                          tout << "Inductive invariant found: " << mk_pp(out, m) << "\n"
+                          ;);
+                    return true;
+                };
+            }
+
+            out.reset();
             if(monotonic_coeffcient(pattern, out)){
                 // ENSURE(out);
                 conjecture.push_back(out);
@@ -489,4 +479,76 @@ namespace spacer {
         return false;
     }
 
+    bool lemma_adhoc_generalizer::try_on_neighbours(lemma_ref &lemma, expr_ref &cube){
+        int counter = 0;
+        int i;
+        for(i = 0; i < m_within_scope.size(); i++){
+            expr_ref s(m);
+            s = m_within_scope.get(i);
+            anti_unifier antiU(m);
+            expr_ref result(m);
+            substitution subs1(m), subs2(m);
+            expr_ref_vector neighbours(m);
+
+            antiU(cube , s, result, subs1, subs2);
+            expr_ref applied(m);
+            subs1.apply(result, applied);
+            int dis = distance(subs1);
+            TRACE("spacer_diverge_dbg_neighbours",
+                  tout << "s: " << mk_pp(s, m) << " dis: " << dis << "\n";
+                  ;);
+            // XXX penalize singleton cubes for experiment
+            // if(!m.is_and(cube)) {
+            //     dis += 7;
+            // }
+
+            if(dis > 0 && dis <= 6) {
+                counter++;
+                TRACE("spacer_diverge_dbg", tout
+                      << "scoped lem: " << mk_pp(s, m) << "\n"
+                      << "anti-result: " << mk_pp(result, m) << "\n"
+                      << "anti-applied: " << mk_pp(applied, m) << "\n"
+                      << "counter: " << counter << "\n"
+                      << "dis: " << dis << "\n";);
+                neighbours.push_back(s);
+            }
+
+            if(counter >= threshold){
+                /* among neighbours, finding best antiU pattern */
+                /* This gives more robustness against communtative operators */
+                substitution subsa(m), subsb(m);
+                int min_dis = 6;
+                expr_ref min_result(m);
+                min_result = result;
+
+                expr_ref normedCube(m);
+                normalize(cube, normedCube, true, false);
+                TRACE("spacer_diverge_report",
+                      tout << "Cube: " << mk_pp(cube, m) << "\n"
+                      << "normed cube: " << mk_pp(normedCube, m) << "\n";);
+
+                for(auto &n:neighbours){
+                    subsa.reset();
+                    subsb.reset();
+                    expr_ref normedN(m);
+                    normalize(n, normedN, true, false);
+                    TRACE("spacer_diverge_report",
+                          tout << "N: " << mk_pp(n, m) << "\n"
+                          << "normed N: " << mk_pp(normedN, m) << "\n";);
+                    // antiU(cube , n, result, subsa, subsb);
+                    antiU(normedCube, normedN, result, subsa, subsb);
+                    int dis = distance(subsa);
+                    if(dis < min_dis){
+                        min_dis = dis;
+                        min_result = result;
+                    }
+                }
+                result = min_result;
+
+                bool merge_result = merge(lemma, cube, result);
+                if(merge_result){ return true; }
+            }
+        }
+        return false;
+    }
 }
