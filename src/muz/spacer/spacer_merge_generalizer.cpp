@@ -36,7 +36,9 @@ namespace spacer{
                 if(check_inductive_and_update(lemma, conj))
                     return;
             }
-            throw unknown_exception();
+
+            TRACE("merge_dbg", tout << "Tried all merge strategies\n";);
+            return;
         }
     }
 
@@ -100,22 +102,10 @@ namespace spacer{
         expr_ref_vector uni_consts(m), var_coeff(m);
         if(m_arith.is_ge(pattern) || m_arith.is_gt(pattern)){
             uninterp_consts_with_var_coeff(pattern, var_coeff, false);
-            // If we have uninterp_consts_with_var_coeff
+            // XXX This if is necessary! arith.mk_add doesn't fallback gracefully with 0 as first argument
             if(var_coeff.size() > 0){
-                uninterp_consts(pattern, uni_consts);
-                TRACE("spacer_diverge_report",
-                      tout << "Found pattern similar to 0008.smt2" << "\n";
-                      tout << "Pattern: " << mk_pp(pattern, m) << "\n";
-                      tout << "Uninterpreted Const with Var coeff:" << "\n";
-                      for(expr * c:var_coeff){
-                          tout << mk_pp(c, m) <<"\n";
-                      }
-                      ;);
                 expr_ref sum(m);
-                sum = var_coeff.get(0);
-                for(int i = 1; i < var_coeff.size(); i++){
-                    sum = m_arith.mk_add(sum, var_coeff.get(i));
-                }
+                sum = m_arith.mk_add(var_coeff.size(), var_coeff.c_ptr());
                 out = m_arith.mk_lt(sum, m_arith.mk_int(0));
                 return true;
             }
