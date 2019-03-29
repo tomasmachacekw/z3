@@ -2699,7 +2699,6 @@ void context::init_lemma_generalizers()
     }
 
     if (m_adhoc_gen){
-        // m_lemma_generalizers.push_back(alloc(lemma_adhoc_generalizer, *this, m_diverge_depth, m_diverge_bailout));
         m_lemma_generalizers.push_back(alloc(lemma_cluster, *this, m_diverge_depth));
         m_lemma_generalizers.push_back(alloc(lemma_merge_generalizer, *this, m_diverge_depth));
     }
