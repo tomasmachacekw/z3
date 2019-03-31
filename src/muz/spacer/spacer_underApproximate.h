@@ -209,53 +209,44 @@ namespace spacer {
         {
           e_app = to_app(e);
         }
-      if(is_arith(e_app))
+      expr_ref_vector e_and(m);
+      flatten_and(e_app,e_and);
+      for(unsigned i =0 ; i < e_and.size();i++)
         {
-          //There is only one literal. A single call to ua_literal is enough
+          expr* temp = e_and.get(i);
+          if(!(is_app(temp) && is_arith(to_app(temp))))
+            return nullptr;
+          app_ref rewrite(m);
+          if(m.is_not(to_app(temp)))
+            get_negated_child(to_app(temp),rewrite);
+          else
+            rewrite=to_app(temp);
           app_ref normalized_expr(m);
-          normalize_le(e_app,normalized_expr);
+          normalize_le(rewrite,normalized_expr);
+          TRACE("under_approximate", tout<< "literal is "<< mk_pp(temp,m)<<" normalized literal is " << mk_pp(normalized_expr,m)<< " LHS is "<< mk_pp(getLHS(normalized_expr),m)<<" RHS is " << mk_pp(getRHS(normalized_expr),m) <<"\n";);
+
           expr_ref_vector phi(m);
-          phi.push_back(m.mk_true());
-          v=ua_literal(model,normalized_expr,phi);
-        }
-      else
-        {
-          for(unsigned i =0 ; i < e_app->get_num_args();i++)
+          for(unsigned j=0;j<e_and.size();j++)
+            if(j!=i)
+              phi.push_back(&(*(e_app->get_arg(j))));
+          if(phi.size()==0)
+            phi.push_back(m.mk_true());
+          vars_bound t= ua_literal(model,normalized_expr,phi);
+          vars_bound::iterator itr = t.begin();
+          while(itr != t.end())
             {
-              expr* temp = e_app->get_arg(i);
-              if(!(is_app(temp) && is_arith(to_app(temp))))
-                return nullptr;
-              app_ref rewrite(m);
-              if(m.is_not(to_app(temp)))
-                get_negated_child(to_app(temp),rewrite);
-              else
-                rewrite=to_app(temp);
-              app_ref normalized_expr(m);
-              normalize_le(rewrite,normalized_expr);
-              TRACE("under_approximate", tout<< "literal is "<< mk_pp(temp,m)<<" normalized literal is " << mk_pp(normalized_expr,m)<< " LHS is "<< mk_pp(getLHS(normalized_expr),m)<<" RHS is " << mk_pp(getRHS(normalized_expr),m) <<"\n";);
-
-              expr_ref_vector phi(m);
-              for(unsigned j=0;j<e_app->get_num_args();j++)
-                if(j!=i)
-                  phi.push_back(&(*(e_app->get_arg(j))));
-
-              vars_bound t= ua_literal(model,normalized_expr,phi);
-              vars_bound::iterator itr = t.begin();
-              while(itr != t.end())
+              if(v.find(itr->first) != v.end())
                 {
-                  if(v.find(itr->first) != v.end())
-                    {
-                      if((v[itr->first].first == nullptr )|| (itr->second.first != nullptr && is_less_than(v[itr->first].first,itr->second.first)))
-                        v[itr->first].first = itr->second.first;
-                      if((v[itr->first].second == nullptr) || (itr->second.second != nullptr && is_less_than(itr->second.second,v[itr->first].second)))
-                        v[itr->first].second = itr->second.second;
-                    }
-                  else
-                    {
-                      v[itr->first] = itr->second;
-                    }
-                  itr++;
+                  if((v[itr->first].first == nullptr )|| (itr->second.first != nullptr && is_less_than(v[itr->first].first,itr->second.first)))
+                    v[itr->first].first = itr->second.first;
+                  if((v[itr->first].second == nullptr) || (itr->second.second != nullptr && is_less_than(itr->second.second,v[itr->first].second)))
+                    v[itr->first].second = itr->second.second;
                 }
+              else
+                {
+                  v[itr->first] = itr->second;
+                }
+              itr++;
             }
         }
       //construct pob
