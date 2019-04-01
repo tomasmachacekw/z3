@@ -156,8 +156,9 @@ private:
     bool merge_halfspaces(expr_ref &literal, app *pattern, expr_ref &out);
     bool merge_lines(expr_ref &literal, app *pattern, expr_ref &out);
     bool monotonic_coeffcient(expr_ref &literal, app *pattern, expr_ref &out);
-    bool neighbour_equality(expr_ref_vector &neighbour, expr_ref &out);
+    bool neighbour_equality(expr_ref &literal, app *pattern, expr_ref_vector &neighbour, expr_ref &out);
     void uninterp_consts_with_var_coeff(app *a, expr_ref_vector &out, bool has_var_coeff);
+    void uninterp_consts_with_pos_coeff(app *a, expr_ref_vector &out, bool has_var_coeff);
     int num_vars(expr *e);
 
 };

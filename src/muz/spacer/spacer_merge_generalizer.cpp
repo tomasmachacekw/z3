@@ -51,6 +51,27 @@ namespace spacer{
                     return;
             }
 
+            res = leq_monotonic_k(normalizedCube, to_app(neighbours.get(0)), out);
+            if(res){
+                TRACE("merge_dbg", tout << "leq monotoinc k found a conjecture...\n"
+                      << mk_pp(out, m););
+                expr_ref_vector conj(m);
+                conj.push_back(out);
+                if(check_inductive_and_update(lemma, conj))
+                    return;
+            }
+
+            // res = neighbour_equality(normalizedCube, to_app(neighbours.get(0)), neighbours, out);
+            // if(res){
+            //     TRACE("merge_dbg", tout << "neighbour equality found a conjecture...\n"
+            //           << mk_pp(out, m););
+            //     expr_ref_vector conj(m);
+            //     conj.push_back(out);
+            //     if(check_inductive_and_update(lemma, conj))
+            //         return;
+            // }
+
+
             TRACE("merge_dbg", tout << "Tried all merge strategies\n";);
             return;
         }
@@ -75,7 +96,7 @@ namespace spacer{
             SASSERT(m_arith.is_numeral(to_app(literal)->get_arg(1)));
             rational r;
             m_arith.is_numeral(to_app(literal)->get_arg(1), r);
-            if(r < -1){
+            if(r <= -1){
                 out = m_arith.mk_lt(pattern->get_arg(0), m_arith.mk_int(0));
                 return true;
             } else if (r < 0){
@@ -153,7 +174,7 @@ namespace spacer{
         expr_ref_vector uni_consts(m), var_coeff(m);
         if(m_arith.is_ge(pattern) || m_arith.is_gt(pattern)){
             uninterp_consts_with_var_coeff(pattern, var_coeff, false);
-            // XXX This if is necessary! arith.mk_add doesn't fallback gracefully with 0 as first argument
+            // XXX This check is necessary! arith.mk_add doesn't fallback gracefully with 0 as first argument
             if(var_coeff.size() > 0){
                 expr_ref sum(m);
                 sum = m_arith.mk_add(var_coeff.size(), var_coeff.c_ptr());
@@ -168,10 +189,45 @@ namespace spacer{
        if we know a < b + k and b < a + k
        we can conjecture a == b
      */
-    bool lemma_merge_generalizer::neighbour_equality(expr_ref_vector &neighbour, expr_ref &out){
+    // XXX possibly the only merge without using pattern at all!
+    bool lemma_merge_generalizer::neighbour_equality(expr_ref &literal, app *pattern, expr_ref_vector &neighbour, expr_ref &out){
+        if( m_arith.is_ge(pattern) && num_uninterp_const(pattern) == 0){
+            // for 0 <= i < n :: check literal.uninterp_consts[i] == neighbour[1].uninterp_consts[n-i]
+            TRACE("merge_dbg", tout << "Enter neighbour eq\n";);
+            expr_ref_vector uc1(m), uc2(m);
+            uninterp_consts(to_app(literal), uc1);
+            uninterp_consts(to_app(neighbour.get(1)), uc2);
+            bool mismatch = false;
+            TRACE("merge_dbg",
+                  tout << "pattern:\n"
+                  << mk_pp(pattern, m) << "\n"
+                  << "uc1:\n"
+                  << uc1 << "\n"
+                  << "uc2:\n"
+                  << uc1 << "\n"
+                  ;);
+            // if(uc1.size() == uc2.size() || uc1.size() == 0 || uc2.size() == 0){ return false; }
+            out = m.mk_eq(uc1.get(0), uc2.get(0));
+            return true;
+            // int n = uc2.size();
+            // for(int i = 0; i < n; i++){
+            //     if(uc1.get(i) != uc2.get(n - 1 - i)){
+            //         TRACE("merge_dbg", tout << "Mismatched!\n";);
+            //         mismatch = true;
+            //         break;
+            //     }
+            // }
+            // if(!mismatch){
+            //     out = m.mk_eq(uc1.get(0), uc2.get(0));
+            //     return true;
+            // }
+        }
         return false;
     }
 
+
+
+    /* core lemma update function*/
     bool lemma_merge_generalizer::check_inductive_and_update(lemma_ref &lemma, expr_ref_vector conj){
         TRACE("merge_dbg", tout << "Attempt to update lemma with: "
               << mk_pp(conj.back(), m) << "\n";);
@@ -188,6 +244,7 @@ namespace spacer{
         }
     }
 
+    /* MISC functions */
     int lemma_merge_generalizer::num_vars(expr *e){
         int count = 0;
         if(is_var(e)) {count++;}
@@ -212,6 +269,21 @@ namespace spacer{
             }
         }
     }
+
+    void lemma_merge_generalizer::uninterp_consts_with_pos_coeff(app *a,
+                                                                 expr_ref_vector &out,
+                                                                 bool has_var_coeff)
+    {
+        for(expr *e : *a){
+            if(is_uninterp_const(e) && has_var_coeff){
+                out.push_back(e);
+            }
+            else if(is_app(e)){
+                uninterp_consts_with_pos_coeff(to_app(e), out, m_arith.is_mul(e) && (num_vars(e)>=1) );
+            }
+        }
+    }
+
 
 
 
