@@ -71,7 +71,7 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_new_post (m_pt.get_ast_manager ()),
     m_level (level), m_depth (depth),
     m_open (true), m_use_farkas (true), m_in_queue(false),
-    m_weakness(0), m_blocked_lvl(0),m_ua(0) {
+    m_weakness(0), m_blocked_lvl(0), m_ua(0), m_pattern(m_pt.get_ast_manager()) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }

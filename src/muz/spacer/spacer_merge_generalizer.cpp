@@ -33,7 +33,7 @@ namespace spacer{
 
             if(monotonic_coeffcient(cube, to_app(neighbours.get(0)), out)){
                 TRACE("merge_dbg", tout << "mono coeff found a conjecture...\n"
-                      << mk_pp(out, m););
+                      << mk_pp(out, m) << "\n";);
                 expr_ref_vector conj(m);
                 conj.push_back(out);
                 if(check_inductive_and_update(lemma, conj))
@@ -42,7 +42,7 @@ namespace spacer{
 
             if(merge_halfspaces(normalizedCube, to_app(neighbours.get(0)), out)){
                 TRACE("merge_dbg", tout << "merge halfplanes found a conjecture...\n"
-                      << mk_pp(out, m););
+                      << mk_pp(out, m) << "\n";);
                 expr_ref_vector conj(m);
                 conj.push_back(out);
                 if(check_inductive_and_update(lemma, conj))
@@ -51,7 +51,7 @@ namespace spacer{
 
             if(leq_monotonic_k(normalizedCube, to_app(neighbours.get(0)), out)){
                 TRACE("merge_dbg", tout << "leq monotoinc k found a conjecture...\n"
-                      << mk_pp(out, m););
+                      << mk_pp(out, m) << "\n";);
                 expr_ref_vector conj(m);
                 conj.push_back(out);
                 if(check_inductive_and_update(lemma, conj))
@@ -79,6 +79,7 @@ namespace spacer{
     bool lemma_merge_generalizer::leq_monotonic_k(expr_ref &literal, app *pattern, expr_ref &out){
         if(m_arith.is_le(pattern) && is_var(pattern->get_arg(1))){
             // out = forall int i m_arith.mk_le(pattern->get_arg(0), i)
+            out = m_arith.mk_le(pattern->get_arg(0), m_arith.mk_int(0));
             return true;
         }
         return false;
@@ -187,6 +188,9 @@ namespace spacer{
                 // if(neg_coeff_uniCs.size() > 0 && pos_coeff_uniCs.size() > 0) { return false; }
                 // if the coefficients are negative we write positive coeff on out but with a sign flip on compare
                 if(!neg_coeff_uniCs.empty()){
+                    func_decl * f_decl = pattern->get_decl();
+                    decl_kind dk = f_decl->get_decl_kind();
+                    // TODO m.mk_app(m_faid, dk, sum, m_arith.mk_int(0))
                     out = m_arith.mk_lt(sum, m_arith.mk_int(0));
                 }
                 else if(!pos_coeff_uniCs.empty()){

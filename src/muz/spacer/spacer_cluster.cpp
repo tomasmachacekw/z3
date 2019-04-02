@@ -58,7 +58,25 @@ namespace spacer{
         return dis;
     }
 
+    void lemma_cluster::with_var_coeff(app *a,
+                                       expr_ref_vector &out,
+                                       bool has_var_coeff)
+    {
+        for(expr *e : *a){
+            if(is_uninterp_const(e) && has_var_coeff){
+                out.push_back(e);
+            }
+            else if(is_app(e)){
+                with_var_coeff(to_app(e), out, m_arith.is_mul(e)  );
+            }
+        }
+    }
 
+
+    expr_ref_vector lemma_cluster::generate_groups(expr_ref &antiRes){
+        expr_ref_vector temp(m);
+        return temp;
+    }
 
     void lemma_cluster::operator()(lemma_ref &lemma){
         anti_unifier antiU(m);
@@ -113,6 +131,8 @@ namespace spacer{
 
                 // start marking ...
                 lemma->update_neighbours(antiUni_result, neighbours);
+                pob_ref &pob = lemma->get_pob();
+                pob->update_pattern(generate_groups(antiUni_result));
                 return;
                 // bailout if none of above works...
                 // TODO with marking decide WHEN to give up
@@ -121,5 +141,5 @@ namespace spacer{
 
         }
     }
-
+    
 }
