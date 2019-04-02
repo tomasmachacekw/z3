@@ -143,6 +143,8 @@ class lemma_merge_generalizer : public lemma_generalizer {
     ast_manager &m;
     arith_util m_arith;
     int threshold;
+    typedef std::pair<rational, expr*> coeff_uninterpC;
+    typedef vector<coeff_uninterpC> coeff_uninterpC_vec;
 
 public:
     lemma_merge_generalizer(context &ctx, int threshold);
@@ -158,7 +160,9 @@ private:
     bool monotonic_coeffcient(expr_ref &literal, app *pattern, expr_ref &out);
     bool neighbour_equality(expr_ref &literal, app *pattern, expr_ref_vector &neighbour, expr_ref &out);
     void uninterp_consts_with_var_coeff(app *a, expr_ref_vector &out, bool has_var_coeff);
-    void uninterp_consts_with_pos_coeff(app *a, expr_ref_vector &out, bool has_var_coeff);
+    void uninterp_consts_with_pos_coeff(app *a, expr_ref_vector &out);
+    void uninterp_consts_with_neg_coeff(app *a, expr_ref_vector &out);
+    void get_uninterp_consts(app_ref a, coeff_uninterpC_vec &out);
     int num_vars(expr *e);
 
 };
@@ -170,8 +174,7 @@ class lemma_cluster : public lemma_generalizer {
     typedef std::pair<unsigned, unsigned> var_offset;
 
 private:
-    int distance(substitution &s);
-    int distance(expr_ref &antiU_result, substitution &s1, substitution &s2);
+    int distance(expr_ref antiU_result, substitution &s1, substitution &s2);
 
 public:
     lemma_cluster(context &ctx, int disT);

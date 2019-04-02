@@ -25,30 +25,8 @@ namespace spacer{
         dis_threshold = disT;
     }
 
-    // old distance based on single substitution!
-    int lemma_cluster::distance(substitution &s){
-        int dis = 0;
-        for(unsigned j = 0; j < s.get_num_bindings(); j++){
-            expr_ref e(m), e2(m);
-            expr_offset r;
-            var_offset  v;
-            s.get_binding(j, v, r);
-            e = r.get_expr();
-            // strip negation
-            if(m.is_not(e), e2){ e = e2; }
-            // Booleans are not good matches
-            if(m.is_bool(e) && is_uninterp_const(e)) { dis += dis_threshold; }
-
-            if(m_arith.is_numeral(e)) { dis += 1; }
-            else if(is_uninterp_const(e)) { dis += 2; }
-            else if(is_app(e)) { dis += 5 * to_app(e)->get_num_args(); }
-        }
-        return dis;
-    }
-
-
-    // better distance metrics; currently implemented as binary function
-    int lemma_cluster::distance(expr_ref &antiU_result, substitution &s1, substitution &s2){
+    // better distance metrics; currently implemented as boolean function
+    int lemma_cluster::distance(expr_ref antiU_result, substitution &s1, substitution &s2){
         SASSERT(s1.get_num_bindings() == s2.get_num_bindings());
         int dis = 0;
         expr_ref_vector uninterp_s1(m), uninterp_s2(m);
