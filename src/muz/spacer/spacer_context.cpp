@@ -3493,7 +3493,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
       n.incr_no_ua();
       TRACE("under_approximate", tout<<"going to split " << n.get_no_ua()<<"\n";);
       spacer::under_approx ua(m);
-      pob* new_pob=ua.ua_formula(n,model);
+      pob* new_pob=ua.under_approximate(n,model);
       //TODO need to ensure that new_pob has a higher priority than n
       if(new_pob != nullptr)
         {
