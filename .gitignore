@@ -79,3 +79,7 @@ doc/code
 .mainframer/
 mainframer.sh
 gcc-compiled/
+GPATH
+GRTAGS
+GTAGS
+TAGS
