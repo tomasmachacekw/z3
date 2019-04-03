@@ -4,15 +4,19 @@
 #include "ast/ast.h"
 #include "ast/rewriter/expr_safe_replace.h"
 
-typedef std::pair<expr*,expr*> bound;
-typedef std::map<unsigned,bound> vars_bound;
+typedef obj_map<expr,expr*> expr_expr_map;
 namespace spacer {
   struct under_approx
   {
     ast_manager &m;
     arith_util m_arith;
+    //reference to all bounds that were made
+    expr_ref_vector m_refs;
   public :
-    under_approx (ast_manager& manager):m(manager),m_arith(m){}
+    under_approx (ast_manager& manager):m(manager),m_arith(m),m_refs(m){}
+    ~under_approx (){
+      m_refs.reset();
+    }
     expr* getLHS(expr * e)
     {
       SASSERT(is_app(e));
@@ -164,9 +168,8 @@ namespace spacer {
         }
       return false;
     }
-    //computes a lower or upper bound for uninterpreted constant var
-    //if var not in l, returns no bounds
-    bound ua_variable(model_ref model,app_ref l,expr* var,std::map<expr*,expr*> *sub = nullptr)
+    //returns whether l increases(1), decreases(-1) or doesn't change(0) with var
+    int ua_variable(app_ref l,expr* const var)
     {
       rational coeff(1);
       expr * lhs = getLHS(l);
@@ -174,26 +177,15 @@ namespace spacer {
       SASSERT(is_app(lhs));
       get_coeff(to_app(lhs),var,coeff);
       SASSERT(coeff.is_int());
-      expr_ref bnd(m);
-      if(sub)
-        {
-          std::map<expr*,expr*>::iterator itr = sub->find(var);
-          SASSERT(itr!=sub->end());
-          bnd = (*model)(itr->second);
-        }
-      else
-        bnd = (*model)(&(*var));
-      SASSERT(m_arith.is_numeral(bnd));
-      TRACE("under_approximate_verb", tout<<"bound is "<<mk_pp(bnd,m)<<"\n";);
 
       TRACE("under_approximate_verb", tout<<"coefficient found "<<mk_pp(var,m)<<" in literal "<<mk_pp(l,m)<< " is "<< coeff<<"\n";);
       if(coeff.is_pos())
-        return bound(nullptr,bnd);
+        return 1;
       else if(coeff.is_neg())
-        return bound(bnd,nullptr);
+        return -1;
       else
         SASSERT(coeff.is_zero());
-      return bound(nullptr,nullptr);
+      return 0;
     }
     // true if numeral(a) < numeral(b)
     bool is_less_than(expr* a , expr* b)
@@ -209,22 +201,36 @@ namespace spacer {
     }
     //computes bounds u_v on each variable v in l
     // phi ==> ( &u_v ==> l)
-    vars_bound ua_literal(model_ref model,app_ref l,expr_ref_vector phi,std::map<expr*,expr*> *sub = nullptr)
+    void ua_literal(model_ref model,app_ref l,expr_ref_vector phi, expr_expr_map& lb,expr_expr_map& ub, expr_expr_map* sub = nullptr)
     {
+      SASSERT(lb.size()==0);
+      SASSERT(ub.size()==0);
       expr_ref_vector variables(m);
       get_uninterp_const(l,variables);
       //TODO : compute the orthogonal projection
-      model_ref ortho_project = model;
-      vars_bound v;
       for (expr* e : variables)
         {
-          verbose_stream()<< mk_pp(e,m)<<" id before "<<e->get_id()<<"\n";
-          v[e->get_id()] = ua_variable(ortho_project,l,e,sub);
-          verbose_stream()<<"\n id after "<<e->get_id()<<"\n";
-          TRACE("under_approximate_verb", tout<<"bounds for "<<mk_pp(e,m)<<" is "<<mk_pp(v[e->get_id()].first,m) <<" and "<< mk_pp(v[e->get_id()].second,m)<<"\n";);
+          int change = ua_variable(l,e);
+          expr_ref bnd(m);
+          if(sub)
+            bnd = (*model)((*sub)[e]);
+          else
+            bnd = (*model)(e);
+          SASSERT(m_arith.is_numeral(bnd));
 
+          //save reference since the map won't do it
+          m_refs.push_back(bnd);
+          if( change == 1)
+            {
+              ub.insert(e,bnd.get());
+              TRACE("under_approximate_verb", tout<<"upper bounds for "<<mk_pp(e,m)<<" is "<<mk_pp(ub[e],m) << "\n";);
+            }
+          else if ( change == -1)
+            {
+              lb.insert(e,bnd.get());
+              TRACE("under_approximate_verb", tout<<"lower bounds for "<<mk_pp(e,m)<<" is "<<mk_pp(lb[e],m) << "\n";);
+            }
         }
-      return v;
     }
     // under approximate proof obligation n using literals of dim 1
     // returns nullptr if pob is not in LA
@@ -250,43 +256,44 @@ namespace spacer {
           if(!(is_app(temp) && is_arith(to_app(temp))))
             return nullptr;
         }
-      /* if(e_and.size()==1) */
-      /*   { */
-      /*     expr_ref_vector e_grp(m); */
-      /*     for(expr* sub_term : *to_app(e_and.get(0))) */
-      /*       { */
-      /*         if(!m_arith.is_numeral(sub_term)) */
-      /*           e_grp.push_back(sub_term); */
-      /*       } */
-      /*     group(e_and,e_grp,model); */
-      /*   } */
-      vars_bound v;
-      ua_formula(e_and,model,v);
-      //construct pob
-      expr_ref_vector variables(m);
-      get_uninterp_const(e_app,variables);
-      for(expr* variable : variables)
+      //temp hack for testing.
+      if(e_and.size()==1)
         {
-          if(v.find(variable->get_id()) !=v.end())
+          expr_ref_vector e_grp(m);
+          for(expr* sub_term : *to_app(e_and.get(0)))
             {
-              if(v[variable->get_id()].first != nullptr)
-                {
-                  expr* lb = v[variable->get_id()].first;
-                  ua_pob.push_back(m_arith.mk_ge(variable,lb));
-                }
-              if(v[variable->get_id()].second != nullptr)
-                {
-                  expr* ub = v[variable->get_id()].second;
-                  ua_pob.push_back(m_arith.mk_le(variable,ub));
-                }
+              if(!m_arith.is_numeral(sub_term))
+                if(m_arith.is_add(sub_term))
+                  for(expr* arg : *to_app(sub_term))
+                        e_grp.push_back(arg);
             }
+          group(e_and,e_grp,model,ua_pob);
         }
+      else
+       {
+         expr_expr_map lb,ub;
+         ua_formula(e_and,model,lb,ub);
+         //construct pob
+         expr_ref_vector variables(m);
+         get_uninterp_const(e_app,variables);
+         for(expr* variable : variables)
+           {
+             if(lb.contains(variable))
+               ua_pob.push_back(m_arith.mk_ge(variable,lb[variable]));
+             if(ub.contains(variable))
+               ua_pob.push_back(m_arith.mk_le(variable,ub[variable]));
+           }
+       }
       TRACE("under_approximate", tout<< "produced an arithmetic pob: "<< mk_pp(mk_and(ua_pob),m)<<"\n";);
-      return n.pt().mk_pob(&n,n.level(),n.depth(),mk_and(ua_pob),n.get_binding());
+      pob* new_pob = n.pt().mk_pob(&n,n.level(),n.depth(),mk_and(ua_pob),n.get_binding());
+      m_refs.reset();
+      return new_pob;
     }
     //computes bounds on each variable in e_and. If the variable is a substitution for a term, the bound on the variable is a bound on the term.
-    void ua_formula(expr_ref_vector e_and,model_ref model,vars_bound& v,std::map<expr*,expr*>*sub = nullptr)
+    void ua_formula(expr_ref_vector e_and,model_ref model,expr_expr_map& lb,expr_expr_map& ub,expr_expr_map* sub = nullptr)
     {
+      SASSERT(ub.size()==0);
+      SASSERT(lb.size()==0);
       for(unsigned i =0 ; i < e_and.size();i++)
         {
           expr* temp = e_and.get(i);
@@ -306,25 +313,28 @@ namespace spacer {
               phi.push_back(&(*(e_and.get(j))));
           if(phi.size()==0)
             phi.push_back(m.mk_true());
-          vars_bound t= ua_literal(model,normalized_expr,phi,sub);
-          vars_bound::iterator itr = t.begin();
-          while(itr != t.end())
+          expr_expr_map t_lb,t_ub;
+          ua_literal(model,normalized_expr,phi,t_lb,t_ub,sub);
+          expr_expr_map::iterator itr = t_lb.begin();
+          while(itr != t_lb.end())
             {
-              if(v.find(itr->first) != v.end())
-                {
-                  if((v[itr->first].first == nullptr )|| (itr->second.first != nullptr && is_less_than(v[itr->first].first,itr->second.first)))
-                    v[itr->first].first = itr->second.first;
-                  if((v[itr->first].second == nullptr) || (itr->second.second != nullptr && is_less_than(itr->second.second,v[itr->first].second)))
-                    v[itr->first].second = itr->second.second;
-                }
-              else
-                {
-                  v[itr->first] = itr->second;
-                }
+              expr* const var = itr->m_key;
+              lb.insert_if_not_there(var,itr->m_value);
+              if(is_less_than(lb[var],itr->m_value))
+                lb[var]=itr->m_value;
+              itr++;
+            }
+          itr = t_ub.begin();
+          while(itr != t_ub.end())
+            {
+              expr* const var = itr->m_key;
+              ub.insert_if_not_there(var,itr->m_value);
+              if(is_less_than(itr->m_value,ub[var]))
+                ub[var]=itr->m_value;
               itr++;
             }
         }
-   }
+    }
     bool is_disjoint(app* g1, app* g2)
     {
       expr_ref_vector v1(m),v2(m);
@@ -350,7 +360,7 @@ namespace spacer {
     }
     //takes as input a conjunction of literals expr, a satisfying assignment m
     //and a set of disjoint groups
-    expr_ref_vector group(expr_ref_vector pob,expr_ref_vector groups,model_ref model)
+    void group(expr_ref_vector pob,expr_ref_vector groups,model_ref model,expr_ref_vector& ua_pob)
     {
       TRACE("under_approximate", tout<< "grouping an arithmetic pob : "; for(expr * e : pob) tout<<mk_pp(e,m)<<" ";tout<<"\n"; );
       TRACE("under_approximate", tout<< "groups are : "; for(expr * e : groups) tout<<mk_pp(e,m)<<" ";tout<<"\n"; );
@@ -360,45 +370,34 @@ namespace spacer {
       SASSERT(can_group(pob,groups));
       //TODO ensure union of groups has all the variables
       expr_safe_replace s(m);
-      expr_ref_vector vars(m);
-      std::map<expr*,expr*> sub;
-      get_uninterp_const(pob,vars);
+      expr_ref_vector variables(m);
+      expr_expr_map sub;
+      expr_ref_vector fresh_consts(m);
       for(expr* group : groups)
         {
           /* SASSERT(is_sub_expr(group,pob)); */
           expr_ref eval_ref = (*model)(&(*group));
           SASSERT(m_arith.is_numeral(eval_ref));
-          expr_ref fresh_const(m);
-          fresh_const = m.mk_fresh_const("sub_temp",m_arith.mk_int());
-          s.insert(group,fresh_const);
-          sub[fresh_const.get()]=group;
+          fresh_consts.push_back(m.mk_fresh_const("sub_temp",m_arith.mk_int()));
+          s.insert(group,fresh_consts.back());
+          sub.insert(fresh_consts.back(),group);
         }
       s(mk_and(pob),pob_sub);
       TRACE("under_approximate", tout<< "substituted pob : "<<mk_pp(pob_sub,m)<<"\n"; );
-      vars_bound v;
+      expr_expr_map lb,ub;
       expr_ref_vector pob_sub_vec(m);
       flatten_and(pob_sub,pob_sub_vec);
-      ua_formula(pob_sub_vec,model,v,&sub);
-      expr_ref_vector ua_pob(m);
-      for(std::pair<expr*,expr*> var_expr : sub)
+      ua_formula(pob_sub_vec,model,lb,ub,&sub);
+      get_uninterp_const(pob_sub_vec,variables);
+      for(expr* variable : variables)
         {
-          unsigned id = var_expr.first->get_id();
-          if(v.find(id) !=v.end())
-            {
-                if(v[id].first != nullptr)
-                {
-                  ua_pob.push_back(m_arith.mk_ge(var_expr.second,v[id].first));
-                }
-              if(v[id].second != nullptr)
-                {
-                  tout<<" sub term"<<mk_pp(var_expr.second,m);
-                  tout<<" bound "<<mk_pp(v[id].second,m);
-                  ua_pob.push_back(m_arith.mk_le(var_expr.second,v[id].second));
-                }
-            }
+          if(lb.contains(variable))
+            ua_pob.push_back(m_arith.mk_ge(sub[variable],lb[variable]));
+          if(ub.contains(variable))
+            ua_pob.push_back(m_arith.mk_le(sub[variable],ub[variable]));
         }
+      fresh_consts.reset();
       TRACE("under_approximate", tout<< "split pob : "<<mk_pp(mk_and(ua_pob),m)<<"\n"; );
-      return ua_pob;
     }
     // checks whether c \in g
     bool contains(expr_ref_vector g,expr* c)
