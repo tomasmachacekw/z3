@@ -72,15 +72,22 @@ namespace spacer{
             return;
         }
     }
-
+    /*
+      TODO cluster statistics / conjecture effective statistics
+      TODO formalize guards
+      TODO frame this as strategies
+      TODO problem classification: linear pattern / non-linear patterns
+      TODO guard normalization
+    */
 
     /* with t <= k
        conjecture t <= infinite */
     bool lemma_merge_generalizer::leq_monotonic_k(expr_ref &literal, app *pattern, expr_ref &out){
         if(m_arith.is_le(pattern) && is_var(pattern->get_arg(1))){
-            // out = forall int i m_arith.mk_le(pattern->get_arg(0), i)
-            out = m_arith.mk_le(pattern->get_arg(0), m_arith.mk_int(0));
-            return true;
+            if(num_vars(pattern->get_arg(0)) == 0){
+                out = m_arith.mk_eq(pattern->get_arg(0), m_arith.mk_int(0));
+                return true;
+            }
         }
         return false;
     }
@@ -258,7 +265,15 @@ namespace spacer{
         TRACE("merge_dbg", tout << "Attempt to update lemma with: "
               << mk_pp(conj.back(), m) << "\n";);
         pred_transformer &pt = lemma->get_pob()->pt();
+        lemma_ref_vector all_lemmas;
+        pt.get_all_lemmas(all_lemmas, false);
         unsigned uses_level = 0;
+        for(auto &l:all_lemmas) {
+            if(m.are_equal(mk_and(l->get_cube()), mk_and(conj))){
+                TRACE("merge_dbg", tout << "Already discovered lemma!" << "\n";);
+                return false;
+            }
+        }
         if(pt.check_inductive(lemma->level(), conj, uses_level, lemma->weakness())){
             TRACE("merge_dbg", tout << "Inductive!" << "\n";);
             lemma->update_cube(lemma->get_pob(), conj);

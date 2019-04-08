@@ -58,12 +58,16 @@ namespace spacer{
         return dis;
     }
 
+    /* example.
+       input : (>= (+ (* (:VAR) (+ X Y) Z (* (:VAR1) W)) )3)
+       output: [(+ X Y), (W)]
+     */
     void lemma_cluster::with_var_coeff(app *a,
                                        expr_ref_vector &out,
                                        bool has_var_coeff)
     {
         for(expr *e : *a){
-            if(is_uninterp_const(e) && has_var_coeff){
+            if(m_arith.is_mul(e) && is_uninterp_const(e) && has_var_coeff){
                 out.push_back(e);
             }
             else if(is_app(e)){
@@ -109,12 +113,13 @@ namespace spacer{
                       << "Old Lemma Cube: " << mk_pp(normalizedOldCube, m) << "\n"
                       << "antiU result: " << mk_pp(antiUni_result, m) << "\n"
                       << "dis: " << dis << "\n"
-                      << "subs new:\n=====\n";
-                      subs_newLemma.display(tout);
-                      tout << "\n"
-                      << "subs old:\n=====\n";
-                      subs_oldLemma.display(tout);
-                      tout << "\n"
+                      << "neighbours: " << neighbours.size() << "\n"
+                      // << "subs new:\n=====\n";
+                      // subs_newLemma.display(tout);
+                      // tout << "\n"
+                      // << "subs old:\n=====\n";
+                      // subs_oldLemma.display(tout);
+                      // tout << "\n"
                       ;);
             }
 
@@ -132,7 +137,7 @@ namespace spacer{
                 // start marking ...
                 lemma->update_neighbours(antiUni_result, neighbours);
                 pob_ref &pob = lemma->get_pob();
-                pob->update_pattern(generate_groups(antiUni_result));
+                pob->update_cluster(generate_groups(antiUni_result));
                 return;
                 // bailout if none of above works...
                 // TODO with marking decide WHEN to give up

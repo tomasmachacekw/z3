@@ -675,7 +675,7 @@ class pob {
     unsigned m_ua;
 
     //pattern from cluster
-    expr_ref_vector m_pattern;
+    expr_ref_vector m_cluster;
 
 public:
     pob (pob* parent, pred_transformer& pt,
@@ -735,8 +735,8 @@ public:
     const ptr_vector<lemma> &lemmas() const {return m_lemmas;}
     void add_lemma(lemma* new_lemma) {m_lemmas.push_back(new_lemma);}
 
-    void update_pattern(expr_ref_vector pattern) { m_pattern.reset(); m_pattern.append(pattern); }
-    expr_ref_vector get_pattern() { return m_pattern; }
+    void update_cluster(expr_ref_vector pattern) { m_cluster.reset(); m_cluster.append(pattern); }
+    expr_ref_vector get_cluster() { return m_cluster; }
 
     bool is_ground () const { return m_binding.empty (); }
     unsigned get_free_vars_size() const { return m_binding.size(); }

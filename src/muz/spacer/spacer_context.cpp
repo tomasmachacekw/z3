@@ -71,7 +71,7 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_new_post (m_pt.get_ast_manager ()),
     m_level (level), m_depth (depth),
     m_open (true), m_use_farkas (true), m_in_queue(false),
-    m_weakness(0), m_blocked_lvl(0), m_ua(0), m_pattern(m_pt.get_ast_manager()) {
+    m_weakness(0), m_blocked_lvl(0), m_ua(0), m_cluster(m_pt.get_ast_manager()) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -3599,10 +3599,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         if (v) { m_stats.m_num_lemmas++; }
 
         // // XXX JEFF -- check for total lemma population before entering lemma fusion
-        // if (m_stats.m_num_lemmas >= 10){
-        //     TRACE("spacer_lemma_fusion",
-        //           tout << "Current total lemma count: " << m_stats.m_num_lemmas << "\n";);
-        // }
+        TRACE("lemma_dbg", tout <<
+              (lemma->get_expr())->get_id() << ": " << mk_pp(mk_and(lemma->get_cube()), m) << "\n";);
 
         // Optionally update the node to be the negation of the lemma
         if (v && m_use_lemma_as_pob) {
