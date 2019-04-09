@@ -128,8 +128,15 @@ namespace spacer{
             // int dis_old = distance(subs_oldLemma);
 
             if(neighbours.size() >= dis_threshold){
+                if(contain_nonlinear(m, antiUni_result)) {
+                    TRACE("nonlinear_cluster", tout
+                          << "Lemma Cube: " << mk_pp(normalizedCube, m) << "\n"
+                          << "NL Pattern: " << mk_pp(antiUni_result, m) << "\n";);
+                    throw unknown_exception();
+                }
                 TRACE("cluster_dbg",
-                      tout << "New Lemma Cube: " << mk_pp(normalizedCube, m) << "\n";
+                      tout << "New Lemma Cube: " << mk_pp(normalizedCube, m) << "\n"
+                      << "Pattern found: " << mk_pp(antiUni_result, m) << "\n";
                       for(auto &n : neighbours){
                           tout << "Neighbour Cube: " << mk_pp(n, m) << "\n";
                       };);

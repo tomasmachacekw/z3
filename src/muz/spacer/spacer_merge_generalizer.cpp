@@ -286,16 +286,6 @@ namespace spacer{
     }
 
     /* MISC functions */
-    int lemma_merge_generalizer::num_vars(expr *e){
-        int count = 0;
-        if(is_var(e)) {count++;}
-        else if(is_app(e)){
-            for(expr *x: *to_app(e)){
-                count += num_vars(x);
-            }
-        }
-        return count;
-    }
 
     void lemma_merge_generalizer::uninterp_consts_with_var_coeff(app *a,
                                                                  expr_ref_vector &out,

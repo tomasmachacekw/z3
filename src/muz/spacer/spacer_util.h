@@ -145,6 +145,8 @@ namespace spacer {
     int num_uninterp_const(app *a);
     void uninterp_consts(app *a, expr_ref_vector &out);
     // int num_numeral_const(app *a);
+    bool contain_nonlinear(ast_manager m, expr_ref pattern);
+    int num_vars(expr *e);
 
 
     // order by term instead of ast_lt

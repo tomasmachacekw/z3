@@ -163,7 +163,6 @@ private:
     void uninterp_consts_with_pos_coeff(app *a, expr_ref_vector &out);
     void uninterp_consts_with_neg_coeff(app *a, expr_ref_vector &out);
     void get_uninterp_consts(app_ref a, coeff_uninterpC_vec &out);
-    int num_vars(expr *e);
 
 };
 

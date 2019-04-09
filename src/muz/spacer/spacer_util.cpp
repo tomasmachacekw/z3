@@ -1005,6 +1005,18 @@ namespace {
     /**
        Auxiliary functions used in C(luster) S(plit) M(erge) project
     */
+    int num_vars(expr *e){
+        int count = 0;
+        if(is_var(e)) {count++;}
+        else if(is_app(e)){
+            for(expr *x: *to_app(e)){
+                count += num_vars(x);
+            }
+        }
+        return count;
+    }
+
+
     int num_uninterp_const( app *a ){
         int count = 0;
         for (expr *e: *a){
@@ -1024,18 +1036,21 @@ namespace {
             }
         }
     }
-
-
-    // XXX TODO another good reason to do function passing!
-    // int num_numeral_const( app *a ){
-    //     int count = 0;
-    //     for (expr *e: *a){
-    //         if(m_arith.is_numeral(e)) count++;
-    //         else if(is_app(e))
-    //             count += num_uninterp_const(to_app(e));
-    //     }
-    // }
-
+    bool contain_nonlinear(ast_manager m, expr_ref pattern){
+        arith_util m_arith(m);
+        if(!is_app(pattern)){ return false; }
+        for(expr *e : *to_app(pattern)){
+            if(m_arith.is_mul(e) && num_vars(e) > 0){
+                return true;
+            } else if(is_app(e)){
+                expr_ref sub(m);
+                sub = e;
+                bool sub_result = contain_nonlinear(m, sub);
+                if(sub_result) { return sub_result; }
+            }
+        }
+        return false;
+    }
 
 
 }
