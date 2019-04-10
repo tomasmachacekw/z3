@@ -23,7 +23,16 @@ namespace spacer{
         if(neighbours.size() == 0) { return; }
         substitution subs_newLemma(m), subs_oldLemma(m);
         expr_ref cube(m), normalizedCube(m), out(m);
-        cube = mk_and(lemma->get_cube());
+        expr_ref_vector non_boolean_literals(m);
+        for(auto c:lemma->get_cube()){
+            if(!is_uninterp_const(c))
+                non_boolean_literals.push_back(c);
+        }
+        STRACE("fun", tout << "FUN\n";
+               for(auto nbl:non_boolean_literals){ tout << mk_pp(nbl, m) << "\n"; };);
+        // cube = mk_and(lemma->get_cube());
+        if(non_boolean_literals.size() == 0) { cube = mk_and(lemma->get_cube()); }
+        else { cube = mk_and(non_boolean_literals); }
         normalize_order(cube, normalizedCube);
         TRACE("merge_dbg",
               tout << "Start merging with lemma cube: " << mk_pp(normalizedCube, m) << "\n"
@@ -49,7 +58,7 @@ namespace spacer{
                 return;
         }
 
-        if(leq_monotonic_k(normalizedCube, to_app(neighbours.get(0)), out)){
+        if(leq_monotonic_neg_k(normalizedCube, to_app(neighbours.get(0)), out)){
             STRACE("cluster_stats", tout << "leq monotoinc k found a conjecture...\n"
                   << mk_pp(out, m) << "\n";);
             expr_ref_vector conj(m);
@@ -79,7 +88,13 @@ namespace spacer{
     bool lemma_merge_generalizer::leq_monotonic_k(expr_ref &literal, app *pattern, expr_ref &out){
         if(m_arith.is_le(pattern) && is_var(pattern->get_arg(1))){
             if(num_vars(pattern->get_arg(0)) == 0){
-                out = m_arith.mk_eq(pattern->get_arg(0), m_arith.mk_int(0));
+                out = m_arith.mk_le(pattern->get_arg(0), m_arith.mk_int(0));
+                return true;
+            }
+        }
+        if(m_arith.is_ge(pattern) && is_var(pattern->get_arg(1))){
+            if(num_vars(pattern->get_arg(0)) == 0){
+                out = m_arith.mk_ge(pattern->get_arg(0), m_arith.mk_int(0));
                 return true;
             }
         }
@@ -102,6 +117,21 @@ namespace spacer{
                 return true;
             }
         }
+        if(m_arith.is_ge(pattern) && is_var(pattern->get_arg(1))){
+            SASSERT(is_app(literal));
+            SASSERT(m_arith.is_numeral(to_app(literal)->get_arg(1)));
+            rational r;
+            m_arith.is_numeral(to_app(literal)->get_arg(1), r);
+            if(r > 0){
+                out = m_arith.mk_gt(pattern->get_arg(0), m_arith.mk_int(0));
+                return true;
+            } else if (r <= 0){
+                out = m_arith.mk_ge(pattern->get_arg(0), m_arith.mk_int(0));
+                return true;
+            }
+        }
+
+
         return false;
     }
 
@@ -143,6 +173,23 @@ namespace spacer{
                     }
                 }
             }
+
+            if(m_arith.is_ge(fst) && m_arith.is_ge(snd)){
+                rational n1, n2;
+                TRACE("merge_dbg", tout << "GOT HERE >= & >=\n";);
+                if(m_arith.is_numeral(concrete_fst->get_arg(1), n1) &&
+                   m_arith.is_numeral(concrete_snd->get_arg(1), n2)){
+                    if(n1 > n2){
+                        out = m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0));
+                        return true;
+                    }
+                    if(n1 < n2){
+                        out = m_arith.mk_gt(snd->get_arg(0), fst->get_arg(0));
+                        return true;
+                    }
+                }
+            }
+
 
         }
         return false;
