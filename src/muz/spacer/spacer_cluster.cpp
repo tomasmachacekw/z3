@@ -49,12 +49,17 @@ namespace spacer{
 
         // Go through the uninterp consts and make sure contains
         SASSERT(uninterp_s1.size() == uninterp_s2.size());
-        for(auto &u1 : uninterp_s1){
-            if(!uninterp_s2.contains(u1)){
+        for(unsigned j = 0; j < uninterp_s1.size(); j++){
+            if(!m.are_equal(uninterp_s1.get(j), uninterp_s2.get(j))){
                 dis += dis_threshold;
-                // dis += 1;
             }
         }
+        // for(auto &u1 : uninterp_s1){
+        //     if(!uninterp_s2.contains(u1)){
+        //         dis += dis_threshold;
+        //         // dis += 1;
+        //     }
+        // }
         return dis;
     }
 
@@ -128,12 +133,31 @@ namespace spacer{
             // int dis_old = distance(subs_oldLemma);
 
             if(neighbours.size() >= dis_threshold){
+                TRACE("nonlinear_cluster",
                 if(contain_nonlinear(m, antiUni_result)) {
                     TRACE("nonlinear_cluster", tout
                           << "Lemma Cube: " << mk_pp(normalizedCube, m) << "\n"
-                          << "NL Pattern: " << mk_pp(antiUni_result, m) << "\n";);
+                          << "NL Pattern: " << mk_pp(antiUni_result, m) << "\n";
+                          for(auto &n : neighbours){
+                              tout << "Neighbour Cube: " << mk_pp(n, m) << "\n";
+                          };);
                     throw unknown_exception();
-                }
+                };);
+
+                STRACE("cluster_stats",
+                      if(neighbours.size() >= 10) {
+                          tout << "Major cluster found: \n---Pattern---\n" << mk_pp(antiUni_result, m)
+                               << "\n---Concrete lemmas---\n";
+                          for(auto &n : neighbours){
+                              tout << "(" << n->get_id() << "): " << mk_pp(n, m) << "\n";
+                          };
+                          tout << "------\n";
+                          tout << "Current #lemmas: " << all_lemmas.size() << "\n";
+                          throw unknown_exception();
+                      }
+                      else { continue; }
+                      ;);
+
                 TRACE("cluster_dbg",
                       tout << "New Lemma Cube: " << mk_pp(normalizedCube, m) << "\n"
                       << "Pattern found: " << mk_pp(antiUni_result, m) << "\n";
@@ -146,9 +170,6 @@ namespace spacer{
                 pob_ref &pob = lemma->get_pob();
                 pob->update_cluster(generate_groups(antiUni_result));
                 return;
-                // bailout if none of above works...
-                // TODO with marking decide WHEN to give up
-                // throw unknown_exception();
             }
 
         }

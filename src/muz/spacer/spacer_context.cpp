@@ -3598,7 +3598,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         bool v = n.pt().add_lemma (lemma.get());
         if (v) { m_stats.m_num_lemmas++; }
 
-        // // XXX JEFF -- check for total lemma population before entering lemma fusion
+        // // XXX JEFF
         TRACE("lemma_dbg", tout <<
               (lemma->get_expr())->get_id() << ": " << mk_pp(mk_and(lemma->get_cube()), m) << "\n";);
 
