@@ -166,20 +166,24 @@ namespace spacer {
         bool operator()(expr *arg1, expr *arg2){
             arith_util m_arith(m);
             expr *a1_1, *a1_2, *a2_1, *a2_2;
+            ast_lt_proc comp;
             if(m_arith.is_mul(arg1, a1_1, a1_2) && m_arith.is_mul(arg2, a2_1, a2_2)){
-                ast_lt_proc comp;
                 return comp(a1_2, a2_2);
                 // return (a1_2->get_id() < a2_2->get_id());
             }
             else if(m_arith.is_mul(arg1, a1_1, a1_2)){
-                ast_lt_proc comp;
                 return comp(a1_2, arg2);
             }
             else if(m_arith.is_mul(arg2, a2_1, a2_2)){
-                ast_lt_proc comp;
                 return comp(arg1, a2_2);
             }
-            else if (is_app(arg1) && is_app(arg2)){
+            else if(is_app(arg1) && is_app(arg2)){
+                if(m.is_not(arg1)){
+                    return comp(to_app(arg1)->get_arg(0), arg2);
+                }
+                else if(m.is_not(arg2)){
+                    return comp(arg1, to_app(arg2)->get_arg(0));
+                }
                 expr_ref_vector uni_consts(m), uni_consts2(m);
                 uninterp_consts(to_app(arg1), uni_consts);
                 uninterp_consts(to_app(arg2), uni_consts2);
