@@ -195,8 +195,8 @@ namespace spacer{
                 // if(neg_coeff_uniCs.size() > 0 && pos_coeff_uniCs.size() > 0) { return false; }
                 // if the coefficients are negative we write positive coeff on out but with a sign flip on compare
                 if(!neg_coeff_uniCs.empty()){
-                    func_decl * f_decl = pattern->get_decl();
-                    decl_kind dk = f_decl->get_decl_kind();
+                    // func_decl * f_decl = pattern->get_decl();
+                    // decl_kind dk = f_decl->get_decl_kind();
                     // TODO m.mk_app(m_faid, dk, sum, m_arith.mk_int(0))
                     out = m_arith.mk_lt(sum, m_arith.mk_int(0));
                 }
@@ -230,7 +230,7 @@ namespace spacer{
             expr_ref_vector uc1(m), uc2(m);
             uninterp_consts(to_app(literal), uc1);
             uninterp_consts(to_app(neighbour.get(1)), uc2);
-            bool mismatch = false;
+            // bool mismatch = false;
             TRACE("merge_dbg",
                   tout << "pattern:\n"
                   << mk_pp(pattern, m) << "\n"

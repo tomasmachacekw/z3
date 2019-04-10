@@ -753,11 +753,11 @@ namespace {
         th_rewriter rw(out.m(), params);
         rw(e, out);
 
-        TRACE("spacer_normalize_order", tout << "OUT Before:" << mk_pp(out, out.m()) << "\n";);
+        STRACE("spacer_normalize_order'", tout << "OUT Before:" << mk_pp(out, out.m()) << "\n";);
         term_ordered_rpp t_ordered(out.m());
         rewriter_tpl<term_ordered_rpp> t_ordered_rw(out.m(), false, t_ordered);
         t_ordered_rw(out.get(), out);
-        TRACE("spacer_normalize_order", tout << "OUT After :" << mk_pp(out, out.m()) << "\n";);
+        STRACE("spacer_normalize_order'", tout << "OUT After :" << mk_pp(out, out.m()) << "\n";);
     }
 
 
@@ -1027,12 +1027,19 @@ namespace {
         return count;
     }
     void uninterp_consts(app *a, expr_ref_vector &out){
+        TRACE("spacer_normalize_order", tout << "uniconst " << mk_pp(a, out.m()) << "\n";);
+        if(is_uninterp_const(a)){
+            out.push_back(a);
+        }
         for(expr *e : *a){
             if(is_uninterp_const(e)){
                 out.push_back(e);
             }
             else if(is_app(e)){
-                uninterp_consts(to_app(e), out);
+                for(expr *arg : *to_app(e)){
+                    if(is_app(arg))
+                        uninterp_consts(to_app(arg), out);
+                }
             }
         }
     }
