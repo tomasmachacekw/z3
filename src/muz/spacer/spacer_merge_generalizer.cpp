@@ -20,57 +20,51 @@ namespace spacer{
 
     void lemma_merge_generalizer::operator()(lemma_ref &lemma){
         expr_ref_vector neighbours = lemma->get_neighbours();
-        if(neighbours.size() > 0){
-            substitution subs_newLemma(m), subs_oldLemma(m);
-            expr_ref cube(m), normalizedCube(m), out(m);
-            cube = mk_and(lemma->get_cube());
-            normalize_order(cube, normalizedCube);
-            TRACE("merge_dbg",
-                  tout << "Start merging with lemma cube: " << mk_pp(normalizedCube, m) << "\n"
-                  "Discovered pattern: " << mk_pp(neighbours.get(0), m) << "\n"
-                  "Neighbours: " << mk_pp(neighbours.get(1), m) << "\n"
-                  ;);
+        if(neighbours.size() == 0) { return; }
+        substitution subs_newLemma(m), subs_oldLemma(m);
+        expr_ref cube(m), normalizedCube(m), out(m);
+        cube = mk_and(lemma->get_cube());
+        normalize_order(cube, normalizedCube);
+        TRACE("merge_dbg",
+              tout << "Start merging with lemma cube: " << mk_pp(normalizedCube, m) << "\n"
+              "Discovered pattern: " << mk_pp(neighbours.get(0), m) << "\n"
+              "Neighbours: " << mk_pp(neighbours.get(1), m) << "\n"
+              ;);
 
-            if(monotonic_coeffcient(cube, to_app(neighbours.get(0)), out)){
-                TRACE("merge_dbg", tout << "mono coeff found a conjecture...\n"
-                      << mk_pp(out, m) << "\n";);
-                expr_ref_vector conj(m);
-                conj.push_back(out);
-                if(check_inductive_and_update(lemma, conj))
-                    return;
-            }
-
-            if(merge_halfspaces(normalizedCube, to_app(neighbours.get(0)), out)){
-                TRACE("merge_dbg", tout << "merge halfplanes found a conjecture...\n"
-                      << mk_pp(out, m) << "\n";);
-                expr_ref_vector conj(m);
-                conj.push_back(out);
-                if(check_inductive_and_update(lemma, conj))
-                    return;
-            }
-
-            if(leq_monotonic_k(normalizedCube, to_app(neighbours.get(0)), out)){
-                TRACE("merge_dbg", tout << "leq monotoinc k found a conjecture...\n"
-                      << mk_pp(out, m) << "\n";);
-                expr_ref_vector conj(m);
-                conj.push_back(out);
-                if(check_inductive_and_update(lemma, conj))
-                    return;
-            }
-
-            // res = neighbour_equality(normalizedCube, to_app(neighbours.get(0)), neighbours, out);
-            // if(res){
-            //     TRACE("merge_dbg", tout << "neighbour equality found a conjecture...\n"
-            //           << mk_pp(out, m););
-            //     expr_ref_vector conj(m);
-            //     conj.push_back(out);
-            //     if(check_inductive_and_update(lemma, conj))
-            //         return;
-            // }
-
-            TRACE("merge_dbg", tout << "Tried all merge strategies\n";);
-            return;
+        if(monotonic_coeffcient(cube, to_app(neighbours.get(0)), out)){
+            STRACE("cluster_stats", tout << "mono coeff found a conjecture...\n"
+                  << mk_pp(out, m) << "\n";);
+            expr_ref_vector conj(m);
+            conj.push_back(out);
+            if(check_inductive_and_update(lemma, conj))
+                return;
         }
+
+        if(merge_halfspaces(normalizedCube, to_app(neighbours.get(0)), out)){
+            STRACE("cluster_stats", tout << "merge halfplanes found a conjecture...\n"
+                  << mk_pp(out, m) << "\n";);
+            expr_ref_vector conj(m);
+            conj.push_back(out);
+            if(check_inductive_and_update(lemma, conj))
+                return;
+        }
+
+        if(leq_monotonic_k(normalizedCube, to_app(neighbours.get(0)), out)){
+            STRACE("cluster_stats", tout << "leq monotoinc k found a conjecture...\n"
+                  << mk_pp(out, m) << "\n";);
+            expr_ref_vector conj(m);
+            conj.push_back(out);
+            if(check_inductive_and_update(lemma, conj))
+                return;
+        }
+        if(neighbours.size() >= 10) {
+            TRACE("cluster_stats", tout << "Found big cluster and Tried all merge strategies\n";);
+            return;
+            // throw unknown_exception();
+        }
+
+        TRACE("merge_dbg", tout << "tried all merge strategies\n";);
+        return;
     }
     /*
       TODO cluster statistics / conjecture effective statistics
@@ -270,17 +264,17 @@ namespace spacer{
         unsigned uses_level = 0;
         for(auto &l:all_lemmas) {
             if(m.are_equal(mk_and(l->get_cube()), mk_and(conj))){
-                TRACE("merge_dbg", tout << "Already discovered lemma!" << "\n";);
+                STRACE("cluster_stats", tout << "Already discovered lemma!" << "\n";);
                 return false;
             }
         }
         if(pt.check_inductive(lemma->level(), conj, uses_level, lemma->weakness())){
-            TRACE("merge_dbg", tout << "Inductive!" << "\n";);
+            STRACE("cluster_stats", tout << "Inductive!" << "\n";);
             lemma->update_cube(lemma->get_pob(), conj);
             lemma->set_level(uses_level);
             return true;
         } else {
-            TRACE("merge_dbg_", tout << "Not inductive!" << "\n";);
+            STRACE("cluster_stats", tout << "Not inductive!" << "\n";);
             return false;
         }
     }

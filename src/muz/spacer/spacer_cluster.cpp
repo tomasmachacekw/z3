@@ -118,7 +118,10 @@ namespace spacer{
                       << "Old Lemma Cube: " << mk_pp(normalizedOldCube, m) << "\n"
                       << "antiU result: " << mk_pp(antiUni_result, m) << "\n"
                       << "dis: " << dis << "\n"
-                      << "neighbours: " << neighbours.size() << "\n"
+                      << "neighbours: " << neighbours.size() << "\n";
+                      for(auto &n : neighbours){
+                          tout << "Neighbour Cube: " << mk_pp(n, m) << "\n";
+                      }
                       // << "subs new:\n=====\n";
                       // subs_newLemma.display(tout);
                       // tout << "\n"
@@ -146,14 +149,16 @@ namespace spacer{
 
                 STRACE("cluster_stats",
                       if(neighbours.size() >= 10) {
-                          tout << "Major cluster found: \n---Pattern---\n" << mk_pp(antiUni_result, m)
-                               << "\n---Concrete lemmas---\n";
+                          tout << "---Pattern---\n" << mk_pp(antiUni_result, m);
+                          tout << "\n---Concrete lemmas---\n";
                           for(auto &n : neighbours){
-                              tout << "(" << n->get_id() << "): " << mk_pp(n, m) << "\n";
+                              tout << "(" << n->get_id() << "):\n" << mk_pp(n, m) << "\n";
                           };
-                          tout << "------\n";
+                          tout << "\n------\n";
                           tout << "Current #lemmas: " << all_lemmas.size() << "\n";
-                          throw unknown_exception();
+                          // throw unknown_exception();
+                          lemma->update_neighbours(antiUni_result, neighbours);
+                          return;
                       }
                       else { continue; }
                       ;);
