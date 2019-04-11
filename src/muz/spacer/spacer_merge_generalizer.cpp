@@ -24,21 +24,36 @@ namespace spacer{
         substitution subs_newLemma(m), subs_oldLemma(m);
         expr_ref cube(m), normalizedCube(m), out(m);
         expr_ref_vector non_boolean_literals(m);
-        for(auto c:lemma->get_cube()){
-            if(!is_uninterp_const(c))
-                non_boolean_literals.push_back(c);
-        }
-        STRACE("fun", tout << "FUN\n";
-               for(auto nbl:non_boolean_literals){ tout << mk_pp(nbl, m) << "\n"; };);
-        // cube = mk_and(lemma->get_cube());
-        if(non_boolean_literals.size() == 0) { cube = mk_and(lemma->get_cube()); }
-        else { cube = mk_and(non_boolean_literals); }
+        expr_ref_vector conjuncts(m);
+
+        cube = mk_and(lemma->get_cube());
         normalize_order(cube, normalizedCube);
         TRACE("merge_dbg",
               tout << "Start merging with lemma cube: " << mk_pp(normalizedCube, m) << "\n"
               "Discovered pattern: " << mk_pp(neighbours.get(0), m) << "\n"
               "Neighbours: " << mk_pp(neighbours.get(1), m) << "\n"
               ;);
+
+        // update the pattern by dropping singleton uninterp_consts
+        if(m.is_and(neighbours.get(0))){
+            for(expr * c: *to_app(neighbours.get(0))){
+                if(m.is_not(c) && is_uninterp_const(to_app(c)->get_arg(0))) { continue; }
+                if(!is_uninterp_const(c)) { non_boolean_literals.push_back(c); }
+            }
+        }
+        STRACE("fun", tout << "FUN\n";
+               for(auto nbl:non_boolean_literals){ tout << mk_pp(nbl, m) << "\n"; };);
+        if(non_boolean_literals.size() > 0) {
+            neighbours.set(0, mk_and(non_boolean_literals));
+            non_boolean_literals.reset();
+            for(auto c:lemma->get_cube()){
+                if(m.is_not(c) && is_uninterp_const(to_app(c)->get_arg(0))) { continue; }
+                if(!is_uninterp_const(c))
+                    non_boolean_literals.push_back(c);
+            }
+            cube = mk_and(non_boolean_literals);
+            normalize_order(cube, normalizedCube);
+        }
 
         if(monotonic_coeffcient(cube, to_app(neighbours.get(0)), out)){
             STRACE("cluster_stats", tout << "mono coeff found a conjecture...\n"
@@ -49,13 +64,20 @@ namespace spacer{
                 return;
         }
 
-        if(merge_halfspaces(normalizedCube, to_app(neighbours.get(0)), out)){
+        if(merge_halfspaces(normalizedCube, to_app(neighbours.get(0)), out, conjuncts)){
             STRACE("cluster_stats", tout << "merge halfplanes found a conjecture...\n"
                   << mk_pp(out, m) << "\n";);
             expr_ref_vector conj(m);
             conj.push_back(out);
             if(check_inductive_and_update(lemma, conj))
                 return;
+            else{
+                conjuncts.push_back(out);
+                conj.reset();
+                conj.push_back(mk_and(conjuncts));
+                if(check_inductive_and_update(lemma, conj))
+                    return;
+            }
         }
 
         if(leq_monotonic_neg_k(normalizedCube, to_app(neighbours.get(0)), out)){
@@ -138,7 +160,7 @@ namespace spacer{
     /* with t1 <= k1 && k2 <= t2 , k1 + c = k2
        conjecture t1 + c' <= t2 where 0 <= c' <= c */
     // XXX potentially return expr_ref_vector for c' from 0 to c
-    bool lemma_merge_generalizer::merge_halfspaces(expr_ref &literal, app *pattern, expr_ref &out){
+    bool lemma_merge_generalizer::merge_halfspaces(expr_ref &literal, app *pattern, expr_ref &out, expr_ref_vector &conjuncts){
         if(m.is_and(pattern) && pattern->get_num_args() == 2){
             app * concrete_fst = to_app(to_app(literal)->get_arg(0));
             app * concrete_snd = to_app(to_app(literal)->get_arg(1));
@@ -181,10 +203,14 @@ namespace spacer{
                    m_arith.is_numeral(concrete_snd->get_arg(1), n2)){
                     if(n1 > n2){
                         out = m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0));
+                        conjuncts.push_back( m_arith.mk_gt(fst->get_arg(0), m_arith.mk_int(n1)) );
+                        conjuncts.push_back( m_arith.mk_gt(m_arith.mk_int(n2), snd->get_arg(0)) );
                         return true;
                     }
                     if(n1 < n2){
                         out = m_arith.mk_gt(snd->get_arg(0), fst->get_arg(0));
+                        conjuncts.push_back( m_arith.mk_gt(snd->get_arg(0), m_arith.mk_int(n2)) );
+                        conjuncts.push_back( m_arith.mk_gt(m_arith.mk_int(n1), fst->get_arg(0)) );
                         return true;
                     }
                 }
@@ -311,17 +337,17 @@ namespace spacer{
         unsigned uses_level = 0;
         for(auto &l:all_lemmas) {
             if(m.are_equal(mk_and(l->get_cube()), mk_and(conj))){
-                STRACE("cluster_stats", tout << "Already discovered lemma!" << "\n";);
+                STRACE("merge_dbg", tout << "Already discovered lemma!" << "\n";);
                 return false;
             }
         }
         if(pt.check_inductive(lemma->level(), conj, uses_level, lemma->weakness())){
-            STRACE("cluster_stats", tout << "Inductive!" << "\n";);
+            STRACE("merge_dbg", tout << "Inductive!" << "\n";);
             lemma->update_cube(lemma->get_pob(), conj);
             lemma->set_level(uses_level);
             return true;
         } else {
-            STRACE("cluster_stats", tout << "Not inductive!" << "\n";);
+            STRACE("merge_dbg", tout << "Not inductive!" << "\n";);
             return false;
         }
     }

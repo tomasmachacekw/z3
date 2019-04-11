@@ -155,7 +155,7 @@ public:
 private:
     bool leq_monotonic_k(expr_ref &l, app *pattern, expr_ref &out);
     bool leq_monotonic_neg_k(expr_ref &l, app *pattern, expr_ref &out);
-    bool merge_halfspaces(expr_ref &literal, app *pattern, expr_ref &out);
+    bool merge_halfspaces(expr_ref &literal, app *pattern, expr_ref &out, expr_ref_vector &conjuncts);
     bool merge_lines(expr_ref &literal, app *pattern, expr_ref &out);
     bool monotonic_coeffcient(expr_ref &literal, app *pattern, expr_ref &out);
     bool neighbour_equality(expr_ref &literal, app *pattern, expr_ref_vector &neighbour, expr_ref &out);

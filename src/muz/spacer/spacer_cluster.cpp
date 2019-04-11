@@ -106,7 +106,10 @@ namespace spacer{
             oldCube = mk_and(l->get_cube());
             normalize_order(oldCube, normalizedOldCube);
 
-            antiU(normalizedCube, normalizedOldCube, antiUni_result, subs_newLemma, subs_oldLemma);
+            // antiU(normalizedCube, normalizedOldCube, antiUni_result, subs_newLemma, subs_oldLemma);
+            // using this order prevents the antiUni_result becoming too strict
+            antiU(normalizedOldCube, normalizedCube, antiUni_result, subs_oldLemma, subs_newLemma);
+
             if( subs_oldLemma.get_num_bindings() == 0 ) { continue; } // skip the Identicals
 
             int dis = distance(antiUni_result, subs_newLemma, subs_oldLemma);
