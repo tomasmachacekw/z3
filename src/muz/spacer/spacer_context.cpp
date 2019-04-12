@@ -2696,13 +2696,16 @@ void context::init_lemma_generalizers()
         m_lemma_generalizers.push_back(alloc(lemma_array_eq_generalizer, *this));
     }
 
-    if (m_validate_lemmas) {
-      m_lemma_generalizers.push_back(alloc(lemma_sanity_checker, *this));
-    }
-
     if (m_adhoc_gen){
         m_lemma_generalizers.push_back(alloc(lemma_cluster, *this, m_diverge_depth));
         m_lemma_generalizers.push_back(alloc(lemma_merge_generalizer, *this, m_diverge_depth));
+    }
+
+    if (m_re_con_gen)
+      m_lemma_generalizers.push_back(alloc(lemma_re_construct_bool, *this));
+
+    if (m_validate_lemmas) {
+      m_lemma_generalizers.push_back(alloc(lemma_sanity_checker, *this));
     }
 }
 

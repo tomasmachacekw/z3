@@ -63,6 +63,13 @@ public:
     void reset_statistics() override {m_st.reset();}
 };
 
+ class lemma_re_construct_bool : public lemma_generalizer {
+ public:
+    lemma_re_construct_bool(context &ctx) : lemma_generalizer(ctx) {}
+   ~lemma_re_construct_bool() override {}
+   void operator()(lemma_ref &lemma) override;
+
+ };
 class unsat_core_generalizer : public lemma_generalizer {
     struct stats {
         unsigned count;
