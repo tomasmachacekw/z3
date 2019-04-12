@@ -41,7 +41,7 @@ namespace spacer{
                 if(!is_uninterp_const(c)) { non_boolean_literals.push_back(c); }
             }
         }
-        STRACE("fun", tout << "FUN\n";
+        STRACE("fun", tout << "non_boolean_literals\n";
                for(auto nbl:non_boolean_literals){ tout << mk_pp(nbl, m) << "\n"; };);
         if(non_boolean_literals.size() > 0) {
             neighbours.set(0, mk_and(non_boolean_literals));
@@ -53,6 +53,7 @@ namespace spacer{
             }
             cube = mk_and(non_boolean_literals);
             normalize_order(cube, normalizedCube);
+            STRACE("fun", tout << "non_boolean_literals_cube: " << mk_pp(normalizedCube, m) << "\n";);
         }
 
         if(monotonic_coeffcient(cube, to_app(neighbours.get(0)), out)){
@@ -126,7 +127,7 @@ namespace spacer{
     /* with t <= k , k < 0
        conjecture t <= 0 */
     bool lemma_merge_generalizer::leq_monotonic_neg_k(expr_ref &literal, app *pattern, expr_ref &out){
-        if(m_arith.is_le(pattern) && is_var(pattern->get_arg(1))){
+        if(m_arith.is_le(pattern) && is_var(pattern->get_arg(1)) && num_vars(pattern->get_arg(0)) == 0){
             SASSERT(is_app(literal));
             SASSERT(m_arith.is_numeral(to_app(literal)->get_arg(1)));
             rational r;
@@ -139,7 +140,7 @@ namespace spacer{
                 return true;
             }
         }
-        if(m_arith.is_ge(pattern) && is_var(pattern->get_arg(1))){
+        if(m_arith.is_ge(pattern) && is_var(pattern->get_arg(1)) && num_vars(pattern->get_arg(0)) == 0){
             SASSERT(is_app(literal));
             SASSERT(m_arith.is_numeral(to_app(literal)->get_arg(1)));
             rational r;
@@ -198,19 +199,22 @@ namespace spacer{
 
             if(m_arith.is_ge(fst) && m_arith.is_ge(snd)){
                 rational n1, n2;
-                TRACE("merge_dbg", tout << "GOT HERE >= & >=\n";);
+                TRACE("merge_dbg", tout << "GOT HERE >= & >=\n"
+                      << mk_pp(concrete_fst, m) << "\n"
+                      << mk_pp(concrete_snd, m) << "\n"
+                      ;);
                 if(m_arith.is_numeral(concrete_fst->get_arg(1), n1) &&
                    m_arith.is_numeral(concrete_snd->get_arg(1), n2)){
                     if(n1 > n2){
-                        out = m_arith.mk_gt(fst->get_arg(0), snd->get_arg(0));
-                        conjuncts.push_back( m_arith.mk_gt(fst->get_arg(0), m_arith.mk_int(n1)) );
-                        conjuncts.push_back( m_arith.mk_gt(m_arith.mk_int(n2), snd->get_arg(0)) );
+                        out = m_arith.mk_gt(concrete_fst->get_arg(0), concrete_snd->get_arg(0));
+                        conjuncts.push_back( m_arith.mk_gt(concrete_fst->get_arg(0), m_arith.mk_int(n1)) );
+                        conjuncts.push_back( m_arith.mk_gt(m_arith.mk_int(n2), concrete_snd->get_arg(0)) );
                         return true;
                     }
                     if(n1 < n2){
-                        out = m_arith.mk_gt(snd->get_arg(0), fst->get_arg(0));
-                        conjuncts.push_back( m_arith.mk_gt(snd->get_arg(0), m_arith.mk_int(n2)) );
-                        conjuncts.push_back( m_arith.mk_gt(m_arith.mk_int(n1), fst->get_arg(0)) );
+                        out = m_arith.mk_gt(concrete_snd->get_arg(0), concrete_fst->get_arg(0));
+                        conjuncts.push_back( m_arith.mk_gt(concrete_snd->get_arg(0), m_arith.mk_int(n2)) );
+                        conjuncts.push_back( m_arith.mk_gt(m_arith.mk_int(n1), concrete_fst->get_arg(0)) );
                         return true;
                     }
                 }
