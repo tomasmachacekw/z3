@@ -93,7 +93,9 @@ void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
             continue;
         }
         cube[i] = true_expr;
-        if (cube.size() > 1 &&
+        bool not_literal  = m.is_not(lit) && is_uninterp_const(to_app(lit)->get_arg(0));
+        if (cube.size() > 1 && !is_uninterp_const(lit) && !not_literal &&
+        // if (cube.size() > 1 &&
             pt.check_inductive(lemma->level(), cube, uses_level, weakness)) {
             num_failures = 0;
             dirty = true;
@@ -134,7 +136,6 @@ void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
         TRACE("spacer",
                tout << "Generalized from:\n" << mk_and(lemma->get_cube())
                << "\ninto\n" << mk_and(cube) << "\n";);
-
         lemma->update_cube(lemma->get_pob(), cube);
         SASSERT(uses_level >= lemma->level());
         lemma->set_level(uses_level);
@@ -147,7 +148,29 @@ void lemma_bool_inductive_generalizer::collect_statistics(statistics &st) const
     st.update("bool inductive gen", m_st.count);
     st.update("bool inductive gen failures", m_st.num_failures);
 }
-
+  void lemma_re_construct_bool::operator()(lemma_ref &lemma)
+  {
+    ast_manager &m = lemma->get_ast_manager();
+    expr* pob_cube = lemma->get_pob()->post();
+    SASSERT(is_app(pob_cube));
+    expr_ref_vector cube(m);
+    cube.append(lemma->get_cube());
+    expr_ref_vector pob_and(m);
+    flatten_and(pob_cube,pob_and);
+    unsigned i = 0;
+    expr_ref e(m);
+    while(i < pob_and.size())
+      {
+        e = pob_and.get(i);
+        bool not_literal  = m.is_not(e) && is_uninterp_const(to_app(e)->get_arg(0));
+        if( ( is_uninterp_const(e) || not_literal ) && (!cube.contains(e)) )
+          {
+            cube.push_back(e);
+          }
+        ++i;
+      }
+    lemma->update_cube(lemma->get_pob(),cube);
+  }
 void unsat_core_generalizer::operator()(lemma_ref &lemma)
 {
     m_st.count++;
