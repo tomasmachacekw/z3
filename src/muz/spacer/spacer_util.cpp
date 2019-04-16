@@ -1059,6 +1059,68 @@ namespace {
         return false;
     }
 
+    void uninterp_consts_with_var_coeff(app *a,
+                                        expr_ref_vector &out,
+                                        bool has_var_coeff)
+    {
+        ast_manager m = out.get_manager();
+        arith_util m_arith(m);
+        for(expr *e : *a){
+            if(is_uninterp_const(e) && has_var_coeff){
+                out.push_back(e);
+            }
+            else if(is_app(e)){
+                uninterp_consts_with_var_coeff(to_app(e), out, m_arith.is_mul(e) && (num_vars(e)>=1) );
+            }
+        }
+    }
+
+    void uninterp_consts_with_pos_coeff(app *a, expr_ref_vector &out)
+    {
+        ast_manager m = out.get_manager();
+        arith_util m_arith(m);
+        for(expr *e : *a){
+            if(m_arith.is_mul(e) && num_uninterp_const(to_app(e)) > 0){
+                expr_ref_vector args(m);
+                args.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+                for(auto &arg : args){
+                    rational r;
+                    if(m_arith.is_numeral(arg, r) && r > 0){
+                        expr_ref_vector uninterpCs(m);
+                        uninterp_consts(to_app(e), uninterpCs);
+                        out.append(uninterpCs);
+                    }
+                }
+            }
+            else if(is_app(e)){
+                uninterp_consts_with_pos_coeff(to_app(e), out);
+            }
+        }
+    }
+
+    void uninterp_consts_with_neg_coeff(app *a, expr_ref_vector &out)
+    {
+        ast_manager m = out.get_manager();
+        arith_util m_arith(m);
+        for(expr *e : *a){
+            if(m_arith.is_mul(e) && num_uninterp_const(to_app(e)) > 0){
+                expr_ref_vector args(m);
+                args.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+                for(auto &arg : args){
+                    rational r;
+                    if(m_arith.is_numeral(arg, r) && r < 0){
+                        expr_ref_vector uninterpCs(m);
+                        uninterp_consts(to_app(e), uninterpCs);
+                        out.append(uninterpCs);
+                    }
+                }
+            }
+            else if(is_app(e)){
+                uninterp_consts_with_neg_coeff(to_app(e), out);
+            }
+        }
+    }
+
 
 }
 

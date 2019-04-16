@@ -457,6 +457,8 @@ class pred_transformer {
     void get_pred_bg_invs(expr_ref_vector &out);
     const lemma_ref_vector &get_bg_invs() const {return m_frames.get_bg_invs();}
 
+    expr_ref_vector m_seen_lemma_patterns;
+
 public:
     pred_transformer(context& ctx, manager& pm, func_decl* head);
     ~pred_transformer() {}
@@ -625,6 +627,12 @@ public:
         }
     }
 
+    void add_pattern(expr_ref p) {
+        m_seen_lemma_patterns.push_back(p);
+    }
+    expr_ref_vector seen_patterns(){
+        return m_seen_lemma_patterns;
+    }
 };
 
 

@@ -159,11 +159,16 @@ private:
     bool merge_lines(expr_ref &literal, app *pattern, expr_ref &out);
     bool monotonic_coeffcient(expr_ref &literal, app *pattern, expr_ref &out);
     bool neighbour_equality(expr_ref &literal, app *pattern, expr_ref_vector &neighbour, expr_ref &out);
-    void uninterp_consts_with_var_coeff(app *a, expr_ref_vector &out, bool has_var_coeff);
-    void uninterp_consts_with_pos_coeff(app *a, expr_ref_vector &out);
-    void uninterp_consts_with_neg_coeff(app *a, expr_ref_vector &out);
-    void get_uninterp_consts(app_ref a, coeff_uninterpC_vec &out);
 
+    // Guards
+    bool half_plane_01(expr_ref literal, expr_ref pattern,
+                       expr_ref_vector neighbour_lemmas, expr_ref_vector &conjectures);
+    bool half_plane_02(expr_ref literal, expr_ref pattern,
+                       expr_ref_vector neighbour_lemmas, expr_ref_vector &conjectures);
+    bool half_plane_03(expr_ref literal, app * pattern,
+                        expr_ref_vector neighbour_lemmas, expr_ref_vector &conjectures);
+    bool half_plane_XX(expr_ref literal, expr_ref pattern,
+                       expr_ref_vector neighbour_lemmas, expr_ref_vector &conjectures);
 };
 
 class lemma_cluster : public lemma_generalizer {

@@ -734,7 +734,8 @@ pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head):
     m_reach_facts(), m_rf_init_sz(0),
     m_transition_clause(m), m_transition(m), m_init(m),
     m_extend_lit0(m), m_extend_lit(m),
-    m_all_init(false)
+    m_all_init(false),
+    m_seen_lemma_patterns(m)
 {
     m_solver = alloc(prop_solver, m, ctx.mk_solver0(), ctx.mk_solver1(),
                      ctx.get_params(), head->get_name());
