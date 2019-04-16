@@ -93,9 +93,9 @@ void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
             continue;
         }
         cube[i] = true_expr;
-        bool not_literal  = m.is_not(lit) && is_uninterp_const(to_app(lit)->get_arg(0));
-        if (cube.size() > 1 && !is_uninterp_const(lit) && !not_literal &&
-        // if (cube.size() > 1 &&
+        bool not_lit  = m.is_not(lit) && is_uninterp_const(to_app(lit)->get_arg(0));
+        bool bool_lit = is_uninterp_const(lit) || not_lit ;
+        if (cube.size() > 1 && (!m_ctx.use_re_con_gen() || !bool_lit) &&
             pt.check_inductive(lemma->level(), cube, uses_level, weakness)) {
             num_failures = 0;
             dirty = true;

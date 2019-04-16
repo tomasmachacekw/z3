@@ -182,4 +182,5 @@ def_module_params('fp',
                           ('spacer.diverge_bailout', BOOL, False, 'Enabling diverge detection and bailout mechanism'),
                           ('spacer.diverge_depth', UINT, 7, 'Depth for divergence detection mechanism'),
                           ('spacer.split_pob', BOOL, False, 'Enable POB splitting'),
-                          ))
+                          ('spacer.re_con_gen', BOOL, False, 'Reconstruct boolean literals after lemma generalization'),
+))
