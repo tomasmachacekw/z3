@@ -142,11 +142,17 @@ namespace spacer {
        Auxiliary functions used in C(luster) S(plit) M(erge) project
     */
 
-    int num_uninterp_const(app *a);
-    void uninterp_consts(app *a, expr_ref_vector &out);
-    // int num_numeral_const(app *a);
-    bool contain_nonlinear(ast_manager m, expr_ref pattern);
-    int num_vars(expr *e);
+    // unsigned get_num_uninterp_const(expr *a);
+    // void get_uninterp_consts(expr *a, expr_ref_vector &out);
+    // bool has_nonlinear_mul(expr *e, ast_manager &m);
+    // // int num_numeral_const(app *a);
+    // unsigned get_num_vars(expr *e);
+    unsigned get_num_uninterp_consts(expr *a);
+    void get_uninterp_consts(expr *a, expr_ref_vector &out);
+    bool has_nonlinear_mul(expr *e, ast_manager &m);
+    /// Returns number of free variables in a given expression 
+    unsigned get_num_vars(expr *e);
+
     void uninterp_consts_with_var_coeff(app *a, expr_ref_vector &out, bool has_var_coeff);
     void uninterp_consts_with_pos_coeff(app *a, expr_ref_vector &out);
     void uninterp_consts_with_neg_coeff(app *a, expr_ref_vector &out);

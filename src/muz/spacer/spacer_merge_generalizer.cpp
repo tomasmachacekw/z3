@@ -18,15 +18,6 @@ namespace spacer{
         threshold = th;
     }
 
-
-/* void get_uninterp_consts(app_ref a, coeff_uninterpC_vec &out){ */
-/*     ast_manager m = a.get_manager(); */
-/*     arith_util m_arith(m); */
-/* } */
-
-
-
-
 /* Guards! Guards! */
     bool lt_or_leq (expr_ref literal){
         ast_manager m = literal.get_manager();
@@ -355,13 +346,13 @@ void lemma_merge_generalizer::operator()(lemma_ref &lemma){
    conjecture t <= infinite */
 bool lemma_merge_generalizer::leq_monotonic_k(expr_ref &literal, app *pattern, expr_ref &out){
     if(m_arith.is_le(pattern) && is_var(pattern->get_arg(1))){
-        if(num_vars(pattern->get_arg(0)) == 0){
+        if(get_num_vars(pattern->get_arg(0)) == 0){
             out = m_arith.mk_le(pattern->get_arg(0), m_arith.mk_int(0));
             return true;
         }
     }
     if(m_arith.is_ge(pattern) && is_var(pattern->get_arg(1))){
-        if(num_vars(pattern->get_arg(0)) == 0){
+        if(get_num_vars(pattern->get_arg(0)) == 0){
             out = m_arith.mk_ge(pattern->get_arg(0), m_arith.mk_int(0));
             return true;
         }
@@ -372,7 +363,7 @@ bool lemma_merge_generalizer::leq_monotonic_k(expr_ref &literal, app *pattern, e
 /* with t <= k , k < 0
    conjecture t <= 0 */
 bool lemma_merge_generalizer::leq_monotonic_neg_k(expr_ref &literal, app *pattern, expr_ref &out){
-    if(m_arith.is_le(pattern) && is_var(pattern->get_arg(1)) && num_vars(pattern->get_arg(0)) == 0){
+    if(m_arith.is_le(pattern) && is_var(pattern->get_arg(1)) && get_num_vars(pattern->get_arg(0)) == 0){
         SASSERT(is_app(literal));
         SASSERT(m_arith.is_numeral(to_app(literal)->get_arg(1)));
         rational r;
@@ -385,7 +376,7 @@ bool lemma_merge_generalizer::leq_monotonic_neg_k(expr_ref &literal, app *patter
             return true;
         }
     }
-    if(m_arith.is_ge(pattern) && is_var(pattern->get_arg(1)) && num_vars(pattern->get_arg(0)) == 0){
+    if(m_arith.is_ge(pattern) && is_var(pattern->get_arg(1)) && get_num_vars(pattern->get_arg(0)) == 0){
         SASSERT(is_app(literal));
         SASSERT(m_arith.is_numeral(to_app(literal)->get_arg(1)));
         rational r;
@@ -541,12 +532,12 @@ bool lemma_merge_generalizer::monotonic_coeffcient(expr_ref &literal, app *patte
 */
 // XXX possibly the only merge without using pattern at all!
 bool lemma_merge_generalizer::neighbour_equality(expr_ref &literal, app *pattern, expr_ref_vector &neighbour, expr_ref &out){
-    if( m_arith.is_ge(pattern) && num_uninterp_const(pattern) == 0){
+    if( m_arith.is_ge(pattern) && get_num_uninterp_consts(pattern) == 0){
         // for 0 <= i < n :: check literal.uninterp_consts[i] == neighbour[1].uninterp_consts[n-i]
         TRACE("merge_dbg", tout << "Enter neighbour eq\n";);
         expr_ref_vector uc1(m), uc2(m);
-        uninterp_consts(to_app(literal), uc1);
-        uninterp_consts(to_app(neighbour.get(1)), uc2);
+        get_uninterp_consts(to_app(literal), uc1);
+        get_uninterp_consts(to_app(neighbour.get(1)), uc2);
         // bool mismatch = false;
         TRACE("merge_dbg",
               tout << "pattern:\n"

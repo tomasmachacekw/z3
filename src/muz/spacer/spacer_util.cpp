@@ -1005,56 +1005,66 @@ namespace {
     /**
        Auxiliary functions used in C(luster) S(plit) M(erge) project
     */
-    int num_vars(expr *e){
-        int count = 0;
-        if(is_var(e)) {count++;}
-        else if(is_app(e)){
-            for(expr *x: *to_app(e)){
-                count += num_vars(x);
-            }
-        }
-        return count;
+    unsigned get_num_vars(expr *e) {
+        expr_free_vars fv;
+        fv(e);
+        return fv.size();
     }
 
+    struct count_uninterp_const_proc {
+        unsigned m_count;
+        count_uninterp_const_proc() : m_count(0) {}
+        void operator()(expr *n) const {}
+        void operator()(app *n) {
+            if (is_uninterp_const(n)) m_count++;
+        }
+    };
 
-    int num_uninterp_const( app *a ){
-        int count = 0;
-        for (expr *e: *a){
-            if(is_uninterp_const(e)) count++;
-            else if(is_app(e))
-                count += num_uninterp_const(to_app(e));
-        }
-        return count;
+    unsigned get_num_uninterp_consts(expr *e) {
+        count_uninterp_const_proc proc;
+        for_each_expr(proc, e);
+        return proc.m_count;
     }
-    void uninterp_consts(app *a, expr_ref_vector &out){
-        TRACE("spacer_normalize_order", tout << "uniconst " << mk_pp(a, out.m()) << "\n";);
-        if(is_uninterp_const(a)){
-            out.push_back(a);
+
+    struct collect_uninterp_consts {
+        expr_ref_vector& m_out;
+        collect_uninterp_consts(expr_ref_vector& out): m_out(out) {}
+        void operator()(expr* n) const {}
+        void operator()(app* n) {
+            if (is_uninterp_const(n)) m_out.push_back(n);
         }
-        for(expr *e : *a){
-            if(is_uninterp_const(e)){
-                out.push_back(e);
-            }
-            else if(is_app(e)){
-                for(expr *arg : *to_app(e)){
-                    if(is_app(arg))
-                        uninterp_consts(to_app(arg), out);
-                }
-            }
-        }
+    };
+
+    void get_uninterp_consts(expr *e, expr_ref_vector &out) {
+        collect_uninterp_consts proc(out);
+        for_each_expr(proc, e);
     }
-    bool contain_nonlinear(ast_manager m, expr_ref pattern){
-        arith_util m_arith(m);
-        if(!is_app(pattern)){ return false; }
-        for(expr *e : *to_app(pattern)){
-            if(m_arith.is_mul(e) && num_vars(e) > 0){
-                return true;
-            } else if(is_app(e)){
-                expr_ref sub(m);
-                sub = e;
-                bool sub_result = contain_nonlinear(m, sub);
-                if(sub_result) { return sub_result; }
+
+    namespace has_nonlinear_mul_ns{
+        struct found {};
+        struct proc {
+            arith_util m_arith;
+            proc(ast_manager &m) : m_arith(m) {}
+            bool is_numeral(expr *e) const{
+                // XXX possibly handle cases where e simplifies to a numeral
+                return m_arith.is_numeral(e);
             }
+            void operator()(var *n) const {}
+            void operator()(quantifier *q) const {}
+            void operator()(app const *n) const{
+                expr *e1, *e2;
+                if(m_arith.is_mul(n, e1, e2) && !is_numeral(e1) && !is_numeral(e2))
+                    throw found();
+            }
+        };
+    }
+
+    bool has_nonlinear_mul(expr *e, ast_manager &m){
+        has_nonlinear_mul_ns::proc proc(m);
+        try{
+            for_each_expr(proc, e);
+        } catch (const has_nonlinear_mul_ns::found &){
+            return true;
         }
         return false;
     }
@@ -1070,7 +1080,8 @@ namespace {
                 out.push_back(e);
             }
             else if(is_app(e)){
-                uninterp_consts_with_var_coeff(to_app(e), out, m_arith.is_mul(e) && (num_vars(e)>=1) );
+                uninterp_consts_with_var_coeff(to_app(e), out, m_arith.is_mul(e) &&
+                                               (get_num_vars(e)>=1) );
             }
         }
     }
@@ -1080,14 +1091,14 @@ namespace {
         ast_manager m = out.get_manager();
         arith_util m_arith(m);
         for(expr *e : *a){
-            if(m_arith.is_mul(e) && num_uninterp_const(to_app(e)) > 0){
+            if(m_arith.is_mul(e) && get_num_uninterp_consts(e) > 0){
                 expr_ref_vector args(m);
                 args.append(to_app(e)->get_num_args(), to_app(e)->get_args());
                 for(auto &arg : args){
                     rational r;
                     if(m_arith.is_numeral(arg, r) && r > 0){
                         expr_ref_vector uninterpCs(m);
-                        uninterp_consts(to_app(e), uninterpCs);
+                        get_uninterp_consts(e, uninterpCs);
                         out.append(uninterpCs);
                     }
                 }
@@ -1103,14 +1114,14 @@ namespace {
         ast_manager m = out.get_manager();
         arith_util m_arith(m);
         for(expr *e : *a){
-            if(m_arith.is_mul(e) && num_uninterp_const(to_app(e)) > 0){
+            if(m_arith.is_mul(e) && get_num_uninterp_consts(e) > 0){
                 expr_ref_vector args(m);
                 args.append(to_app(e)->get_num_args(), to_app(e)->get_args());
                 for(auto &arg : args){
                     rational r;
                     if(m_arith.is_numeral(arg, r) && r < 0){
                         expr_ref_vector uninterpCs(m);
-                        uninterp_consts(to_app(e), uninterpCs);
+                        get_uninterp_consts(e, uninterpCs);
                         out.append(uninterpCs);
                     }
                 }

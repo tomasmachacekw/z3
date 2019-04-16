@@ -21,16 +21,14 @@
 using namespace spacer;
 namespace spacer{
     lemma_cluster::lemma_cluster(context &ctx, int disT) :
-        lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m){
-        dis_threshold = disT;
-    }
+        lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m), m_dis_threshold(disT) {}
 
-    // better distance metrics; currently implemented as boolean function
+    // TODO: better distance metrics; currently implemented as boolean function
     int lemma_cluster::distance(expr_ref antiU_result, substitution &s1, substitution &s2){
         SASSERT(s1.get_num_bindings() == s2.get_num_bindings());
         int dis = 0;
         expr_ref_vector uninterp_s1(m), uninterp_s2(m);
-        for(unsigned j = 0; j < s1.get_num_bindings(); j++){
+        for(unsigned j = 0, sz = s1.get_num_bindings(); j < sz; j++){
             expr_ref e(m), e2(m);
             expr_offset r, r2;
             var_offset  v, v2;
@@ -43,46 +41,21 @@ namespace spacer{
                 continue; //good match
             } // else if( is_uninterp_const(r.get_expr()) || is_uninterp_const(r2.get_expr()) ){}
             else {
-                dis += dis_threshold; //anything else considered as bad match!
+                dis += m_dis_threshold; //anything else considered as bad match!
             }
         }
 
         // Go through the uninterp consts and make sure contains
         SASSERT(uninterp_s1.size() == uninterp_s2.size());
-        for(unsigned j = 0; j < uninterp_s1.size(); j++){
+        for(unsigned j = 0, sz = uninterp_s1.size(); j < sz; j++){
             if(!m.are_equal(uninterp_s1.get(j), uninterp_s2.get(j))){
-                dis += dis_threshold;
+                dis += m_dis_threshold;
             }
         }
-        // for(auto &u1 : uninterp_s1){
-        //     if(!uninterp_s2.contains(u1)){
-        //         dis += dis_threshold;
-        //         // dis += 1;
-        //     }
-        // }
         return dis;
     }
 
-    /* example.
-       input : (>= (+ (* (:VAR) (+ X Y) Z (* (:VAR1) W)) )3)
-       output: [(+ X Y), (W)]
-     */
-    void lemma_cluster::with_var_coeff(app *a,
-                                       expr_ref_vector &out,
-                                       bool has_var_coeff)
-    {
-        for(expr *e : *a){
-            if(m_arith.is_mul(e) && is_uninterp_const(e) && has_var_coeff){
-                out.push_back(e);
-            }
-            else if(is_app(e)){
-                with_var_coeff(to_app(e), out, m_arith.is_mul(e)  );
-            }
-        }
-    }
-
-
-    expr_ref_vector lemma_cluster::generate_groups(expr_ref &antiRes){
+    expr_ref_vector lemma_cluster::generate_groups(expr *pattern){
         expr_ref_vector temp(m);
         return temp;
     }
@@ -92,14 +65,16 @@ namespace spacer{
         expr_ref_vector neighbours(m);
         substitution subs_newLemma(m), subs_oldLemma(m);
         expr_ref cube(m), normalizedCube(m);
+
+        pred_transformer &pt = (&*lemma->get_pob())->pt();
+
         cube = mk_and(lemma->get_cube());
         normalize_order(cube, normalizedCube);
 
-        pred_transformer &pt = (&*lemma->get_pob())->pt();
         lemma_ref_vector all_lemmas;
         pt.get_all_lemmas(all_lemmas, false);
 
-        for(auto &l:all_lemmas){
+        for(auto &l : all_lemmas){
             subs_newLemma.reset();
             subs_oldLemma.reset();
             expr_ref oldCube(m), normalizedOldCube(m), antiUni_result(m);
@@ -113,7 +88,7 @@ namespace spacer{
             if( subs_oldLemma.get_num_bindings() == 0 ) { continue; } // skip the Identicals
 
             int dis = distance(antiUni_result, subs_newLemma, subs_oldLemma);
-            if(dis < dis_threshold){
+            if(dis < m_dis_threshold){
                 neighbours.push_back(normalizedOldCube);
                 TRACE("distance_dbg",
                       tout
@@ -125,12 +100,6 @@ namespace spacer{
                       for(auto &n : neighbours){
                           tout << "Neighbour Cube: " << mk_pp(n, m) << "\n";
                       }
-                      // << "subs new:\n=====\n";
-                      // subs_newLemma.display(tout);
-                      // tout << "\n"
-                      // << "subs old:\n=====\n";
-                      // subs_oldLemma.display(tout);
-                      // tout << "\n"
                       ;);
             }
 
@@ -138,17 +107,17 @@ namespace spacer{
             // int dis_new = distance(subs_newLemma);
             // int dis_old = distance(subs_oldLemma);
 
-            if(neighbours.size() >= dis_threshold){
+            if(neighbours.size() >= m_dis_threshold){
                 TRACE("nonlinear_cluster",
-                if(contain_nonlinear(m, antiUni_result)) {
-                    TRACE("nonlinear_cluster", tout
-                          << "Lemma Cube: " << mk_pp(normalizedCube, m) << "\n"
-                          << "NL Pattern: " << mk_pp(antiUni_result, m) << "\n";
-                          for(auto &n : neighbours){
-                              tout << "Neighbour Cube: " << mk_pp(n, m) << "\n";
-                          };);
-                    throw unknown_exception();
-                };);
+                      if(has_nonlinear_mul(antiUni_result, m)) {
+                          TRACE("nonlinear_cluster", tout
+                                << "Lemma Cube: " << mk_pp(normalizedCube, m) << "\n"
+                                << "NL Pattern: " << mk_pp(antiUni_result, m) << "\n";
+                                for(auto &n : neighbours){
+                                    tout << "Neighbour Cube: " << mk_pp(n, m) << "\n";
+                                };);
+                          throw unknown_exception();
+                      };);
 
                 STRACE("cluster_stats",
                       if(neighbours.size() >= 10) {

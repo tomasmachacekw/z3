@@ -174,12 +174,14 @@ private:
 class lemma_cluster : public lemma_generalizer {
     ast_manager &m;
     arith_util m_arith;
-    int dis_threshold;
+    int m_dis_threshold;
     typedef std::pair<unsigned, unsigned> var_offset;
 
 private:
+    /// Returns an approximate distance between two substitutions relative to a pattern
+    /// 0 means that the substitutions are equivalent, larger number means less similarity
     int distance(expr_ref antiU_result, substitution &s1, substitution &s2);
-    expr_ref_vector generate_groups(expr_ref &antiRes);
+    expr_ref_vector generate_groups(expr *pattern);
     void with_var_coeff(app *a, expr_ref_vector &out, bool has_var_coeff);
 
 public:

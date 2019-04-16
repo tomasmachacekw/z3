@@ -3407,7 +3407,7 @@ unsigned context::max_dim_literals(pob& n)
     {
       expr* arg = a->get_arg(i);
       //if(is_lia(arg))
-      max = std::max(unsigned(num_uninterp_const(to_app(arg))), max);
+      max = std::max(get_num_uninterp_consts(arg), max);
     }
   return max;
 }
