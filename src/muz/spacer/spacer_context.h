@@ -1042,6 +1042,7 @@ class context {
     bool                 m_use_bg_invs;
     bool                 m_adhoc_gen;
     bool                 m_split_pob;
+    bool                 m_re_con_gen;
     bool                 m_diverge_bailout;
     unsigned             m_diverge_depth;
     unsigned             m_push_pob_max_depth;
@@ -1131,6 +1132,7 @@ public:
     bool elim_aux() const {return m_elim_aux;}
     bool reach_dnf() const {return m_reach_dnf;}
     bool use_bg_invs() const {return m_use_bg_invs;}
+    bool use_re_con_gen() const {return m_re_con_gen;}
 
     ast_manager&      get_ast_manager() const {return m;}
     manager&          get_manager() {return m_pm;}

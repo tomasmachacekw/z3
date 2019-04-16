@@ -2371,6 +2371,7 @@ void context::updt_params() {
     m_use_bg_invs = m_params.spacer_use_bg_invs();
     m_adhoc_gen = m_params.spacer_adhoc_gen();
     m_split_pob = m_params.spacer_split_pob();
+    m_re_con_gen = m_params.spacer_re_con_gen();
     m_diverge_bailout = (m_params.spacer_diverge_depth() != 7) ? true : m_params.spacer_diverge_bailout();
     m_diverge_depth = m_params.spacer_diverge_depth();
 
@@ -2700,7 +2701,6 @@ void context::init_lemma_generalizers()
         m_lemma_generalizers.push_back(alloc(lemma_cluster, *this, m_diverge_depth));
         m_lemma_generalizers.push_back(alloc(lemma_merge_generalizer, *this, m_diverge_depth));
     }
-
     if (m_re_con_gen)
       m_lemma_generalizers.push_back(alloc(lemma_re_construct_bool, *this));
 
