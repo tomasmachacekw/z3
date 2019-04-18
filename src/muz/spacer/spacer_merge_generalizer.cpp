@@ -570,18 +570,13 @@ bool lemma_merge_generalizer::neighbour_equality(expr_ref &literal, app *pattern
 
 /* core lemma update function*/
 bool lemma_merge_generalizer::check_inductive_and_update(lemma_ref &lemma, expr_ref_vector conj){
-    TRACE("merge_dbg", tout << "Attempt to update lemma with: "
+    STRACE("merge_dbg", tout << "Attempt to update lemma with: "
           << mk_pp(conj.back(), m) << "\n";);
+    STRACE("merge_dbg", tout << "lemma_lvl: " << lemma->level() << "\n";);
     pred_transformer &pt = lemma->get_pob()->pt();
     lemma_ref_vector all_lemmas;
     pt.get_all_lemmas(all_lemmas, false);
     unsigned uses_level = 0;
-    for(auto &l:all_lemmas) {
-        if(m.are_equal(mk_and(l->get_cube()), mk_and(conj))){
-            STRACE("merge_dbg", tout << "Already discovered lemma!" << "\n";);
-            return false;
-        }
-    }
     if(pt.check_inductive(lemma->level(), conj, uses_level, lemma->weakness())){
         STRACE("merge_dbg", tout << "Inductive!" << "\n";);
         lemma->update_cube(lemma->get_pob(), conj);
