@@ -160,29 +160,19 @@ void lemma_bool_inductive_generalizer::collect_statistics(statistics &st) const
     st.update("bool inductive gen", m_st.count);
     st.update("bool inductive gen failures", m_st.num_failures);
 }
-  void lemma_re_construct_bool::operator()(lemma_ref &lemma)
-  {
+void lemma_re_construct_bool::operator()(lemma_ref &lemma)
+{
     ast_manager &m = lemma->get_ast_manager();
-    expr* pob_cube = lemma->get_pob()->post();
-    SASSERT(is_app(pob_cube));
     expr_ref_vector cube(m);
-    cube.append(lemma->get_cube());
-    expr_ref_vector pob_and(m);
-    flatten_and(pob_cube,pob_and);
-    unsigned i = 0;
-    expr_ref e(m);
-    while(i < pob_and.size())
-      {
-        e = pob_and.get(i);
-        bool not_literal  = m.is_not(e) && is_uninterp_const(to_app(e)->get_arg(0));
-        if( ( is_uninterp_const(e) || not_literal ) && (!cube.contains(e)) )
-          {
+    cube.push_back(lemma->get_pob()->post());
+    flatten_and(cube);
+    for (auto *e : cube) {
+        if (is_uninterp_literal(e, m) && !cube.contains(e))
             cube.push_back(e);
-          }
-        ++i;
-      }
+    }
     lemma->update_cube(lemma->get_pob(),cube);
-  }
+}
+
 void unsat_core_generalizer::operator()(lemma_ref &lemma)
 {
     m_st.count++;
