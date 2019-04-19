@@ -153,9 +153,9 @@ namespace spacer {
     /// Returns number of free variables in a given expression 
     unsigned get_num_vars(expr *e);
 
-    void get_uninterp_consts_with_var_coeff(expr *e, expr_ref_vector &out);
-    void get_uninterp_consts_with_pos_coeff(expr *e, expr_ref_vector &out);
-    void get_uninterp_consts_with_neg_coeff(expr *e, expr_ref_vector &out);
+    void get_uninterp_consts_with_var_coeff(const expr *e, expr_ref_vector &out);
+    void get_uninterp_consts_with_pos_coeff(const expr *e, expr_ref_vector &out);
+    void get_uninterp_consts_with_neg_coeff(const expr *e, expr_ref_vector &out);
 
     // order by term instead of ast_lt
     struct term_order_proc {

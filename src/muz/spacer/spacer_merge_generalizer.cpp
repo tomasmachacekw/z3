@@ -10,47 +10,40 @@
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_util.h"
 
+namespace {
+  /* Guards! Guards! */
+  bool lt_or_leq (const expr_ref &literal){
+    if(!is_app(literal)) { return false; }
+
+    ast_manager m = literal.get_manager();
+    arith_util m_arith(m);
+    return (m_arith.is_le(to_app(literal)) ||
+            m_arith.is_lt(to_app(literal)));
+  }
+
+  bool gt_or_geq (const expr_ref &literal){
+    if(!is_app(literal)) { return false; }
+
+    ast_manager m = literal.get_manager();
+    arith_util m_arith(m);
+    return (m_arith.is_ge(to_app(literal)) ||
+            m_arith.is_gt(to_app(literal)));
+  }
+
+  bool only_halfSpace (const expr_ref &literal){
+    return gt_or_geq(literal) || lt_or_leq(literal);
+  }
+
+  bool is_simple_literal (const expr_ref &literal){
+    if(!is_app(literal)) { return false; }
+    return (to_app(literal)->get_depth() <= 2);
+  }
+}
 
 using namespace spacer;
-namespace spacer{
-    lemma_merge_generalizer::lemma_merge_generalizer(context &ctx, int th) :
-        lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m){
-        threshold = th;
-    }
-
-/* Guards! Guards! */
-    bool lt_or_leq (expr_ref literal){
-        ast_manager m = literal.get_manager();
-        arith_util m_arith(m);
-        if(!is_app(literal)) { return false; }
-        return (m_arith.is_le(to_app(literal)) ||
-                m_arith.is_lt(to_app(literal)));
-    }
-
-    bool gt_or_geq (expr_ref literal){
-        ast_manager m = literal.get_manager();
-        arith_util m_arith(m);
-        if(!is_app(literal)) { return false; }
-        return (m_arith.is_ge(to_app(literal)) ||
-                m_arith.is_gt(to_app(literal)));
-    }
-
-    bool only_halfSpace (expr_ref literal){
-        return gt_or_geq(literal) || lt_or_leq(literal);
-    }
-
-    bool only_uninterpreted_c (expr_ref literal){
-        if(!is_app(literal)) { return false; }
-        return (is_uninterp_const(to_app(literal)->get_arg(0)));
-    }
-
-    bool is_simple_literal (expr_ref literal){
-        if(!is_app(literal)) { return false; }
-        return (to_app(literal)->get_depth() <= 2);
-    }
-
-
-
+namespace spacer {
+  lemma_merge_generalizer::lemma_merge_generalizer(context &ctx) :
+    lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m) {}
 }
 
 /* Conjecture Rules
@@ -63,59 +56,72 @@ namespace spacer{
    ------
    (<= t 0)
 */
-bool lemma_merge_generalizer::half_plane_01 (expr_ref literal, expr_ref pattern,
-                                             expr_ref_vector neighbour_lemmas, expr_ref_vector &conjectures)
+bool lemma_merge_generalizer::half_plane_01 (const expr_ref &literal, const expr_ref &pattern,
+                                             const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures)
 {
     if(!(lt_or_leq(literal)) || !is_simple_literal(literal)) { return false; }
     ast_manager m = literal.get_manager();
     arith_util m_arith(m);
     expr_ref conj(m);
     rational rhs;
-    if(!m_arith.is_numeral(to_app(literal)->get_arg(1), rhs) || !(rhs < 0)) { return false; }
+    if(m_arith.is_numeral(to_app(literal)->get_arg(1), rhs) && rhs >= 0) { 
 
-    conj = m.mk_app(to_app(literal)->get_family_id(),
-                    to_app(literal)->get_decl_kind(),
-                    to_app(literal)->get_arg(0), m_arith.mk_int(0));
-    conjectures.push_back(conj);
-    if(rhs < -1) {
+      // AG: assumes that literal is integer sort, but could be rational sort
+      conj = m.mk_app(to_app(literal)->get_family_id(),
+                      to_app(literal)->get_decl_kind(),
+                      to_app(literal)->get_arg(0), m_arith.mk_int(0));
+      conjectures.push_back(conj);
+      // AG: dead code
+      if(rhs < -1) {
         conj = m_arith.mk_lt(to_app(literal)->get_arg(0), m_arith.mk_int(0));
         conjectures.push_back(conj);
+      }
+      return true;
     }
-    return true;
+    return false;
 }
 
 /* (>= t k)  for k > 0
    ------
    (>= t 0)
 */
-bool lemma_merge_generalizer::half_plane_02 (expr_ref literal, expr_ref pattern,
-                                             expr_ref_vector neighbour_lemmas, expr_ref_vector &conjectures)
+bool lemma_merge_generalizer::half_plane_02 (const expr_ref &literal, const expr_ref &pattern,
+                                             const expr_ref_vector &neighbour_lemmas,
+                                             expr_ref_vector &conjectures)
 {
     if(!(gt_or_geq(literal)) || !is_simple_literal(literal)) { return false; }
     ast_manager m = literal.get_manager();
     arith_util m_arith(m);
     expr_ref conj(m);
     rational rhs;
-    if(!m_arith.is_numeral(to_app(literal)->get_arg(1), rhs) || !(rhs > 0)) { return false; }
-    conj = m.mk_app(to_app(literal)->get_family_id(),
-                    to_app(literal)->get_decl_kind(),
-                    to_app(literal)->get_arg(0), m_arith.mk_int(0));
-    conjectures.push_back(conj);
-    if(rhs > 1) {
+
+
+    if(m_arith.is_numeral(to_app(literal)->get_arg(1), rhs) && rhs <= 0) { 
+      // AG: what if literal is of sort real
+      conj = m.mk_app(to_app(literal)->get_family_id(),
+                      to_app(literal)->get_decl_kind(),
+                      to_app(literal)->get_arg(0), m_arith.mk_int(0));
+      conjectures.push_back(conj);
+      // AG: dead code
+      if(rhs > 1) {
         conj = m_arith.mk_lt(to_app(literal)->get_arg(0), m_arith.mk_int(0));
         conjectures.push_back(conj);
+      }
+      return true;
     }
-    return true;
+    return false;
 }
 
 /* (>= (+ (* k_1 t_1) (* k_2 t_2)) k_3) with all k >= 0
    ------
    (>= (+ t_1 t_2) 0)
 */
-bool lemma_merge_generalizer::half_plane_03 (expr_ref literal, app * pattern,
-                                             expr_ref_vector neighbour_lemmas, expr_ref_vector &conjectures)
+bool lemma_merge_generalizer::half_plane_03 (const expr_ref &literal, const app * pattern,
+                                             const expr_ref_vector &neighbour_lemmas,
+                                             expr_ref_vector &conjectures)
 {
     if(!only_halfSpace(literal)) { return false; }
+
     ast_manager m = literal.get_manager();
     arith_util m_arith(m);
     expr_ref conj(m);
@@ -123,10 +129,13 @@ bool lemma_merge_generalizer::half_plane_03 (expr_ref literal, app * pattern,
     app_ref app(m);
     app = to_app(literal);
     expr_ref_vector var_coeff(m), neg_coeff_uniCs(m), pos_coeff_uniCs(m);
+    get_uninterp_consts_with_var_coeff(pattern, var_coeff);
+
+    if(var_coeff.size() == 0) { return false; }
+
     get_uninterp_consts_with_pos_coeff(app, pos_coeff_uniCs);
     get_uninterp_consts_with_neg_coeff(app, neg_coeff_uniCs);
-    get_uninterp_consts_with_var_coeff(pattern, var_coeff);
-    if(var_coeff.size() == 0) { return false; }
+ 
     expr_ref sum(m);
     sum = m_arith.mk_add(var_coeff.size(), var_coeff.c_ptr());
 
@@ -144,13 +153,7 @@ bool lemma_merge_generalizer::half_plane_03 (expr_ref literal, app * pattern,
             conjectures.push_back(conj);
         }
     }
-    if(!conjectures.empty()){
-        return true;
-
-    } else {
-        // Should not reach here
-        return false;
-    }
+    return !conjectures.empty();
 }
 
 /*
@@ -177,41 +180,34 @@ bool lemma_merge_generalizer::half_plane_03 (expr_ref literal, app * pattern,
 
 
 */
-bool lemma_merge_generalizer::half_plane_XX(expr_ref literal, expr_ref pattern,
-                                            expr_ref_vector neighbour_lemmas, expr_ref_vector &conjectures)
+bool lemma_merge_generalizer::half_plane_XX(const expr_ref &literal, const expr_ref &pattern,
+                                            const expr_ref_vector &neighbour_lemmas,
+                                            expr_ref_vector &conjectures)
 {
     expr_ref conj(m);
-    if(!m.is_and(literal) && !(to_app(literal)->get_num_args() == 2)) { return false; }
+    if (! (m.is_and(literal) && to_app(literal)->get_num_args() == 2)) return false;
 
-    TRACE("AHA", tout << "Entered half_plane_XX\n"
-          << mk_pp(literal, m) << "\n"
-          ;);
+    TRACE("AHA", tout << "Entered half_plane_XX\n" << literal << "\n";);
 
     expr_ref fst(m), snd(m);
     fst = to_app(literal)->get_arg(0);
     snd = to_app(literal)->get_arg(1);
 
-    STRACE("AHA", tout << "fst: "
-           << mk_pp(fst, m) << "\nsnd:"
-           << mk_pp(snd, m) << "\n"
-           ;);
+    STRACE("AHA", tout << "fst: " << fst << "\nsnd:" << snd << "\n" ;);
 
     // check for right operators
     if(!(only_halfSpace(fst)) || !(only_halfSpace(snd))) { return false; }
+
     // check for numerics
     rational k1, k2;
     if(!(m_arith.is_numeral(to_app(fst)->get_arg(1), k1)) ||
-       !(m_arith.is_numeral(to_app(snd)->get_arg(1), k2))
-       ) { return false; }
+       !(m_arith.is_numeral(to_app(snd)->get_arg(1), k2))) { return false; }
 
     expr_ref t1(m), t2(m);
     t1 = to_app(fst)->get_arg(0);
     t2 = to_app(snd)->get_arg(0);
 
-    STRACE("AHA", tout << "t1: "
-           << mk_pp(t1, m) << "\nt2:"
-           << mk_pp(t2, m) << "\n"
-           ;);
+    STRACE("AHA", tout << "t1: " << t1 << "\nt2:" << t2 << "\n" ;);
 
     if(gt_or_geq(fst) && lt_or_leq(snd)){
         if(k1 > k2){
@@ -484,7 +480,7 @@ bool lemma_merge_generalizer::merge_lines(expr_ref &literal, app *pattern, expr_
 */
 bool lemma_merge_generalizer::monotonic_coeffcient(expr_ref &literal, app *pattern, expr_ref &out){
     expr_ref_vector uni_consts(m), var_coeff(m);
-    coeff_uninterpC_vec coeff_uniC;
+    num_expr_pair_vec coeff_uniC;
     expr_ref p(m);
     p = pattern;
     // if(m_arith.is_ge(pattern) || m_arith.is_gt(pattern)){

@@ -151,12 +151,11 @@ private:
 class lemma_merge_generalizer : public lemma_generalizer {
     ast_manager &m;
     arith_util m_arith;
-    int threshold;
-    typedef std::pair<rational, expr*> coeff_uninterpC;
-    typedef vector<coeff_uninterpC> coeff_uninterpC_vec;
+    typedef std::pair<rational, expr*> num_expr_pair;
+    typedef vector<num_expr_pair> num_expr_pair_vec;
 
 public:
-    lemma_merge_generalizer(context &ctx, int threshold);
+    lemma_merge_generalizer(context &ctx);
     ~lemma_merge_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
     bool check_inductive_and_update(lemma_ref &lemma, expr_ref_vector conj);
@@ -170,14 +169,14 @@ private:
     bool neighbour_equality(expr_ref &literal, app *pattern, expr_ref_vector &neighbour, expr_ref &out);
 
     // Guards
-    bool half_plane_01(expr_ref literal, expr_ref pattern,
-                       expr_ref_vector neighbour_lemmas, expr_ref_vector &conjectures);
-    bool half_plane_02(expr_ref literal, expr_ref pattern,
-                       expr_ref_vector neighbour_lemmas, expr_ref_vector &conjectures);
-    bool half_plane_03(expr_ref literal, app * pattern,
-                        expr_ref_vector neighbour_lemmas, expr_ref_vector &conjectures);
-    bool half_plane_XX(expr_ref literal, expr_ref pattern,
-                       expr_ref_vector neighbour_lemmas, expr_ref_vector &conjectures);
+    bool half_plane_01(const expr_ref &literal, const expr_ref &pattern,
+                       const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures);
+    bool half_plane_02(const expr_ref &literal, const expr_ref &pattern,
+                       const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures);
+    bool half_plane_03(const expr_ref &literal, const app * pattern,
+                       const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures);
+    bool half_plane_XX(const expr_ref &literal, const expr_ref &pattern,
+                       const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures);
 };
 
 class lemma_cluster : public lemma_generalizer {

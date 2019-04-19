@@ -1081,8 +1081,8 @@ namespace {
                                           bool pos, bool neg, bool var,
                                           expr_ref_vector& out):
             m(mgr), m_arith(m), m_pos(pos), m_neg(neg), m_var(var), m_out(out) {}
-        void operator()(expr* n) const {}
-        void operator()(app* n) {
+        void operator()(const expr* n) const {}
+        void operator()(const app* n)  {
             expr *e1, *e2;
             if (m_arith.is_mul(n, e1, e2) &&
                 (is_uninterp_const(e1) || is_uninterp_const(e2))) {
@@ -1100,19 +1100,19 @@ namespace {
         }
     };
 
-    void get_uninterp_consts_with_var_coeff(expr *e, expr_ref_vector &out) {
+    void get_uninterp_consts_with_var_coeff(const expr *e, expr_ref_vector &out) {
         collect_uninterp_consts_with_proc proc(out.get_manager(), false, false, true, out);
-        for_each_expr(proc, e);
+        for_each_expr(proc, const_cast<expr*>(e));
     }
 
-    void get_uninterp_consts_with_pos_coeff(expr *e, expr_ref_vector &out) {
+    void get_uninterp_consts_with_pos_coeff(const expr *e, expr_ref_vector &out) {
         collect_uninterp_consts_with_proc proc(out.get_manager(), true, false, false, out);
-        for_each_expr(proc, e);
+        for_each_expr(proc, const_cast<expr*>(e));
     }
 
-    void get_uninterp_consts_with_neg_coeff(expr *e, expr_ref_vector& out) {
+    void get_uninterp_consts_with_neg_coeff(const expr *e, expr_ref_vector& out) {
         collect_uninterp_consts_with_proc proc(out.get_manager(), false, true, false, out);
-        for_each_expr(proc, e);
+        for_each_expr(proc, const_cast<expr*>(e));
     }
 }
 template class rewriter_tpl<spacer::adhoc_rewriter_cfg>;

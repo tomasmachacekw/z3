@@ -2701,7 +2701,7 @@ void context::init_lemma_generalizers()
 
     if (m_adhoc_gen){
         m_lemma_generalizers.push_back(alloc(lemma_cluster, *this, m_diverge_depth));
-        m_lemma_generalizers.push_back(alloc(lemma_merge_generalizer, *this, m_diverge_depth));
+        m_lemma_generalizers.push_back(alloc(lemma_merge_generalizer, *this));
     }
     if (m_re_con_gen)
       m_lemma_generalizers.push_back(alloc(lemma_re_construct_bool, *this));
