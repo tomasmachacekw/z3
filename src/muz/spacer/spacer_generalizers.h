@@ -49,13 +49,15 @@ class lemma_bool_inductive_generalizer : public lemma_generalizer {
 
     unsigned m_failure_limit;
     bool m_array_only;
+    bool m_skip_uninterp_literals;
     stats m_st;
 
 public:
     lemma_bool_inductive_generalizer(context& ctx, unsigned failure_limit,
-                                     bool array_only = false) :
+                                     bool array_only = false,
+                                     bool skip_uninterp_literals = false) :
         lemma_generalizer(ctx), m_failure_limit(failure_limit),
-        m_array_only(array_only) {}
+        m_array_only(array_only), m_skip_uninterp_literals(skip_uninterp_literals) {}
     ~lemma_bool_inductive_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
 

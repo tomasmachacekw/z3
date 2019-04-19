@@ -2690,7 +2690,9 @@ void context::init_lemma_generalizers()
     //m_lemma_generalizers.push_back (alloc (unsat_core_generalizer, *this));
 
     if (m_use_ind_gen) {
-        m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer, *this, 0));
+        m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer, *this, 0,
+                                             false /* array_only */,
+                                             m_re_con_gen /* skip_uninterp_literals */));
     }
 
     if (m_use_array_eq_gen) {

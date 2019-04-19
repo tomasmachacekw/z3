@@ -56,6 +56,13 @@ namespace{
     };
 }
 
+/// Returns true if lit is an uninterpreted literal
+static bool is_uninterp_literal(expr* lit, ast_manager &m) {
+    expr *e = nullptr;
+    if (is_uninterp_const(lit)) return true;
+    return m.is_not(lit, e) && is_uninterp_const(e);
+}
+
 // ------------------------
 // lemma_bool_inductive_generalizer
 /// Inductive generalization by dropping and expanding literals
@@ -87,15 +94,20 @@ void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
            (!m_failure_limit || num_failures < m_failure_limit)) {
         expr_ref lit(m);
         lit = cube.get(i);
+        // skip non-array literals if required
         if (m_array_only && !has_arrays(lit)) {
             processed.push_back(lit);
             ++i;
             continue;
         }
+        // skip uninterpreted literals if required
+        else if (m_skip_uninterp_literals && is_uninterp_literal(lit, m)) {
+            processed.push_back(lit);
+            ++i;
+            continue;
+        }
         cube[i] = true_expr;
-        bool not_lit  = m.is_not(lit) && is_uninterp_const(to_app(lit)->get_arg(0));
-        bool bool_lit = is_uninterp_const(lit) || not_lit ;
-        if (cube.size() > 1 && (!m_ctx.use_re_con_gen() || !bool_lit) &&
+        if (cube.size() > 1 &&
             pt.check_inductive(lemma->level(), cube, uses_level, weakness)) {
             num_failures = 0;
             dirty = true;
