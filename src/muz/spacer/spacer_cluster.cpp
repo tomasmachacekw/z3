@@ -73,6 +73,8 @@ namespace spacer{
 
         lemma_ref_vector all_lemmas;
         pt.get_all_lemmas(all_lemmas, false);
+        unsigned worst_subs_num_bindings = 0;
+        expr_ref worst_antiUni_result(m);
 
         for(auto &l : all_lemmas){
             subs_newLemma.reset();
@@ -89,6 +91,12 @@ namespace spacer{
 
             int dis = distance(antiUni_result, subs_newLemma, subs_oldLemma);
             if(dis < m_dis_threshold){
+
+                if(subs_newLemma.get_num_bindings() >= worst_subs_num_bindings){
+                    worst_subs_num_bindings = subs_newLemma.get_num_bindings();
+                    worst_antiUni_result = antiUni_result;
+                }
+
                 neighbours.push_back(normalizedOldCube);
                 TRACE("distance_dbg",
                       tout
@@ -102,10 +110,6 @@ namespace spacer{
                       }
                       ;);
             }
-
-            // [TODO_Maybe] Could we decide based on dis_new == dis_old?
-            // int dis_new = distance(subs_newLemma);
-            // int dis_old = distance(subs_oldLemma);
 
             if(neighbours.size() >= m_dis_threshold){
                 TRACE("nonlinear_cluster",
@@ -121,7 +125,7 @@ namespace spacer{
 
                 STRACE("cluster_stats",
                       if(neighbours.size() >= 10) {
-                          tout << "---Pattern---\n" << mk_pp(antiUni_result, m);
+                          tout << "---Pattern---\n" << mk_pp(worst_antiUni_result, m);
                           tout << "\n---Concrete lemmas---\n";
                           for(auto &n : neighbours){
                               tout << "(" << n->get_id() << "):\n" << mk_pp(n, m) << "\n";
@@ -129,7 +133,7 @@ namespace spacer{
                           tout << "\n------\n";
                           tout << "Current #lemmas: " << all_lemmas.size() << "\n";
                           // throw unknown_exception();
-                          lemma->update_neighbours(antiUni_result, neighbours);
+                          lemma->update_neighbours(worst_antiUni_result, neighbours);
                           return;
                       }
                       else { continue; }
@@ -143,7 +147,7 @@ namespace spacer{
                       };);
 
                 // start marking ...
-                lemma->update_neighbours(antiUni_result, neighbours);
+                lemma->update_neighbours(worst_antiUni_result, neighbours);
                 pob_ref &pob = lemma->get_pob();
                 pob->update_cluster(generate_groups(antiUni_result));
                 return;
@@ -151,5 +155,12 @@ namespace spacer{
 
         }
     }
-    
+
 }
+
+
+// [Old dev remarks]
+// Given a unary distance function, Could we decide based on dis_new == dis_old?
+// int dis_new = distance(subs_newLemma);
+// int dis_old = distance(subs_oldLemma);
+
