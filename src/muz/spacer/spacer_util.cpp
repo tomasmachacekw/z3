@@ -1069,72 +1069,52 @@ namespace {
         return false;
     }
 
-    void uninterp_consts_with_var_coeff(app *a,
-                                        expr_ref_vector &out,
-                                        bool has_var_coeff)
-    {
-        ast_manager m = out.get_manager();
-        arith_util m_arith(m);
-        for(expr *e : *a){
-            if(is_uninterp_const(e) && has_var_coeff){
-                out.push_back(e);
-            }
-            else if(is_app(e)){
-                uninterp_consts_with_var_coeff(to_app(e), out, m_arith.is_mul(e) &&
-                                               (get_num_vars(e)>=1) );
-            }
-        }
-    }
+    struct collect_uninterp_consts_with_proc {
+        ast_manager &m;
+        arith_util m_arith;
+        bool m_pos;
+        bool m_neg;
+        bool m_var;
+        expr_ref_vector& m_out;
 
-    void uninterp_consts_with_pos_coeff(app *a, expr_ref_vector &out)
-    {
-        ast_manager m = out.get_manager();
-        arith_util m_arith(m);
-        for(expr *e : *a){
-            if(m_arith.is_mul(e) && get_num_uninterp_consts(e) > 0){
-                expr_ref_vector args(m);
-                args.append(to_app(e)->get_num_args(), to_app(e)->get_args());
-                for(auto &arg : args){
-                    rational r;
-                    if(m_arith.is_numeral(arg, r) && r > 0){
-                        expr_ref_vector uninterpCs(m);
-                        get_uninterp_consts(e, uninterpCs);
-                        out.append(uninterpCs);
-                    }
+        collect_uninterp_consts_with_proc(ast_manager &mgr,
+                                          bool pos, bool neg, bool var,
+                                          expr_ref_vector& out):
+            m(mgr), m_arith(m), m_pos(pos), m_neg(neg), m_var(var), m_out(out) {}
+        void operator()(expr* n) const {}
+        void operator()(app* n) {
+            expr *e1, *e2;
+            if (m_arith.is_mul(n, e1, e2) &&
+                (is_uninterp_const(e1) || is_uninterp_const(e2))) {
+                if (is_uninterp_const(e1)) std::swap(e1, e2);
+
+                if (!is_uninterp_const(e2)) return;
+
+                rational n;
+                if ((m_pos || m_neg) && m_arith.is_numeral(e1, n)) {
+                    if (m_pos && n > 0) m_out.push_back(e2);
+                    else if (m_neg && n < 0) m_out.push_back(e2);
                 }
-            }
-            else if(is_app(e)){
-                uninterp_consts_with_pos_coeff(to_app(e), out);
+                else if (m_var && is_var(e1)) m_out.push_back(e2);
             }
         }
+    };
+
+    void get_uninterp_consts_with_var_coeff(expr *e, expr_ref_vector &out) {
+        collect_uninterp_consts_with_proc proc(out.get_manager(), false, false, true, out);
+        for_each_expr(proc, e);
     }
 
-    void uninterp_consts_with_neg_coeff(app *a, expr_ref_vector &out)
-    {
-        ast_manager m = out.get_manager();
-        arith_util m_arith(m);
-        for(expr *e : *a){
-            if(m_arith.is_mul(e) && get_num_uninterp_consts(e) > 0){
-                expr_ref_vector args(m);
-                args.append(to_app(e)->get_num_args(), to_app(e)->get_args());
-                for(auto &arg : args){
-                    rational r;
-                    if(m_arith.is_numeral(arg, r) && r < 0){
-                        expr_ref_vector uninterpCs(m);
-                        get_uninterp_consts(e, uninterpCs);
-                        out.append(uninterpCs);
-                    }
-                }
-            }
-            else if(is_app(e)){
-                uninterp_consts_with_neg_coeff(to_app(e), out);
-            }
-        }
+    void get_uninterp_consts_with_pos_coeff(expr *e, expr_ref_vector &out) {
+        collect_uninterp_consts_with_proc proc(out.get_manager(), true, false, false, out);
+        for_each_expr(proc, e);
     }
 
-
+    void get_uninterp_consts_with_neg_coeff(expr *e, expr_ref_vector& out) {
+        collect_uninterp_consts_with_proc proc(out.get_manager(), false, true, false, out);
+        for_each_expr(proc, e);
+    }
 }
-
 template class rewriter_tpl<spacer::adhoc_rewriter_cfg>;
 template class rewriter_tpl<spacer::adhoc_rewriter_rpp>;
 template class rewriter_tpl<spacer::term_ordered_rpp>;

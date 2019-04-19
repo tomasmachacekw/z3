@@ -123,9 +123,9 @@ bool lemma_merge_generalizer::half_plane_03 (expr_ref literal, app * pattern,
     app_ref app(m);
     app = to_app(literal);
     expr_ref_vector var_coeff(m), neg_coeff_uniCs(m), pos_coeff_uniCs(m);
-    uninterp_consts_with_pos_coeff(app, pos_coeff_uniCs);
-    uninterp_consts_with_neg_coeff(app, neg_coeff_uniCs);
-    uninterp_consts_with_var_coeff(pattern, var_coeff, false);
+    get_uninterp_consts_with_pos_coeff(app, pos_coeff_uniCs);
+    get_uninterp_consts_with_neg_coeff(app, neg_coeff_uniCs);
+    get_uninterp_consts_with_var_coeff(pattern, var_coeff);
     if(var_coeff.size() == 0) { return false; }
     expr_ref sum(m);
     sum = m_arith.mk_add(var_coeff.size(), var_coeff.c_ptr());
@@ -490,10 +490,10 @@ bool lemma_merge_generalizer::monotonic_coeffcient(expr_ref &literal, app *patte
     // if(m_arith.is_ge(pattern) || m_arith.is_gt(pattern)){
     if(gt_or_geq(p)){
         expr_ref_vector neg_coeff_uniCs(m), pos_coeff_uniCs(m);
-        uninterp_consts_with_pos_coeff(to_app(literal), pos_coeff_uniCs);
-        uninterp_consts_with_neg_coeff(to_app(literal), neg_coeff_uniCs);
+        get_uninterp_consts_with_pos_coeff(to_app(literal), pos_coeff_uniCs);
+        get_uninterp_consts_with_neg_coeff(to_app(literal), neg_coeff_uniCs);
 
-        uninterp_consts_with_var_coeff(pattern, var_coeff, false);
+        get_uninterp_consts_with_var_coeff(pattern, var_coeff);
         // XXX This check is necessary! arith.mk_add doesn't fallback gracefully with 0 as first argument
 
         if(var_coeff.size() > 0){
