@@ -3387,7 +3387,7 @@ void context::predecessor_eh()
 }
 bool context::should_split(pob& n)
 {
-    return (n.get_no_ua() < 1 && max_dim_literals(n) > 3 );
+    return (n.get_no_ua() < 1 && max_dim_literals(n) > 2 );
 }
 unsigned context::max_dim_literals(pob& n)
 {
