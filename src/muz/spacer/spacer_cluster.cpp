@@ -55,7 +55,7 @@ namespace spacer {
         return dis;
     }
 
-    void lemma_cluster::operator()(lemma_ref &lemma){
+    void lemma_cluster::operator()(lemma_ref &lemma) {
         anti_unifier antiU(m);
         expr_ref_vector neighbours(m);
         substitution subs_newLemma(m), subs_oldLemma(m);
@@ -66,6 +66,7 @@ namespace spacer {
         cube = mk_and(lemma->get_cube());
         normalize_order(cube, normalizedCube);
 
+        // all ACTIVE lemmas
         lemma_ref_vector all_lemmas;
         pt.get_all_lemmas(all_lemmas, false);
         unsigned worst_subs_num_bindings = 0;
@@ -105,6 +106,12 @@ namespace spacer {
                       ;);
             }
 
+            // AG: stops computing neighbours as soon as a threshold is reached
+            // AG: if neighbours (i.e., the constants in them) are used to compute
+            // AG: bounds during merge, then this misses some useful neighbours.
+            // AG: a better strategy is to always compute a complete set of neighbours
+            // AG: While this is inefficient with the current design
+            // AG: (all lemmas must be traversed each time), that is the way to go
             if (neighbours.size() >= m_dis_threshold) {
                 TRACE("nonlinear_cluster",
                       if(has_nonlinear_mul (antiUni_result, m)) {
