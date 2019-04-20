@@ -191,6 +191,11 @@ private:
     int distance(expr_ref antiU_result, substitution &s1, substitution &s2);
     void with_var_coeff(app *a, expr_ref_vector &out, bool has_var_coeff);
 
+    bool are_neighbours(const expr_ref &cube,
+                        const expr_ref &lcube,
+                        expr_ref &pat,
+                        substitution &sub1,
+                        substitution &sub2);
 public:
     lemma_cluster(context &ctx, int disT);
     ~lemma_cluster() override {}

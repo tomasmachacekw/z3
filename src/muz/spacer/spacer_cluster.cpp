@@ -55,104 +55,58 @@ namespace spacer {
         return dis;
     }
 
-    void lemma_cluster::operator()(lemma_ref &lemma) {
-        anti_unifier antiU(m);
+    bool lemma_cluster::are_neighbours (const expr_ref &cube,
+                                        const expr_ref &lcube,
+                                        expr_ref &pat,
+                                        substitution &sub1,
+                                        substitution &sub2) {
+        anti_unifier anti(m);
+        anti(cube, lcube, pat, sub1, sub2);
+        return distance(pat, sub1, sub2) < m_dis_threshold;
+    }
+
+    void lemma_cluster::operator()(lemma_ref & lemma) {
         expr_ref_vector neighbours(m);
-        substitution subs_newLemma(m), subs_oldLemma(m);
-        expr_ref cube(m), normalizedCube(m);
+        expr_ref pattern(m);
+        unsigned num_vars_in_pattern = 0;
 
         pred_transformer &pt = (&*lemma->get_pob())->pt();
-
-        cube = mk_and(lemma->get_cube());
-        normalize_order(cube, normalizedCube);
 
         // all ACTIVE lemmas
         lemma_ref_vector all_lemmas;
         pt.get_all_lemmas(all_lemmas, false);
-        unsigned worst_subs_num_bindings = 0;
-        expr_ref worst_antiUni_result(m);
 
-        for(auto &l : all_lemmas) {
-            subs_newLemma.reset();
-            subs_oldLemma.reset();
-            expr_ref oldCube(m), normalizedOldCube(m), antiUni_result(m);
-            oldCube = mk_and(l->get_cube());
-            normalize_order(oldCube, normalizedOldCube);
+        expr_ref cube(m);
+        cube = mk_and(lemma->get_cube());
+        normalize_order(cube, cube);
 
-            // antiU(normalizedCube, normalizedOldCube, antiUni_result, subs_newLemma, subs_oldLemma);
-            // using this order prevents the antiUni_result becoming too strict
-            antiU(normalizedOldCube, normalizedCube, antiUni_result, subs_oldLemma, subs_newLemma);
-
-            if (subs_oldLemma.get_num_bindings() == 0) { continue; } // skip the Identicals
-
-            int dis = distance(antiUni_result, subs_newLemma, subs_oldLemma);
-            if (dis < m_dis_threshold) {
-                if(subs_newLemma.get_num_bindings() >= worst_subs_num_bindings){
-                    worst_subs_num_bindings = subs_newLemma.get_num_bindings();
-                    worst_antiUni_result = antiUni_result;
+        for (auto *l : all_lemmas) {
+            expr_ref lcube(m), lpat(m);
+            substitution sub1(m), sub2(m);
+            lcube = mk_and(l->get_cube());
+            normalize_order(lcube, lcube);
+            if (are_neighbours(cube, lcube, lpat, sub1, sub2)) {
+                neighbours.push_back(lcube);
+                if (sub1.get_num_bindings() > num_vars_in_pattern) {
+                    pattern = lpat;
+                    num_vars_in_pattern = sub1.get_num_bindings();
                 }
-
-                neighbours.push_back(normalizedOldCube);
-                TRACE("distance_dbg",
-                      tout
-                      << "New Lemma Cube: " << mk_pp(normalizedCube, m) << "\n"
-                      << "Old Lemma Cube: " << mk_pp(normalizedOldCube, m) << "\n"
-                      << "antiU result: " << mk_pp(antiUni_result, m) << "\n"
-                      << "dis: " << dis << "\n"
-                      << "neighbours: " << neighbours.size() << "\n";
-                      for(auto &n : neighbours){
-                          tout << "Neighbour Cube: " << mk_pp(n, m) << "\n";
-                      }
-                      ;);
             }
-
-            // AG: stops computing neighbours as soon as a threshold is reached
-            // AG: if neighbours (i.e., the constants in them) are used to compute
-            // AG: bounds during merge, then this misses some useful neighbours.
-            // AG: a better strategy is to always compute a complete set of neighbours
-            // AG: While this is inefficient with the current design
-            // AG: (all lemmas must be traversed each time), that is the way to go
-            if (neighbours.size() >= m_dis_threshold) {
-                TRACE("nonlinear_cluster",
-                      if(has_nonlinear_mul (antiUni_result, m)) {
-                          TRACE("nonlinear_cluster", tout
-                                << "Lemma Cube: " << mk_pp(normalizedCube, m) << "\n"
-                                << "NL Pattern: " << mk_pp(antiUni_result, m) << "\n";
-                                for(auto &n : neighbours){
-                                    tout << "Neighbour Cube: " << mk_pp(n, m) << "\n";
-                                };);
-                          throw unknown_exception();
-                      };);
-
-                STRACE("cluster_stats",
-                       if(neighbours.size() >= 10) {
-                           tout << "---Pattern---\n" << mk_pp(worst_antiUni_result, m);
-                           tout << "\n---Concrete lemmas---\n";
-                           for(auto &n : neighbours){
-                               tout << "(" << n->get_id() << "):\n" << mk_pp(n, m) << "\n";
-                           };
-                           tout << "\n------\n";
-                           tout << "Current #lemmas: " << all_lemmas.size() << "\n";
-                           // throw unknown_exception();
-                           lemma->update_neighbours(worst_antiUni_result, neighbours);
-                           return;
-                       }
-                       else { continue; }
-                       ;);
-
-                TRACE("cluster_dbg",
-                      tout << "New Lemma Cube: " << mk_pp(normalizedCube, m) << "\n"
-                      << "Pattern found: " << mk_pp(antiUni_result, m) << "\n";
-                      for(auto &n : neighbours){
-                          tout << "Neighbour Cube: " << mk_pp(n, m) << "\n";
-                      };);
-
-                // start marking ...
-                lemma->update_neighbours(worst_antiUni_result, neighbours);
-                return;
-            }
-
         }
+
+        if (!neighbours.empty() && num_vars_in_pattern > 0)
+            lemma->update_neighbours(pattern, neighbours);
+
+        CTRACE("cluster_stats", neighbours.size() >= 10,
+               tout << "---Pattern---\n" << pattern << "\n"
+                    << "---Concrete lemmas---\n";
+               for(auto *n : neighbours) {
+                   tout << "(" << n->get_id() << "):\n"
+                        << mk_epp(n, m) << "\n";
+               };
+               tout << "\n------\n"
+                    << "Current #lemmas: " << all_lemmas.size() << "\n";
+               );
     }
 
 }
