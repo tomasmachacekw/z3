@@ -126,7 +126,6 @@ class lemma {
     model_ref m_ctp;           // counter-example to pushing
     unsigned m_lvl;            // current level of the lemma
     unsigned m_init_lvl;       // level at which lemma was created
-    unsigned m_cluster;            // lemma cluster number(Default: 0)
     unsigned m_bumped:16;
     unsigned m_weakness:16;
     unsigned m_external:1;    // external lemma from another solver
@@ -177,9 +176,6 @@ public:
     unsigned level () const {return m_lvl;}
     unsigned init_level() const {return m_init_lvl;}
     void set_level (unsigned lvl);
-
-    unsigned cluster () const {return m_cluster;}
-    bool set_cluster (unsigned new_cluster);
 
     expr_ref_vector const &get_neighbours() { return m_neighbours; }
     void update_neighbours(expr_ref &pattern, expr_ref_vector &n) { m_neighbours.reset(); m_neighbours.push_back(pattern); m_neighbours.append(n); }
@@ -682,9 +678,6 @@ class pob {
     //the number of times it has been under approximated
     unsigned m_ua;
 
-    //pattern from cluster
-    expr_ref_vector m_cluster;
-
 public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
@@ -742,9 +735,6 @@ public:
 
     const ptr_vector<lemma> &lemmas() const {return m_lemmas;}
     void add_lemma(lemma* new_lemma) {m_lemmas.push_back(new_lemma);}
-
-    void update_cluster(expr_ref_vector pattern) { m_cluster.reset(); m_cluster.append(pattern); }
-    expr_ref_vector get_cluster() { return m_cluster; }
 
     bool is_ground () const { return m_binding.empty (); }
     unsigned get_free_vars_size() const { return m_binding.size(); }

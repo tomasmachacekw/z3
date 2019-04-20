@@ -19,7 +19,7 @@
 
 
 using namespace spacer;
-namespace spacer{
+namespace spacer {
     lemma_cluster::lemma_cluster(context &ctx, int disT) :
         lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m), m_dis_threshold(disT) {}
 
@@ -55,11 +55,6 @@ namespace spacer{
         return dis;
     }
 
-    expr_ref_vector lemma_cluster::generate_groups(expr *pattern){
-        expr_ref_vector temp(m);
-        return temp;
-    }
-
     void lemma_cluster::operator()(lemma_ref &lemma){
         anti_unifier antiU(m);
         expr_ref_vector neighbours(m);
@@ -76,7 +71,7 @@ namespace spacer{
         unsigned worst_subs_num_bindings = 0;
         expr_ref worst_antiUni_result(m);
 
-        for(auto &l : all_lemmas){
+        for(auto &l : all_lemmas) {
             subs_newLemma.reset();
             subs_oldLemma.reset();
             expr_ref oldCube(m), normalizedOldCube(m), antiUni_result(m);
@@ -87,11 +82,10 @@ namespace spacer{
             // using this order prevents the antiUni_result becoming too strict
             antiU(normalizedOldCube, normalizedCube, antiUni_result, subs_oldLemma, subs_newLemma);
 
-            if( subs_oldLemma.get_num_bindings() == 0 ) { continue; } // skip the Identicals
+            if (subs_oldLemma.get_num_bindings() == 0) { continue; } // skip the Identicals
 
             int dis = distance(antiUni_result, subs_newLemma, subs_oldLemma);
-            if(dis < m_dis_threshold){
-
+            if (dis < m_dis_threshold) {
                 if(subs_newLemma.get_num_bindings() >= worst_subs_num_bindings){
                     worst_subs_num_bindings = subs_newLemma.get_num_bindings();
                     worst_antiUni_result = antiUni_result;
@@ -111,9 +105,9 @@ namespace spacer{
                       ;);
             }
 
-            if(neighbours.size() >= m_dis_threshold){
+            if (neighbours.size() >= m_dis_threshold) {
                 TRACE("nonlinear_cluster",
-                      if(has_nonlinear_mul(antiUni_result, m)) {
+                      if(has_nonlinear_mul (antiUni_result, m)) {
                           TRACE("nonlinear_cluster", tout
                                 << "Lemma Cube: " << mk_pp(normalizedCube, m) << "\n"
                                 << "NL Pattern: " << mk_pp(antiUni_result, m) << "\n";
@@ -124,20 +118,20 @@ namespace spacer{
                       };);
 
                 STRACE("cluster_stats",
-                      if(neighbours.size() >= 10) {
-                          tout << "---Pattern---\n" << mk_pp(worst_antiUni_result, m);
-                          tout << "\n---Concrete lemmas---\n";
-                          for(auto &n : neighbours){
-                              tout << "(" << n->get_id() << "):\n" << mk_pp(n, m) << "\n";
-                          };
-                          tout << "\n------\n";
-                          tout << "Current #lemmas: " << all_lemmas.size() << "\n";
-                          // throw unknown_exception();
-                          lemma->update_neighbours(worst_antiUni_result, neighbours);
-                          return;
-                      }
-                      else { continue; }
-                      ;);
+                       if(neighbours.size() >= 10) {
+                           tout << "---Pattern---\n" << mk_pp(worst_antiUni_result, m);
+                           tout << "\n---Concrete lemmas---\n";
+                           for(auto &n : neighbours){
+                               tout << "(" << n->get_id() << "):\n" << mk_pp(n, m) << "\n";
+                           };
+                           tout << "\n------\n";
+                           tout << "Current #lemmas: " << all_lemmas.size() << "\n";
+                           // throw unknown_exception();
+                           lemma->update_neighbours(worst_antiUni_result, neighbours);
+                           return;
+                       }
+                       else { continue; }
+                       ;);
 
                 TRACE("cluster_dbg",
                       tout << "New Lemma Cube: " << mk_pp(normalizedCube, m) << "\n"
@@ -148,8 +142,6 @@ namespace spacer{
 
                 // start marking ...
                 lemma->update_neighbours(worst_antiUni_result, neighbours);
-                pob_ref &pob = lemma->get_pob();
-                pob->update_cluster(generate_groups(antiUni_result));
                 return;
             }
 

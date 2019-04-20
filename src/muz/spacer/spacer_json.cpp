@@ -96,7 +96,7 @@ static std::ostream &json_marshal(std::ostream &out, lemma *l) {
     out << "{"
         << R"("init_level":")" << l->init_level()
         << R"(", "level":")" << l->level()
-        << R"(", "cluster":")" << l->cluster()
+        << R"(", "cluster":")" << 0
         << R"(", "num_vars":")" << count_lits(to_app(l->get_expr()), l->get_ast_manager())
         << R"(", "expr":)";
     json_marshal(out, l->get_expr(), l->get_ast_manager());
