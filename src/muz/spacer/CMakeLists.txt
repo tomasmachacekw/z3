@@ -29,6 +29,7 @@ z3_add_component(spacer
   spacer_mbc.cpp
   spacer_pdr.cpp
   spacer_sat_answer.cpp
+  spacer_underApproximate.cpp
   COMPONENT_DEPENDENCIES
   arith_tactics
   core_tactics
