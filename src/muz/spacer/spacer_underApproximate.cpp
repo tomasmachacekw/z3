@@ -193,19 +193,6 @@ pob *under_approx::under_approximate(pob &n, model_ref model) {
     for (auto e : conj)
         if (!(is_app(e) && is_arith(to_app(e)))) return nullptr;
 
-    // hack for testing groups.
-    // if there is only one literal, split each product into term
-    /* if (conj.size() == 1) { */
-    /*     expr_ref_vector e_grp(m); */
-    /*     for (expr *sub_term : *to_app(conj.get(0))) { */
-    /*         if (!m_arith.is_numeral(sub_term)) */
-    /*             if (m_arith.is_add(sub_term)) */
-    /*                 for (expr *arg : *to_app(sub_term)) */
-    /*                     e_grp.push_back(arg); */
-    /*     } */
-    /*     group(conj, e_grp, model, ua_pob); */
-    /* } */
-
     expr_expr_map lb, ub;
 
     // compute bounds
