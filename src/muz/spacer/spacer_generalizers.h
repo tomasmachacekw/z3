@@ -169,6 +169,12 @@ private:
     bool neighbour_equality(expr_ref &literal, app *pattern, expr_ref_vector &neighbour, expr_ref &out);
 
     // Guards
+    bool lt_or_leq (const expr_ref &literal);
+    bool gt_or_geq (const expr_ref &literal);
+    bool only_halfSpace (const expr_ref &literal);
+    bool is_simple_literal (const expr_ref &literal);
+
+    // Merge Strats
     bool half_plane_01(const expr_ref &literal, const expr_ref &pattern,
                        const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures);
     bool half_plane_02(const expr_ref &literal, const expr_ref &pattern,
