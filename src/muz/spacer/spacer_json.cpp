@@ -189,6 +189,7 @@ std::ostream &json_marshaller::marshal(std::ostream &out) const {
     unsigned depth = 0;
     while (true) {
         double root_expand_time = m_ctx->get_root().get_expand_time(depth);
+        root_expand_time++; //HG: Hack to prevent inf in relative_time
         bool a = false;
         pob_id = 0;
         for (auto &pob_map:m_relations) {
