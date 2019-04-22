@@ -3580,11 +3580,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             (*m_lemma_generalizers[i])(lemma_pob);
         }
 
-        if(n.is_abs())
-          {
-            TRACE("merge_dbg", tout << "abs pob " << mk_pp(n.post(), m) << " using lemma " << mk_pp(lemma_pob->get_expr(), m) << "\n";);
-            TRACE("merge_dbg", tout << "Blocked abstraction " << n.post()->get_id() << "\n";);
-          }
+            CTRACE("merge_dbg", n.is_abs(), tout << " Blocked abs pob " << mk_pp(n.post(), m) << " using lemma " << mk_pp(lemma_pob->get_expr(), m) << " Level " << lemma_pob->level() << " id " << n.post()->get_id() << "\n";);
 
         //HG : compute abstraction of the pob
         if(m_adhoc_gen)
@@ -3594,8 +3590,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             expr_ref_vector new_pob(m);
             expr_ref_vector cube(m);
             expr_ref_vector u_consts(m);
-            // expr *lhs;
-            expr_ref lhs(m), rhs(m), rhs_p(m), lhs_p(m);
+            expr *lhs;
             cube.push_back(n.post());
             flatten_and(cube);
             rational temp;
@@ -3613,21 +3608,15 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                 bool is_mono_coeff = pattern_and.size() == 1 && get_num_vars(pattern) == 1 && !has_nonlinear_mul(pattern, m);
                 if(is_mono_coeff)
                   {
-                    // lhs = (to_app(pattern))->get_arg(0);
-                    // verbose_stream()<< " LHS is " << mk_pp(lhs,m) << "\n ";
+                    lhs = (to_app(pattern))->get_arg(0);
                     //possible loop unroll
                     for(auto c : cube)
                       {
-                        if((is_le_or_lt(c, lhs, rhs) && is_le_or_lt(pattern, lhs_p, rhs_p)) || (is_ge_or_gt(c, lhs, rhs) && is_ge_or_gt(pattern, lhs_p, rhs_p)))
-                          {
-                            if(is_var(rhs_p) && a_util.is_numeral(rhs, temp))
-                              if(lhs == lhs_p)
-                                continue;
-                          }
-                        // get_uninterp_consts(c,u_consts);
-                        // verbose_stream() << " u consts " << mk_and(u_consts) << "\n";
-                        // if ( !u_consts.contains(pattern) )
-                        new_pob.push_back(c);
+                        get_uninterp_consts(c,u_consts);
+                        SASSERT(u_consts.size() > 0);
+                        if ( !u_consts.contains(lhs) )
+                          new_pob.push_back(c);
+                        u_consts.reset();
                       }
                     if(new_pob.size() > 0 && new_pob.size() < cube.size())
                       {
