@@ -678,6 +678,9 @@ class pob {
     //the number of times it has been under approximated
     unsigned m_ua;
 
+    //true if this pob is an abstraction
+    bool m_is_abs;
+
 public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
@@ -706,6 +709,9 @@ public:
     derivation* detach_derivation () {return m_derivation.detach ();}
 
     pob* parent () const { return m_parent.get (); }
+
+    bool is_abs() const { return m_is_abs; }
+    void set_abs() { m_is_abs = true ; }
 
     pred_transformer& pt () const { return m_pt; }
     ast_manager& get_ast_manager () const { return m_pt.get_ast_manager (); }

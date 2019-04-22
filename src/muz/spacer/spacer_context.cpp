@@ -71,7 +71,7 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_new_post (m_pt.get_ast_manager ()),
     m_level (level), m_depth (depth),
     m_open (true), m_use_farkas (true), m_in_queue(false),
-    m_weakness(0), m_blocked_lvl(0), m_ua(0) {
+    m_weakness(0), m_blocked_lvl(0), m_ua(0), m_is_abs(false) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -108,6 +108,7 @@ void pob::inherit(pob const &p) {
     m_use_farkas = p.m_use_farkas;
     m_weakness = p.m_weakness;
     m_ua = p.m_ua;
+    m_is_abs = p.m_is_abs;
 
     m_derivation = nullptr;
 }
@@ -3197,7 +3198,7 @@ bool context::check_reachability ()
                 last_reachable = node->parent ();
                 SASSERT(last_reachable->is_closed());
                 last_reachable->close ();
-            } else if (!node->parent()->is_closed()) {
+            } else if ( !node->is_abs() && !node->parent()->is_closed()) {
                 /* bump node->parent */
                 node->parent ()->bump_weakness();
             }
@@ -3251,7 +3252,7 @@ bool context::check_reachability ()
         case l_false:
             SASSERT(m_pob_queue.size() == old_sz);
             for (auto pob : new_pobs) {
-                if (is_requeue(*pob)) {m_pob_queue.push(*pob);}
+                if (is_requeue(*pob) || pob->is_abs()) {m_pob_queue.push(*pob);}
             }
 
             if (m_pob_queue.is_root(*node)) {return false;}
@@ -3533,7 +3534,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                     out.push_back (next);
                 }
             }
-
+            CTRACE("merge_dbg", n.is_abs(), tout<<"Failed to block abstraction " << n.post()->get_id() << "\n";);
 
             IF_VERBOSE(1, verbose_stream () << (next ? " X " : " T ")
                        << std::fixed << std::setprecision(2)
@@ -3578,6 +3579,67 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             checkpoint ();
             (*m_lemma_generalizers[i])(lemma_pob);
         }
+
+        if(n.is_abs())
+          {
+            TRACE("merge_dbg", tout << "abs pob " << mk_pp(n.post(), m) << " using lemma " << mk_pp(lemma_pob->get_expr(), m) << "\n";);
+            TRACE("merge_dbg", tout << "Blocked abstraction " << n.post()->get_id() << "\n";);
+          }
+
+        //HG : compute abstraction of the pob
+        if(m_adhoc_gen)
+          {
+            arith_util a_util(m);
+            const ptr_vector<lemma> lemmas = n.lemmas();
+            expr_ref_vector new_pob(m);
+            expr_ref_vector cube(m);
+            expr_ref_vector u_consts(m);
+            // expr *lhs;
+            expr_ref lhs(m), rhs(m), rhs_p(m), lhs_p(m);
+            cube.push_back(n.post());
+            flatten_and(cube);
+            rational temp;
+            for(auto l : lemmas)
+              {
+                expr_ref_vector neighbours = l->get_neighbours();
+                //continue if there are no neighbours
+                if(neighbours.size() == 0)
+                  continue;
+                expr* pattern = neighbours.get(0);
+                if(!a_util.is_arith_expr(to_app(pattern)))
+                  continue;
+                expr_ref_vector pattern_and(m);
+                flatten_and(pattern, pattern_and);
+                bool is_mono_coeff = pattern_and.size() == 1 && get_num_vars(pattern) == 1 && !has_nonlinear_mul(pattern, m);
+                if(is_mono_coeff)
+                  {
+                    // lhs = (to_app(pattern))->get_arg(0);
+                    // verbose_stream()<< " LHS is " << mk_pp(lhs,m) << "\n ";
+                    //possible loop unroll
+                    for(auto c : cube)
+                      {
+                        if((is_le_or_lt(c, lhs, rhs) && is_le_or_lt(pattern, lhs_p, rhs_p)) || (is_ge_or_gt(c, lhs, rhs) && is_ge_or_gt(pattern, lhs_p, rhs_p)))
+                          {
+                            if(is_var(rhs_p) && a_util.is_numeral(rhs, temp))
+                              if(lhs == lhs_p)
+                                continue;
+                          }
+                        // get_uninterp_consts(c,u_consts);
+                        // verbose_stream() << " u consts " << mk_and(u_consts) << "\n";
+                        // if ( !u_consts.contains(pattern) )
+                        new_pob.push_back(c);
+                      }
+                    if(new_pob.size() > 0 && new_pob.size() < cube.size())
+                      {
+                        pob* n1 = n.pt().mk_pob(&n,n.level(),n.depth(),mk_and(new_pob),n.get_binding());
+                        n1->set_abs();
+                        out.push_back(&(*n1));
+                        TRACE("merge_dbg", tout << " abstracting " << mk_and(cube) << " into pob "<< mk_and(new_pob) << " id is " << n1->post()->get_id() << "\n";);
+                      }
+                    new_pob.reset();
+                  }
+              }
+          }
 
 
         DEBUG_CODE(
