@@ -259,6 +259,12 @@ namespace spacer {
               "Neighbours: " << mk_pp(neighbours.get(1), m) << "\n"
               ;);
 
+        expr_ref pat(m);
+        pat = neighbours.get(0);
+        if(merge_summarize(normalizedCube, pat, neighbours, conjuncts)){
+            // TODO update
+        }
+
         // update the pattern by dropping singleton uninterp_consts
         if(m.is_and(neighbours.get(0))){
             for(expr * c: *to_app(neighbours.get(0))){
@@ -582,4 +588,28 @@ namespace spacer {
         }
     }
 
+    void lemma_merge_generalizer::collect_statistics(statistics &st) const{
+        // TODO update stats here
+    }
+
+    /*
+      Summarize using concrete numerical bounds from neighbours
+     */
+    bool lemma_merge_generalizer::merge_summarize(const expr_ref &literal,
+                                                  const expr_ref pattern,
+                                                  const expr_ref_vector &neighbour_lemmas,
+                                                  expr_ref_vector &conjectures)
+    {
+        if(!only_halfSpace(literal)) { return false; }
+        TRACE("merge_dbg",
+              tout << "---Pattern---\n" << pattern << "\n"
+              << "---Concrete lemmas---\n";
+              for(auto *n : neighbour_lemmas){
+                  tout << "(" << n->get_id() << "):\n"
+                       << mk_epp(n, m) << "\n";
+              };
+              tout << "\n------\n"
+              ;);
+        return false;
+    }
 }

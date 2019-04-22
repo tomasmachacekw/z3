@@ -99,16 +99,21 @@ namespace spacer {
 
         CTRACE("cluster_stats", neighbours.size() >= 10,
                tout << "---Pattern---\n" << pattern << "\n"
-                    << "---Concrete lemmas---\n";
+               << "---Concrete lemmas---\n";
                for(auto *n : neighbours) {
                    tout << "(" << n->get_id() << "):\n"
                         << mk_epp(n, m) << "\n";
                };
                tout << "\n------\n"
-                    << "Current #lemmas: " << all_lemmas.size() << "\n";
+               << "Current #lemmas: " << all_lemmas.size() << "\n";
                );
+
     }
 
+
+    void lemma_cluster::collect_statistics(statistics &st) const{
+        // update stats here
+    }
 }
 
 

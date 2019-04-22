@@ -600,7 +600,7 @@ public:
                               const pred_transformer &pt,
                               app *rule_tag, unsigned pos);
 
-    // exposing fellow lemmas
+    // exposing ACTIVE lemmas (alternatively, one can expose `m_pinned_lemmas` for ALL lemmas)
     void get_all_lemmas(lemma_ref_vector &out, bool with_bg = false) const {
         m_frames.get_frame_all_lemmas(out, with_bg);
     }
@@ -966,6 +966,9 @@ class context {
         unsigned m_num_restarts;
         unsigned m_num_lemmas_imported;
         unsigned m_num_lemmas_discarded;
+        // stats for lemma clustering
+        // unsigned m_num_lemma_groups;
+
         stats() { reset(); }
         void reset() { memset(this, 0, sizeof(*this)); }
     };

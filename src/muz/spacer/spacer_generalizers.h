@@ -153,12 +153,20 @@ class lemma_merge_generalizer : public lemma_generalizer {
     arith_util m_arith;
     typedef std::pair<rational, expr*> num_expr_pair;
     typedef vector<num_expr_pair> num_expr_pair_vec;
+    struct stats {
+        stats() {reset();}
+        void reset() {}
+    };
+    stats m_st;
 
 public:
     lemma_merge_generalizer(context &ctx);
     ~lemma_merge_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
     bool check_inductive_and_update(lemma_ref &lemma, expr_ref_vector conj);
+
+    void collect_statistics(statistics &st) const override;
+    void reset_statistics() override {m_st.reset();}
 
 private:
     bool leq_monotonic_k(expr_ref &l, app *pattern, expr_ref &out);
@@ -183,6 +191,9 @@ private:
                        const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures);
     bool half_plane_XX(const expr_ref &literal, const expr_ref &pattern,
                        const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures);
+    bool merge_summarize(const expr_ref &literal, const expr_ref pattern,
+                         const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures);
+
 };
 
 class lemma_cluster : public lemma_generalizer {
@@ -190,6 +201,12 @@ class lemma_cluster : public lemma_generalizer {
     arith_util m_arith;
     int m_dis_threshold;
     typedef std::pair<unsigned, unsigned> var_offset;
+    struct stats {
+        stopwatch watch;
+        stats() {reset();}
+        void reset() {watch.reset();}
+    };
+    stats m_st;
 
 private:
     /// Returns an approximate distance between two substitutions relative to a pattern
@@ -207,6 +224,8 @@ public:
     ~lemma_cluster() override {}
     void operator()(lemma_ref &lemma) override;
 
+    void collect_statistics(statistics &st) const override;
+    void reset_statistics() override {m_st.reset();}
 };
 }
 
