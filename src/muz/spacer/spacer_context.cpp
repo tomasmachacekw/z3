@@ -3568,39 +3568,39 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
         pob_ref nref(&n);
         // -- create lemma from a pob and last unsat core
-        lemma_ref lemma = alloc(class lemma, pob_ref(&n), cube, uses_level);
+        lemma_ref lemma_pob = alloc(class lemma, pob_ref(&n), cube, uses_level);
 
         // -- run all lemma generalizers
         for (unsigned i = 0;
              // -- only generalize if lemma was constructed using farkas
-             n.use_farkas_generalizer () && !lemma->is_false() &&
+             n.use_farkas_generalizer () && !lemma_pob->is_false() &&
                  i < m_lemma_generalizers.size(); ++i) {
             checkpoint ();
-            (*m_lemma_generalizers[i])(lemma);
+            (*m_lemma_generalizers[i])(lemma_pob);
         }
 
 
         DEBUG_CODE(
             lemma_sanity_checker sanity_checker(*this);
-            sanity_checker(lemma);
+            sanity_checker(lemma_pob);
             );
 
         dump_json();
         TRACE("spacer", tout << "invariant state: "
-              << (is_infty_level(lemma->level())?"(inductive)":"")
-              <<  mk_pp(lemma->get_expr(), m) << "\n";);
+              << (is_infty_level(lemma_pob->level())?"(inductive)":"")
+              <<  mk_pp(lemma_pob->get_expr(), m) << "\n";);
 
-        bool v = n.pt().add_lemma (lemma.get());
+        bool v = n.pt().add_lemma (lemma_pob.get());
         if (v) { m_stats.m_num_lemmas++; }
 
         // // XXX JEFF
         TRACE("lemma_dbg", tout <<
-              (lemma->get_expr())->get_id() << ": " << mk_pp(mk_and(lemma->get_cube()), m) << "\n";);
+              (lemma_pob->get_expr())->get_id() << ": " << mk_pp(mk_and(lemma_pob->get_cube()), m) << "\n";);
 
         // Optionally update the node to be the negation of the lemma
         if (v && m_use_lemma_as_pob) {
             expr_ref c(m);
-            c = mk_and(lemma->get_cube());
+            c = mk_and(lemma_pob->get_cube());
             // check that the post condition is different
             if (c  != n.post()) {
                 pob *f = n.pt().find_pob(n.parent(), c);
