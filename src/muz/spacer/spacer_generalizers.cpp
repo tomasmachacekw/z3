@@ -163,13 +163,18 @@ void lemma_bool_inductive_generalizer::collect_statistics(statistics &st) const
 void lemma_re_construct_bool::operator()(lemma_ref &lemma)
 {
     ast_manager &m = lemma->get_ast_manager();
-    expr_ref_vector cube(m);
-    cube.push_back(lemma->get_pob()->post());
-    flatten_and(cube);
-    for (auto *e : cube) {
+    expr_ref_vector cube(m), pob_cube(m);
+    pob_cube.push_back(lemma->get_pob()->post());
+    flatten_and(pob_cube);
+    cube.append(lemma->get_cube());
+    unsigned sz = cube.size();
+    for (auto *e : pob_cube) {
         if (is_uninterp_literal(e, m) && !cube.contains(e))
             cube.push_back(e);
     }
+    CTRACE("spacer", sz < cube.size(),
+           tout << " recon-gen generalized from: "
+           << mk_and(lemma->get_cube()) << " to " << mk_and(cube) << "\n";);
     lemma->update_cube(lemma->get_pob(),cube);
 }
 
