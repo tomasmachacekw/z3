@@ -681,6 +681,8 @@ class pob {
     //true if this pob is an abstraction
     bool m_is_abs;
 
+    //true if the pob can be abstracted
+    bool m_can_abs;
 public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
@@ -713,6 +715,8 @@ public:
     bool is_abs() const { return m_is_abs; }
     void set_abs() { m_is_abs = true ; }
 
+    bool can_abs() const { return m_can_abs; }
+    void set_nvr_abs() { m_can_abs = false; }
     pred_transformer& pt () const { return m_pt; }
     ast_manager& get_ast_manager () const { return m_pt.get_ast_manager (); }
     manager& get_manager () const { return m_pt.get_manager (); }
