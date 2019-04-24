@@ -114,12 +114,12 @@ namespace spacer {
        ------
        (>= (+ t_1 t_2) 0)
     */
-    bool lemma_merge_generalizer::half_plane_03 (const expr_ref &literal, const app * pattern,
+    bool lemma_merge_generalizer::half_plane_03 (const expr_ref &literal, const expr_ref &pattern,
                                                  const expr_ref_vector &neighbour_lemmas,
                                                  expr_ref_vector &conjectures)
     {
         if(!only_halfSpace(literal)) { return false; }
-
+        STRACE("merge_strategies", tout << "Applied half_plane_03 on: " << mk_epp(literal, m) << "\n";);
         ast_manager m = literal.get_manager();
         arith_util m_arith(m);
         expr_ref conj(m);
@@ -127,16 +127,16 @@ namespace spacer {
         app_ref app(m);
         app = to_app(literal);
         expr_ref_vector var_coeff(m), neg_coeff_uniCs(m), pos_coeff_uniCs(m);
-        get_uninterp_consts_with_var_coeff(pattern, var_coeff);
+        get_uninterp_consts_with_var_coeff(to_app(pattern), var_coeff);
 
         if(var_coeff.size() == 0) { return false; }
 
         get_uninterp_consts_with_pos_coeff(app, pos_coeff_uniCs);
         get_uninterp_consts_with_neg_coeff(app, neg_coeff_uniCs);
- 
+
         expr_ref sum(m);
         sum = m_arith.mk_add(var_coeff.size(), var_coeff.c_ptr());
-
+        STRACE("merge_strategies", tout << "literal: " << mk_epp(literal, m) << "\n";);
         if(gt_or_geq(literal)){
             if(!m_arith.is_numeral(app->get_arg(1), rhs) || !(rhs >= 0)) { return false; }
             if(!pos_coeff_uniCs.empty()){
@@ -287,14 +287,15 @@ namespace spacer {
             STRACE("fun", tout << "non_boolean_literals_cube: " << mk_pp(normalizedCube, m) << "\n";);
         }
 
-        if(monotonic_coeffcient(cube, to_app(neighbours.get(0)), out)){
-            STRACE("cluster_stats", tout << "mono coeff found a conjecture...\n"
-                   << mk_pp(out, m) << "\n";);
-            expr_ref_vector conj(m);
-            conj.push_back(out);
-            if(check_inductive_and_update(lemma, conj))
-                return;
-        }
+        // if(monotonic_coeffcient(cube, to_app(neighbours.get(0)), out)){
+        //     STRACE("cluster_stats", tout << "mono coeff found a conjecture...\n"
+        //            << mk_pp(out, m) << "\n";);
+        //     expr_ref_vector conj(m);
+        //     conj.push_back(out);
+        //     if(check_inductive_and_update(lemma, conj))
+        //         return;
+
+        // }
 
         /* if(merge_halfspaces(normalizedCube, to_app(neighbours.get(0)), out, conjuncts)){ */
         /*     STRACE("cluster_stats", tout << "merge halfplanes found a conjecture...\n" */
@@ -312,20 +313,39 @@ namespace spacer {
         /*     } */
         /* } */
 
+        // if(leq_monotonic_neg_k(normalizedCube, to_app(neighbours.get(0)), out)){
+        //     STRACE("cluster_stats", tout << "leq monotoinc k found a conjecture...\n"
+        //            << mk_pp(out, m) << "\n";);
+        //     expr_ref_vector conj(m);
+        //     conj.push_back(out);
+        //     if(check_inductive_and_update(lemma, conj))
+        //         return;
+        // }
+
+        if(half_plane_01(normalizedCube, normalizedCube, neighbours, conjuncts)){
+            STRACE("merge_strategies", tout << "Applied half_plane_01 on: " << mk_pp(normalizedCube, m) << "\n";);
+            if(check_inductive_and_update(lemma, conjuncts))
+                return;
+        }
+
+        if(half_plane_02(normalizedCube, normalizedCube, neighbours, conjuncts)){
+            STRACE("merge_strategies", tout << "Applied half_plane_02 on: " << mk_pp(normalizedCube, m) << "\n";);
+            if(check_inductive_and_update(lemma, conjuncts))
+                return;
+        }
+
+        if(half_plane_03(normalizedCube, normalizedCube, neighbours, conjuncts)){
+            STRACE("merge_strategies", tout << "Applied half_plane_03 on: " << mk_pp(normalizedCube, m) << "\n";);
+            if(check_inductive_and_update(lemma, conjuncts))
+                return;
+        }
+
         if(half_plane_XX(normalizedCube, normalizedCube, neighbours, conjuncts)){
             STRACE("merge_strategies", tout << "Applied half_plane_XX on: " << mk_pp(normalizedCube, m) << "\n";);
             if(check_inductive_and_update(lemma, conjuncts))
                 return;
         }
 
-        if(leq_monotonic_neg_k(normalizedCube, to_app(neighbours.get(0)), out)){
-            STRACE("cluster_stats", tout << "leq monotoinc k found a conjecture...\n"
-                   << mk_pp(out, m) << "\n";);
-            expr_ref_vector conj(m);
-            conj.push_back(out);
-            if(check_inductive_and_update(lemma, conj))
-                return;
-        }
         if(neighbours.size() >= 10) {
             TRACE("cluster_stats", tout << "Found big cluster and Tried all merge strategies\n";);
             return;
@@ -601,7 +621,7 @@ namespace spacer {
                                                   expr_ref_vector &conjectures)
     {
         if(!only_halfSpace(literal)) { return false; }
-        TRACE("merge_dbg",
+        TRACE("merge_dbg_summarize",
               tout << "---Pattern---\n" << pattern << "\n"
               << "---Concrete lemmas---\n";
               for(auto *n : neighbour_lemmas){
