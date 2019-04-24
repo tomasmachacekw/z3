@@ -3595,7 +3595,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             sanity_checker(lemma_pob);
             );
 
-        dump_json();
+        TRACE("verb_json",dump_json(););
         TRACE("spacer", tout << "invariant state: "
               << (is_infty_level(lemma_pob->level())?"(inductive)":"")
               <<  mk_pp(lemma_pob->get_expr(), m) << "\n";);
