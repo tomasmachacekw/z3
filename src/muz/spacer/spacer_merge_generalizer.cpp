@@ -62,8 +62,7 @@ namespace spacer {
         arith_util m_arith(m);
         expr_ref conj(m);
         rational rhs;
-        if(m_arith.is_numeral(to_app(literal)->get_arg(1), rhs) && rhs >= 0) { 
-
+        if(m_arith.is_numeral(to_app(literal)->get_arg(1), rhs) && rhs >= 0) {
             // AG: assumes that literal is integer sort, but could be rational sort
             conj = m.mk_app(to_app(literal)->get_family_id(),
                             to_app(literal)->get_decl_kind(),
@@ -595,6 +594,7 @@ namespace spacer {
 
     /*
       Summarize using concrete numerical bounds from neighbours
+      1) simple half spaces (>= t1 n1)
      */
     bool lemma_merge_generalizer::merge_summarize(const expr_ref &literal,
                                                   const expr_ref pattern,
@@ -611,6 +611,21 @@ namespace spacer {
               };
               tout << "\n------\n"
               ;);
+
+        // case 1) simple half spaces
+        if(is_simple_literal(pattern)){
+            rational maxima(0), minima(0), temp(0);
+            for(auto *n : neighbour_lemmas){
+                if(!m_arith.is_numeral(to_app(n)->get_arg(1), temp)) { continue; }
+                if(temp >= maxima){ maxima = temp; }
+                if(temp <= minima){ minima = temp; }
+            }
+            TRACE("merge_dbg_summarize",
+                  tout << "---Simple half spaces---\n";
+                  tout << "MAX/MIN: " << maxima << "/" << minima;
+                  tout << "\n------\n"
+                  ;);
+        }
         return false;
     }
 }
