@@ -187,7 +187,7 @@ private:
                        const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures);
     bool half_plane_02(const expr_ref &literal, const expr_ref &pattern,
                        const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures);
-    bool half_plane_03(const expr_ref &literal, const expr_ref &pattern,
+    bool half_plane_03(const expr_ref &literal, const expr * pattern,
                        const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures);
     bool half_plane_XX(const expr_ref &literal, const expr_ref &pattern,
                        const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures);
