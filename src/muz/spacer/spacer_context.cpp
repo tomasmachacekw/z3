@@ -3255,8 +3255,12 @@ bool context::check_reachability ()
             break;
         case l_false:
             SASSERT(m_pob_queue.size() == old_sz);
+            //HG: if there are 2 pobs returned, the first one is an abstraction
+            //the other one is the same pob to be enqueued at a higher level
+            if( new_pobs.size() == 2 && new_pobs[0]->is_abs())
+              m_pob_queue.push(*new_pobs[0]);
             for (auto pob : new_pobs) {
-                if (is_requeue(*pob) || pob->is_abs()) {m_pob_queue.push(*pob);}
+              if (is_requeue(*pob)) {m_pob_queue.push(*pob);}
             }
 
             if (m_pob_queue.is_root(*node)) {return false;}
@@ -3586,9 +3590,6 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
         CTRACE("merge_dbg", n.is_abs(), tout << " Blocked abs pob " << mk_pp(n.post(), m) << " using lemma " << mk_pp(lemma_pob->get_expr(), m) << " Level " << lemma_pob->level() << " id " << n.post()->get_id() << "\n";);
 
-        //HG : compute abstraction of the pob
-        if(m_adhoc_gen && n.can_abs()){ abstract_pob(n, out); }
-
         DEBUG_CODE(
             lemma_sanity_checker sanity_checker(*this);
             sanity_checker(lemma_pob);
@@ -3625,6 +3626,9 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                 }
             }
         }
+
+        //HG : compute abstraction of the pob
+        if(m_adhoc_gen && n.can_abs()){ abstract_pob(n, out); }
 
         // schedule the node to be placed back in the queue
         n.inc_level();
