@@ -3601,7 +3601,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                   {
                     expr_ref_vector neighbours = l->get_neighbours();
                     //continue if there are no neighbours
-                    if(neighbours.size() == 0)
+                    if(neighbours.size() == 0 || !neighbours.get(0))
                       continue;
                     expr* pattern = neighbours.get(0);
                     if(!a_util.is_arith_expr(to_app(pattern)))
