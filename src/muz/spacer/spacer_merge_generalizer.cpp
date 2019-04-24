@@ -165,40 +165,6 @@ namespace spacer {
             }
 
         }
-
-        // if(gt_or_geq(literal)){
-        //     if(!m_arith.is_numeral(app->get_arg(1), rhs)) { return false; }
-        //     if(neg_coeff_uniCs.size() > 0){
-        //         // JEF: neg_coeff hence top level not
-        //         neg_sum = m_arith.mk_add(neg_coeff_uniCs.size(), neg_coeff_uniCs.c_ptr());
-        //         conj = m.mk_not(m.mk_app(app->get_family_id(), app->get_decl_kind(), sum, m_arith.mk_int(0)));
-        //         conjectures.push_back(conj);
-        //         STRACE("merge_strategies", tout << "Conj: " << mk_epp(conj, m) << "\n";);
-        //     }
-        //     else if(pos_coeff_uniCs.size() > 0){
-        //         pos_sum = m_arith.mk_add(pos_coeff_uniCs.size(), pos_coeff_uniCs.c_ptr());
-        //         conj = m.mk_app(app->get_family_id(), app->get_decl_kind(), sum, m_arith.mk_int(0));
-        //         conjectures.push_back(conj);
-        //         STRACE("merge_strategies", tout << "Conj: " << mk_epp(conj, m) << "\n";);
-        //     }
-        // } else {
-        //     SASSERT(lt_or_leq(literal));
-        //     if(!m_arith.is_numeral(app->get_arg(1), rhs) || !(rhs <= 0)) { return false; }
-        //     if(neg_coeff_uniCs.size() > 0){
-        //         // JEF: neg_coeff hence top level not
-        //         neg_sum = m_arith.mk_add(neg_coeff_uniCs.size(), neg_coeff_uniCs.c_ptr());
-        //         conj = m.mk_not(m.mk_app(app->get_family_id(), app->get_decl_kind(), sum, m_arith.mk_int(0)));
-        //         conjectures.push_back(conj);
-        //         STRACE("merge_strategies", tout << "Conj: " << mk_epp(conj, m) << "\n";);
-        //     }
-        //     else if(pos_coeff_uniCs.size() > 0){
-        //         pos_sum = m_arith.mk_add(pos_coeff_uniCs.size(), pos_coeff_uniCs.c_ptr());
-        //         conj = m.mk_app(app->get_family_id(), app->get_decl_kind(), sum, m_arith.mk_int(0));
-        //         conjectures.push_back(conj);
-        //         STRACE("merge_strategies", tout << "Conj: " << mk_epp(conj, m) << "\n";);
-        //     }
-        // }
-
         STRACE("merge_strategies", tout << "Ret: " << !conjectures.empty() << "\n";);
         return !conjectures.empty();
     }
@@ -336,32 +302,6 @@ namespace spacer {
             STRACE("fun", tout << "non_boolean_literals_cube: " << mk_pp(normalizedCube, m) << "\n";);
         }
 
-
-        /* if(merge_halfspaces(normalizedCube, to_app(neighbours.get(0)), out, conjuncts)){ */
-        /*     STRACE("cluster_stats", tout << "merge halfplanes found a conjecture...\n" */
-        /*            << mk_pp(out, m) << "\n";); */
-        /*     expr_ref_vector conj(m); */
-        /*     conj.push_back(out); */
-        /*     if(check_inductive_and_update(lemma, conj)) */
-        /*         return; */
-        /*     else{ */
-        /*         conjuncts.push_back(out); */
-        /*         conj.reset(); */
-        /*         conj.push_back(mk_and(conjuncts)); */
-        /*         if(check_inductive_and_update(lemma, conj)) */
-        /*             return; */
-        /*     } */
-        /* } */
-
-        // if(leq_monotonic_neg_k(normalizedCube, to_app(neighbours.get(0)), out)){
-        //     STRACE("cluster_stats", tout << "leq monotoinc k found a conjecture...\n"
-        //            << mk_pp(out, m) << "\n";);
-        //     expr_ref_vector conj(m);
-        //     conj.push_back(out);
-        //     if(check_inductive_and_update(lemma, conj))
-        //         return;
-        // }
-
         if(half_plane_01(normalizedCube, normalizedCube, neighbours, conjuncts)){
             STRACE("merge_strategies", tout << "Applied half_plane_01 on: " << mk_pp(normalizedCube, m) << "\n";);
             if(check_inductive_and_update(lemma, conjuncts))
@@ -379,15 +319,6 @@ namespace spacer {
             if(check_inductive_and_update(lemma, conjuncts))
                 return;
         }
-
-        // if(monotonic_coeffcient(cube, to_app(neighbours.get(0)), out)){
-        //     STRACE("merge_strategies", tout << "mono coeff found a conjecture...\n"
-        //            << mk_pp(out, m) << "\n";);
-        //     expr_ref_vector conj(m);
-        //     conj.push_back(out);
-        //     if(check_inductive_and_update(lemma, conj))
-        //         return;
-        // }
 
 
        if(half_plane_XX(normalizedCube, normalizedCube, neighbours, conjuncts)){
@@ -683,3 +614,39 @@ namespace spacer {
         return false;
     }
 }
+
+
+
+// OLD TRICKS (remove once all new tricks are tested)
+// if(merge_halfspaces(normalizedCube, to_app(neighbours.get(0)), out, conjuncts)){
+//     STRACE("cluster_stats", tout << "merge halfplanes found a conjecture...\n"
+//            << mk_pp(out, m) << "\n";);
+//     expr_ref_vector conj(m);
+//     conj.push_back(out);
+//     if(check_inductive_and_update(lemma, conj))
+//         return;
+//     else{
+//         conjuncts.push_back(out);
+//         conj.reset();
+//         conj.push_back(mk_and(conjuncts));
+//         if(check_inductive_and_update(lemma, conj))
+//             return;
+//     }
+// }
+// if(leq_monotonic_neg_k(normalizedCube, to_app(neighbours.get(0)), out)){
+//     STRACE("cluster_stats", tout << "leq monotoinc k found a conjecture...\n"
+//            << mk_pp(out, m) << "\n";);
+//     expr_ref_vector conj(m);
+//     conj.push_back(out);
+//     if(check_inductive_and_update(lemma, conj))
+//         return;
+// }
+// if(monotonic_coeffcient(cube, to_app(neighbours.get(0)), out)){
+//     STRACE("merge_strategies", tout << "mono coeff found a conjecture...\n"
+//            << mk_pp(out, m) << "\n";);
+//     expr_ref_vector conj(m);
+//     conj.push_back(out);
+//     if(check_inductive_and_update(lemma, conj))
+//         return;
+// }
+
