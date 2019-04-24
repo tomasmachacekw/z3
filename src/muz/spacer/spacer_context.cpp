@@ -3584,54 +3584,10 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             (*m_lemma_generalizers[i])(lemma_pob);
         }
 
-            CTRACE("merge_dbg", n.is_abs(), tout << " Blocked abs pob " << mk_pp(n.post(), m) << " using lemma " << mk_pp(lemma_pob->get_expr(), m) << " Level " << lemma_pob->level() << " id " << n.post()->get_id() << "\n";);
+        CTRACE("merge_dbg", n.is_abs(), tout << " Blocked abs pob " << mk_pp(n.post(), m) << " using lemma " << mk_pp(lemma_pob->get_expr(), m) << " Level " << lemma_pob->level() << " id " << n.post()->get_id() << "\n";);
 
-            //HG : compute abstraction of the pob
-            if(m_adhoc_gen && n.can_abs() )
-              {
-                arith_util a_util(m);
-                const ptr_vector<lemma> &lemmas = n.lemmas();
-                expr_ref_vector new_pob(m), cube(m), u_consts(m);
-                expr *lhs;
-                cube.push_back(n.post());
-                flatten_and(cube);
-                for(auto &l : lemmas)
-                  {
-                    const expr_ref_vector &neighbours = l->get_neighbours();
-                    //continue if there are no neighbours
-                    if(neighbours.size() == 0 || !neighbours.get(0))
-                      continue;
-                    expr* pattern = neighbours.get(0);
-                    if(!a_util.is_arith_expr(to_app(pattern)))
-                      continue;
-                    expr_ref_vector pattern_and(m);
-                    pattern_and.push_back(pattern);
-                    flatten_and(pattern_and);
-                    bool is_mono_coeff = pattern_and.size() == 1 && get_num_vars(pattern) == 1 && !has_nonlinear_mul(pattern, m);
-                    if(is_mono_coeff)
-                      {
-                        lhs = (to_app(pattern))->get_arg(0);
-                        //possible loop unroll
-                        for(auto &c : cube)
-                          {
-                            get_uninterp_consts(c, u_consts);
-                            SASSERT(u_consts.size() > 0);
-                            if ( !u_consts.contains(lhs) )
-                              new_pob.push_back(c);
-                            u_consts.reset();
-                          }
-                        if(new_pob.size() > 0 && new_pob.size() < cube.size())
-                          {
-                            pob* n1 = n.pt().mk_pob(&n, n.level(), n.depth(), mk_and(new_pob), n.get_binding());
-                            n1->set_abs();
-                            out.push_back(&(*n1));
-                            TRACE("merge_dbg", tout << " abstracting " << mk_and(cube) << " into pob "<< mk_and(new_pob) << " id is " << n1->post()->get_id() << "\n";);
-                          }
-                        new_pob.reset();
-                      }
-                  }
-              }
-
+        //HG : compute abstraction of the pob
+        if(m_adhoc_gen && n.can_abs()){ abstract_pob(n, out); }
 
         DEBUG_CODE(
             lemma_sanity_checker sanity_checker(*this);
@@ -3649,6 +3605,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         // // XXX JEFF
         TRACE("lemma_dbg", tout <<
               (lemma_pob->get_expr())->get_id() << ": " << mk_pp(mk_and(lemma_pob->get_cube()), m) << "\n";);
+
 
         // Optionally update the node to be the negation of the lemma
         if (v && m_use_lemma_as_pob) {
@@ -3716,6 +3673,56 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     throw unknown_exception();
 }
 
+void context::abstract_pob(pob& n, pob_ref_buffer &out)
+{
+  arith_util a_util(m);
+  const ptr_vector<lemma> &lemmas = n.lemmas();
+  expr_ref_vector new_pob(m), cube(m), u_consts(m);
+  expr *lhs;
+  cube.push_back(n.post());
+  flatten_and(cube);
+  for(auto &l : lemmas)
+    {
+      const expr_ref_vector &neighbours = l->get_neighbours();
+      //continue if there are no neighbours
+      if(neighbours.size() == 0 || !neighbours.get(0))
+        continue;
+      expr* pattern = neighbours.get(0);
+      if(!a_util.is_arith_expr(to_app(pattern)))
+        continue;
+      expr_ref_vector pattern_and(m);
+      pattern_and.push_back(pattern);
+      flatten_and(pattern_and);
+      bool is_mono_coeff = pattern_and.size() == 1 && get_num_vars(pattern) == 1 && !has_nonlinear_mul(pattern, m);
+      if(is_mono_coeff)
+        {
+          lhs = (to_app(pattern))->get_arg(0);
+          //possible loop unroll
+          for(auto &c : cube)
+            {
+              get_uninterp_consts(c, u_consts);
+              SASSERT(u_consts.size() > 0);
+              if ( !u_consts.contains(lhs) )
+                new_pob.push_back(c);
+              u_consts.reset();
+            }
+          if(new_pob.size() > 0 && new_pob.size() < cube.size())
+            {
+              expr_ref c = mk_and(new_pob);
+              pob *f = n.pt().find_pob(&n, c);
+              // skip if a similar pob is already in the queue
+              if (!f || !f->is_in_queue())
+              {
+                f = n.pt().mk_pob(&n, n.level(), n.depth(), c, n.get_binding());
+                f->set_abs();
+                out.push_back(f);
+                TRACE("merge_dbg", tout << " abstracting " << mk_and(cube) << " id is " << n.post()->get_id() << "\n into pob "<< c << " id is " << f->post()->get_id() << "\n";);
+                return;
+              }
+            }
+        }
+    }
+}
 //
 // check if predicate transformer has a satisfiable predecessor state.
 // returns either a satisfiable predecessor state or

@@ -1068,6 +1068,7 @@ class context {
                    unsigned full_prop_lvl);
     bool is_reachable(pob &n);
     lbool expand_pob(pob &n, pob_ref_buffer &out);
+    void abstract_pob(pob &n, pob_ref_buffer &out);
     bool create_children(pob& n, const datalog::rule &r,
                          model &mdl,
                          const vector<bool>& reach_pred_used,
