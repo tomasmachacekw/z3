@@ -157,6 +157,8 @@ namespace spacer {
     void get_uninterp_consts_with_pos_coeff(const expr *e, expr_ref_vector &out);
     void get_uninterp_consts_with_neg_coeff(const expr *e, expr_ref_vector &out);
 
+    bool is_ge_or_gt(const expr *e, expr_ref &lhs, expr_ref &rhs);
+    bool is_le_or_lt(const expr *e, expr_ref &lhs, expr_ref &rhs);
     // order by term instead of ast_lt
     struct term_order_proc {
         ast_manager &m;

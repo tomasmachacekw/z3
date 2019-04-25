@@ -678,6 +678,14 @@ class pob {
     //the number of times it has been under approximated
     unsigned m_ua;
 
+    //true if this pob is an abstraction
+    bool m_is_abs;
+
+    //true if the pob can be abstracted
+    bool m_can_abs;
+
+    //pattern with which abstraction was created
+    expr_ref m_abs_pattern;
 public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
@@ -707,6 +715,12 @@ public:
 
     pob* parent () const { return m_parent.get (); }
 
+    bool is_abs() const { return m_is_abs; }
+    void set_abs() { m_is_abs = true ; }
+    const expr * get_abs_pattern() const { return m_abs_pattern.get(); }
+    void set_abs_pattern(expr * pattern){ m_abs_pattern = expr_ref(pattern, get_ast_manager()); }
+    bool can_abs() const { return m_can_abs; }
+    void set_nvr_abs() { m_can_abs = false; }
     pred_transformer& pt () const { return m_pt; }
     ast_manager& get_ast_manager () const { return m_pt.get_ast_manager (); }
     manager& get_manager () const { return m_pt.get_manager (); }
@@ -1061,6 +1075,7 @@ class context {
                    unsigned full_prop_lvl);
     bool is_reachable(pob &n);
     lbool expand_pob(pob &n, pob_ref_buffer &out);
+    void abstract_pob(pob &n, pob_ref_buffer &out);
     bool create_children(pob& n, const datalog::rule &r,
                          model &mdl,
                          const vector<bool>& reach_pred_used,

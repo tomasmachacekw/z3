@@ -639,6 +639,40 @@ namespace {
         }
     };
 
+  bool is_le_or_lt(const expr* e,expr_ref &lhs, expr_ref &rhs)
+  {
+    ast_manager &m = rhs.m();
+    arith_util m_arith(m);
+    if(!is_app(e))
+      return false;
+    if(m.is_not(e))
+      return is_ge_or_gt(to_app(e)->get_arg(0), lhs, rhs);
+    if( m_arith.is_arith_expr(e) && ( m_arith.is_le(e) || m_arith.is_lt(e) ) )
+      {
+        lhs = to_app(e)->get_arg(0);
+        rhs = to_app(e)->get_arg(1);
+        return true;
+      }
+    return false;
+  }
+
+  bool is_ge_or_gt(const expr* e,expr_ref &lhs, expr_ref &rhs)
+  {
+    ast_manager &m = rhs.m();
+    arith_util m_arith(m);
+    if(!is_app(e))
+      return false;
+    if(m.is_not(e))
+      return is_le_or_lt(to_app(e)->get_arg(0), lhs, rhs);
+    if( m_arith.is_arith_expr(e) && ( m_arith.is_ge(e) || m_arith.is_gt(e) ) )
+      {
+        lhs = to_app(e)->get_arg(0);
+        rhs = to_app(e)->get_arg(1);
+        return true;
+      }
+    return false;
+  }
+
     void normalize(expr *e, expr_ref &out,
                     bool use_simplify_bounds,
                     bool use_factor_eqs)

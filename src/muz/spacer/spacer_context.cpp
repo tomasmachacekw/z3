@@ -71,7 +71,8 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_new_post (m_pt.get_ast_manager ()),
     m_level (level), m_depth (depth),
     m_open (true), m_use_farkas (true), m_in_queue(false),
-    m_weakness(0), m_blocked_lvl(0), m_ua(0) {
+    m_weakness(0), m_blocked_lvl(0), m_ua(0), m_is_abs(false), m_can_abs(true),
+    m_abs_pattern(m_pt.get_ast_manager()){
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -108,7 +109,9 @@ void pob::inherit(pob const &p) {
     m_use_farkas = p.m_use_farkas;
     m_weakness = p.m_weakness;
     m_ua = p.m_ua;
-
+    m_is_abs = p.m_is_abs;
+    m_can_abs = p.m_can_abs;
+    m_abs_pattern = p.m_abs_pattern;
     m_derivation = nullptr;
 }
 
@@ -3164,7 +3167,29 @@ lbool context::solve_core (unsigned from_lvl)
     return l_undef;
 }
 
+//given an abstract reachable lemma, mark all related pobs to never abstract
+//again. A pob p is related to an abstract pob pob_abs if lemmas that block p are
+//neighbours of the lemma that was used to create pob_abs
+void set_nvr_abs(const pob_ref & pob_abs)
+{
+  if(!pob_abs || !pob_abs->parent()) return;
+  SASSERT(pob_abs->is_abs());
+  //get pattern that was used to create reachable
+  const expr * pob_pattern = pob_abs->parent()->get_abs_pattern();
+  //if there is no pattern, return. This happens when pob_abs is a predecessor of
+  //another abstract pob
+  if (!pob_pattern) return ;
+  lemma_ref_vector all_lemmas;
+  pob_abs->pt().get_all_lemmas(all_lemmas, false);
 
+  //scan through all lemmas in the database to check whether they are neighbours
+  for ( auto *l : all_lemmas)
+    {
+      const expr_ref_vector & t_neighbours = l->get_neighbours();
+      if(t_neighbours.size() > 0 && t_neighbours.get(0) == pob_pattern )
+        l->get_pob()->set_nvr_abs();
+    }
+}
 //
 bool context::check_reachability ()
 {
@@ -3193,11 +3218,13 @@ bool context::check_reachability ()
             node = last_reachable;
             last_reachable = nullptr;
             if (m_pob_queue.is_root(*node)) { return true; }
+            //HG : if an abstraction is reachable, never abstracted related pobs in future
+            if (node->is_abs()) { set_nvr_abs(node); }
             if (is_reachable (*node->parent())) {
                 last_reachable = node->parent ();
                 SASSERT(last_reachable->is_closed());
                 last_reachable->close ();
-            } else if (!node->parent()->is_closed()) {
+            } else if (!node->is_abs() && !node->parent()->is_closed()) {
                 /* bump node->parent */
                 node->parent ()->bump_weakness();
             }
@@ -3250,8 +3277,12 @@ bool context::check_reachability ()
             break;
         case l_false:
             SASSERT(m_pob_queue.size() == old_sz);
+            //HG: if there are 2 pobs returned, the first one is an abstraction
+            //the other one is the same pob to be enqueued at a higher level
+            if( new_pobs.size() == 2 && new_pobs[0]->is_abs())
+              m_pob_queue.push(*new_pobs[0]);
             for (auto pob : new_pobs) {
-                if (is_requeue(*pob)) {m_pob_queue.push(*pob);}
+              if (is_requeue(*pob)) {m_pob_queue.push(*pob);}
             }
 
             if (m_pob_queue.is_root(*node)) {return false;}
@@ -3533,7 +3564,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                     out.push_back (next);
                 }
             }
-
+            CTRACE("merge_dbg", n.is_abs(), tout<<"Failed to block abstraction " << n.post()->get_id() << "\n";);
 
             IF_VERBOSE(1, verbose_stream () << (next ? " X " : " T ")
                        << std::fixed << std::setprecision(2)
@@ -3568,39 +3599,41 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
         pob_ref nref(&n);
         // -- create lemma from a pob and last unsat core
-        lemma_ref lemma = alloc(class lemma, pob_ref(&n), cube, uses_level);
+        lemma_ref lemma_pob = alloc(class lemma, pob_ref(&n), cube, uses_level);
 
         // -- run all lemma generalizers
         for (unsigned i = 0;
              // -- only generalize if lemma was constructed using farkas
-             n.use_farkas_generalizer () && !lemma->is_false() &&
+             n.use_farkas_generalizer () && !lemma_pob->is_false() &&
                  i < m_lemma_generalizers.size(); ++i) {
             checkpoint ();
-            (*m_lemma_generalizers[i])(lemma);
+            (*m_lemma_generalizers[i])(lemma_pob);
         }
 
+        CTRACE("merge_dbg", n.is_abs(), tout << " Blocked abs pob " << mk_pp(n.post(), m) << " using lemma " << mk_pp(lemma_pob->get_expr(), m) << " Level " << lemma_pob->level() << " id " << n.post()->get_id() << "\n";);
 
         DEBUG_CODE(
             lemma_sanity_checker sanity_checker(*this);
-            sanity_checker(lemma);
+            sanity_checker(lemma_pob);
             );
 
-
+        TRACE("verb_json",dump_json(););
         TRACE("spacer", tout << "invariant state: "
-              << (is_infty_level(lemma->level())?"(inductive)":"")
-              <<  mk_pp(lemma->get_expr(), m) << "\n";);
+              << (is_infty_level(lemma_pob->level())?"(inductive)":"")
+              <<  mk_pp(lemma_pob->get_expr(), m) << "\n";);
 
-        bool v = n.pt().add_lemma (lemma.get());
+        bool v = n.pt().add_lemma(lemma_pob.get());
         if (v) { m_stats.m_num_lemmas++; }
 
         // // XXX JEFF
         TRACE("lemma_dbg", tout <<
-              (lemma->get_expr())->get_id() << ": " << mk_pp(mk_and(lemma->get_cube()), m) << "\n";);
+              (lemma_pob->get_expr())->get_id() << ": " << mk_pp(mk_and(lemma_pob->get_cube()), m) << "\n";);
+
 
         // Optionally update the node to be the negation of the lemma
         if (v && m_use_lemma_as_pob) {
             expr_ref c(m);
-            c = mk_and(lemma->get_cube());
+            c = mk_and(lemma_pob->get_cube());
             // check that the post condition is different
             if (c  != n.post()) {
                 pob *f = n.pt().find_pob(n.parent(), c);
@@ -3615,6 +3648,9 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                 }
             }
         }
+
+        //HG : compute abstraction of the pob
+        if(m_adhoc_gen && n.can_abs()){ abstract_pob(n, out); }
 
         // schedule the node to be placed back in the queue
         n.inc_level();
@@ -3663,6 +3699,57 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     throw unknown_exception();
 }
 
+void context::abstract_pob(pob& n, pob_ref_buffer &out)
+{
+  arith_util a_util(m);
+  const ptr_vector<lemma> &lemmas = n.lemmas();
+  expr_ref_vector new_pob(m), cube(m), u_consts(m);
+  expr *lhs;
+  cube.push_back(n.post());
+  flatten_and(cube);
+  for(auto &l : lemmas)
+    {
+      const expr_ref_vector &neighbours = l->get_neighbours();
+      //continue if there are no neighbours
+      if(neighbours.size() == 0 || !neighbours.get(0))
+        continue;
+      expr* pattern = neighbours.get(0);
+      if(!a_util.is_arith_expr(to_app(pattern)))
+        continue;
+      expr_ref_vector pattern_and(m);
+      pattern_and.push_back(pattern);
+      flatten_and(pattern_and);
+      bool is_mono_coeff = pattern_and.size() == 1 && get_num_vars(pattern) == 1 && !has_nonlinear_mul(pattern, m);
+      if(is_mono_coeff)
+        {
+          lhs = (to_app(pattern))->get_arg(0);
+          //possible loop unroll
+          for(auto &c : cube)
+            {
+              get_uninterp_consts(c, u_consts);
+              SASSERT(u_consts.size() > 0);
+              if ( !u_consts.contains(lhs) )
+                new_pob.push_back(c);
+              u_consts.reset();
+            }
+          if(new_pob.size() > 0 && new_pob.size() < cube.size())
+            {
+              expr_ref c = mk_and(new_pob);
+              pob *f = n.pt().find_pob(&n, c);
+              // skip if a similar pob is already in the queue
+              if (!f || !f->is_in_queue())
+              {
+                f = n.pt().mk_pob(&n, n.level(), n.depth(), c, n.get_binding());
+                f->set_abs();
+                n.set_abs_pattern(pattern);
+                out.push_back(f);
+                TRACE("merge_dbg", tout << " abstracting " << mk_and(cube) << " id is " << n.post()->get_id() << "\n into pob "<< c << " id is " << f->post()->get_id() << "\n";);
+                return;
+              }
+            }
+        }
+    }
+}
 //
 // check if predicate transformer has a satisfiable predecessor state.
 // returns either a satisfiable predecessor state or
