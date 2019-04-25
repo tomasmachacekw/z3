@@ -71,7 +71,8 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_new_post (m_pt.get_ast_manager ()),
     m_level (level), m_depth (depth),
     m_open (true), m_use_farkas (true), m_in_queue(false),
-    m_weakness(0), m_blocked_lvl(0), m_ua(0), m_is_abs(false), m_can_abs(true) {
+    m_weakness(0), m_blocked_lvl(0), m_ua(0), m_is_abs(false), m_can_abs(true),
+    m_abs_pattern(m_pt.get_ast_manager()){
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -110,6 +111,7 @@ void pob::inherit(pob const &p) {
     m_ua = p.m_ua;
     m_is_abs = p.m_is_abs;
     m_can_abs = p.m_can_abs;
+    m_abs_pattern = p.m_abs_pattern;
     m_derivation = nullptr;
 }
 
@@ -3165,7 +3167,29 @@ lbool context::solve_core (unsigned from_lvl)
     return l_undef;
 }
 
+//given an abstract reachable lemma, mark all related pobs to never abstract
+//again. A pob p is related to an abstract pob pob_abs if lemmas that block p are
+//neighbours of the lemma that was used to create pob_abs
+void set_nvr_abs(const pob_ref & pob_abs)
+{
+  if(!pob_abs || !pob_abs->parent()) return;
+  SASSERT(pob_abs->is_abs());
+  //get pattern that was used to create reachable
+  const expr * pob_pattern = pob_abs->parent()->get_abs_pattern();
+  //if there is no pattern, return. This happens when pob_abs is a predecessor of
+  //another abstract pob
+  if (!pob_pattern) return ;
+  lemma_ref_vector all_lemmas;
+  pob_abs->pt().get_all_lemmas(all_lemmas, false);
 
+  //scan through all lemmas in the database to check whether they are neighbours
+  for ( auto *l : all_lemmas)
+    {
+      const expr_ref_vector & t_neighbours = l->get_neighbours();
+      if(t_neighbours.size() > 0 && t_neighbours.get(0) == pob_pattern )
+        l->get_pob()->set_nvr_abs();
+    }
+}
 //
 bool context::check_reachability ()
 {
@@ -3189,15 +3213,13 @@ bool context::check_reachability ()
         pob_ref node;
         checkpoint ();
 
-        if ( last_reachable && last_reachable->is_abs() )
-          last_reachable->set_nvr_abs();
         while (last_reachable) {
             checkpoint ();
             node = last_reachable;
             last_reachable = nullptr;
             if (m_pob_queue.is_root(*node)) { return true; }
-            //HG : if an abstraction is reachable, never abstract parent in future
-            if (node->is_abs()) { (*node->parent()).set_nvr_abs(); }
+            //HG : if an abstraction is reachable, never abstracted related pobs in future
+            if (node->is_abs()) { set_nvr_abs(node); }
             if (is_reachable (*node->parent())) {
                 last_reachable = node->parent ();
                 SASSERT(last_reachable->is_closed());
@@ -3719,6 +3741,7 @@ void context::abstract_pob(pob& n, pob_ref_buffer &out)
               {
                 f = n.pt().mk_pob(&n, n.level(), n.depth(), c, n.get_binding());
                 f->set_abs();
+                n.set_abs_pattern(pattern);
                 out.push_back(f);
                 TRACE("merge_dbg", tout << " abstracting " << mk_and(cube) << " id is " << n.post()->get_id() << "\n into pob "<< c << " id is " << f->post()->get_id() << "\n";);
                 return;
