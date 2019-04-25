@@ -183,6 +183,7 @@ namespace spacer {
       ------
       (< t_1 t_2)
 
+      // XXX JEF: This is aggressive imo;
       [Branch 3.1]
       (>= t_1 k_1) (>= t_2 k_2) and k_1 > k_2
       ------
@@ -193,6 +194,7 @@ namespace spacer {
       ------
       (< t_1 t_2)
 
+      // TODO Branch 4.1 & 4.2: flip side of 3.1 and 3.2
 
     */
     bool lemma_merge_generalizer::half_plane_XX(const expr_ref &literal, const expr_ref &pattern,
@@ -254,7 +256,7 @@ namespace spacer {
                 conjectures.push_back(conj);
                 return true;
             }
-        } // TODO Branch 4.1 & 4.2
+        }
         // none of the conjectures fits, give up!
         return false;
     }
@@ -633,7 +635,7 @@ namespace spacer {
     }
 }
 
-
+// Find out interesting pairs of literals over conjuncts?
 
 // OLD TRICKS (remove once all new tricks are tested)
 // if(merge_halfspaces(normalizedCube, to_app(neighbours.get(0)), out, conjuncts)){
