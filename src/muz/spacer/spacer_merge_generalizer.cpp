@@ -66,7 +66,7 @@ namespace spacer {
         if(m_arith.is_numeral(to_app(literal)->get_arg(1), rhs, isInt)){
             STRACE("merge_strategies", tout << "rhs, isInt?: " << rhs << " / " << isInt << "\n";);
             STRACE("merge_strategies", tout << "numeral: " << mk_epp(m_arith.mk_numeral(zero, isInt), m) << "\n";);
-            if(rhs < 0){
+            if(rhs < zero){
                 conj = m.mk_app(to_app(literal)->get_family_id(),
                                 to_app(literal)->get_decl_kind(),
                                 to_app(literal)->get_arg(0),
@@ -75,7 +75,7 @@ namespace spacer {
                 conjectures.push_back(conj);
                 return true;
             }
-            if(rhs >= 0){
+            if(rhs >= zero){
                 conj = m_arith.mk_lt(to_app(literal)->get_arg(0), m_arith.mk_numeral(zero, isInt));
                 conjectures.push_back(conj);
                 return true;
@@ -98,14 +98,14 @@ namespace spacer {
         rational rhs, zero(0);
         bool isInt;
         if(m_arith.is_numeral(to_app(literal)->get_arg(1), rhs, isInt)){
-            if(rhs <= 0){
+            if(rhs <= zero){
                 conj = m.mk_app(to_app(literal)->get_family_id(),
                                 to_app(literal)->get_decl_kind(),
                                 to_app(literal)->get_arg(0), m_arith.mk_numeral(zero, isInt));
                 conjectures.push_back(conj);
                 return true;
             }
-            if(rhs > 0){
+            if(rhs > zero){
                 conj = m_arith.mk_lt(to_app(literal)->get_arg(0), m_arith.mk_numeral(zero, isInt));
                 conjectures.push_back(conj);
                 return true;
