@@ -54,6 +54,7 @@ namespace spacer {
        ------
        (<= t 0)
     */
+    // XXX zero trick is needed to avoid ambiguious `mk_numeral`
     bool lemma_merge_generalizer::half_plane_01 (const expr_ref &literal, const expr_ref &pattern,
                                                  const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures)
     {
@@ -61,19 +62,21 @@ namespace spacer {
         ast_manager m = literal.get_manager();
         arith_util m_arith(m);
         expr_ref conj(m);
-        rational rhs;
-        if(m_arith.is_numeral(to_app(literal)->get_arg(1), rhs) && rhs >= 0) {
-            // AG: assumes that literal is integer sort, but could be rational sort
-            conj = m.mk_app(to_app(literal)->get_family_id(),
-                            to_app(literal)->get_decl_kind(),
-                            to_app(literal)->get_arg(0), m_arith.mk_int(0));
-            conjectures.push_back(conj);
-            // AG: dead code
-            if(rhs < -1) {
-                conj = m_arith.mk_lt(to_app(literal)->get_arg(0), m_arith.mk_int(0));
+        rational rhs, zero(0);
+        bool isInt;
+        if(m_arith.is_numeral(to_app(literal)->get_arg(1), rhs, isInt)){
+            if(rhs >= 0){
+                conj = m.mk_app(to_app(literal)->get_family_id(),
+                                to_app(literal)->get_decl_kind(),
+                                to_app(literal)->get_arg(0), m_arith.mk_numeral(zero, isInt));
                 conjectures.push_back(conj);
+                return true;
             }
-            return true;
+            if(rhs < 0){
+                conj = m_arith.mk_lt(to_app(literal)->get_arg(0), m_arith.mk_numeral(zero, isInt));
+                conjectures.push_back(conj);
+                return true;
+            }
         }
         return false;
     }
@@ -90,21 +93,21 @@ namespace spacer {
         ast_manager m = literal.get_manager();
         arith_util m_arith(m);
         expr_ref conj(m);
-        rational rhs;
-
-
-        if(m_arith.is_numeral(to_app(literal)->get_arg(1), rhs) && rhs <= 0) { 
-            // AG: what if literal is of sort real
-            conj = m.mk_app(to_app(literal)->get_family_id(),
-                            to_app(literal)->get_decl_kind(),
-                            to_app(literal)->get_arg(0), m_arith.mk_int(0));
-            conjectures.push_back(conj);
-            // AG: dead code
-            if(rhs > 1) {
-                conj = m_arith.mk_lt(to_app(literal)->get_arg(0), m_arith.mk_int(0));
+        rational rhs, zero(0);
+        bool isInt;
+        if(m_arith.is_numeral(to_app(literal)->get_arg(1), rhs, isInt)){
+            if(rhs <= 0){
+                conj = m.mk_app(to_app(literal)->get_family_id(),
+                                to_app(literal)->get_decl_kind(),
+                                to_app(literal)->get_arg(0), m_arith.mk_numeral(zero, isInt));
                 conjectures.push_back(conj);
+                return true;
             }
-            return true;
+            if(rhs > 0){
+                conj = m_arith.mk_lt(to_app(literal)->get_arg(0), m_arith.mk_numeral(zero, isInt));
+                conjectures.push_back(conj);
+                return true;
+            }
         }
         return false;
     }
