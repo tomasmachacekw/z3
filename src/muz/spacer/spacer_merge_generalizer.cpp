@@ -59,8 +59,7 @@ namespace spacer {
                                                  const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures)
     {
         if(!(lt_or_leq(literal)) || !is_simple_literal(literal)) { return false; }
-        ast_manager m = literal.get_manager();
-        arith_util m_arith(m);
+        STRACE("merge_strategies", tout << "entered half_plane_01 with: " << mk_epp(literal, m) << "\n";);
         expr_ref conj(m);
         rational rhs, zero(0);
         bool isInt;
@@ -90,8 +89,7 @@ namespace spacer {
                                                  expr_ref_vector &conjectures)
     {
         if(!(gt_or_geq(literal)) || !is_simple_literal(literal)) { return false; }
-        ast_manager m = literal.get_manager();
-        arith_util m_arith(m);
+        STRACE("merge_strategies", tout << "entered half_plane_02 with: " << mk_epp(literal, m) << "\n";);
         expr_ref conj(m);
         rational rhs, zero(0);
         bool isInt;
@@ -204,13 +202,9 @@ namespace spacer {
         expr_ref conj(m);
         if (! (m.is_and(literal) && to_app(literal)->get_num_args() == 2)) return false;
 
-        TRACE("AHA", tout << "Entered half_plane_XX\n" << literal << "\n";);
-
         expr_ref fst(m), snd(m);
         fst = to_app(literal)->get_arg(0);
         snd = to_app(literal)->get_arg(1);
-
-        STRACE("AHA", tout << "fst: " << fst << "\nsnd:" << snd << "\n" ;);
 
         // check for right operators
         if(!(only_halfSpace(fst)) || !(only_halfSpace(snd))) { return false; }
@@ -224,11 +218,8 @@ namespace spacer {
         t1 = to_app(fst)->get_arg(0);
         t2 = to_app(snd)->get_arg(0);
 
-        STRACE("AHA", tout << "t1: " << t1 << "\nt2:" << t2 << "\n" ;);
-
         if(gt_or_geq(fst) && lt_or_leq(snd)){
             if(k1 > k2){
-                STRACE("AHA", tout << "branch 1\n";);
                 // [Branch 1]
                 conj = m_arith.mk_gt(t1, t2);
                 conjectures.push_back(conj);
@@ -236,7 +227,6 @@ namespace spacer {
             }
         } else if(lt_or_leq(fst) && gt_or_geq(snd)){
             if(k1 < k2){
-                STRACE("AHA", tout << "branch 2\n";);
                 // [Branch 2]
                 conj = m_arith.mk_lt(t1, t2);
                 conjectures.push_back(conj);
@@ -244,7 +234,6 @@ namespace spacer {
             }
         } else if(gt_or_geq(fst) && gt_or_geq(snd)){
             if(k1 > k2){
-                STRACE("AHA", tout << "branch 3.1\n";);
                 // [Branch 3.1]
                 conj = m_arith.mk_gt(t1, t2);
                 conjectures.push_back(conj);
@@ -280,9 +269,9 @@ namespace spacer {
 
         expr_ref pat(m);
         pat = neighbours.get(0);
-        if(merge_summarize(normalizedCube, pat, neighbours, conjuncts)){
-            // TODO update
-        }
+        // if(merge_summarize(normalizedCube, pat, neighbours, conjuncts)){
+        //     // TODO update
+        // }
 
         // update the pattern by dropping singleton uninterp_consts
         if(m.is_and(neighbours.get(0))){
@@ -342,9 +331,6 @@ namespace spacer {
     }
     /*
       TODO cluster statistics / conjecture effective statistics
-      TODO formalize guards
-      TODO frame this as strategies
-      TODO problem classification: linear pattern / non-linear patterns
       TODO guard normalization
     */
     /* with t <= k

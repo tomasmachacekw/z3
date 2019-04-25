@@ -3173,6 +3173,7 @@ lbool context::solve_core (unsigned from_lvl)
 void set_nvr_abs(const pob_ref & pob_abs)
 {
   if(!pob_abs || !pob_abs->parent()) return;
+  // JEF: Not sure about this SASSERT since we do set_nvr_abs to our neighbours' POB
   SASSERT(pob_abs->is_abs());
   //get pattern that was used to create reachable
   const expr * pob_pattern = pob_abs->parent()->get_abs_pattern();
