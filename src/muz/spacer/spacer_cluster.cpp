@@ -94,9 +94,10 @@ namespace spacer {
             }
         }
 
-        //if (!neighbours.empty() && num_vars_in_pattern > 0) // XXX Using pair neighbours seems a bit too fine
-        if (neighbours.size() >= m_dis_threshold && num_vars_in_pattern > 0)
+        if (!neighbours.empty() && num_vars_in_pattern > 0)
             lemma->update_neighbours(pattern, neighbours);
+
+
 
         CTRACE("cluster_stats", neighbours.size() >= 10,
                tout << "---Pattern---\n" << pattern << "\n"
