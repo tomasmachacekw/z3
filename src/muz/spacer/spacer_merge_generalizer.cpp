@@ -64,14 +64,18 @@ namespace spacer {
         rational rhs, zero(0);
         bool isInt;
         if(m_arith.is_numeral(to_app(literal)->get_arg(1), rhs, isInt)){
-            if(rhs >= 0){
+            STRACE("merge_strategies", tout << "rhs, isInt?: " << rhs << " / " << isInt << "\n";);
+            STRACE("merge_strategies", tout << "numeral: " << mk_epp(m_arith.mk_numeral(zero, isInt), m) << "\n";);
+            if(rhs < 0){
                 conj = m.mk_app(to_app(literal)->get_family_id(),
                                 to_app(literal)->get_decl_kind(),
-                                to_app(literal)->get_arg(0), m_arith.mk_numeral(zero, isInt));
+                                to_app(literal)->get_arg(0),
+                                m_arith.mk_numeral(zero, isInt));
+                STRACE("merge_strategies", tout << "Conj: " << mk_epp(conj, m) << "\n";);
                 conjectures.push_back(conj);
                 return true;
             }
-            if(rhs < 0){
+            if(rhs >= 0){
                 conj = m_arith.mk_lt(to_app(literal)->get_arg(0), m_arith.mk_numeral(zero, isInt));
                 conjectures.push_back(conj);
                 return true;
