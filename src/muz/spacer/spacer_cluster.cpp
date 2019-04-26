@@ -97,8 +97,6 @@ namespace spacer {
         if (!neighbours.empty() && num_vars_in_pattern > 0)
             lemma->update_neighbours(pattern, neighbours);
 
-
-
         CTRACE("cluster_stats", neighbours.size() >= 10,
                tout << "---Pattern---\n" << pattern << "\n"
                << "---Concrete lemmas---\n";
