@@ -169,6 +169,7 @@ public:
     void reset_statistics() override {m_st.reset();}
 
 private:
+    bool core(lemma_ref &lemma);
     bool leq_monotonic_k(expr_ref &l, app *pattern, expr_ref &out);
     bool leq_monotonic_neg_k(expr_ref &l, app *pattern, expr_ref &out);
     bool merge_halfspaces(expr_ref &literal, app *pattern, expr_ref &out, expr_ref_vector &conjuncts);
