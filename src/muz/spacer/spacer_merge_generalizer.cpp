@@ -101,6 +101,7 @@ namespace spacer {
                 conj = m.mk_app(to_app(literal)->get_family_id(),
                                 to_app(literal)->get_decl_kind(),
                                 to_app(literal)->get_arg(0), m_arith.mk_numeral(zero, isInt));
+                TRACE("merge_strategies", tout << "half_plane_02 rhs > zero: " << mk_epp(conj, m) << "\n";);
                 conjectures.push_back(conj);
                 return true;
             }
@@ -272,21 +273,19 @@ namespace spacer {
 
         expr_ref pat(m);
         pat = neighbours.get(0);
-        // if(merge_summarize(normalizedCube, pat, neighbours, conjuncts)){
-        //     // TODO update
-        // }
 
-        // update the pattern by dropping singleton uninterp_consts
+        // Seperating boolean literals and non-boolean ones
+        expr_ref_vector bool_Literals(m);
+
         if(m.is_and(neighbours.get(0))){
             for(expr * c: *to_app(neighbours.get(0))){
-                if(m.is_not(c) && is_uninterp_const(to_app(c)->get_arg(0))) { continue; }
+                if(m.is_not(c) && is_uninterp_const(to_app(c)->get_arg(0))) { bool_Literals.push_back(c); }
                 if(!is_uninterp_const(c)) { non_boolean_literals.push_back(c); }
             }
         }
-        TRACE("fun", tout << "non_boolean_literals\n" << non_boolean_literals << "\n";);
 
         if(!non_boolean_literals.empty()) {
-            neighbours.set(0, mk_and(non_boolean_literals));
+            // neighbours.set(0, mk_and(non_boolean_literals));
             non_boolean_literals.reset();
             for(auto c : lemma->get_cube()){
                 if(m.is_not(c) && is_uninterp_const(to_app(c)->get_arg(0))) { continue; }
@@ -300,26 +299,26 @@ namespace spacer {
 
         if(half_plane_01(normalizedCube, normalizedCube, neighbours, conjuncts)){
             TRACE("merge_strategies", tout << "Applied half_plane_01 on: " << normalizedCube << "\n";);
-            if(check_inductive_and_update(lemma, conjuncts))
+            if(check_inductive_and_update(lemma, conjuncts, bool_Literals))
                 return;
         }
 
         if(half_plane_02(normalizedCube, normalizedCube, neighbours, conjuncts)){
             TRACE("merge_strategies", tout << "Applied half_plane_02 on: " << normalizedCube << "\n";);
-            if(check_inductive_and_update(lemma, conjuncts))
+            if(check_inductive_and_update(lemma, conjuncts, bool_Literals))
                 return;
         }
 
         if(half_plane_03(normalizedCube, neighbours.get(0), neighbours, conjuncts)){
             TRACE("merge_strategies", tout << "Applied half_plane_03 on: " << normalizedCube << "\n";);
-            if(check_inductive_and_update(lemma, conjuncts))
+            if(check_inductive_and_update(lemma, conjuncts, bool_Literals))
                 return;
         }
 
 
        if(half_plane_XX(normalizedCube, normalizedCube, neighbours, conjuncts)){
             TRACE("merge_strategies", tout << "Applied half_plane_XX on: " << normalizedCube << "\n";);
-            if(check_inductive_and_update(lemma, conjuncts))
+            if(check_inductive_and_update(lemma, conjuncts, bool_Literals))
                 return;
         }
 
@@ -333,14 +332,15 @@ namespace spacer {
         return;
     }
     /* core lemma update function*/
-    bool lemma_merge_generalizer::check_inductive_and_update(lemma_ref &lemma, expr_ref_vector conj){
+    bool lemma_merge_generalizer::check_inductive_and_update(lemma_ref &lemma, expr_ref_vector conj, expr_ref_vector bool_Literals){
         TRACE("merge_dbg", tout << "Attempt to update lemma with: "
                << mk_pp(conj.back(), m) << "\n";);
         TRACE("merge_dbg", tout << "lemma_lvl: " << lemma->level() << "\n";);
         pred_transformer &pt = lemma->get_pob()->pt();
-        lemma_ref_vector all_lemmas;
-        pt.get_all_lemmas(all_lemmas, false);
         unsigned uses_level = 0;
+        if(!bool_Literals.empty()){
+           conj.append(bool_Literals);
+        }
         if(pt.check_inductive(lemma->level(), conj, uses_level, lemma->weakness())){
             TRACE("merge_dbg", tout << "Inductive!" << "\n";);
             lemma->update_cube(lemma->get_pob(), conj);
