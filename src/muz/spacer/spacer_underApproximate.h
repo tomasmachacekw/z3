@@ -13,36 +13,21 @@ class under_approx {
     // reference to all bounds that were made
     expr_ref_vector m_refs;
 
-    expr *getLHS(const  expr *e) const {
-        SASSERT(is_app(e));
-        SASSERT(m_arith.is_arith_expr(e));
-        return to_app(e)->get_arg(0);
-    }
-    expr *getRHS(const  expr *e) const {
-        SASSERT(is_app(e));
-        SASSERT(m_arith.is_arith_expr(e));
-        return to_app(e)->get_arg(1);
-    }
-
-    void push_not(expr_ref &res);
-
     /// returns true if e is an arithmetic expression
-    bool is_arith(expr *e) {
-        // XXX handle equality
-        expr *arg;
-        if (!is_app(e)) return false;
-        return m.is_not(e, arg) ? is_arith(arg) : m_arith.is_arith_expr(e);
-    }
+    bool is_arith(expr *e); 
 
-    void normalize_le(expr *e, expr_ref &result);
-    bool get_coeff(expr* l, const expr *var, rational &coeff);
-    int ua_variable(expr_ref l, expr *u_const);
-    bool is_less_than(expr const *a, expr const *b);
-    void ua_literal(model_ref model, expr_ref l, expr_ref_vector &phi,
-                    expr_expr_map &lb, expr_expr_map &ub,
-                    expr_expr_map *sub = nullptr);
-    void ua_formula(const expr_ref_vector &conj, model_ref model, expr_expr_map &lb,
-                    expr_expr_map &ub, expr_expr_map *sub = nullptr);
+    bool find_coeff(expr *t, expr *v, rational &k, bool negated = false);
+    int under_approx_var(expr *t, expr *c, expr *d);
+    void under_approx_lit(model_ref &model, expr *t, expr *c,
+                          expr_ref_vector &bg,
+                          expr_expr_map &lb, expr_expr_map &ub,
+                          expr_expr_map *sub = nullptr);
+
+
+    void under_approx_cube(const expr_ref_vector &cube, model_ref &model,
+                           expr_expr_map &lb, expr_expr_map &ub,
+                           expr_expr_map *sub = nullptr);
+
 
     bool is_disjoint(expr_ref_vector group);
     bool is_disjoint(app *g1, app *g2);
@@ -53,6 +38,7 @@ class under_approx {
         return is_uninterp_const(e) || m_arith.is_numeral(e);
     }
 
+    bool is_le(expr *lit, expr_ref &t, expr_ref &c); 
     // each literal in e is Sum Of Products form
     bool is_sop(expr_ref_vector const &e) {
         for (expr *a : e) {
@@ -76,6 +62,6 @@ class under_approx {
 
   public:
     under_approx(ast_manager &manager) : m(manager), m_arith(m), m_refs(m) {}
-    pob *under_approximate(pob &n, model_ref model);
+    pob *under_approximate(const pob &n, model_ref &model);
 };
 } // namespace spacer

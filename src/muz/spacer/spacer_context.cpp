@@ -3170,7 +3170,7 @@ lbool context::solve_core (unsigned from_lvl)
 //given an abstract reachable lemma, mark all related pobs to never abstract
 //again. A pob p is related to an abstract pob pob_abs if lemmas that block p are
 //neighbours of the lemma that was used to create pob_abs
-void set_nvr_abs(const pob_ref & pob_abs)
+static void set_nvr_abs(const pob_ref & pob_abs)
 {
   if(!pob_abs || !pob_abs->parent()) return;
   // JEF: Not sure about this SASSERT since we do set_nvr_abs to our neighbours' POB
@@ -3184,12 +3184,11 @@ void set_nvr_abs(const pob_ref & pob_abs)
   pob_abs->pt().get_all_lemmas(all_lemmas, false);
 
   //scan through all lemmas in the database to check whether they are neighbours
-  for ( auto *l : all_lemmas)
-    {
+  for ( auto *l : all_lemmas) {
       const expr_ref_vector & t_neighbours = l->get_neighbours();
-      if(t_neighbours.size() > 0 && t_neighbours.get(0) == pob_pattern )
-        l->get_pob()->set_nvr_abs();
-    }
+      if(!t_neighbours.empty() && t_neighbours.get(0) == pob_pattern )
+          l->get_pob()->set_nvr_abs();
+  }
 }
 //
 bool context::check_reachability ()
@@ -3268,6 +3267,7 @@ bool context::check_reachability ()
         size_t old_sz = m_pob_queue.size();
         (void)old_sz;
         SASSERT (node->level () <= m_pob_queue.max_level ());
+        unsigned saved_level = node->level();
         switch (expand_pob(*node, new_pobs)) {
         case l_true:
             SASSERT(m_pob_queue.size() == old_sz);
@@ -3278,12 +3278,12 @@ bool context::check_reachability ()
             break;
         case l_false:
             SASSERT(m_pob_queue.size() == old_sz);
-            //HG: if there are 2 pobs returned, the first one is an abstraction
-            //the other one is the same pob to be enqueued at a higher level
-            if( new_pobs.size() == 2 && new_pobs[0]->is_abs())
-              m_pob_queue.push(*new_pobs[0]);
+            // re-queue all pobs at the current level (introduced by abstraction)
+            // and any pobs that can be blocked at a higher level
             for (auto pob : new_pobs) {
-              if (is_requeue(*pob)) {m_pob_queue.push(*pob);}
+                if (pob->level() <= saved_level || is_requeue(*pob)) {
+                    m_pob_queue.push(*pob);
+                }
             }
 
             if (m_pob_queue.is_root(*node)) {return false;}
@@ -3565,7 +3565,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                     out.push_back (next);
                 }
             }
-            CTRACE("merge_dbg", n.is_abs(), tout<<"Failed to block abstraction " << n.post()->get_id() << "\n";);
+            CTRACE("merge_dbg", n.is_abs(), tout << "Failed to block abstraction " << n.post()->get_id() << "\n";);
 
             IF_VERBOSE(1, verbose_stream () << (next ? " X " : " T ")
                        << std::fixed << std::setprecision(2)
@@ -3611,7 +3611,9 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             (*m_lemma_generalizers[i])(lemma_pob);
         }
 
-        CTRACE("merge_dbg", n.is_abs(), tout << " Blocked abs pob " << mk_pp(n.post(), m) << " using lemma " << mk_pp(lemma_pob->get_expr(), m) << " Level " << lemma_pob->level() << " id " << n.post()->get_id() << "\n";);
+        CTRACE("merge_dbg", n.is_abs(), tout << " Blocked abs pob " << mk_pp(n.post(), m)
+               << " using lemma " << mk_pp(lemma_pob->get_expr(), m)
+               << " Level " << lemma_pob->level() << " id " << n.post()->get_id() << "\n";);
 
         DEBUG_CODE(
             lemma_sanity_checker sanity_checker(*this);
@@ -3651,7 +3653,9 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         }
 
         //HG : compute abstraction of the pob
-        if(m_adhoc_gen && n.can_abs()){ abstract_pob(n, out); }
+        if (m_adhoc_gen && n.can_abs()) {
+            abstract_pob(n, out);
+        }
 
         // schedule the node to be placed back in the queue
         n.inc_level();
@@ -3700,54 +3704,66 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     throw unknown_exception();
 }
 
-void context::abstract_pob(pob& n, pob_ref_buffer &out)
-{
-  arith_util a_util(m);
-  const ptr_vector<lemma> &lemmas = n.lemmas();
-  expr_ref_vector new_pob(m), cube(m), u_consts(m);
-  expr *lhs;
-  cube.push_back(n.post());
-  flatten_and(cube);
-  for(auto &l : lemmas)
-    {
-      const expr_ref_vector &neighbours = l->get_neighbours();
-      //continue if there are no neighbours
-      if(neighbours.size() == 0 || !neighbours.get(0))
-        continue;
-      expr* pattern = neighbours.get(0);
-      if(!a_util.is_arith_expr(to_app(pattern)))
-        continue;
-      expr_ref_vector pattern_and(m);
-      pattern_and.push_back(pattern);
-      flatten_and(pattern_and);
-      bool is_mono_coeff = pattern_and.size() == 1 && get_num_vars(pattern) == 1 && !has_nonlinear_mul(pattern, m);
-      if(is_mono_coeff)
-        {
-          lhs = (to_app(pattern))->get_arg(0);
-          //possible loop unroll
-          for(auto &c : cube)
-            {
-              get_uninterp_consts(c, u_consts);
-              SASSERT(u_consts.size() > 0);
-              if ( !u_consts.contains(lhs) )
+void context::abstract_pob(pob& n, pob_ref_buffer &out) {
+    arith_util a_util(m);
+    const ptr_vector<lemma> &lemmas = n.lemmas();
+    expr_ref_vector new_pob(m), pob_cube(m), u_consts(m);
+    expr *lhs;
+    pob_cube.push_back(n.post());
+    flatten_and(pob_cube);
+
+    // for every lemma l of n
+    for (auto &l : lemmas) {
+        // find a group containing lemma l
+        const expr_ref_vector &neighbours = l->get_neighbours();
+
+        // skip lemma if no group is found
+        if (neighbours.empty() || !neighbours.get(0)) continue;
+
+        expr* pattern = neighbours.get(0);
+        // skip if top operator in the group is not arithmetic
+        // XXX does not handle equality or lemmas with multiple literals
+        if (!a_util.is_arith_expr(to_app(pattern))) continue;
+
+        // very elaborate way to check that lemma is a simple inequality
+        expr_ref_vector pattern_and(m);
+        pattern_and.push_back(pattern);
+        flatten_and(pattern_and);
+        bool is_mono_coeff = pattern_and.size() == 1 && get_num_vars(pattern) == 1 && !has_nonlinear_mul(pattern, m);
+        if (!is_mono_coeff) continue;
+
+
+        // assume that lhs is a term (actually an uninterpreted constant)
+        lhs = (to_app(pattern))->get_arg(0);
+
+        // filter from pob_cube all literals that contain lhs
+        for(auto &c : pob_cube) {
+            get_uninterp_consts(c, u_consts);
+            SASSERT(u_consts.size() > 0);
+            if ( !u_consts.contains(lhs) )
                 new_pob.push_back(c);
-              u_consts.reset();
-            }
-          if(new_pob.size() > 0 && new_pob.size() < cube.size())
-            {
-              expr_ref c = mk_and(new_pob);
-              pob *f = n.pt().find_pob(&n, c);
-              // skip if a similar pob is already in the queue
-              if (!f || !f->is_in_queue())
-              {
-                f = n.pt().mk_pob(&n, n.level(), n.depth(), c, n.get_binding());
-                f->set_abs();
-                n.set_abs_pattern(pattern);
-                out.push_back(f);
-                TRACE("merge_dbg", tout << " abstracting " << mk_and(cube) << " id is " << n.post()->get_id() << "\n into pob "<< c << " id is " << f->post()->get_id() << "\n";);
-                return;
-              }
-            }
+            u_consts.reset();
+        }
+
+        // compute abstract pob if any literals found and at least one was removed
+        if(new_pob.size() > 0 && new_pob.size() < pob_cube.size()) {
+            expr_ref c = mk_and(new_pob);
+            pob *f = n.pt().find_pob(&n, c);
+            // skip if new pob is already in the queue
+            if (f && f->is_in_queue()) continue;
+
+            // create abstract pob
+            f = n.pt().mk_pob(&n, n.level(), n.depth(), c, n.get_binding());
+            f->set_abs();
+            out.push_back(f);
+
+            // AG: ???
+            n.set_abs_pattern(pattern);
+
+            TRACE("merge_dbg", tout << " abstracting "
+                  << mk_pp(n.post(), m) << " id is " << n.post()->get_id()
+                  << "\n into pob "<< c << " id is " << f->post()->get_id() << "\n";);
+            return;
         }
     }
 }
