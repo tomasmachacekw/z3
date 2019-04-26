@@ -3447,6 +3447,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     pob::on_expand_event _evt(n);
     TRACE ("spacer",
            tout << "expand-pob: " << n.pt().head()->get_name()
+           << (n.is_abs() ? " ABS" : "")
            << " level: " << n.level()
            << " depth: " << (n.depth () - m_pob_queue.min_depth ())
            << " fvsz: " << n.get_free_vars_size() << "\n"
@@ -3454,6 +3455,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
     STRACE ("spacer_progress",
             tout << "** expand-pob: " << n.pt().head()->get_name()
+            << (n.is_abs() ? " ABS" : "")
             << " level: " << n.level()
             << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
             << mk_epp(n.post(), m) << "\n\n";);
@@ -3469,6 +3471,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                 << " (" << n.level () << ", "
                 << (n.depth () - m_pob_queue.min_depth ()) << ") "
                 << (n.use_farkas_generalizer () ? "FAR " : "SUB ")
+                << (n.is_abs() ? "ABS " : "")
                 << " w(" << n.weakness() << ") "
                 << n.post ()->get_id ();
                 verbose_stream().flush ();
