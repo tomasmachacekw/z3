@@ -62,6 +62,6 @@ class under_approx {
 
   public:
     under_approx(ast_manager &manager) : m(manager), m_arith(m), m_refs(m) {}
-    pob *under_approximate(const pob &n, model_ref &model);
+    bool under_approximate(expr *n, model_ref &model, expr_ref_vector &u_a);
 };
 } // namespace spacer

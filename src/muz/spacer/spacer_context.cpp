@@ -3517,10 +3517,14 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
       n.incr_no_ua();
       TRACE("under_approximate", tout<<"going to split " << n.get_no_ua()<<"\n";);
       spacer::under_approx ua(m);
-      pob* new_pob=ua.under_approximate(n,model);
-      //TODO need to ensure that new_pob has a higher priority than n
-      if(new_pob != nullptr)
+      expr_ref_vector under_approx_vec(m);
+      bool success = ua.under_approximate(n.post(), model, under_approx_vec);
+
+      if(success)
         {
+          pob *new_pob = n.pt().mk_pob(n.parent(), n.level(), n.depth(),
+                                       mk_and(under_approx_vec), n.get_binding());
+
           TRACE("under_approximate", tout<<"pob"<<mk_pp(n.post(),m)<<" is split into"<<mk_pp(new_pob->post(),m)<<"\n";);
           out.push_back(&(*new_pob));
           out.push_back(&n);

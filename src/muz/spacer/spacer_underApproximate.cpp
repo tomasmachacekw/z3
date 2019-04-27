@@ -13,18 +13,18 @@ bool under_approx::is_arith(expr *e)
 
 // under approximate proof obligation n using literals of dim 1
 // returns nullptr if pob is not in LA
-pob *under_approx::under_approximate(const pob &n, model_ref &model) {
-    SASSERT(is_app(n.post()));
+  bool under_approx::under_approximate(expr *f, model_ref &model, expr_ref_vector &under_approx_vec) {
+    SASSERT(is_app(f));
 
     expr_ref_vector u_consts(m);
-    get_uninterp_consts(n.post(), u_consts);
+    get_uninterp_consts(f, u_consts);
 
     expr_ref_vector conj(m);
-    flatten_and(n.post(), conj);
+    flatten_and(f, conj);
 
     // if the literals are not in LA, return nullptr
     for (auto e : conj) {
-        if (!is_arith(e)) return nullptr;
+        if (!is_arith(e)) return false;
     }
 
     expr_expr_map lb, ub;
@@ -32,19 +32,16 @@ pob *under_approx::under_approximate(const pob &n, model_ref &model) {
     // compute bounds
     under_approx_cube(conj, model, lb, ub);
 
-    expr_ref_vector new_cube(m);
     // create under approximation
     for (expr *u : u_consts) {
-        if (lb.contains(u)) new_cube.push_back(m_arith.mk_ge(u, lb[u]));
-        if (ub.contains(u)) new_cube.push_back(m_arith.mk_le(u, ub[u]));
+        if (lb.contains(u)) under_approx_vec.push_back(m_arith.mk_ge(u, lb[u]));
+        if (ub.contains(u)) under_approx_vec.push_back(m_arith.mk_le(u, ub[u]));
     }
 
     TRACE("under_approximate",
-          tout << "produced an arithmetic pob: " << mk_and(new_cube) << "\n";);
-    pob *new_pob = n.pt().mk_pob(n.parent(), n.level(), n.depth(),
-                                 mk_and(new_cube), n.get_binding());
+          tout << "produced an under approximation : " << mk_and(under_approx_vec) << "\n";);
     m_refs.reset();
-    return new_pob;
+    return ( !under_approx_vec.empty() );
 }
 
 bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
