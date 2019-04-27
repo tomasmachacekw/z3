@@ -47,7 +47,7 @@ bool under_approx::is_arith(expr *e)
 bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
     expr *e0 = nullptr, *e1 = nullptr, *e2 = nullptr;
     rational n;
-    bool is_int = false;
+    bool is_int = true;
     if (m_arith.is_le(lit, e1, e2) ||
         (m.is_not(lit, e0) && m_arith.is_gt(e0, e1, e2))) {
         if (m_arith.is_numeral(e2, n)) {
@@ -56,7 +56,6 @@ bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
             return true;
         } else {
             // XXX handle if needed
-            UNREACHABLE();
             return false;
         }
     } else if (m_arith.is_lt(lit, e1, e2) ||
@@ -65,8 +64,8 @@ bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
             // x < k  ==> x <= (k-1)
             t = e1;
             c = m_arith.mk_numeral(n - 1, is_int);
+            return true;
         } else {
-            UNREACHABLE();
             return false;
         }
     } else if (m_arith.is_gt(lit, e1, e2) ||
@@ -77,8 +76,8 @@ bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
             minus_one = m_arith.mk_numeral(-1, is_int);
             t = m_arith.mk_mul(minus_one, e1);
             c = m_arith.mk_numeral(-n - 1, is_int);
+            return true;
         } else {
-            UNREACHABLE();
             return false;
         }
     } else if (m_arith.is_ge(lit, e1, e2) ||
@@ -89,8 +88,8 @@ bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
             minus_one = m_arith.mk_numeral(-1, is_int);
             t = m_arith.mk_mul(minus_one, e1);
             c = m_arith.mk_numeral(-n, is_int);
+            return true;
         } else {
-            UNREACHABLE();
             return false;
         }
     }
@@ -203,7 +202,7 @@ void under_approx::under_approx_cube(const expr_ref_vector &conj,
 
             // under approximate the literal
             expr_expr_map t_lb, t_ub;
-            // under_approx_lit(model, t, c, bg, t_lb, t_ub, sub);
+            under_approx_lit(model, t, c, bg, t_lb, t_ub, sub);
 
             // update global bounds
             rational n1, n2;
