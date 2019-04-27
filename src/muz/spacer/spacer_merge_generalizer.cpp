@@ -151,10 +151,10 @@ bool lemma_merge_generalizer::half_plane_03(
 
     if (gt_or_geq(literal)) {
         if (!m_arith.is_numeral(app->get_arg(1), rhs, is_int)) { return false; }
-        if (!(rhs > 0)) { return false; }
+        if (!(rhs > rational(0))) { return false; }
     } else if (lt_or_leq(literal)) {
         if (!m_arith.is_numeral(app->get_arg(1), rhs, is_int)) { return false; }
-        if (!(rhs < 0)) { return false; }
+        if (!(rhs < rational(0))) { return false; }
     }
 
     if (!neg_coeff_uniCs.empty()) {
