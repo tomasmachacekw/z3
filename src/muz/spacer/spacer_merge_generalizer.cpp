@@ -63,8 +63,7 @@ bool lemma_merge_generalizer::half_plane_01(
     bool isInt;
     if (m_arith.is_numeral(to_app(literal)->get_arg(1), rhs, isInt)) {
         TRACE("merge_strategies",
-              tout << "rhs, isInt?: " << rhs << " / " << isInt << "\n";);
-        TRACE("merge_strategies",
+              tout << "rhs, isInt?: " << rhs << " / " << isInt << "\n";
               tout << "numeral: " << mk_epp(m_arith.mk_numeral(zero, isInt), m)
                    << "\n";);
         if (rhs < zero) {
@@ -77,10 +76,9 @@ bool lemma_merge_generalizer::half_plane_01(
             conjectures.push_back(conj);
             return true;
         } else if (rhs >= zero) {
-            conj = m_arith.mk_lt(to_app(literal)->get_arg(0),
-                                 m_arith.mk_numeral(zero, isInt));
-            conjectures.push_back(conj);
-            return true;
+            // XXX not applicable since the literal is t <= k with k > 0,
+            // XXX can only make k greater, but don't know by how much
+            return false;
         }
     }
     return false;
@@ -111,10 +109,9 @@ bool lemma_merge_generalizer::half_plane_02(
             conjectures.push_back(conj);
             return true;
         } else if (rhs <= zero) {
-            conj = m_arith.mk_gt(to_app(literal)->get_arg(0),
-                                 m_arith.mk_numeral(zero, isInt));
-            conjectures.push_back(conj);
-            return true;
+            // XXX not applicable since the literal is t >= k with k <= 0,
+            // XXX can only make k smaller, but don't know by how much
+           return false;
         }
     }
     return false;
