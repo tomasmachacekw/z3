@@ -56,6 +56,7 @@ bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
             return true;
         } else {
             // XXX handle if needed
+            UNREACHABLE();
             return false;
         }
     } else if (m_arith.is_lt(lit, e1, e2) ||
@@ -66,6 +67,7 @@ bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
             c = m_arith.mk_numeral(n - 1, is_int);
             return true;
         } else {
+            UNREACHABLE();
             return false;
         }
     } else if (m_arith.is_gt(lit, e1, e2) ||
@@ -78,6 +80,7 @@ bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
             c = m_arith.mk_numeral(-n - 1, is_int);
             return true;
         } else {
+            UNREACHABLE();
             return false;
         }
     } else if (m_arith.is_ge(lit, e1, e2) ||
@@ -90,6 +93,7 @@ bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
             c = m_arith.mk_numeral(-n, is_int);
             return true;
         } else {
+            UNREACHABLE();
             return false;
         }
     }
