@@ -106,7 +106,6 @@ void pob::inherit(pob const &p) {
     m_level = p.m_level;
     m_depth = p.m_depth;
     m_open = p.m_open;
-    m_use_farkas = p.m_use_farkas;
     m_weakness = p.m_weakness;
     m_ua = p.m_ua;
     m_is_abs = p.m_is_abs;
@@ -3809,6 +3808,10 @@ void context::abstract_pob(pob& n, pob_ref_buffer &out) {
                   << "\n into pob "<< c << " id is " << f->post()->get_id() << "\n";);
             m_stats.m_num_abstractions++;
             return;
+        }
+        else if ( new_pob.empty()) {
+            //If the pob cannot be abstracted, stop using Farkas generalization on it.
+          n.set_farkas_generalizer(false);
         }
     }
 }
