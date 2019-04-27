@@ -108,9 +108,6 @@ void pob::inherit(pob const &p) {
     m_open = p.m_open;
     m_weakness = p.m_weakness;
     m_ua = p.m_ua;
-    m_is_abs = p.m_is_abs;
-    m_can_abs = p.m_can_abs;
-    m_abs_pattern = p.m_abs_pattern;
     m_derivation = nullptr;
 }
 
