@@ -980,6 +980,8 @@ class context {
         unsigned m_num_restarts;
         unsigned m_num_lemmas_imported;
         unsigned m_num_lemmas_discarded;
+        unsigned m_num_abstractions;
+        unsigned m_num_abstractions_failed;
         // stats for lemma clustering
         // unsigned m_num_lemma_groups;
 

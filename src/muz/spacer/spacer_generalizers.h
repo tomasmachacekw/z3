@@ -149,14 +149,17 @@ private:
 };
 
 class lemma_merge_generalizer : public lemma_generalizer {
+    struct stats {
+        stopwatch watch;
+        stats() {reset();}
+        void reset() {watch.reset();}
+    };
+
+
     ast_manager &m;
     arith_util m_arith;
     typedef std::pair<rational, expr*> num_expr_pair;
     typedef vector<num_expr_pair> num_expr_pair_vec;
-    struct stats {
-        stats() {reset();}
-        void reset() {}
-    };
     stats m_st;
 
 public:
@@ -198,15 +201,18 @@ private:
 };
 
 class lemma_cluster : public lemma_generalizer {
+    struct stats {
+        unsigned max_group_size;
+        stopwatch watch;
+        stats() {reset();}
+        void reset() {max_group_size = 0; watch.reset();}
+    };
+
+
     ast_manager &m;
     arith_util m_arith;
     int m_dis_threshold;
     typedef std::pair<unsigned, unsigned> var_offset;
-    struct stats {
-        stopwatch watch;
-        stats() {reset();}
-        void reset() {watch.reset();}
-    };
     stats m_st;
 
 private:

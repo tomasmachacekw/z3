@@ -262,6 +262,8 @@ bool lemma_merge_generalizer::half_plane_XX(
 }
 
 void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
+    scoped_watch _w_(m_st.watch);
+
     if (core(lemma)) {
         lemma_bool_inductive_generalizer ind_gen(m_ctx, 0, false, false);
         ind_gen(lemma);
@@ -386,7 +388,7 @@ bool lemma_merge_generalizer::check_inductive_and_update(
 }
 
 void lemma_merge_generalizer::collect_statistics(statistics &st) const {
-    // TODO update stats here
+    st.update("time.spacer.sole.reach.gen.merge", m_st.watch.get_seconds());
 }
 
 /*

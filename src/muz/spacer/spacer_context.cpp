@@ -2041,7 +2041,7 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
                 }
                 if (is_infty_level(old_lemma->level())) {
                     old_lemma->bump();
-                    if (old_lemma->get_bumped() >= 100) {
+                    if (old_lemma->get_bumped() >= 1/*00*/) {
                         IF_VERBOSE(1, verbose_stream() << "Adding lemma to oo "
                                    << old_lemma->get_bumped() << " "
                                    << mk_pp(old_lemma->get_expr(),
@@ -3155,9 +3155,10 @@ lbool context::solve_core (unsigned from_lvl)
 
         STRACE("spacer_progress", tout << "\n* LEVEL " << lvl << "\n";);
         IF_VERBOSE(1,
-                   if (m_params.print_statistics ()) {
+                   if (m_params.print_statistics()) {
                        statistics st;
-                       collect_statistics (st);
+                       collect_statistics(st);
+                       st.display_smt2(verbose_stream ());
                    };
             );
 
@@ -3219,7 +3220,10 @@ bool context::check_reachability ()
             last_reachable = nullptr;
             if (m_pob_queue.is_root(*node)) { return true; }
             //HG : if an abstraction is reachable, never abstracted related pobs in future
-            if (node->is_abs()) { set_nvr_abs(node); }
+            if (node->is_abs()) {
+                m_stats.m_num_abstractions_failed++;
+                set_nvr_abs(node);
+            }
             if (is_reachable (*node->parent())) {
                 last_reachable = node->parent ();
                 SASSERT(last_reachable->is_closed());
@@ -3568,7 +3572,9 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                     out.push_back (next);
                 }
             }
-            CTRACE("merge_dbg", n.is_abs(), tout << "Failed to block abstraction " << n.post()->get_id() << "\n";);
+            CTRACE("merge_dbg", n.is_abs(),
+                   tout << "Failed to block abstraction "
+                   << n.post()->get_id() << "\n";);
 
             IF_VERBOSE(1, verbose_stream () << (next ? " X " : " T ")
                        << std::fixed << std::setprecision(2)
@@ -3766,6 +3772,7 @@ void context::abstract_pob(pob& n, pob_ref_buffer &out) {
             TRACE("merge_dbg", tout << " abstracting "
                   << mk_pp(n.post(), m) << " id is " << n.post()->get_id()
                   << "\n into pob "<< c << " id is " << f->post()->get_id() << "\n";);
+            m_stats.m_num_abstractions++;
             return;
         }
     }
@@ -4077,6 +4084,9 @@ void context::collect_statistics(statistics& st) const
     st.update("SPACER num lemmas", m_stats.m_num_lemmas);
     // -- number of restarts taken
     st.update("SPACER restarts", m_stats.m_num_restarts);
+    // -- number of time pob abstraction was invoked
+    st.update("SPACER num abstractions", m_stats.m_num_abstractions);
+    st.update("SPACER num abstractions failed", m_stats.m_num_abstractions_failed);
 
     // -- time to initialize the rules
     st.update ("time.spacer.init_rules", m_init_rules_watch.get_seconds ());
