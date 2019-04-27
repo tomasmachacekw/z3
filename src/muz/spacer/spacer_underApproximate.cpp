@@ -97,6 +97,7 @@ bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
     return false;
 }
 
+  //Expects t to be in sum of products form or -1*(sum of products) form
 bool under_approx::find_coeff(expr *t, expr *v, rational &k, bool negated) {
     expr *e1 = nullptr, *e2 = nullptr;
     rational n;
@@ -156,7 +157,7 @@ void under_approx::under_approx_lit(model_ref &model, expr *t, expr *c,
     get_uninterp_consts(t, dims);
 
     for (expr *d : dims) {
-        // compute variation of l with u_const
+        // compute variation of l along dim d
         int change = under_approx_var(t, c, d);
         val = (*model)(sub ? (*sub)[d] : d);
         SASSERT(m_arith.is_numeral(val));
