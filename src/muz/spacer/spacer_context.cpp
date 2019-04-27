@@ -3717,10 +3717,48 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     throw unknown_exception();
 }
 
+// a mono_var_pattern has only one variable in the whole expression and is linear
+// returns the literal with the variable
+static bool mono_var_pattern(expr *pattern, expr_ref &leq_lit)
+{
+  ast_manager &m = leq_lit.m();
+  arith_util a_util(m);
+  // XXX does not handle equality
+  if (a_util.is_arith_expr(to_app(pattern)) || m.is_eq(pattern)) {
+    bool is_leq = get_num_vars(pattern) == 1 && !has_nonlinear_mul(pattern, m);
+    if (is_leq)
+      leq_lit = pattern;
+    return is_leq;
+  }
+  expr *e;
+  if(m.is_not(pattern, e)) {
+    return mono_var_pattern(e, leq_lit);
+  }
+  SASSERT(m.is_and(pattern));
+  //if the pattern has multiple literals, check whether one of them is leq
+  expr_ref_vector pattern_and(m);
+  pattern_and.push_back(pattern);
+  flatten_and(pattern_and);
+  unsigned count = 0;
+  for(auto lit : pattern_and) {
+    if(mono_var_pattern(lit, leq_lit))
+      count++;
+  }
+  return count == 1;
+}
+//a \subseteq b
+static bool is_subset(const expr_ref_vector &a ,const expr_ref_vector &b)
+{
+  if(a.size() > b.size())
+    return false;
+  for(expr * e : a)
+    if(!b.contains(e))
+      return false;
+  return true;
+}
 void context::abstract_pob(pob& n, pob_ref_buffer &out) {
-    arith_util a_util(m);
     const ptr_vector<lemma> &lemmas = n.lemmas();
-    expr_ref_vector new_pob(m), pob_cube(m), u_consts(m);
+    expr_ref_vector new_pob(m), pob_cube(m), u_consts(m), lhs_consts(m);
     expr *lhs;
     pob_cube.push_back(n.post());
     flatten_and(pob_cube);
@@ -3734,26 +3772,19 @@ void context::abstract_pob(pob& n, pob_ref_buffer &out) {
         if (neighbours.empty() || !neighbours.get(0)) continue;
 
         expr* pattern = neighbours.get(0);
-        // skip if top operator in the group is not arithmetic
-        // XXX does not handle equality or lemmas with multiple literals
-        if (!a_util.is_arith_expr(to_app(pattern))) continue;
+        expr_ref leq_lit(m);
 
-        // very elaborate way to check that lemma is a simple inequality
-        expr_ref_vector pattern_and(m);
-        pattern_and.push_back(pattern);
-        flatten_and(pattern_and);
-        bool is_mono_coeff = pattern_and.size() == 1 && get_num_vars(pattern) == 1 && !has_nonlinear_mul(pattern, m);
-        if (!is_mono_coeff) continue;
+        if (!mono_var_pattern(pattern, leq_lit)) continue;
 
 
         // assume that lhs is a term (actually an uninterpreted constant)
-        lhs = (to_app(pattern))->get_arg(0);
-
+        lhs = (to_app(leq_lit))->get_arg(0);
+        get_uninterp_consts(lhs, lhs_consts);
         // filter from pob_cube all literals that contain lhs
         for(auto &c : pob_cube) {
             get_uninterp_consts(c, u_consts);
             SASSERT(u_consts.size() > 0);
-            if ( !u_consts.contains(lhs) )
+            if (!is_subset(lhs_consts, u_consts))
                 new_pob.push_back(c);
             u_consts.reset();
         }
