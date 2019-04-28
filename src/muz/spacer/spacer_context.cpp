@@ -2037,7 +2037,7 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
                 }
                 if (is_infty_level(old_lemma->level())) {
                     old_lemma->bump();
-                    if (old_lemma->get_bumped() >= 1/*00*/) {
+                    if (old_lemma->get_bumped() >= 100) {
                         IF_VERBOSE(1, verbose_stream() << "Adding lemma to oo "
                                    << old_lemma->get_bumped() << " "
                                    << mk_pp(old_lemma->get_expr(),
