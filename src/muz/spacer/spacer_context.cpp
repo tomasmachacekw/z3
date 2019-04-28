@@ -3661,9 +3661,13 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             }
         }
 
+        expr_ref lit(m);
         //HG : compute abstraction of the pob
-        if (m_adhoc_gen && n.can_abs()) {
-            abstract_pob(n, out);
+        if (m_adhoc_gen && mono_coeff_lm(n, lit)) {
+          if(!abstract_pob(n, lit, out)){
+            //If the pob cannot be abstracted, stop using generalization on it.
+            n.set_farkas_generalizer(false);
+          }
         }
 
         // schedule the node to be placed back in the queue
