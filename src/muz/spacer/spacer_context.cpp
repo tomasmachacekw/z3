@@ -24,7 +24,7 @@ Notes:
 #include <sstream>
 #include <iomanip>
 
-#include "spacer_underApproximate.h"
+#include "muz/spacer/spacer_underApproximate.h"
 #include "muz/base/dl_util.h"
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
@@ -3713,105 +3713,6 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     throw unknown_exception();
 }
 
-// a mono_var_pattern has only one variable in the whole expression and is linear
-// returns the literal with the variable
-static bool mono_var_pattern(expr *pattern, expr_ref &leq_lit)
-{
-  ast_manager &m = leq_lit.m();
-  arith_util a_util(m);
-  // XXX does not handle equality
-  if (a_util.is_arith_expr(to_app(pattern)) || m.is_eq(pattern)) {
-    bool is_leq = get_num_vars(pattern) == 1 && !has_nonlinear_mul(pattern, m);
-    if (is_leq)
-      leq_lit = pattern;
-    return is_leq;
-  }
-  expr *e;
-  if(m.is_not(pattern, e)) {
-    return mono_var_pattern(e, leq_lit);
-  }
-  SASSERT(m.is_and(pattern));
-  //if the pattern has multiple literals, check whether one of them is leq
-  expr_ref_vector pattern_and(m);
-  pattern_and.push_back(pattern);
-  flatten_and(pattern_and);
-  unsigned count = 0;
-  for(auto lit : pattern_and) {
-    if(mono_var_pattern(lit, leq_lit))
-      count++;
-  }
-  return count == 1;
-}
-//a \subseteq b
-static bool is_subset(const expr_ref_vector &a ,const expr_ref_vector &b)
-{
-  if(a.size() > b.size())
-    return false;
-  for(expr * e : a)
-    if(!b.contains(e))
-      return false;
-  return true;
-}
-void context::abstract_pob(pob& n, pob_ref_buffer &out) {
-    const ptr_vector<lemma> &lemmas = n.lemmas();
-    expr_ref_vector new_pob(m), pob_cube(m), u_consts(m), lhs_consts(m);
-    expr *lhs;
-    pob_cube.push_back(n.post());
-    flatten_and(pob_cube);
-
-    // for every lemma l of n
-    for (auto &l : lemmas) {
-        // find a group containing lemma l
-        const expr_ref_vector &neighbours = l->get_neighbours();
-
-        // skip lemma if no group is found
-        if (neighbours.empty() || !neighbours.get(0)) continue;
-
-        expr* pattern = neighbours.get(0);
-        expr_ref leq_lit(m);
-
-        if (!mono_var_pattern(pattern, leq_lit)) continue;
-
-
-        // assume that lhs is a term (actually an uninterpreted constant)
-        lhs = (to_app(leq_lit))->get_arg(0);
-        get_uninterp_consts(lhs, lhs_consts);
-        // filter from pob_cube all literals that contain lhs
-        for(auto &c : pob_cube) {
-            get_uninterp_consts(c, u_consts);
-            SASSERT(u_consts.size() > 0);
-            if (!is_subset(lhs_consts, u_consts))
-                new_pob.push_back(c);
-            u_consts.reset();
-        }
-
-        // compute abstract pob if any literals found and at least one was removed
-        if(new_pob.size() > 0 && new_pob.size() < pob_cube.size()) {
-            expr_ref c = mk_and(new_pob);
-            pob *f = n.pt().find_pob(&n, c);
-            // skip if new pob is already in the queue
-            if (f && f->is_in_queue()) continue;
-
-            // create abstract pob
-            f = n.pt().mk_pob(&n, n.level(), n.depth(), c, n.get_binding());
-            f->set_abs();
-            out.push_back(f);
-
-            // AG: ???
-            n.set_abs_pattern(pattern);
-
-            TRACE("merge_dbg", tout << " abstracting "
-                  << mk_pp(n.post(), m) << " id is " << n.post()->get_id()
-                  << "\n into pob "<< c << " id is " << f->post()->get_id() << "\n";);
-            m_stats.m_num_abstractions++;
-            return;
-        }
-        else if ( new_pob.empty()) {
-            //If the pob cannot be abstracted, stop using Farkas generalization on it.
-          n.set_farkas_generalizer(false);
-        }
-    }
-}
 //
 // check if predicate transformer has a satisfiable predecessor state.
 // returns either a satisfiable predecessor state or
@@ -3846,26 +3747,26 @@ bool context::propagate(unsigned min_prop_lvl,
                     verbose_stream () << lvl << " " << std::flush;);
 
         checkpoint();
-        CTRACE ("spacer", lvl > max_prop_lvl && lvl == max_prop_lvl + 1,
-                tout << "In full propagation\n";);
+        CTRACE("spacer", lvl > max_prop_lvl && lvl == max_prop_lvl + 1,
+               tout << "In full propagation\n";);
 
         bool all_propagated = true;
-        for (auto & kv : m_rels) {
+        for (auto &kv : m_rels) {
             checkpoint();
-            pred_transformer& r = *kv.m_value;
+            pred_transformer &r = *kv.m_value;
             all_propagated = r.propagate_to_next_level(lvl) && all_propagated;
         }
-        //CASSERT("spacer", check_invariant(lvl));
+        // CASSERT("spacer", check_invariant(lvl));
 
         if (all_propagated) {
-            for (auto& kv : m_rels) {
-                checkpoint ();
-                pred_transformer& r = *kv.m_value;
-                r.propagate_to_infinity (lvl);
+            for (auto &kv : m_rels) {
+                checkpoint();
+                pred_transformer &r = *kv.m_value;
+                r.propagate_to_infinity(lvl);
             }
             if (lvl <= max_prop_lvl) {
                 m_inductive_lvl = lvl;
-                IF_VERBOSE(1, verbose_stream () << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "\n";);
                 return true;
             }
             break;
@@ -3874,133 +3775,119 @@ bool context::propagate(unsigned min_prop_lvl,
         if (all_propagated && lvl == max_prop_lvl) {
             m_inductive_lvl = lvl;
             return true;
-        } else if (all_propagated && lvl > max_prop_lvl) { break; }
+        } else if (all_propagated && lvl > max_prop_lvl) {
+            break;
+        }
     }
-    if (m_simplify_formulas_post) {
-        simplify_formulas();
-    }
+    if (m_simplify_formulas_post) { simplify_formulas(); }
 
-    IF_VERBOSE(1, verbose_stream () << "\n";);
+    IF_VERBOSE(1, verbose_stream() << "\n";);
     return false;
 }
 
-reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
-{
+reach_fact *pred_transformer::mk_rf(pob &n, model &mdl,
+                                    const datalog::rule &r) {
     SASSERT(&n.pt() == this);
-    timeit _timer1 (is_trace_enabled("spacer_timeit"),
-                    "mk_rf",
-                    verbose_stream ());
+    timeit _timer1(is_trace_enabled("spacer_timeit"), "mk_rf",
+                   verbose_stream());
     expr_ref res(m);
     reach_fact_ref_vector child_reach_facts;
 
     ptr_vector<func_decl> preds;
-    find_predecessors (r, preds);
+    find_predecessors(r, preds);
 
-    expr_ref_vector path_cons (m);
-    path_cons.push_back (get_transition (r));
-    app_ref_vector vars (m);
+    expr_ref_vector path_cons(m);
+    path_cons.push_back(get_transition(r));
+    app_ref_vector vars(m);
 
-    for (unsigned i = 0; i < preds.size (); i++) {
-        func_decl* pred = preds[i];
-        pred_transformer& ch_pt = ctx.get_pred_transformer (pred);
+    for (unsigned i = 0; i < preds.size(); i++) {
+        func_decl *pred = preds[i];
+        pred_transformer &ch_pt = ctx.get_pred_transformer(pred);
         // get a reach fact of body preds used in the model
-        expr_ref o_ch_reach (m);
+        expr_ref o_ch_reach(m);
         reach_fact *kid = ch_pt.get_used_origin_rf(mdl, i);
-        child_reach_facts.push_back (kid);
-        pm.formula_n2o (kid->get (), o_ch_reach, i);
-        path_cons.push_back (o_ch_reach);
+        child_reach_facts.push_back(kid);
+        pm.formula_n2o(kid->get(), o_ch_reach, i);
+        path_cons.push_back(o_ch_reach);
         // collect o-vars to eliminate
-        for (unsigned j = 0; j < pred->get_arity (); j++)
-        { vars.push_back(m.mk_const(pm.o2o(ch_pt.sig(j), 0, i))); }
+        for (unsigned j = 0; j < pred->get_arity(); j++) {
+            vars.push_back(m.mk_const(pm.o2o(ch_pt.sig(j), 0, i)));
+        }
 
-        const ptr_vector<app> &v = kid->aux_vars ();
-        for (unsigned j = 0, sz = v.size (); j < sz; ++j)
-        { vars.push_back(m.mk_const(pm.n2o(v [j]->get_decl(), i))); }
+        const ptr_vector<app> &v = kid->aux_vars();
+        for (unsigned j = 0, sz = v.size(); j < sz; ++j) {
+            vars.push_back(m.mk_const(pm.n2o(v[j]->get_decl(), i)));
+        }
     }
     // collect aux vars to eliminate
-    ptr_vector<app>& aux_vars = get_aux_vars (r);
+    ptr_vector<app> &aux_vars = get_aux_vars(r);
     bool elim_aux = ctx.elim_aux();
     if (elim_aux) { vars.append(aux_vars.size(), aux_vars.c_ptr()); }
 
-    res = mk_and (path_cons);
+    res = mk_and(path_cons);
 
     // -- pick an implicant from the path condition
     if (ctx.reach_dnf()) {
         expr_ref_vector u(m), lits(m);
-        u.push_back (res);
-        compute_implicant_literals (mdl, u, lits);
-        res = mk_and (lits);
+        u.push_back(res);
+        compute_implicant_literals(mdl, u, lits);
+        res = mk_and(lits);
     }
 
-
-    TRACE ("spacer",
-           tout << "Reach fact, before QE:\n";
-           tout << mk_pp (res, m) << "\n";
-           tout << "Vars:\n";
-           for (unsigned i = 0; i < vars.size(); ++i) {
-               tout << mk_pp(vars.get (i), m) << "\n";
-           }
-        );
+    TRACE("spacer", tout << "Reach fact, before QE:\n";
+          tout << mk_pp(res, m) << "\n"; tout << "Vars:\n";
+          for (unsigned i = 0; i < vars.size();
+               ++i) { tout << mk_pp(vars.get(i), m) << "\n"; });
 
     {
-        timeit _timer1 (is_trace_enabled("spacer_timeit"),
-                        "mk_rf::qe_project",
-                        verbose_stream ());
+        timeit _timer1(is_trace_enabled("spacer_timeit"), "mk_rf::qe_project",
+                       verbose_stream());
         mbp(vars, res, mdl, false, true /* force or skolemize */);
     }
 
+    TRACE("spacer", tout << "Reach fact, after QE project:\n";
+          tout << mk_pp(res, m) << "\n"; tout << "Vars:\n";
+          for (unsigned i = 0; i < vars.size();
+               ++i) { tout << mk_pp(vars.get(i), m) << "\n"; });
 
-    TRACE ("spacer",
-           tout << "Reach fact, after QE project:\n";
-           tout << mk_pp (res, m) << "\n";
-           tout << "Vars:\n";
-           for (unsigned i = 0; i < vars.size(); ++i) {
-               tout << mk_pp(vars.get (i), m) << "\n";
-           }
-        );
-
-    SASSERT (vars.empty ());
+    SASSERT(vars.empty());
 
     m_stats.m_num_reach_queries++;
     ptr_vector<app> empty;
     reach_fact *f = alloc(reach_fact, m, r, res, elim_aux ? empty : aux_vars);
-    for (unsigned i = 0, sz = child_reach_facts.size (); i < sz; ++i)
-    { f->add_justification(child_reach_facts.get(i)); }
+    for (unsigned i = 0, sz = child_reach_facts.size(); i < sz; ++i) {
+        f->add_justification(child_reach_facts.get(i));
+    }
     return f;
 }
-
 
 /**
    \brief create children states from model cube.
 */
-bool context::create_children(pob& n, datalog::rule const& r,
-                              model &mdl,
+bool context::create_children(pob &n, datalog::rule const &r, model &mdl,
                               const vector<bool> &reach_pred_used,
-                              pob_ref_buffer &out)
-{
-    scoped_watch _w_ (m_create_children_watch);
-    pred_transformer& pt = n.pt();
+                              pob_ref_buffer &out) {
+    scoped_watch _w_(m_create_children_watch);
+    pred_transformer &pt = n.pt();
 
-    TRACE("spacer",
-          tout << "Model:\n";
-          model_smt2_pp(tout, m, mdl, 0);
-          tout << "\n";
-          tout << "Transition:\n" << mk_pp(pt.get_transition(r), m) << "\n";
-          tout << "Pob:\n" << mk_pp(n.post(), m) << "\n";);
+    TRACE("spacer", tout << "Model:\n"; model_smt2_pp(tout, m, mdl, 0);
+          tout << "\n"; tout << "Transition:\n"
+                             << mk_pp(pt.get_transition(r), m) << "\n";
+          tout << "Pob:\n"
+               << mk_pp(n.post(), m) << "\n";);
 
-    SASSERT (r.get_uninterpreted_tail_size () > 0);
+    SASSERT(r.get_uninterpreted_tail_size() > 0);
 
     ptr_vector<func_decl> preds;
     pt.find_predecessors(r, preds);
-
 
     // obtain all formulas to consider for model generalization
     expr_ref_vector forms(m), lits(m);
     forms.push_back(pt.get_transition(r));
     forms.push_back(n.post());
 
-    compute_implicant_literals (mdl, forms, lits);
-    expr_ref phi = mk_and (lits);
+    compute_implicant_literals(mdl, forms, lits);
+    expr_ref phi = mk_and(lits);
 
     // primed variables of the head
     app_ref_vector vars(m);
@@ -4008,23 +3895,20 @@ bool context::create_children(pob& n, datalog::rule const& r,
         vars.push_back(m.mk_const(m_pm.o2n(pt.sig(i), 0)));
     }
     // local variables of the rule
-    ptr_vector<app>& aux_vars = pt.get_aux_vars(r);
+    ptr_vector<app> &aux_vars = pt.get_aux_vars(r);
     vars.append(aux_vars.size(), aux_vars.c_ptr());
 
     // skolems of the pob
     n.get_skolems(vars);
 
     n.pt().mbp(vars, phi, mdl, true, use_ground_pob());
-    //qe::reduce_array_selects (*mev.get_model (), phi1);
-    SASSERT (!m_ground_pob || vars.empty ());
+    // qe::reduce_array_selects (*mev.get_model (), phi1);
+    SASSERT(!m_ground_pob || vars.empty());
 
-    TRACE ("spacer",
-           tout << "Implicant:\n";
-           tout << lits << "\n";
-           tout << "After MBP:\n" << phi << "\n";
-           if (!vars.empty())
-               tout << "Failed to eliminate: " << vars << "\n";
-        );
+    TRACE("spacer", tout << "Implicant:\n"; tout << lits << "\n";
+          tout << "After MBP:\n"
+               << phi << "\n";
+          if (!vars.empty()) tout << "Failed to eliminate: " << vars << "\n";);
 
     if (m_use_gpdr && preds.size() > 1) {
         SASSERT(vars.empty());
@@ -4039,8 +3923,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) kid_order[i] = i;
     if (m_children_order == CO_REV_RULE) {
         kid_order.reverse();
-    }
-    else if (m_children_order == CO_RANDOM) {
+    } else if (m_children_order == CO_RANDOM) {
         shuffle(kid_order.size(), kid_order.c_ptr(), m_random);
     }
 
@@ -4051,25 +3934,25 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
         const ptr_vector<app> *aux = nullptr;
         expr_ref sum(m);
-        sum = pt.get_origin_summary (mdl, prev_level(n.level()),
-                                     j, reach_pred_used[j], &aux);
+        sum = pt.get_origin_summary(mdl, prev_level(n.level()), j,
+                                    reach_pred_used[j], &aux);
         if (!sum) {
             dealloc(deriv);
             return false;
         }
-        deriv->add_premise (pt, j, sum, reach_pred_used[j], aux);
+        deriv->add_premise(pt, j, sum, reach_pred_used[j], aux);
     }
 
     // create post for the first child and add to queue
-    pob* kid = deriv->create_first_child (mdl);
+    pob *kid = deriv->create_first_child(mdl);
 
     // -- failed to create derivation, cleanup and bail out
     if (!kid) {
         dealloc(deriv);
         return false;
     }
-    SASSERT (kid);
-    kid->set_derivation (deriv);
+    SASSERT(kid);
+    kid->set_derivation(deriv);
 
     // Optionally disable derivation optimization
     if (!m_use_derivations) { kid->reset_derivation(); }
@@ -4078,27 +3961,22 @@ bool context::create_children(pob& n, datalog::rule const& r,
     // -- not satisfy 'T && phi'. It is possible to recover from
     // -- that more gracefully. For now, we just remove the
     // -- derivation completely forcing it to be recomputed
-    if (m_weak_abs && (!mdl.is_true(pt.get_transition(r)) ||
-                       !mdl.is_true(n.post())))
-    { kid->reset_derivation(); }
+    if (m_weak_abs &&
+        (!mdl.is_true(pt.get_transition(r)) || !mdl.is_true(n.post()))) {
+        kid->reset_derivation();
+    }
 
     out.push_back(kid);
     m_stats.m_num_queries++;
     return true;
 }
 
-
-
-
-void context::collect_statistics(statistics& st) const
-{
+void context::collect_statistics(statistics &st) const {
     m_pool0->collect_statistics(st);
     m_pool1->collect_statistics(st);
     m_pool2->collect_statistics(st);
 
-    for (auto const& kv : m_rels) {
-        kv.m_value->collect_statistics(st);
-    }
+    for (auto const &kv : m_rels) { kv.m_value->collect_statistics(st); }
 
     // -- number of times a pob for some predicate transformer has
     // -- been created
@@ -4121,21 +3999,23 @@ void context::collect_statistics(statistics& st) const
     st.update("SPACER restarts", m_stats.m_num_restarts);
     // -- number of time pob abstraction was invoked
     st.update("SPACER num abstractions", m_stats.m_num_abstractions);
-    st.update("SPACER num abstractions failed", m_stats.m_num_abstractions_failed);
+    st.update("SPACER num abstractions failed",
+              m_stats.m_num_abstractions_failed);
 
     // -- time to initialize the rules
-    st.update ("time.spacer.init_rules", m_init_rules_watch.get_seconds ());
+    st.update("time.spacer.init_rules", m_init_rules_watch.get_seconds());
     // -- time in the main solve loop
-    st.update ("time.spacer.solve", m_solve_watch.get_seconds ());
+    st.update("time.spacer.solve", m_solve_watch.get_seconds());
     // -- time in lemma propagation (i.e., pushing)
-    st.update ("time.spacer.solve.propagate", m_propagate_watch.get_seconds ());
+    st.update("time.spacer.solve.propagate", m_propagate_watch.get_seconds());
     // -- time in reachability (i.e., blocking)
-    st.update ("time.spacer.solve.reach", m_reach_watch.get_seconds ());
+    st.update("time.spacer.solve.reach", m_reach_watch.get_seconds());
     // -- time in deciding whether a pob is must-reachable
-    st.update ("time.spacer.solve.reach.is-reach", m_is_reach_watch.get_seconds ());
+    st.update("time.spacer.solve.reach.is-reach",
+              m_is_reach_watch.get_seconds());
     // -- time in creating new predecessors
-    st.update ("time.spacer.solve.reach.children",
-               m_create_children_watch.get_seconds ());
+    st.update("time.spacer.solve.reach.children",
+              m_create_children_watch.get_seconds());
     st.update("spacer.random_seed", m_params.spacer_random_seed());
     st.update("spacer.lemmas_imported", m_stats.m_num_lemmas_imported);
     st.update("spacer.lemmas_discarded", m_stats.m_num_lemmas_discarded);
@@ -4145,44 +4025,37 @@ void context::collect_statistics(statistics& st) const
     }
 }
 
-void context::reset_statistics()
-{
+void context::reset_statistics() {
     m_pool0->reset_statistics();
     m_pool1->reset_statistics();
     m_pool2->reset_statistics();
 
-    for (auto & kv : m_rels) {
-        kv.m_value->reset_statistics();
-    }
+    for (auto &kv : m_rels) { kv.m_value->reset_statistics(); }
     m_stats.reset();
 
     for (unsigned i = 0; i < m_lemma_generalizers.size(); ++i) {
         m_lemma_generalizers[i]->reset_statistics();
     }
 
-    m_init_rules_watch.reset ();
-    m_solve_watch.reset ();
-    m_propagate_watch.reset ();
-    m_reach_watch.reset ();
-    m_is_reach_watch.reset ();
-    m_create_children_watch.reset ();
+    m_init_rules_watch.reset();
+    m_solve_watch.reset();
+    m_propagate_watch.reset();
+    m_reach_watch.reset();
+    m_is_reach_watch.reset();
+    m_create_children_watch.reset();
 }
 
-bool context::check_invariant(unsigned lvl)
-{
+bool context::check_invariant(unsigned lvl) {
     for (auto &entry : m_rels) {
         checkpoint();
-        if (!check_invariant(lvl, entry.m_key)) {
-            return false;
-        }
+        if (!check_invariant(lvl, entry.m_key)) { return false; }
     }
     return true;
 }
 
-bool context::check_invariant(unsigned lvl, func_decl* fn)
-{
+bool context::check_invariant(unsigned lvl, func_decl *fn) {
     ref<solver> ctx = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
-    pred_transformer& pt = *m_rels.find(fn);
+    pred_transformer &pt = *m_rels.find(fn);
     expr_ref_vector conj(m);
     expr_ref inv = pt.get_formulas(next_level(lvl));
     if (m.is_true(inv)) { return true; }
@@ -4192,53 +4065,52 @@ bool context::check_invariant(unsigned lvl, func_decl* fn)
     ctx->assert_expr(fml);
     lbool result = ctx->check_sat(0, nullptr);
     TRACE("spacer", tout << "Check invariant level: " << lvl << " " << result
-          << "\n" << mk_pp(fml, m) << "\n";);
+                         << "\n"
+                         << mk_pp(fml, m) << "\n";);
     return result == l_false;
 }
 
-expr_ref context::get_constraints (unsigned level)
-{
+expr_ref context::get_constraints(unsigned level) {
     expr_ref res(m);
     expr_ref_vector constraints(m);
 
-    for (auto & kv : m_rels) {
-        pred_transformer& r = *kv.m_value;
+    for (auto &kv : m_rels) {
+        pred_transformer &r = *kv.m_value;
         expr_ref c = r.get_formulas(level);
 
         if (m.is_true(c)) { continue; }
 
         // replace local constants by bound variables.
         expr_ref_vector args(m);
-        for (unsigned i = 0; i < r.sig_size(); ++i)
-        { args.push_back(m.mk_const(m_pm.o2n(r.sig(i), 0))); }
+        for (unsigned i = 0; i < r.sig_size(); ++i) {
+            args.push_back(m.mk_const(m_pm.o2n(r.sig(i), 0)));
+        }
 
         expr_ref pred(m);
-        pred = m.mk_app(r.head (), r.sig_size(), args.c_ptr());
+        pred = m.mk_app(r.head(), r.sig_size(), args.c_ptr());
 
         constraints.push_back(m.mk_implies(pred, c));
     }
 
     if (constraints.empty()) { return expr_ref(m.mk_true(), m); }
-    return mk_and (constraints);
+    return mk_and(constraints);
 }
 
-void context::add_constraint (expr *c, unsigned level)
-{
+void context::add_constraint(expr *c, unsigned level) {
     if (!c) { return; }
     if (m.is_true(c)) { return; }
 
-        expr *e1, *e2;
-        if (m.is_implies(c, e1, e2)) {
-            SASSERT (is_app (e1));
-            pred_transformer *r = nullptr;
-            if (m_rels.find (to_app (e1)->get_decl (), r)){
-                lemma_ref lem = alloc(lemma, m, e2, level);
-                lem.get()->set_external(true);
-                if (r->add_lemma(lem.get())) {
-                    this->m_stats.m_num_lemmas_imported++;
-                }
-                else{
-                    this->m_stats.m_num_lemmas_discarded++;
+    expr *e1, *e2;
+    if (m.is_implies(c, e1, e2)) {
+        SASSERT(is_app(e1));
+        pred_transformer *r = nullptr;
+        if (m_rels.find(to_app(e1)->get_decl(), r)) {
+            lemma_ref lem = alloc(lemma, m, e2, level);
+            lem.get()->set_external(true);
+            if (r->add_lemma(lem.get())) {
+                this->m_stats.m_num_lemmas_imported++;
+            } else {
+                this->m_stats.m_num_lemmas_discarded++;
             }
         }
     }
@@ -4247,13 +4119,13 @@ void context::add_constraint (expr *c, unsigned level)
 void context::new_lemma_eh(pred_transformer &pt, lemma *lem) {
     if (m_params.spacer_print_json().size())
         m_json_marshaller.register_lemma(lem);
-    bool handle=false;
+    bool handle = false;
     for (unsigned i = 0; i < m_callbacks.size(); i++) {
-        handle|=m_callbacks[i]->new_lemma();
+        handle |= m_callbacks[i]->new_lemma();
     }
-    if (!handle)
-        return;
-    if ((is_infty_level(lem->level()) && m_params.spacer_p3_share_invariants()) ||
+    if (!handle) return;
+    if ((is_infty_level(lem->level()) &&
+         m_params.spacer_p3_share_invariants()) ||
         (!is_infty_level(lem->level()) && m_params.spacer_p3_share_lemmas())) {
         expr_ref_vector args(m);
         for (unsigned i = 0; i < pt.sig_size(); ++i) {
@@ -4269,8 +4141,7 @@ void context::new_lemma_eh(pred_transformer &pt, lemma *lem) {
 }
 
 void context::new_pob_eh(pob *p) {
-    if (m_params.spacer_print_json().size())
-        m_json_marshaller.register_pob(p);
+    if (m_params.spacer_print_json().size()) m_json_marshaller.register_pob(p);
 }
 
 bool context::is_inductive() {
@@ -4281,26 +4152,26 @@ bool context::is_inductive() {
 }
 
 /// pob_lt operator
-inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
-{
-    SASSERT (pn1);
-    SASSERT (pn2);
-    const pob& n1 = *pn1;
-    const pob& n2 = *pn2;
+inline bool pob_lt_proc::operator()(const pob *pn1, const pob *pn2) const {
+    SASSERT(pn1);
+    SASSERT(pn2);
+    const pob &n1 = *pn1;
+    const pob &n2 = *pn2;
 
     if (n1.level() != n2.level()) { return n1.level() < n2.level(); }
 
     if (n1.depth() != n2.depth()) { return n1.depth() < n2.depth(); }
 
-    if (n1.get_no_ua() != n2.get_no_ua()) { return n1.get_no_ua() < n2.get_no_ua(); }
+    if (n1.get_no_ua() != n2.get_no_ua()) {
+        return n1.get_no_ua() < n2.get_no_ua();
+    }
 
     // -- a more deterministic order of proof obligations in a queue
     // if (!n1.get_context ().get_params ().spacer_nondet_tie_break ())
     {
-        const expr* p1 = n1.post ();
-        const expr* p2 = n2.post ();
-        ast_manager &m = n1.get_ast_manager ();
-
+        const expr *p1 = n1.post();
+        const expr *p2 = n2.post();
+        ast_manager &m = n1.get_ast_manager();
 
         // -- order by size. Less conjunctions is a proxy for
         // -- generality.  Currently, this takes precedence over
@@ -4319,23 +4190,25 @@ inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
         // -- order over predicates as well. That is, two expressions
         // -- are equal if and only if they correspond to the same proof
         // -- obligation of the same predicate.
-        if (p1->get_id() != p2->get_id()) { return p1->get_id() < p2->get_id(); }
+        if (p1->get_id() != p2->get_id()) {
+            return p1->get_id() < p2->get_id();
+        }
 
         if (n1.pt().head()->get_id() == n2.pt().head()->get_id()) {
-            IF_VERBOSE (1,
-                        verbose_stream ()
-                        << "dup: " << n1.pt ().head ()->get_name ()
-                        << "(" << n1.level () << ", " << n1.depth () << ") "
-                        << p1->get_id () << "\n";
-                        //<< " p1: " << mk_pp (const_cast<expr*>(p1), m) << "\n"
-                );
+            IF_VERBOSE(1, verbose_stream()
+                              << "dup: " << n1.pt().head()->get_name() << "("
+                              << n1.level() << ", " << n1.depth() << ") "
+                              << p1->get_id() << "\n";
+                       //<< " p1: " << mk_pp (const_cast<expr*>(p1), m) << "\n"
+            );
         }
 
         // XXX see comment below on identical nodes
         // SASSERT (n1.pt ().head ()->get_id () != n2.pt ().head ()->get_id ());
         // -- if expression comparison fails, compare by predicate id
-        if (n1.pt().head ()->get_id () != n2.pt ().head ()->get_id ())
-        { return n1.pt().head()->get_id() < n2.pt().head()->get_id(); }
+        if (n1.pt().head()->get_id() != n2.pt().head()->get_id()) {
+            return n1.pt().head()->get_id() < n2.pt().head()->get_id();
+        }
 
         /** XXX Identical nodes. This should not happen. However,
          * currently, when propagating reachability, we might call
@@ -4347,6 +4220,4 @@ inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
     //   return &n1 < &n2;
 }
 
-
-
-}
+} // namespace spacer
