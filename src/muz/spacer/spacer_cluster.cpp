@@ -100,13 +100,15 @@ void lemma_cluster::operator()(lemma_ref &lemma) {
     if (!neighbours.empty() && num_vars_in_pattern > 0) {
         lemma->update_neighbours(pattern, neighbours);
         m_st.max_group_size = std::max(m_st.max_group_size, neighbours.size());
-        CTRACE("cluster_stats", m_st.max_group_size >= 7,
+        TRACE("cluster_stats", 
                tout << "pattern: " << pattern << "\n"
+               << "lemma cube: " << cube << "\n"
                << "neighbours: " << neighbours << "\n";);
         // XXX Enabled for current experiments only
         IF_VERBOSE(1,
                    verbose_stream() << "\nGROUP SIZE: " << neighbours.size() << "\n"
                    << "pattern: " << pattern << "\n"
+                   << "lemma cube: " << cube << "\n"
                    << "neighbours: " << neighbours << "\n";);
     }
 
