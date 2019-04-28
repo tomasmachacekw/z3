@@ -50,6 +50,7 @@ bool mono_var_pattern(expr *pattern, expr_ref &leq_lit) {
     }
     return count == 1;
 }
+
 // a \subseteq b
 bool is_subset(const expr_ref_vector &a, const expr_ref_vector &b) {
     if (a.size() > b.size()) return false;
@@ -95,7 +96,7 @@ void context::abstract_pob(pob &n, pob_ref_buffer &out) {
 
         // compute abstract pob if any literals found and at least one was
         // removed
-        if (new_pob.size() > 0 && new_pob.size() < pob_cube.size()) {
+        if (!new_pob.empty() && new_pob.size() < pob_cube.size()) {
             expr_ref c = mk_and(new_pob);
             pob *f = n.pt().find_pob(&n, c);
             // skip if new pob is already in the queue
