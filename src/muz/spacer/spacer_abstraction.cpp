@@ -19,6 +19,8 @@
 
    --*/
 
+#include "ast/for_each_expr.h"
+
 #include "muz/spacer/spacer_context.h"
 #include "muz/spacer/spacer_util.h"
 
@@ -36,6 +38,48 @@ namespace {
 }
 
 namespace spacer {
+
+
+    namespace mono_var_ns{
+        struct found {
+            expr *evidence;
+            found(expr *e) : evidence(e) {}
+            expr * e() { return evidence; }
+        };
+        struct proc {
+            ast_manager m;
+            arith_util m_arith;
+            proc(ast_manager &man) : m(man), m_arith(m) {}
+            bool is_leq(expr *e) {
+                return get_num_vars(e) == 1 && !has_nonlinear_mul(e, m);
+            }
+            void operator()(var *n) {}
+            void operator()(quantifier *q) {}
+            void operator()(app *n){
+                if((m_arith.is_arith_expr(n) || m.is_eq(n)) && is_leq(n)){
+                    throw found(n);
+                }
+                if(m.is_and(n)){
+                    for(auto &c : *n){
+                        if(is_leq(c)) { throw found(c); }
+                    }
+                }
+            }
+        };
+    }
+
+    bool single_nonlinear_var_pattern(expr *pat, expr_ref &out){
+        mono_var_ns::proc proc(out.m());
+        try{
+            for_each_expr(proc, pat);
+        } catch (mono_var_ns::found &f){
+            out = f.e();
+            return true;
+        }
+        return false;
+    }
+
+
 // a mono_var_pattern has only one variable in the whole expression and is
 // linear returns the literal with the variable
 bool context::mono_var_pattern(expr *pattern, expr_ref &leq_lit) {
@@ -77,15 +121,22 @@ bool context::mono_coeff_lm(pob &n, expr_ref &lit) {
 
         expr *pattern = neighbours.get(0);
 
-        if (mono_var_pattern(pattern, lit)) {
-            // HG : store the pattern in the pob. Required because there could
-            // be
-            // multile patterns among lemmas
+        if (single_nonlinear_var_pattern(pattern, lit)) {
             TRACE("merge_dbg",
                   tout << "Found a pattern " << mk_pp(pattern, m) << "\n";);
             n.set_abs_pattern(pattern);
             return true;
         }
+
+        // if (mono_var_pattern(pattern, lit)) {
+        //     // HG : store the pattern in the pob. Required because there could
+        //     // be
+        //     // multile patterns among lemmas
+        //     TRACE("merge_dbg",
+        //           tout << "Found a pattern " << mk_pp(pattern, m) << "\n";);
+        //     n.set_abs_pattern(pattern);
+        //     return true;
+        // }
     }
     return false;
 }
