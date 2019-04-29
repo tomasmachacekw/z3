@@ -85,6 +85,8 @@ namespace spacer {
 bool context::mono_var_pattern(expr *pattern, expr_ref &leq_lit) {
     ast_manager &m = leq_lit.m();
     arith_util a_util(m);
+    if(is_uninterp_const(pattern))
+      return false;
     // XXX does not handle equality
     if (a_util.is_arith_expr(to_app(pattern)) || m.is_eq(pattern)) {
         bool is_leq =
