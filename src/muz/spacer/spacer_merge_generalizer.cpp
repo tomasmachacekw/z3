@@ -117,7 +117,10 @@ bool lemma_merge_generalizer::half_plane_02(
     return false;
 }
 
-/* (>= (+ (* k_1 t_1) (* k_2 t_2)) k_3) with all k >= 0
+/*
+  AG: I think this is only sound if k1 == k2
+
+  (>= (+ (* k_1 t_1) (* k_2 t_2)) k_3) with all k >= 0
    ------------------------------------
    (>= (+ t_1 t_2) 0)
 */
@@ -347,28 +350,38 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     if (half_plane_01(normalizedCube, normalizedCube, neighbours, conjuncts)) {
         TRACE("merge_strategies",
               tout << "Applied half_plane_01 on: " << normalizedCube << "\n";);
-        if (check_inductive_and_update(lemma, conjuncts, bool_Literals))
+        m_st.half_plane01++;
+        if (check_inductive_and_update(lemma, conjuncts, bool_Literals)) {
+            m_st.half_plane01_success++;
             return true;
+        }
     }
 
     if (half_plane_02(normalizedCube, normalizedCube, neighbours, conjuncts)) {
         TRACE("merge_strategies",
               tout << "Applied half_plane_02 on: " << normalizedCube << "\n";);
-        if (check_inductive_and_update(lemma, conjuncts, bool_Literals))
+        m_st.half_plane02++;
+        if (check_inductive_and_update(lemma, conjuncts, bool_Literals)) {
+            m_st.half_plane02_success++;
             return true;
+        }
     }
 
     if (half_plane_03(normalizedCube, neighbours.get(0), neighbours,
                       conjuncts)) {
         TRACE("merge_strategies",
               tout << "Applied half_plane_03 on: " << normalizedCube << "\n";);
-        if (check_inductive_and_update(lemma, conjuncts, bool_Literals))
+        m_st.half_plane03++;
+        if (check_inductive_and_update(lemma, conjuncts, bool_Literals)) {
+            m_st.half_plane03_success++;
             return true;
+        }
     }
 
     if (half_plane_XX(normalizedCube, normalizedCube, neighbours, conjuncts)) {
         TRACE("merge_strategies",
               tout << "Applied half_plane_XX on: " << normalizedCube << "\n";);
+        m_st.half_planeXX++;
         if(conjuncts.size() > 1){
             TRACE("multi_merge",
                   tout << "multi-merge conjectures: \n";
@@ -379,11 +392,14 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
             if(check_inductive_and_update_multiple(lemma, conjuncts, bool_Literals)){
                 TRACE("multi_merge",
                       tout << "multi-merge found inductive: " << mk_epp(mk_and(lemma->get_cube()), m) << "\n";);
+                m_st.half_planeXX_success++;
                 return true;
             }
         }
-        if (check_inductive_and_update(lemma, conjuncts, bool_Literals))
+        if (check_inductive_and_update(lemma, conjuncts, bool_Literals)) {
+            m_st.half_planeXX_success++;
             return true;
+        }
     }
 
     if (neighbours.size() >= 10) {
@@ -447,6 +463,14 @@ bool lemma_merge_generalizer::check_inductive_and_update_multiple(
 
 
 void lemma_merge_generalizer::collect_statistics(statistics &st) const {
+    st.update("merge gen half plane 01", m_st.half_plane01);
+    st.update("merge gen half plane 01 success", m_st.half_plane01_success);
+    st.update("merge gen half plane 02", m_st.half_plane02);
+    st.update("merge gen half plane 02 success", m_st.half_plane02_success);
+    st.update("merge gen half plane 03", m_st.half_plane03);
+    st.update("merge gen half plane 03 success", m_st.half_plane03_success);
+    st.update("merge gen half plane XX", m_st.half_planeXX);
+    st.update("merge gen half plane XX success", m_st.half_planeXX_success);
     st.update("time.spacer.sole.reach.gen.merge", m_st.watch.get_seconds());
 }
 
