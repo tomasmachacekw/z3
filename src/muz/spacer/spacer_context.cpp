@@ -72,7 +72,7 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_level (level), m_depth (depth),
     m_open (true), m_use_farkas (true), m_in_queue(false),
     m_weakness(0), m_blocked_lvl(0), m_ua(0), m_is_abs(false), m_can_abs(true),
-    m_abs_pattern(m_pt.get_ast_manager()){
+    m_abs_pattern(m_pt.get_ast_manager()), m_refine(false){
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -106,6 +106,7 @@ void pob::inherit(pob const &p) {
     m_level = p.m_level;
     m_depth = p.m_depth;
     m_open = p.m_open;
+    m_use_farkas = p.m_use_farkas;
     m_weakness = p.m_weakness;
     m_derivation = nullptr;
 }
@@ -1371,6 +1372,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
 
     // prepare the solver
     prop_solver::scoped_level _sl(*m_solver, n.level());
+    //HG: does unsat core generalization whenever farkas is enabled
     prop_solver::scoped_subset_core _sc (*m_solver, !n.use_farkas_generalizer ());
     prop_solver::scoped_weakness _sw(*m_solver, 0,
                                      ctx.weak_abs() ? n.weakness() : UINT_MAX);
@@ -3609,10 +3611,11 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         pob_ref nref(&n);
         // -- create lemma from a pob and last unsat core
         lemma_ref lemma_pob;
-        if(n.use_farkas_generalizer()){
+        if(!n.should_refine()){
             lemma_pob = alloc(class lemma, pob_ref(&n), cube, uses_level);
         }
         else{
+          //refine lemma. Right now the refinement is to learn the negation of pob
           expr_ref_vector pob_cube(m);
           pob_cube.push_back(n.post());
           flatten_and(pob_cube);
@@ -3622,8 +3625,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         // -- run all lemma generalizers
         for (unsigned i = 0;
              // -- only generalize if lemma was constructed using farkas
-             !lemma_pob->is_false() && i < m_lemma_generalizers.size(); ++i) {
-          if(!( n.use_farkas_generalizer() ||
+             n.use_farkas_generalizer() && !lemma_pob->is_false() && i < m_lemma_generalizers.size(); ++i) {
+          if(!( !n.should_refine() ||
                typeid(*(m_lemma_generalizers[i])) == typeid(lemma_cluster) ||
                 typeid(*(m_lemma_generalizers[i])) == typeid(lemma_merge_generalizer)))
              continue;
@@ -3677,7 +3680,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         if (m_adhoc_gen && mono_coeff_lm(n, lit)) {
           if(!abstract_pob(n, lit, out)){
             //If the pob cannot be abstracted, stop using generalization on it.
-            n.set_farkas_generalizer(false);
+            n.set_refine();
           }
         }
 
