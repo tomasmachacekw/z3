@@ -239,7 +239,7 @@ bool lemma_merge_generalizer::half_plane_XX(
     } else if (lt_or_leq(fst) && gt_or_geq(snd)) {
         if (k1 < k2) {
             // [Branch 2]
-            conj = m_arith.mk_lt(t1, t2);
+            conj = m_arith.mk_le(m_arith.mk_sub(t1, t2), m_arith.mk_numeral(k1 - k2, true));
             conjectures.push_back(conj);
             return true;
         }
