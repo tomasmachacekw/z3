@@ -167,6 +167,7 @@ public:
     ~lemma_merge_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
     bool check_inductive_and_update(lemma_ref &lemma, expr_ref_vector conj, expr_ref_vector bool_literals);
+    bool check_inductive_and_update_multiple(lemma_ref &lemma, expr_ref_vector conjs, expr_ref_vector bool_literals);
 
     void collect_statistics(statistics &st) const override;
     void reset_statistics() override {m_st.reset();}
@@ -197,7 +198,6 @@ private:
                        const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures);
     bool merge_summarize(const expr_ref &literal, const expr_ref pattern,
                          const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures);
-
 };
 
 class lemma_cluster : public lemma_generalizer {

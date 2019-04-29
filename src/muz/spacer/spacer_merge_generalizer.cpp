@@ -241,6 +241,8 @@ bool lemma_merge_generalizer::half_plane_XX(
             // [Branch 2]
             conj = m_arith.mk_le(m_arith.mk_sub(t1, t2), m_arith.mk_numeral(k1 - k2, true));
             conjectures.push_back(conj);
+            conj = m_arith.mk_lt(t1, t2);
+            conjectures.push_back(conj);
             return true;
         }
     } else if (gt_or_geq(fst) && gt_or_geq(snd)) {
@@ -351,6 +353,15 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     if (half_plane_XX(normalizedCube, normalizedCube, neighbours, conjuncts)) {
         TRACE("merge_strategies",
               tout << "Applied half_plane_XX on: " << normalizedCube << "\n";);
+        if(conjuncts.size() > 1){
+            TRACE("multi_merge",
+                  tout << "multi-merge conjectures: \n";
+                  for (auto & conj : conjuncts){
+                      tout << mk_epp(conj, m) << "\n";
+                  }
+                  tout << "\n";);
+            if(check_inductive_and_update_multiple(lemma, conjuncts, bool_Literals)){ return true; }
+        }
         if (check_inductive_and_update(lemma, conjuncts, bool_Literals))
             return true;
     }
@@ -365,6 +376,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     TRACE("merge_dbg", tout << "tried all merge strategies\n";);
     return false;
 }
+
 /* core lemma update function*/
 bool lemma_merge_generalizer::check_inductive_and_update(
     lemma_ref &lemma, expr_ref_vector conj, expr_ref_vector bool_Literals) {
@@ -386,6 +398,33 @@ bool lemma_merge_generalizer::check_inductive_and_update(
         return false;
     }
 }
+
+bool lemma_merge_generalizer::check_inductive_and_update_multiple(
+   lemma_ref &lemma, expr_ref_vector conjs, expr_ref_vector bool_Literals) {
+    bool found_inductive = false;
+    for(auto &conj :conjs){
+        expr_ref_vector c(m);
+        c.append(bool_Literals);
+        c.push_back(conj);
+        STRACE("multi_merge", tout << "Attempt to update lemma with: " << c << "\n"
+              << "at level " << lemma->level() << "\n";);
+        pred_transformer &pt = lemma->get_pob()->pt();
+        unsigned uses_level = 0;
+        if (pt.check_inductive(lemma->level(), c, uses_level,
+                               lemma->weakness())) {
+            STRACE("multi_merge", tout << "Inductive!"
+                   << "\n";);
+            lemma->update_cube(lemma->get_pob(), c);
+            lemma->set_level(uses_level);
+            found_inductive = true;
+        } else {
+            STRACE("multi_merge", tout << "Not inductive!"
+                   << "\n";);
+        }
+    }
+    return found_inductive;
+}
+
 
 void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.sole.reach.gen.merge", m_st.watch.get_seconds());
