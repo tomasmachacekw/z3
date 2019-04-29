@@ -236,6 +236,19 @@ bool lemma_merge_generalizer::half_plane_XX(
             conjectures.push_back(conj);
             return true;
         }
+        else {
+            STRACE("merge_dbg", tout <<
+                   "got here with k2 >= k1\n";);
+            conj = m_arith.mk_ge(t2, t1);
+            conjectures.push_back(conj);
+            conj = m_arith.mk_gt(t2, t1);
+            conjectures.push_back(conj);
+            // dont forget we're in cube space!
+            // so (2 * a < b) => (>= (* 2 a) b)
+            conj = m_arith.mk_ge(m_arith.mk_mul(m_arith.mk_int(2), t1), t2);
+            conjectures.push_back(conj);
+            return true;
+        }
     } else if (lt_or_leq(fst) && gt_or_geq(snd)) {
         if (k1 < k2) {
             // [Branch 2]
@@ -360,7 +373,11 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                       tout << mk_epp(conj, m) << "\n";
                   }
                   tout << "\n";);
-            if(check_inductive_and_update_multiple(lemma, conjuncts, bool_Literals)){ return true; }
+            if(check_inductive_and_update_multiple(lemma, conjuncts, bool_Literals)){
+                TRACE("multi_merge",
+                      tout << "multi-merge found inductive: " << mk_epp(mk_and(lemma->get_cube()), m) << "\n";);
+                return true;
+            }
         }
         if (check_inductive_and_update(lemma, conjuncts, bool_Literals))
             return true;
@@ -406,20 +423,20 @@ bool lemma_merge_generalizer::check_inductive_and_update_multiple(
         expr_ref_vector c(m);
         c.append(bool_Literals);
         c.push_back(conj);
-        STRACE("multi_merge", tout << "Attempt to update lemma with: " << c << "\n"
-              << "at level " << lemma->level() << "\n";);
+        STRACE("multi_merge",
+               tout << "Attempt to update lemma with: " << c
+               << "; at level " << lemma->level() ;);
         pred_transformer &pt = lemma->get_pob()->pt();
         unsigned uses_level = 0;
         if (pt.check_inductive(lemma->level(), c, uses_level,
                                lemma->weakness())) {
-            STRACE("multi_merge", tout << "Inductive!"
+            STRACE("multi_merge", tout << " found Inductive!"
                    << "\n";);
             lemma->update_cube(lemma->get_pob(), c);
             lemma->set_level(uses_level);
             found_inductive = true;
         } else {
-            STRACE("multi_merge", tout << "Not inductive!"
-                   << "\n";);
+            STRACE("multi_merge", tout << " is Not inductive!\n";);
         }
     }
     return found_inductive;
