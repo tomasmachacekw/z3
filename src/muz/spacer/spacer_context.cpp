@@ -107,7 +107,6 @@ void pob::inherit(pob const &p) {
     m_depth = p.m_depth;
     m_open = p.m_open;
     m_weakness = p.m_weakness;
-    m_ua = p.m_ua;
     m_derivation = nullptr;
 }
 
