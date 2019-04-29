@@ -686,6 +686,9 @@ class pob {
 
     //pattern with which abstraction was created
     expr_ref m_abs_pattern;
+
+    //should refine lemma abstractions
+    bool m_refine;
 public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
@@ -721,6 +724,9 @@ public:
     void set_abs_pattern(expr * pattern){ m_abs_pattern = expr_ref(pattern, get_ast_manager()); }
     bool can_abs() const { return m_can_abs; }
     void set_nvr_abs() { m_can_abs = false; }
+
+    bool should_refine() const { return m_refine; }
+    void set_refine() { m_refine = true; }
     pred_transformer& pt () const { return m_pt; }
     ast_manager& get_ast_manager () const { return m_pt.get_ast_manager (); }
     manager& get_manager () const { return m_pt.get_manager (); }

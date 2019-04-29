@@ -22,6 +22,19 @@
 #include "muz/spacer/spacer_context.h"
 #include "muz/spacer/spacer_util.h"
 
+namespace {
+  //a \subseteq b
+  bool is_subset(const expr_ref_vector &a ,const expr_ref_vector &b)
+  {
+    if(a.size() > b.size())
+      return false;
+    for(expr * e : a)
+      if(!b.contains(e))
+        return false;
+    return true;
+  }
+}
+
 namespace spacer {
 // a mono_var_pattern has only one variable in the whole expression and is
 // linear returns the literal with the variable
