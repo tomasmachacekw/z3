@@ -353,6 +353,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         m_st.half_plane01++;
         if (check_inductive_and_update(lemma, conjuncts, bool_Literals)) {
             m_st.half_plane01_success++;
+            IF_VERBOSE(1, verbose_stream() << "M01Y ");
             return true;
         }
     }
@@ -363,6 +364,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         m_st.half_plane02++;
         if (check_inductive_and_update(lemma, conjuncts, bool_Literals)) {
             m_st.half_plane02_success++;
+            IF_VERBOSE(1, verbose_stream() << "M02Y ");
             return true;
         }
     }
@@ -374,6 +376,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         m_st.half_plane03++;
         if (check_inductive_and_update(lemma, conjuncts, bool_Literals)) {
             m_st.half_plane03_success++;
+            IF_VERBOSE(1, verbose_stream() << "M03Y ");
             return true;
         }
     }
@@ -393,11 +396,13 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                 TRACE("multi_merge",
                       tout << "multi-merge found inductive: " << mk_epp(mk_and(lemma->get_cube()), m) << "\n";);
                 m_st.half_planeXX_success++;
+                IF_VERBOSE(1, verbose_stream() << "MXX ");
                 return true;
             }
         }
         if (check_inductive_and_update(lemma, conjuncts, bool_Literals)) {
             m_st.half_planeXX_success++;
+            IF_VERBOSE(1, verbose_stream() << "MXX ");
             return true;
         }
     }
