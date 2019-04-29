@@ -729,16 +729,6 @@ namespace {
         }
     }
 
-  //a \subseteq b
-  bool is_subset(const expr_ref_vector &a ,const expr_ref_vector &b)
-  {
-    if(a.size() > b.size())
-      return false;
-    for(expr * e : a)
-      if(!b.contains(e))
-        return false;
-    return true;
-  }
 
     // Rewriting arithmetic expressions based on term order
     struct term_ordered_rpp : public default_rewriter_cfg {
