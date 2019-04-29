@@ -190,6 +190,7 @@ bool lemma_merge_generalizer::half_plane_03(
   ------
   (< t_1 t_2)
 
+  // AG: Branch 3.1 and Branch 3.2 are unsound
   // XXX JEF: This is aggressive imo;
   [Branch 3.1]
   (>= t_1 k_1) (>= t_2 k_2) and k_1 > k_2
@@ -201,6 +202,7 @@ bool lemma_merge_generalizer::half_plane_03(
   ------
   (< t_1 t_2)
 
+  // AG: the flip side of 3.1 and 3.2 might be unsound as well
   // TODO Branch 4.1 & 4.2: flip side of 3.1 and 3.2
 
 */
@@ -259,6 +261,7 @@ bool lemma_merge_generalizer::half_plane_XX(
             return true;
         }
     } else if (gt_or_geq(fst) && gt_or_geq(snd)) {
+        return false;
         if (k1 > k2) {
             // [Branch 3.1]
             conj = m_arith.mk_gt(t1, t2);
