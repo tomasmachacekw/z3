@@ -3609,15 +3609,27 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
         pob_ref nref(&n);
         // -- create lemma from a pob and last unsat core
-        lemma_ref lemma_pob = alloc(class lemma, pob_ref(&n), cube, uses_level);
-
+        lemma_ref lemma_pob;
+        if(n.use_farkas_generalizer()){
+            lemma_pob = alloc(class lemma, pob_ref(&n), cube, uses_level);
+        }
+        else{
+          expr_ref_vector pob_cube(m);
+          pob_cube.push_back(n.post());
+          flatten_and(pob_cube);
+          simplify_bounds(pob_cube);
+          lemma_pob = alloc(class lemma, pob_ref(&n), pob_cube, n.level());
+        }
         // -- run all lemma generalizers
         for (unsigned i = 0;
              // -- only generalize if lemma was constructed using farkas
-             n.use_farkas_generalizer () && !lemma_pob->is_false() &&
-                 i < m_lemma_generalizers.size(); ++i) {
-            checkpoint ();
-            (*m_lemma_generalizers[i])(lemma_pob);
+             !lemma_pob->is_false() && i < m_lemma_generalizers.size(); ++i) {
+          if(!( n.use_farkas_generalizer() ||
+               typeid(*(m_lemma_generalizers[i])) == typeid(lemma_cluster) ||
+                typeid(*(m_lemma_generalizers[i])) == typeid(lemma_merge_generalizer)))
+             continue;
+          checkpoint ();
+          (*m_lemma_generalizers[i])(lemma_pob);
         }
 
         CTRACE("merge_dbg", n.is_abs(), tout << " Blocked abs pob " << mk_pp(n.post(), m)
