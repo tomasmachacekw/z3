@@ -68,6 +68,8 @@ static bool is_uninterp_literal(expr* lit, ast_manager &m) {
 /// Inductive generalization by dropping and expanding literals
 void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
     if (lemma->get_cube().empty()) return;
+    //Don't generalize lemmas whose pobs require refinement
+    if (lemma->get_pob()->should_refine()) return;
 
     m_st.count++;
     scoped_watch _w_(m_st.watch);

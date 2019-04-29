@@ -3626,10 +3626,6 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         for (unsigned i = 0;
              // -- only generalize if lemma was constructed using farkas
              n.use_farkas_generalizer() && !lemma_pob->is_false() && i < m_lemma_generalizers.size(); ++i) {
-          if(!( !n.should_refine() ||
-               typeid(*(m_lemma_generalizers[i])) == typeid(lemma_cluster) ||
-                typeid(*(m_lemma_generalizers[i])) == typeid(lemma_merge_generalizer)))
-             continue;
           checkpoint ();
           (*m_lemma_generalizers[i])(lemma_pob);
         }
