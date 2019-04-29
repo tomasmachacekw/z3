@@ -172,7 +172,7 @@ bool context::abstract_pob(pob &n, expr_ref &leq_lit, pob_ref_buffer &out) {
         if (f && f->is_in_queue()) return false;
 
         // create abstract pob
-        f = n.pt().mk_pob(&n, n.level(), n.depth(), c, n.get_binding());
+        f = n.pt().mk_pob(n.parent(), n.level(), n.depth(), c, n.get_binding());
         f->set_abs();
         out.push_back(f);
 
