@@ -1042,7 +1042,13 @@ namespace {
     unsigned get_num_vars(expr *e) {
         expr_free_vars fv;
         fv(e);
-        return fv.size();
+        unsigned count = 0;
+        for (unsigned i = 0, sz = fv.size(); i < sz; ++i) {
+          if (fv[i]) {
+            count++;
+          }
+        }
+        return count;
     }
 
     struct count_uninterp_const_proc {
