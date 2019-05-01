@@ -2027,6 +2027,10 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
             if (!new_lemma->get_bindings().empty()) {
                 old_lemma->add_binding(new_lemma->get_bindings());
             }
+            // update neighbourhood to the most recent one
+            if (!new_lemma->get_neighbours().empty()) {
+                old_lemma->set_neighbours(new_lemma->get_neighbours());
+            }
             // if the lemma is at a higher level, skip it,
             if (old_lemma->level() >= new_lemma->level()) {
                 TRACE("spacer", tout << "Already at a higher level: "

@@ -177,8 +177,9 @@ public:
     unsigned init_level() const {return m_init_lvl;}
     void set_level (unsigned lvl);
 
-    expr_ref_vector const &get_neighbours() { return m_neighbours; }
-    void update_neighbours(expr_ref &pattern, expr_ref_vector &n) { m_neighbours.reset(); m_neighbours.push_back(pattern); m_neighbours.append(n); }
+    expr_ref_vector const &get_neighbours() const { return m_neighbours; }
+    void update_neighbours(expr_ref &pattern, const expr_ref_vector &n) { m_neighbours.reset(); m_neighbours.push_back(pattern); m_neighbours.append(n); }
+    void set_neighbours(const expr_ref_vector &n) { m_neighbours.reset(); m_neighbours.append(n); }
 
     app_ref_vector& get_bindings() {return m_bindings;}
     bool has_binding(app_ref_vector const &binding);

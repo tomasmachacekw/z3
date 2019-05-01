@@ -300,7 +300,7 @@ void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
 }
 
 bool lemma_merge_generalizer::core(lemma_ref &lemma) {
-    expr_ref_vector neighbours = lemma->get_neighbours();
+    const expr_ref_vector &neighbours = lemma->get_neighbours();
     if (neighbours.size() < 2 /* 7 */) { return false; }
     substitution subs_newLemma(m), subs_oldLemma(m);
     expr_ref cube(m), normalizedCube(m), out(m);
