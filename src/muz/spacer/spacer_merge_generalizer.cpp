@@ -449,24 +449,23 @@ bool lemma_merge_generalizer::check_inductive_and_update(
 }
 
 bool lemma_merge_generalizer::check_inductive_and_update_multiple(
-   lemma_ref &lemma, expr_ref_vector conjs, expr_ref_vector bool_Literals) {
+    lemma_ref &lemma, expr_ref_vector conjs, expr_ref_vector bool_Literals) {
     bool found_inductive = false;
-    for(auto &conj :conjs){
+    for (auto &conj : conjs) {
         expr_ref_vector c(m);
         c.append(bool_Literals);
         c.push_back(conj);
-        STRACE("multi_merge",
-               tout << "Attempt to update lemma with: " << c
-               << "; at level " << lemma->level() ;);
+        STRACE("multi_merge", tout << "Attempt to update lemma with: " << c
+                                   << "; at level " << lemma->level(););
         pred_transformer &pt = lemma->get_pob()->pt();
         unsigned uses_level = 0;
         if (pt.check_inductive(lemma->level(), c, uses_level,
                                lemma->weakness())) {
-            STRACE("multi_merge", tout << " found Inductive!"
-                   << "\n";);
+            STRACE("multi_merge", tout << " found Inductive!\n";);
             lemma->update_cube(lemma->get_pob(), c);
             lemma->set_level(uses_level);
             found_inductive = true;
+            break;
         } else {
             STRACE("multi_merge", tout << " is Not inductive!\n";);
         }
