@@ -126,7 +126,7 @@ void lemma_cluster::operator()(lemma_ref &lemma) {
 }
 
 void lemma_cluster::collect_statistics(statistics &st) const {
-    st.update("time.spacer.sole.reach.gen.group", m_st.watch.get_seconds());
+    st.update("time.spacer.solve.reach.gen.group", m_st.watch.get_seconds());
     st.update("SPACER max lemma group", m_st.max_group_size);
 }
 } // namespace spacer

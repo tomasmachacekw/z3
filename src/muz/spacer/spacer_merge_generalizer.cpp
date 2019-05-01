@@ -466,17 +466,20 @@ bool lemma_merge_generalizer::check_inductive_and_update_multiple(
     return found_inductive;
 }
 
-
 void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     st.update("SPACER merge gen half plane 01", m_st.half_plane01);
-    st.update("SPACER merge gen half plane 01 success", m_st.half_plane01_success);
+    st.update("SPACER merge gen half plane 01 success",
+              m_st.half_plane01_success);
     st.update("SPACER merge gen half plane 02", m_st.half_plane02);
-    st.update("SPACER merge gen half plane 02 success", m_st.half_plane02_success);
+    st.update("SPACER merge gen half plane 02 success",
+              m_st.half_plane02_success);
     st.update("SPACER merge gen half plane 03", m_st.half_plane03);
-    st.update("SPACER merge gen half plane 03 success", m_st.half_plane03_success);
+    st.update("SPACER merge gen half plane 03 success",
+              m_st.half_plane03_success);
     st.update("SPACER merge gen half plane XX", m_st.half_planeXX);
-    st.update("SPACER merge gen half plane XX success", m_st.half_planeXX_success);
-    st.update("time.spacer.sole.reach.gen.merge", m_st.watch.get_seconds());
+    st.update("SPACER merge gen half plane XX success",
+              m_st.half_planeXX_success);
+    st.update("time.spacer.solve.reach.gen.merge", m_st.watch.get_seconds());
 }
 
 /*
