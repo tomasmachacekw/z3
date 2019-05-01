@@ -1056,6 +1056,7 @@ class context {
     bool                 m_pdr_bfs;
     bool                 m_use_bg_invs;
     bool                 m_adhoc_gen;
+    bool                 m_abstract_pob;
     bool                 m_split_pob;
     bool                 m_re_con_gen;
     bool                 m_diverge_bailout;

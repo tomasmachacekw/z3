@@ -2359,6 +2359,7 @@ void context::updt_params() {
     m_pdr_bfs = m_params.spacer_gpdr_bfs();
     m_use_bg_invs = m_params.spacer_use_bg_invs();
     m_adhoc_gen = m_params.spacer_adhoc_gen();
+    m_abstract_pob = m_params.spacer_abstract_pob();
     m_split_pob = m_params.spacer_split_pob();
     m_re_con_gen = m_params.spacer_re_con_gen();
     m_diverge_bailout = (m_params.spacer_diverge_depth() != 7) ? true : m_params.spacer_diverge_bailout();
@@ -3673,7 +3674,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
         expr_ref lit(m);
         //HG : compute abstraction of the pob
-        if (m_adhoc_gen && mono_coeff_lm(n, lit)) {
+        if (m_abstract_pob && m_adhoc_gen && mono_coeff_lm(n, lit)) {
           if(!abstract_pob(n, lit, out)){
             //If the pob cannot be abstracted, stop using generalization on it.
             n.set_refine();
