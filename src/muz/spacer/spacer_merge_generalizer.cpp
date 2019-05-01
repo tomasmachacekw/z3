@@ -295,13 +295,13 @@ void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
         lemma_bool_inductive_generalizer ind_gen(m_ctx, 0, false, false);
         ind_gen(lemma);
         TRACE("merge_dbg", tout << "Lemma cube after inductive generalization: "
-              << lemma->get_cube() << "\n";);
+                                << lemma->get_cube() << "\n";);
     }
 }
 
 bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     expr_ref_vector neighbours = lemma->get_neighbours();
-    if (neighbours.size() < 7) { return false; }
+    if (neighbours.size() < 2 /* 7 */) { return false; }
     substitution subs_newLemma(m), subs_oldLemma(m);
     expr_ref cube(m), normalizedCube(m), out(m);
     expr_ref_vector non_boolean_literals(m);
