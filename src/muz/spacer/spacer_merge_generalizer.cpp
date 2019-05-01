@@ -393,22 +393,22 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         TRACE("merge_strategies",
               tout << "Applied half_plane_XX on: " << normalizedCube << "\n";);
         m_st.half_planeXX++;
-        if(conjuncts.size() > 1){
-            TRACE("multi_merge",
-                  tout << "multi-merge conjectures: \n";
-                  for (auto & conj : conjuncts){
-                      tout << mk_epp(conj, m) << "\n";
-                  }
-                  tout << "\n";);
-            if(check_inductive_and_update_multiple(lemma, conjuncts, bool_Literals)){
+        if (conjuncts.size() > 1) {
+            TRACE("multi_merge", tout << "multi-merge conjectures: \n";
+                  for (auto &conj
+                       : conjuncts) { tout << mk_epp(conj, m) << "\n"; } tout
+                  << "\n";);
+            if (check_inductive_and_update_multiple(lemma, conjuncts,
+                                                    bool_Literals)) {
                 TRACE("multi_merge",
-                      tout << "multi-merge found inductive: " << mk_epp(mk_and(lemma->get_cube()), m) << "\n";);
+                      tout << "multi-merge found inductive: "
+                           << mk_epp(mk_and(lemma->get_cube()), m) << "\n";);
                 m_st.half_planeXX_success++;
                 IF_VERBOSE(1, verbose_stream() << "MXX ");
                 return true;
             }
         }
-        if (check_inductive_and_update(lemma, conjuncts, bool_Literals)) {
+        else if (check_inductive_and_update(lemma, conjuncts, bool_Literals)) {
             m_st.half_planeXX_success++;
             IF_VERBOSE(1, verbose_stream() << "MXX ");
             return true;
