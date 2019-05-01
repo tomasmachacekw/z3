@@ -111,7 +111,7 @@ bool lemma_merge_generalizer::half_plane_02(
         } else if (rhs <= zero) {
             // XXX not applicable since the literal is t >= k with k <= 0,
             // XXX can only make k smaller, but don't know by how much
-           return false;
+            return false;
         }
     }
     return false;
@@ -216,12 +216,15 @@ bool lemma_merge_generalizer::half_plane_XX(
     if (!(m.is_and(literal) && to_app(literal)->get_num_args() == 2))
         return false;
 
+    th_rewriter rw(m);
     expr_ref fst(m), snd(m);
     fst = to_app(literal)->get_arg(0);
     snd = to_app(literal)->get_arg(1);
 
     // check for right operators
-    if (!(only_halfSpace(fst)) || !(only_halfSpace(snd))) { return false; }
+    if (!(only_halfSpace(fst)) || !(only_halfSpace(snd))) {
+        return false;
+    }
 
     // check for numerics
     rational k1, k2;
@@ -235,15 +238,14 @@ bool lemma_merge_generalizer::half_plane_XX(
     t2 = to_app(snd)->get_arg(0);
 
     if (gt_or_geq(fst) && lt_or_leq(snd)) {
+        // t1 >= k1 && t2 <= k2
         if (k1 > k2) {
             // [Branch 1]
             conj = m_arith.mk_gt(t1, t2);
             conjectures.push_back(conj);
             return true;
-        }
-        else {
-            STRACE("merge_dbg", tout <<
-                   "got here with k2 >= k1\n";);
+        } else {
+            STRACE("merge_dbg", tout << "got here with k2 >= k1\n";);
             conj = m_arith.mk_ge(t2, t1);
             conjectures.push_back(conj);
             conj = m_arith.mk_gt(t2, t1);
@@ -255,28 +257,32 @@ bool lemma_merge_generalizer::half_plane_XX(
             return true;
         }
     } else if (lt_or_leq(fst) && gt_or_geq(snd)) {
+        // t1 <= k1 && t2 >= k2
         if (k1 < k2) {
             // [Branch 2]
-            conj = m_arith.mk_le(m_arith.mk_sub(t1, t2), m_arith.mk_numeral(k1 - k2, true));
+            conj = m_arith.mk_le(m_arith.mk_sub(t1, t2),
+                                 m_arith.mk_numeral(k1 - k2, true));
+            // simplify newly constructed literal
+            rw(conj);
             conjectures.push_back(conj);
             conj = m_arith.mk_lt(t1, t2);
             conjectures.push_back(conj);
             return true;
         }
     } else if (gt_or_geq(fst) && gt_or_geq(snd)) {
-        return false;
-        if (k1 > k2) {
-            // [Branch 3.1]
-            conj = m_arith.mk_gt(t1, t2);
+       if (k1 + k2 > 0) {
+            conj = m_arith.mk_gt(m_arith.mk_add(t1, t2),
+                                 m_arith.mk_numeral(rational(0), true));
+            rw(conj);
             conjectures.push_back(conj);
-            return true;
         }
-        if (k1 < k2) {
-            // [Branch 3.2]
-            conj = m_arith.mk_gt(t1, t2);
-            conjectures.push_back(conj);
-            return true;
-        }
+
+       // t1 >= k1 && t2 >= k2
+       conj = m_arith.mk_ge(m_arith.mk_add(t1, t2),
+                            m_arith.mk_numeral(k1 + k2, true));
+       rw(conj);
+       conjectures.push_back(conj);
+       return true;
     }
     // none of the conjectures fits, give up!
     return false;
