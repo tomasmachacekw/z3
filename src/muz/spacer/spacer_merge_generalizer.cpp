@@ -347,7 +347,8 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
               tout << "non_boolean_literals_cube: " << normalizedCube << "\n";);
     }
 
-    if (half_plane_01(normalizedCube, normalizedCube, neighbours, conjuncts)) {
+    if (false &&
+        half_plane_01(normalizedCube, normalizedCube, neighbours, conjuncts)) {
         TRACE("merge_strategies",
               tout << "Applied half_plane_01 on: " << normalizedCube << "\n";);
         m_st.half_plane01++;
@@ -358,7 +359,8 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         }
     }
 
-    if (half_plane_02(normalizedCube, normalizedCube, neighbours, conjuncts)) {
+    if (false &&
+        half_plane_02(normalizedCube, normalizedCube, neighbours, conjuncts)) {
         TRACE("merge_strategies",
               tout << "Applied half_plane_02 on: " << normalizedCube << "\n";);
         m_st.half_plane02++;
