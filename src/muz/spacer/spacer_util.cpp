@@ -730,6 +730,61 @@ namespace {
     }
 
 
+    // order by term instead of ast_lt
+    struct term_order_proc {
+        ast_manager &m;
+        term_order_proc(ast_manager &mgr) : m(mgr){}
+        bool operator()(expr *arg1, expr *arg2){
+            arith_util m_arith(m);
+            expr *a1_1, *a1_2, *a2_1, *a2_2;
+            ast_lt_proc comp;
+            if(m_arith.is_mul(arg1, a1_1, a1_2) && m_arith.is_mul(arg2, a2_1, a2_2)){
+                return comp(a1_2, a2_2);
+                // return (a1_2->get_id() < a2_2->get_id());
+            }
+            else if(m_arith.is_mul(arg1, a1_1, a1_2)){
+                return comp(a1_2, arg2);
+            }
+            else if(m_arith.is_mul(arg2, a2_1, a2_2)){
+                return comp(arg1, a2_2);
+            }
+            else if(is_app(arg1) && is_app(arg2)){
+                // expr *t1 = nullptr;
+                // expr *t2 = nullptr;
+                // if(m.is_not(arg1, t1)){};
+                // if(m.is_not(arg2, t2)){};
+                STRACE("spacer_normalize_order", tout
+                       << "both apps :" << mk_pp(arg1, m)
+                       << "/" << mk_pp(arg2, m) << "\n";);
+                expr_ref_vector uni_consts(m), uni_consts2(m);
+                get_uninterp_consts(arg1, uni_consts);
+                get_uninterp_consts(arg2, uni_consts2);
+                TRACE("spacer_normalize_order",
+                      tout << "unic1.size() :" << uni_consts.size() << " ";
+                      tout << "unic2.size() :" << uni_consts2.size();
+                      tout << "\n";);
+
+                if(uni_consts.size() > 0 && uni_consts2.size() > 0){
+                    ast_lt_proc comp;
+                    expr * head = uni_consts.get(0);
+                    expr * head2 = uni_consts2.get(0);
+                    STRACE("spacer_normalize_order",
+                           tout << "heads :" << mk_pp(head, m);
+                           tout << (comp(head, head2) ? " < " : " > ");
+                           tout << mk_pp(head2, m) << "\n\n";);
+
+                    return comp(head, head2);
+                }
+            }
+            // fallback to default comp
+            STRACE("spacer_normalize_order",
+                   tout << "args :" << mk_pp(arg1, m);
+                   tout << (comp(arg1, arg2) ? " < " : " > ");
+                   tout << mk_pp(arg2, m) << "\n\n";);
+            return comp(arg1, arg2);
+        }
+    };
+
     // Rewriting arithmetic expressions based on term order
     struct term_ordered_rpp : public default_rewriter_cfg {
         ast_manager &m;
