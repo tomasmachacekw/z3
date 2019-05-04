@@ -237,6 +237,8 @@ bool lemma_merge_generalizer::half_plane_XX(
     t1 = to_app(fst)->get_arg(0);
     t2 = to_app(snd)->get_arg(0);
 
+    if (t1 == t2) return false;
+
     if (gt_or_geq(fst) && lt_or_leq(snd)) {
         // t1 >= k1 && t2 <= k2
         if (k1 > k2) {
