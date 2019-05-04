@@ -75,7 +75,7 @@ bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
         if (m_arith.is_numeral(e2, n, is_int)) {
             // x > k ==> -x < -k ==> -x <= -k - 1
             expr_ref minus_one(m);
-            minus_one = m_arith.mk_numeral(-1, is_int);
+            minus_one = m_arith.mk_numeral(rational(-1), is_int);
             t = m_arith.mk_mul(minus_one, e1);
             c = m_arith.mk_numeral(-n - 1, is_int);
             return true;
@@ -88,7 +88,7 @@ bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
         if (m_arith.is_numeral(e2, n, is_int)) {
             // x >= k ==> -x <= -k
             expr_ref minus_one(m);
-            minus_one = m_arith.mk_numeral(-1, is_int);
+            minus_one = m_arith.mk_numeral(rational(-1), is_int);
             t = m_arith.mk_mul(minus_one, e1);
             c = m_arith.mk_numeral(-n, is_int);
             return true;
