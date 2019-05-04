@@ -677,9 +677,6 @@ struct arith_add_less_proc {
     bool operator()(expr *e1, expr *e2) const {
         ast_lt_proc ast_lt;
 
-        SASSERT(m_arith.is_arith_expr(e1));
-        SASSERT(m_arith.is_arith_expr(e2));
-
         expr *k1 = nullptr, *t1 = nullptr, *k2 = nullptr, *t2 = nullptr;
         if (!m_arith.is_mul(e1, k1, t1)) { t1 = e1; }
         if (!m_arith.is_mul(e2, k2, t2)) { t2 = e2; }
