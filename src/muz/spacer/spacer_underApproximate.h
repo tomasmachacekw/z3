@@ -28,25 +28,28 @@ class under_approx {
                            expr_expr_map &lb, expr_expr_map &ub,
                            expr_expr_map *sub = nullptr);
 
+    void grp_under_approx_cube(const expr_ref_vector &cube, expr *pattern, model_ref &model,
+                           expr_ref_vector &ua);
 
-    bool is_disjoint(expr_ref_vector group);
-    bool is_disjoint(app *g1, app *g2);
+
+    bool should_grp(expr *pattern, expr *term);
     void group(expr_ref_vector conj, expr_ref_vector groups, model_ref model,
                expr_ref_vector &ua_conj);
 
+    void grp_terms(expr* pattern, expr* formula, expr_ref_vector &out);
     bool is_constant(expr const *e) {
         return is_uninterp_const(e) || m_arith.is_numeral(e);
     }
 
     bool is_le(expr *lit, expr_ref &t, expr_ref &c); 
     // each literal in e is Sum Of Products form
-    bool is_sop(expr_ref_vector const &e) {
+    bool is_sop(expr_ref_vector &e) {
         for (expr *a : e) {
             if (!is_sop(a)) return false;
         }
         return true;
     }
-    bool is_sop(expr const *e);
+    bool is_sop(expr *e);
 
     // returns true when each expression in group is either a sub expr of any of
     // the literals in exp or not in any of the literals of exp
@@ -62,6 +65,6 @@ class under_approx {
 
   public:
     under_approx(ast_manager &manager) : m(manager), m_arith(m), m_refs(m) {}
-    bool under_approximate(expr *n, model_ref &model, expr_ref_vector &u_a);
+    bool under_approximate(expr *n, model_ref &model, expr_ref_vector &u_a, expr *p = nullptr);
 };
 } // namespace spacer

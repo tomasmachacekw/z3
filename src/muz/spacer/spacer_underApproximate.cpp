@@ -1,5 +1,71 @@
 #include "spacer_underApproximate.h"
+namespace {
+  bool is_bin_op(expr * f, expr * &lhs, expr * &rhs, ast_manager &m)
+  {
+    if (!is_app(f)) return false;
+    expr * e;
+    if (m.is_not(f,e))
+      return is_bin_op(e, lhs, rhs, m);
+    app * f_app = to_app(f);
+    if (f_app->get_num_args() != 2) return false;
+    lhs = f_app->get_arg(0);
+    rhs = f_app->get_arg(1);
+    return true;
+  }
+  bool is_disjoint(app *g1, app *g2, ast_manager &m) {
+    expr_ref_vector v1(m), v2(m);
+    spacer::get_uninterp_consts(g1, v1);
+    spacer::get_uninterp_consts(g2, v2);
+    for (expr *p : v1) {
+      for (expr *q : v2) {
+        if (p->get_id() == q->get_id()) return false;
+      }
+    }
+    return true;
+  }
+  bool is_disjoint(expr_ref_vector &group, ast_manager &m) {
+    for (unsigned i = 0; i < group.size(); i++) {
+      for (unsigned j = i + 1; j < group.size(); j++) {
+        SASSERT(is_app(group.get(i)));
+        SASSERT(is_app(group.get(j)));
+        if (!is_disjoint(to_app(group.get(i)), to_app(group.get(j)), m))
+          return false;
+      }
+    }
+    return true;
+  }
+} // anonymous namespace
+
+namespace should_grp {
+  struct found {};
+  struct proc {
+    arith_util m_arith;
+    expr* m_uc;
+    proc(ast_manager &m, expr * uc) : m_arith(m), m_uc(uc){}
+    void operator()(var *n) const {}
+    void operator()(quantifier *q) const {}
+    void operator()(app const *n) const {
+      expr *e1, *e2;
+      if (m_arith.is_mul(n, e1, e2) && ((is_var(e1) && e2 == m_uc) ||
+                                        (is_var(e2) && e1 == m_uc)))
+        throw found();
+    }
+  };
+} // namespace should_grp
+
 namespace spacer {
+
+  // Checks whether the uninterp_const in term has a var coeff in pattern
+  bool under_approx::should_grp(expr *pattern, expr *term) {
+  expr_ref_vector uc(m);
+  get_uninterp_consts(term, uc);
+  SASSERT(uc.size() == 1);
+  should_grp::proc proc(m, uc.get(0));
+  try {
+    for_each_expr(proc, pattern);
+  } catch (const should_grp::found &) { return true; }
+  return false;
+}
 
 bool under_approx::is_arith(expr *e)
 {
@@ -13,35 +79,153 @@ bool under_approx::is_arith(expr *e)
 
 // under approximate proof obligation n using literals of dim 1
 // returns nullptr if pob is not in LA
-  bool under_approx::under_approximate(expr *f, model_ref &model, expr_ref_vector &under_approx_vec) {
+  bool under_approx::under_approximate(expr *f, model_ref &model, expr_ref_vector &under_approx_vec, expr *pattern) {
     SASSERT(is_app(f));
 
     expr_ref_vector u_consts(m);
     get_uninterp_consts(f, u_consts);
 
-    expr_ref_vector conj(m);
+    expr_ref_vector conj(m), conj_la(m);
     flatten_and(f, conj);
 
-    // if the literals are not in LA, return nullptr
-    for (auto e : conj) {
-        if (!is_arith(e)) return false;
-    }
+    expr * e_not;
+    for(auto *e : conj)
+      {
+        if(is_constant(e) || m.is_eq(e) || (m.is_not(e, e_not) && is_constant(e_not)))
+          under_approx_vec.push_back(e);
+        else
+          conj_la.push_back(e);
+      }
 
-    expr_expr_map lb, ub;
+    // if the literals are not in LA, return nullptr
+    for (auto *e : conj_la) {
+      if (!is_arith(e)) return false;
+    }
 
     // compute bounds
-    under_approx_cube(conj, model, lb, ub);
+    if(pattern)
+      grp_under_approx_cube(conj_la, pattern ,model, under_approx_vec);
+    else
+      {
+        expr_expr_map lb, ub;
+        under_approx_cube(conj_la, model, lb, ub);
 
-    // create under approximation
-    for (expr *u : u_consts) {
-        if (lb.contains(u)) under_approx_vec.push_back(m_arith.mk_ge(u, lb[u]));
-        if (ub.contains(u)) under_approx_vec.push_back(m_arith.mk_le(u, ub[u]));
-    }
+        // create under approximation
+        for (expr *u : u_consts) {
+          if (lb.contains(u)) under_approx_vec.push_back(m_arith.mk_ge(u, lb[u]));
+          if (ub.contains(u)) under_approx_vec.push_back(m_arith.mk_le(u, ub[u]));
+        }
 
-    TRACE("under_approximate",
-          tout << "produced an under approximation : " << mk_and(under_approx_vec) << "\n";);
+        TRACE("under_approximate",
+              tout << "produced an under approximation : " << mk_and(under_approx_vec) << "\n";);
+      }
     m_refs.reset();
     return ( !under_approx_vec.empty() );
+}
+
+void under_approx::grp_under_approx_cube(const expr_ref_vector &cube, expr *pattern, model_ref &model, expr_ref_vector& ua_conj)
+{
+  expr_ref_vector grps(m);
+  expr_ref_vector non_lit_cube(m);
+  TRACE("under_approximate", tout << "grouping an arithmetic pob : ";
+        tout << mk_and(cube) << " and pattern " << mk_pp(pattern, m) << " \n";);
+  for (expr *lit : cube)
+    {
+      SASSERT(is_arith(lit));
+      grp_terms(pattern, lit, grps);
+    }
+  TRACE("under_approximate", tout << "groups are : "; for (expr *e : grps)
+                                                        tout << mk_pp(e, m) << " ";
+          tout << "\n";);
+
+  if(!is_disjoint(grps, m))
+    {
+      //TODO : Handle this case
+      return;
+    }
+
+  expr_ref conj_sub(m);
+  // TODO ensure union of groups has all the variables
+  expr_safe_replace s(m);
+  expr_ref_vector variables(m);
+  expr_expr_map sub;
+  expr_ref_vector fresh_consts(m);
+  for (expr *grp : grps) {
+    expr_ref eval_ref = (*model)(&(*grp));
+    SASSERT(m_arith.is_numeral(eval_ref));
+    fresh_consts.push_back(m.mk_fresh_const("sub_temp", m_arith.mk_int()));
+    s.insert(grp, fresh_consts.back());
+    sub.insert(fresh_consts.back(), grp);
+  }
+  s(mk_and(cube), conj_sub);
+  TRACE("under_approximate",
+        tout << "substituted formula : " << mk_pp(conj_sub, m) << "\n";);
+  expr_expr_map lb, ub;
+  expr_ref_vector conj_sub_vec(m), u_consts(m);
+  flatten_and(conj_sub, conj_sub_vec);
+
+  under_approx_cube(conj_sub_vec, model, lb, ub, &sub);
+
+  get_uninterp_consts(conj_sub, u_consts);
+  for (expr *u_const : u_consts) {
+    if (lb.contains(u_const))
+      ua_conj.push_back(m_arith.mk_ge(sub[u_const], lb[u_const]));
+    if (ub.contains(u_const))
+      ua_conj.push_back(m_arith.mk_le(sub[u_const], ub[u_const]));
+  }
+  fresh_consts.reset();
+  TRACE("under_approximat",
+        tout << "split pob : " << mk_pp(mk_and(ua_conj), m) << "\n";);
+
+}
+
+//segregates terms of formula into groups based on pattern
+//each uninterpreted constant having a var coefficient in formula is a differnt group
+//all uninterpreted constans without a var coefficient belong to the same group
+//formula should be in SOP
+void under_approx::grp_terms(expr* pattern, expr* formula, expr_ref_vector &out)
+{
+  expr * t, *c;
+  if(!is_bin_op(formula, t, c, m)) return;
+  SASSERT(is_sop(t));
+  expr_ref_vector t_ref(m);
+  if (is_constant(t) || (!m_arith.is_add(t))) { out.push_back(t); return; }
+  SASSERT(is_app(t));
+  for (expr *term : *to_app(t))
+    {
+      if ( should_grp(pattern, term) )
+          out.push_back(term);
+      else
+          t_ref.push_back(term);
+    }
+  out.push_back(m_arith.mk_add(t_ref.size(), t_ref.c_ptr()));
+}
+
+bool under_approx::is_sop(expr *e) {
+    // constants are special cases since they don't have children
+    if (is_constant(e)) return true;
+    if (!m_arith.is_arith_expr(e)) return false;
+
+    // cannot have a top level operand other than plus
+    if (!m_arith.is_add(e) && !is_constant(e)) {
+        if (!m_arith.is_mul(e)) return false;
+        // all arguments for the product should be constants.
+        for (expr *term_child : *to_app(e))
+            if (!is_constant(term_child)) return false;
+    }
+    // all terms inside have to be either a constant or a product of
+    // constants
+    SASSERT(is_app(e));
+    for (expr *term : *to_app(e)) {
+        if (m_arith.is_mul(term)) {
+            // all arguments for the product should be constants.
+            for (expr *term_child : *to_app(term)) {
+                if (!is_constant(term_child)) return false;
+            }
+        } else if (!is_constant(term))
+            return false;
+    }
+    return true;
 }
 
 bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {

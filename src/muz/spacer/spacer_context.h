@@ -690,6 +690,12 @@ class pob {
 
     //should refine lemma abstractions
     bool m_refine;
+
+    //should split cube
+    bool m_shd_split;
+
+    //pattern identified for one of its lemmas
+    expr_ref m_pattern;
 public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
@@ -721,6 +727,9 @@ public:
 
     bool is_abs() const { return m_is_abs; }
     void set_abs() { m_is_abs = true ; }
+
+    void set_pattern(expr *pattern) { m_pattern = expr_ref(pattern, get_ast_manager()); }
+    expr * get_pattern() const { return m_pattern.get(); }
     const expr * get_abs_pattern() const { return m_abs_pattern.get(); }
     void set_abs_pattern(expr * pattern){ m_abs_pattern = expr_ref(pattern, get_ast_manager()); }
     bool can_abs() const { return m_can_abs; }
@@ -728,6 +737,10 @@ public:
 
     bool should_refine() const { return m_refine; }
     void set_refine() { m_refine = true; }
+
+    bool should_split() const { return m_shd_split; }
+    void set_split() { m_shd_split = true; }
+
     pred_transformer& pt () const { return m_pt; }
     ast_manager& get_ast_manager () const { return m_pt.get_ast_manager (); }
     manager& get_manager () const { return m_pt.get_manager (); }

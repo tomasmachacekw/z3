@@ -72,7 +72,7 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_level (level), m_depth (depth),
     m_open (true), m_use_farkas (true), m_in_queue(false),
     m_weakness(0), m_blocked_lvl(0), m_ua(0), m_is_abs(false), m_can_abs(true),
-    m_abs_pattern(m_pt.get_ast_manager()), m_refine(false){
+    m_abs_pattern(m_pt.get_ast_manager()), m_refine(false), m_shd_split(false), m_pattern(m_pt.get_ast_manager()){
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -3425,7 +3425,7 @@ void context::predecessor_eh()
 }
 bool context::should_split(pob& n)
 {
-    return (n.get_no_ua() < 1 && max_dim_literals(n) > 2 );
+  return (n.get_no_ua() < 1 && n.should_split() );
 }
 unsigned context::max_dim_literals(pob& n)
 {
@@ -3520,7 +3520,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
       TRACE("under_approximate", tout<<"going to split " << n.get_no_ua()<<"\n";);
       spacer::under_approx ua(m);
       expr_ref_vector under_approx_vec(m);
-      bool success = ua.under_approximate(n.post(), model, under_approx_vec);
+      bool success = ua.under_approximate(n.post(), model, under_approx_vec, n.get_pattern());
 
       if(success)
         {
