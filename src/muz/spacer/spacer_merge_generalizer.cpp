@@ -325,7 +325,12 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
 
     // Seperating boolean literals and non-boolean ones
     expr_ref_vector bool_Literals(m);
-
+    if(has_nonlinear_var_mul(neighbours.get(0), m))
+      {
+        lemma->get_pob()->set_pattern(neighbours.get(0));
+        lemma->get_pob()->set_split();
+        return true;
+      }
     if (m.is_and(neighbours.get(0))) {
         for (expr *c : *to_app(neighbours.get(0))) {
             if (m.is_not(c) && is_uninterp_const(to_app(c)->get_arg(0))) {
