@@ -141,6 +141,7 @@ void under_approx::grp_under_approx_cube(const expr_ref_vector &cube, expr *patt
   if(!is_disjoint(grps, m))
     {
       //TODO : Handle this case
+      TRACE("under_approximate", tout << "intersecting grps. unhandled case \n ";);
       return;
     }
 
