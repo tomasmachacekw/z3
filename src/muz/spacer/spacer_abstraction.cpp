@@ -53,7 +53,7 @@ bool is_leq(expr *pattern, ast_manager &m, arith_util &a_util)
 bool context::mono_var_pattern(expr *pattern, expr_ref &leq_lit) {
     ast_manager &m = leq_lit.m();
     arith_util a_util(m);
-    // if the pattern has multiple literals, check whether exact;y one of them is leq
+    // if the pattern has multiple literals, check whether exactly one of them is leq
     expr_ref_vector pattern_and(m);
     pattern_and.push_back(pattern);
     flatten_and(pattern_and);
@@ -91,7 +91,7 @@ bool context::mono_coeff_lm(pob &n, expr_ref &lit) {
     return false;
 }
 
-// If a lemma of n mathces the mono_var_pattern, abstract all literals that
+// If a lemma of n matches the mono_var_pattern, abstract all literals that
 // contain  the uninterpreted constants in the pattern.  If there are multiple
 // mono_var_patterns, pick one
 bool context::abstract_pob(pob &n, expr_ref &leq_lit, pob_ref_buffer &out) {
