@@ -306,7 +306,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     if (neighbours.size() < 2 /* 7 */) { return false; }
     substitution subs_newLemma(m), subs_oldLemma(m);
     expr_ref cube(m), normalizedCube(m), out(m);
-    expr_ref_vector non_boolean_literals(m);
+    expr_ref_vector non_boolean_literals(m), non_bool_lit_pattern(m);
     expr_ref_vector conjuncts(m);
 
     cube = mk_and(lemma->get_cube());
@@ -324,48 +324,48 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     pat = neighbours.get(0);
 
     // Seperating boolean literals and non-boolean ones
-    expr_ref_vector bool_Literals(m);
+    expr_ref_vector non_var_or_bool_Literals(m);
     if(has_nonlinear_var_mul(neighbours.get(0), m))
       {
         lemma->get_pob()->set_pattern(neighbours.get(0));
         lemma->get_pob()->set_split();
         return true;
       }
-    if (m.is_and(neighbours.get(0))) {
-        for (expr *c : *to_app(neighbours.get(0))) {
+    expr_ref normalized_pattern(m);
+    normalize_order(pat, normalized_pattern);
+    if (m.is_and(normalized_pattern)) {
+        for (expr *c : *to_app(normalized_pattern)) {
             if (m.is_not(c) && is_uninterp_const(to_app(c)->get_arg(0))) {
-                bool_Literals.push_back(c);
-            } else if (!is_uninterp_const(c)) {
-                non_boolean_literals.push_back(c);
+                non_var_or_bool_Literals.push_back(c);
+            } else if (!is_uninterp_const(c) && get_num_vars(c) > 0) {
+                non_bool_lit_pattern.push_back(c);
             } else
-                bool_Literals.push_back(c);
+                non_var_or_bool_Literals.push_back(c);
         }
     }
     TRACE("merge_dbg", tout << "partitioned " << mk_pp(neighbours.get(0), m)
                             << "into:\n"
-                            << "bools: " << bool_Literals << "\n"
-                            << "non-bools: " << non_boolean_literals << "\n";);
+                            << "bools and non vars: " << non_var_or_bool_Literals << "\n"
+                            << "non-bools: " << non_bool_lit_pattern<< "\n";);
 
-    if (!non_boolean_literals.empty()) {
-        non_boolean_literals.reset();
-        for (auto c : lemma->get_cube()) {
-            if (m.is_not(c) && is_uninterp_const(to_app(c)->get_arg(0))) {
-                continue;
-            }
-            if (!is_uninterp_const(c)) non_boolean_literals.push_back(c);
-        }
-        cube = mk_and(non_boolean_literals);
-        normalize_order(cube, normalizedCube);
-        TRACE("fun",
-              tout << "non_boolean_literals_cube: " << normalizedCube << "\n";);
+    if (non_bool_lit_pattern.empty()) { return false ;}
+    non_boolean_literals.reset();
+    expr_ref_vector normalizedCube_vec(m);
+    flatten_and(normalizedCube, normalizedCube_vec);
+    for (auto c : normalizedCube_vec) {
+      if(!non_var_or_bool_Literals.contains(c))
+        non_boolean_literals.push_back(c);
     }
+    normalizedCube = mk_and(non_boolean_literals);
+    TRACE("fun",
+          tout << "non_boolean_literals_cube: " << normalizedCube << "\n";);
 
     if (false &&
         half_plane_01(normalizedCube, normalizedCube, neighbours, conjuncts)) {
         TRACE("merge_strategies",
               tout << "Applied half_plane_01 on: " << normalizedCube << "\n";);
         m_st.half_plane01++;
-        if (check_inductive_and_update(lemma, conjuncts, bool_Literals)) {
+        if (check_inductive_and_update(lemma, conjuncts, non_var_or_bool_Literals)) {
             m_st.half_plane01_success++;
             IF_VERBOSE(1, verbose_stream() << "M01Y ");
             return true;
@@ -377,7 +377,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         TRACE("merge_strategies",
               tout << "Applied half_plane_02 on: " << normalizedCube << "\n";);
         m_st.half_plane02++;
-        if (check_inductive_and_update(lemma, conjuncts, bool_Literals)) {
+        if (check_inductive_and_update(lemma, conjuncts, non_var_or_bool_Literals)) {
             m_st.half_plane02_success++;
             IF_VERBOSE(1, verbose_stream() << "M02Y ");
             return true;
@@ -389,7 +389,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         TRACE("merge_strategies",
               tout << "Applied half_plane_03 on: " << normalizedCube << "\n";);
         m_st.half_plane03++;
-        if (check_inductive_and_update(lemma, conjuncts, bool_Literals)) {
+        if (check_inductive_and_update(lemma, conjuncts, non_var_or_bool_Literals)) {
             m_st.half_plane03_success++;
             IF_VERBOSE(1, verbose_stream() << "M03Y ");
             return true;
@@ -406,7 +406,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                        : conjuncts) { tout << mk_epp(conj, m) << "\n"; } tout
                   << "\n";);
             if (check_inductive_and_update_multiple(lemma, conjuncts,
-                                                    bool_Literals)) {
+                                                    non_var_or_bool_Literals)) {
                 TRACE("multi_merge",
                       tout << "multi-merge found inductive: "
                            << mk_epp(mk_and(lemma->get_cube()), m) << "\n";);
@@ -415,7 +415,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                 return true;
             }
         }
-        else if (check_inductive_and_update(lemma, conjuncts, bool_Literals)) {
+        else if (check_inductive_and_update(lemma, conjuncts, non_var_or_bool_Literals)) {
             m_st.half_planeXX_success++;
             IF_VERBOSE(1, verbose_stream() << "MXX ");
             return true;
@@ -435,8 +435,8 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
 
 /* core lemma update function*/
 bool lemma_merge_generalizer::check_inductive_and_update(
-    lemma_ref &lemma, expr_ref_vector conj, expr_ref_vector bool_Literals) {
-    conj.append(bool_Literals);
+    lemma_ref &lemma, expr_ref_vector conj, expr_ref_vector non_var_or_bool_Literals) {
+    conj.append(non_var_or_bool_Literals);
     TRACE("merge_dbg", tout << "Attempt to update lemma with: " << conj << "\n"
                             << "at level " << lemma->level() << "\n";);
     pred_transformer &pt = lemma->get_pob()->pt();
@@ -456,11 +456,11 @@ bool lemma_merge_generalizer::check_inductive_and_update(
 }
 
 bool lemma_merge_generalizer::check_inductive_and_update_multiple(
-    lemma_ref &lemma, expr_ref_vector conjs, expr_ref_vector bool_Literals) {
+    lemma_ref &lemma, expr_ref_vector conjs, expr_ref_vector non_var_or_bool_Literals) {
     bool found_inductive = false;
     for (auto &conj : conjs) {
         expr_ref_vector c(m);
-        c.append(bool_Literals);
+        c.append(non_var_or_bool_Literals);
         c.push_back(conj);
         STRACE("multi_merge", tout << "Attempt to update lemma with: " << c
                                    << "; at level " << lemma->level(););
