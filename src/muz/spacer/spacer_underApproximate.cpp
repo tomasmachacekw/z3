@@ -1,5 +1,6 @@
 #include "spacer_underApproximate.h"
 namespace {
+  //checks whether f is a binary operator or the negation of one
   bool is_bin_op(expr * f, expr * &lhs, expr * &rhs, ast_manager &m)
   {
     if (!is_app(f)) return false;
@@ -126,13 +127,14 @@ bool under_approx::is_arith(expr *e)
 void under_approx::grp_under_approx_cube(const expr_ref_vector &cube, expr *pattern, model_ref &model, expr_ref_vector& ua_conj)
 {
   expr_ref_vector grps(m);
+  expr_ref_vector sub_term(m);
   expr_ref_vector non_lit_cube(m);
   TRACE("under_approximate", tout << "grouping an arithmetic pob : ";
         tout << mk_and(cube) << " and pattern " << mk_pp(pattern, m) << " \n";);
   for (expr *lit : cube)
     {
       SASSERT(is_arith(lit));
-      grp_terms(pattern, lit, grps);
+      grp_terms(pattern, lit, grps, sub_term);
     }
   TRACE("under_approximate", tout << "groups are : "; for (expr *e : grps)
                                                         tout << mk_pp(e, m) << " ";
@@ -158,7 +160,8 @@ void under_approx::grp_under_approx_cube(const expr_ref_vector &cube, expr *patt
     s.insert(grp, fresh_consts.back());
     sub.insert(fresh_consts.back(), grp);
   }
-  s(mk_and(cube), conj_sub);
+  expr_ref c = mk_and(sub_term);
+  s(c , conj_sub);
   TRACE("under_approximate",
         tout << "substituted formula : " << mk_pp(conj_sub, m) << "\n";);
   expr_expr_map lb, ub;
@@ -175,7 +178,7 @@ void under_approx::grp_under_approx_cube(const expr_ref_vector &cube, expr *patt
       ua_conj.push_back(m_arith.mk_le(sub[u_const], ub[u_const]));
   }
   fresh_consts.reset();
-  TRACE("under_approximat",
+  TRACE("under_approximate",
         tout << "split pob : " << mk_pp(mk_and(ua_conj), m) << "\n";);
 
 }
@@ -183,10 +186,11 @@ void under_approx::grp_under_approx_cube(const expr_ref_vector &cube, expr *patt
 //segregates terms of formula into groups based on pattern
 //each uninterpreted constant having a var coefficient in formula is a differnt group
 //all uninterpreted constans without a var coefficient belong to the same group
-//formula should be in SOP
-void under_approx::grp_terms(expr* pattern, expr* formula, expr_ref_vector &out)
+//formula should be in SOP. The sub_term is appended with a recontruction of formula such that it synactically mathces the groups pushed to out
+  void under_approx::grp_terms(expr* pattern, expr* formula, expr_ref_vector &out, expr_ref_vector& sub_term)
 {
   expr * t, *c;
+  expr_ref_vector rw_formula(m);
   if(!is_bin_op(formula, t, c, m)) return;
   SASSERT(is_sop(t));
   expr_ref_vector t_ref(m);
@@ -195,11 +199,32 @@ void under_approx::grp_terms(expr* pattern, expr* formula, expr_ref_vector &out)
   for (expr *term : *to_app(t))
     {
       if ( should_grp(pattern, term) )
-          out.push_back(term);
+        {
+          if(!out.contains(term))
+            out.push_back(term);
+          rw_formula.push_back(term);
+        }
       else
           t_ref.push_back(term);
     }
-  out.push_back(m_arith.mk_add(t_ref.size(), t_ref.c_ptr()));
+  if(t_ref.size() > 0)
+    {
+      //This will hold since it is SOP
+      SASSERT(m_arith.is_add(t));
+      expr_ref sum_term(m);
+      sum_term = m_arith.mk_add(t_ref.size(), t_ref.c_ptr());
+      if(!out.contains(sum_term))
+        out.push_back(sum_term);
+      rw_formula.push_back(sum_term);
+      expr* e;
+      expr_ref t_sub(m);
+      // recontruct the formula with the same syntax structure as the substitution
+      if(m.is_not(formula,e))
+        t_sub = m.mk_not(m.mk_app(to_app(e)->get_decl(),m_arith.mk_add(rw_formula.size(),rw_formula.c_ptr()), c));
+      else
+        t_sub = m.mk_app(to_app(formula)->get_decl(),m_arith.mk_add(rw_formula.size(),rw_formula.c_ptr()), c);
+      sub_term.push_back(t_sub);
+    }
 }
 
 bool under_approx::is_sop(expr *e) {

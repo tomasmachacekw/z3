@@ -36,7 +36,7 @@ class under_approx {
     void group(expr_ref_vector conj, expr_ref_vector groups, model_ref model,
                expr_ref_vector &ua_conj);
 
-    void grp_terms(expr* pattern, expr* formula, expr_ref_vector &out);
+    void grp_terms(expr* pattern, expr* formula, expr_ref_vector &out, expr_ref_vector &sub_term);
     bool is_constant(expr const *e) {
         return is_uninterp_const(e) || m_arith.is_numeral(e);
     }
