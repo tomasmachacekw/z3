@@ -192,6 +192,10 @@ class lemma_merge_generalizer : public lemma_generalizer {
     arith_util m_arith;
     typedef std::pair<rational, expr *> num_expr_pair;
     typedef vector<num_expr_pair> num_expr_pair_vec;
+    typedef std::pair<expr *, expr *> expr_pair;
+    typedef vector<expr_pair> expr_pair_vec;
+
+    typedef std::pair<bool, rational> contain_numeral;
     stats m_st;
 
   public:
@@ -240,6 +244,10 @@ class lemma_merge_generalizer : public lemma_generalizer {
     bool merge_summarize(const expr_ref &literal, const expr_ref pattern,
                          const expr_ref_vector &neighbour_lemmas,
                          expr_ref_vector &conjectures);
+    bool filter_pairs(const expr_ref_vector neighbour_cubes, expr_ref_vector &out);
+
+  // misc
+  bool are_close_numerals(rational r1, rational r2) { return abs(r1 - r2) <= rational(1); }
 };
 
 class lemma_cluster : public lemma_generalizer {

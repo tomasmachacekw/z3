@@ -341,11 +341,14 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     if (m.is_and(normalized_pattern)) {
         for (expr *c : *to_app(normalized_pattern)) {
             if (m.is_not(c) && is_uninterp_const(to_app(c)->get_arg(0))) {
+                // XXX TODO JEF: is_not(c) maybe matching unwanted expr
                 non_var_or_bool_Literals.push_back(c);
             } else if (!is_uninterp_const(c) && get_num_vars(c) > 0) {
                 non_bool_lit_pattern.push_back(c);
             } else
-                non_var_or_bool_Literals.push_back(c);
+              // XXX Jeff: Maybe we should have explicit condition here and a expectional else branch here
+              // I'm not sure I can quickly id this else condition
+              non_var_or_bool_Literals.push_back(c);
         }
     }
     TRACE("merge_dbg", tout << "partitioned " << mk_pp(neighbours.get(0), m)
@@ -354,6 +357,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                             << "non-bools: " << non_bool_lit_pattern<< "\n";);
 
     if (non_bool_lit_pattern.empty()) { return false ;}
+    // XXX Jeff: should we package flatten_and with mk_and into a normalizing function?
     non_boolean_literals.reset();
     expr_ref_vector normalizedCube_vec(m);
     flatten_and(normalizedCube, normalizedCube_vec);
@@ -533,4 +537,17 @@ bool lemma_merge_generalizer::merge_summarize(
     }
     return false;
 }
+
+  /*
+    Go through neighbour_cubes and find potentially correlated pairs of cube
+   */
+  bool lemma_merge_generalizer::filter_pairs(const expr_ref_vector neighbour_cubes, expr_ref_vector &out){
+    if(neighbour_cubes.empty()) { return false; }
+    if(!m.is_and(neighbour_cubes.get(0))) { return false; }
+    if(neighbour_cubes.size() <= 2 ) { return false; }
+    
+
+    // fail to find any interesting pairs of cubes
+    return false;
+  }
 } // namespace spacer
