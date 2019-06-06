@@ -13,28 +13,6 @@ namespace {
     rhs = f_app->get_arg(1);
     return true;
   }
-  bool is_disjoint(app *g1, app *g2, ast_manager &m) {
-    expr_ref_vector v1(m), v2(m);
-    spacer::get_uninterp_consts(g1, v1);
-    spacer::get_uninterp_consts(g2, v2);
-    for (expr *p : v1) {
-      for (expr *q : v2) {
-        if (p->get_id() == q->get_id()) return false;
-      }
-    }
-    return true;
-  }
-  bool is_disjoint(expr_ref_vector &group, ast_manager &m) {
-    for (unsigned i = 0; i < group.size(); i++) {
-      for (unsigned j = i + 1; j < group.size(); j++) {
-        SASSERT(is_app(group.get(i)));
-        SASSERT(is_app(group.get(j)));
-        if (!is_disjoint(to_app(group.get(i)), to_app(group.get(j)), m))
-          return false;
-      }
-    }
-    return true;
-  }
 } // anonymous namespace
 
 namespace should_grp {
@@ -140,13 +118,6 @@ void under_approx::grp_under_approx_cube(const expr_ref_vector &cube, expr *patt
                                                         tout << mk_pp(e, m) << " ";
           tout << "\n";);
 
-  if(!is_disjoint(grps, m))
-    {
-      //TODO : Handle this case
-      TRACE("under_approximate", tout << "intersecting grps. unhandled case \n ";);
-      return;
-    }
-
   expr_ref conj_sub(m);
   // TODO ensure union of groups has all the variables
   expr_safe_replace s(m);
@@ -194,7 +165,13 @@ void under_approx::grp_under_approx_cube(const expr_ref_vector &cube, expr *patt
   if(!is_bin_op(formula, t, c, m)) return;
   SASSERT(is_sop(t));
   expr_ref_vector t_ref(m);
-  if (is_constant(t) || (!m_arith.is_add(t))) { out.push_back(t); return; }
+  if (is_constant(t) || (!m_arith.is_add(t))) {
+    //make additional reference
+    expr_ref t_sub(formula, m);
+    sub_term.push_back(t_sub);
+    out.push_back(t);
+    return;
+  }
   SASSERT(is_app(t));
   for (expr *term : *to_app(t))
     {
@@ -359,6 +336,10 @@ int under_approx::under_approx_var(expr *t, expr *c, expr *d) {
     }
 }
 // computes bounds u_v on each variable v in l
+
+// does not use bg. bg is only required when (if) we need better bounds. In this
+// case, should update background as bounds are discovered!!!!
+
 // bg ==> ( &u_v ==> l)
 void under_approx::under_approx_lit(model_ref &model, expr *t, expr *c,
                                     expr_ref_vector &bg, expr_expr_map &lb,
@@ -375,6 +356,7 @@ void under_approx::under_approx_lit(model_ref &model, expr *t, expr *c,
         int change = under_approx_var(t, c, d);
         val = (*model)(sub ? (*sub)[d] : d);
         SASSERT(m_arith.is_numeral(val));
+
 
         // save reference since the map won't do it
         m_refs.push_back(val);
