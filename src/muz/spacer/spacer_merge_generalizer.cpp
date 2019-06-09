@@ -477,6 +477,8 @@ bool lemma_merge_generalizer::check_inductive_and_update_multiple(
             lemma->update_cube(lemma->get_pob(), c);
             lemma->set_level(uses_level);
             found_inductive = true;
+            //HG : need to decide which conjecture to use if more than one is
+            //inductive. Right now, this is being done arbitrarly
             break;
         } else {
             STRACE("multi_merge", tout << " is Not inductive!\n";);
