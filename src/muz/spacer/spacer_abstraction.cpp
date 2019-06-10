@@ -122,6 +122,7 @@ bool context::abstract_pob(pob &n, expr_ref &leq_lit, pob_ref_buffer &out) {
         // create abstract pob
         f = n.pt().mk_pob(n.parent(), n.level(), n.depth(), c, n.get_binding());
         f->set_abs();
+        f->set_concrete(&n);
         out.push_back(f);
 
         TRACE("merge_dbg", tout << " abstracting " << mk_pp(n.post(), m)

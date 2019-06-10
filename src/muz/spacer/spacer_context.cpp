@@ -72,7 +72,7 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_level (level), m_depth (depth),
     m_open (true), m_use_farkas (true), m_in_queue(false),
     m_weakness(0), m_blocked_lvl(0), m_ua(0), m_is_abs(false), m_can_abs(true),
-    m_abs_pattern(m_pt.get_ast_manager()), m_refine(false), m_shd_split(false), m_pattern(m_pt.get_ast_manager()){
+    m_abs_pattern(m_pt.get_ast_manager()), m_refine(false), m_shd_split(false), m_pattern(m_pt.get_ast_manager()), m_concrete(nullptr){
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -3175,11 +3175,12 @@ lbool context::solve_core (unsigned from_lvl)
 //neighbours of the lemma that was used to create pob_abs
 static void set_nvr_abs(const pob_ref & pob_abs)
 {
-  if(!pob_abs || !pob_abs->parent()) return;
-  // JEF: Not sure about this SASSERT since we do set_nvr_abs to our neighbours' POB
+  if(!pob_abs || !pob_abs->concrete()) return;
+  //HG : this pob shuold be an abstraction. The neighbours are selected later
   SASSERT(pob_abs->is_abs());
+  pob_abs->concrete()->set_nvr_abs();
   //get pattern that was used to create reachable
-  const expr * pob_pattern = pob_abs->parent()->get_abs_pattern();
+  const expr * pob_pattern = pob_abs->concrete()->get_abs_pattern();
   //if there is no pattern, return. This happens when pob_abs is a predecessor of
   //another abstract pob
   if (!pob_pattern) return ;

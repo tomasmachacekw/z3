@@ -696,6 +696,11 @@ class pob {
 
     //pattern identified for one of its lemmas
     expr_ref m_pattern;
+
+    //concrete pob associated with an abstract pob
+    //very similar to a parent except this is not used in computing
+    //a counter example
+    pob_ref  m_concrete;
 public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
@@ -725,6 +730,8 @@ public:
 
     pob* parent () const { return m_parent.get (); }
 
+    pob* concrete () const { SASSERT(m_is_abs  && m_concrete); return m_concrete.get(); }
+    void set_concrete(pob* pob) { SASSERT(m_is_abs); m_concrete = pob; }
     bool is_abs() const { return m_is_abs; }
     void set_abs() { m_is_abs = true ; }
 
