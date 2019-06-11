@@ -3627,13 +3627,6 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
           flatten_and(pob_cube);
           simplify_bounds(pob_cube);
           lemma_pob = alloc(class lemma, pob_ref(&n), pob_cube, n.level());
-          //HG : set uses_level since no generalizations are going to be applied
-          unsigned uses_level = 0;
-          pred_transformer &pt = n.pt();
-          pt.check_inductive(n.level(), pob_cube, uses_level,
-                             lemma_pob->weakness());
-          lemma_pob->update_cube(lemma_pob->get_pob(), pob_cube);
-          lemma_pob->set_level(uses_level);
           TRACE("merge_dbg", tout << " refining " << mk_pp(n.post(), m)
                 << " id is " << n.post()->get_id()
                 << "\n into pob " << mk_and(lemma_pob->get_cube()) << "\n";);
