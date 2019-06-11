@@ -51,6 +51,7 @@ bool is_leq(expr *pattern, ast_manager &m, arith_util &a_util)
 // a mono_var_pattern has only one variable in the whole expression and is
 // linear returns the literal with the variable
 bool context::mono_var_pattern(expr *pattern, expr_ref &leq_lit) {
+    if(get_num_vars(pattern) != 1) return false;
     ast_manager &m = leq_lit.m();
     arith_util a_util(m);
     // if the pattern has multiple literals, check whether exactly one of them is leq
