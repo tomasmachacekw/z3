@@ -257,9 +257,11 @@ bool lemma_merge_generalizer::half_plane_XX(
             conjectures.push_back(conj);
             conj = m_arith.mk_gt(t2, t1);
             conjectures.push_back(conj);
+            conj = m_arith.mk_le(m_arith.mk_sub(t2, t1),
+                                 m_arith.mk_numeral(k2 - k1, true));
             // dont forget we're in cube space!
             // so (2 * a < b) => (>= (* 2 a) b)
-            conj = m_arith.mk_ge(m_arith.mk_mul(m_arith.mk_int(2), t1), t2);
+            // conj = m_arith.mk_ge(m_arith.mk_mul(m_arith.mk_int(2), t1), t2);
             conjectures.push_back(conj);
             return true;
         }
