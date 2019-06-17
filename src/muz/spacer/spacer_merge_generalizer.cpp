@@ -9,7 +9,7 @@
 #include "muz/spacer/spacer_generalizers.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_util.h"
-
+#include "muz/spacer/spacer_convex_closure.h"
 using namespace spacer;
 namespace spacer {
 
@@ -45,6 +45,71 @@ bool lemma_merge_generalizer::is_simple_literal(const expr_ref &literal) {
    conjecture(s) these rules are implemented for simple literals
    XXX SASSERT(uninterp consts prefix normal form)!
 */
+  //fetch all integers d such that lhs = d
+  bool lemma_merge_generalizer::get_eq_integers(expr *&lhs, const expr_ref_vector & exprs, vector<rational>& data){
+    expr *t_lhs, *t_rhs;
+    rational num;
+    bool is_int = false;
+    expr_ref_vector expr_lits(m);
+    for(auto* expr : exprs)
+      {
+        expr_lits.reset();
+        flatten_and(expr,expr_lits);
+        for(auto* e: expr_lits)
+          {
+            if(m.is_eq(e,t_lhs, t_rhs) && t_lhs == lhs)
+              {
+                if(!(m_arith.is_numeral(t_rhs, num, is_int) && is_int))
+                  {
+                    data.reset();
+                    return false;
+                  }
+                is_int = false;
+                data.push_back(num);
+                break;
+              }
+          }
+      }
+    return true;
+  }
+bool lemma_merge_generalizer::half_plane_prog(
+    const expr_ref &literal, const expr_ref &pattern,
+    const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures) {
+
+    expr *lhs, *rhs;
+    vector<rational> data;
+
+    //pattern is lhs =  interpreted constant
+    if(!(m.is_eq(literal, lhs, rhs) && m_arith.is_numeral(rhs))) return false;
+
+    TRACE("merge_strategies", tout << "entered half_plane_prog with: "
+                                   << mk_epp(literal, m) << "\n";);
+
+    //skip pattern from neighbours
+    expr_ref_vector neighbours(m);
+    for(unsigned i = 1; i < neighbour_lemmas.size(); i++)
+      neighbours.push_back(neighbour_lemmas.get(i));
+
+    //compute numerals which form the pattern
+    if(!get_eq_integers(lhs, neighbours, data))
+      return false;
+
+    TRACE("merge_strategies", tout << "entered half_plane_prog with data: "; for(auto e : data) tout << mk_epp(m_arith.mk_numeral(e, true), m) << " "; tout << "\n"; );
+
+    //search for pattern only if there are atleast 3 neighbours
+    if(data.size() < 3 )
+      return false;
+
+    //compute convex closure
+    expr_ref conj(m);
+    convex_closure cvx_cls(m);
+    cvx_cls.compute_cls(data, lhs, conj);
+    conjectures.push_back(conj);
+
+    TRACE("merge_strategies",
+          tout << "conjectures are " << mk_and(conjectures) << "\n";);
+    return true;
+}
 
 /* (<= t k)  for k < 0
    ------
@@ -315,6 +380,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     expr_ref cube(m), normalizedCube(m), out(m);
     expr_ref_vector non_boolean_literals(m), non_bool_lit_pattern(m);
     expr_ref_vector conjuncts(m);
+    expr_ref_vector non_var_or_bool_Literals(m);
 
     cube = mk_and(lemma->get_cube());
     normalize_order(cube, normalizedCube);
@@ -366,6 +432,17 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     normalizedCube = mk_and(non_boolean_literals);
     TRACE("fun",
           tout << "non_boolean_literals_cube: " << normalizedCube << "\n";);
+
+    if (half_plane_prog(normalizedCube, normalizedCube, neighbours, conjuncts)) {
+      TRACE("merge_strategies",
+            tout << "Applied half_plane_prog on: " << normalizedCube << "\n";);
+      m_st.half_plane_prog++;
+      if (check_inductive_and_update(lemma, conjuncts, non_var_or_bool_Literals)) {
+        m_st.half_plane_prog_success++;
+        IF_VERBOSE(1, verbose_stream() << "Merge Half Plane Prog success ");
+        return true;
+      }
+    }
 
     if (false &&
         half_plane_01(normalizedCube, normalizedCube, neighbours, conjuncts)) {
@@ -503,6 +580,8 @@ void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     st.update("SPACER merge gen half plane XX success",
               m_st.half_planeXX_success);
     st.update("time.spacer.solve.reach.gen.merge", m_st.watch.get_seconds());
+    st.update("SPACER merge half plane prog",m_st.half_plane_prog);
+    st.update("SPACER merge half plane prog success",m_st.half_plane_prog_success);
 }
 
 /*
