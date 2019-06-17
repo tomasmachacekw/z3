@@ -78,9 +78,10 @@ bool lemma_merge_generalizer::half_plane_prog(
 
     expr *lhs, *rhs;
     vector<rational> data;
-
+    rational num;
+    bool is_int = false;
     //pattern is lhs =  interpreted constant
-    if(!(m.is_eq(literal, lhs, rhs) && m_arith.is_numeral(rhs))) return false;
+    if(!(m.is_eq(literal, lhs, rhs) && m_arith.is_numeral(rhs, num, is_int) && is_int)) return false;
 
     TRACE("merge_strategies", tout << "entered half_plane_prog with: "
                                    << mk_epp(literal, m) << "\n";);
@@ -94,6 +95,8 @@ bool lemma_merge_generalizer::half_plane_prog(
     if(!get_eq_integers(lhs, neighbours, data))
       return false;
 
+    data.push_back(num);
+
     TRACE("merge_strategies", tout << "entered half_plane_prog with data: "; for(auto e : data) tout << mk_epp(m_arith.mk_numeral(e, true), m) << " "; tout << "\n"; );
 
     //search for pattern only if there are atleast 3 neighbours
@@ -103,7 +106,9 @@ bool lemma_merge_generalizer::half_plane_prog(
     //compute convex closure
     expr_ref conj(m);
     convex_closure cvx_cls(m);
-    cvx_cls.compute_cls(data, lhs, conj);
+    bool success = cvx_cls.compute_cls(data, lhs, conj);
+    if (!success)
+      return false;
     conjectures.push_back(conj);
 
     TRACE("merge_strategies",
