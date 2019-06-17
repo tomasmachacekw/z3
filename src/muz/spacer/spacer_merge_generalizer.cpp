@@ -530,14 +530,27 @@ bool lemma_merge_generalizer::check_inductive_and_update(
                             << "at level " << lemma->level() << "\n";);
     pred_transformer &pt = lemma->get_pob()->pt();
     unsigned uses_level = 0;
-    if (pt.check_inductive(lemma->level(), conj, uses_level,
+    if (pt.check_inductive(0, conj, uses_level,
                            lemma->weakness())) {
-        TRACE("merge_dbg", tout << "Inductive!"
-                                << "\n";);
-        lemma->update_cube(lemma->get_pob(), conj);
-        lemma->set_level(uses_level);
-        return true;
-    } else {
+      TRACE("merge_dbg", tout << "True at level " << uses_level
+            << "\n";);
+      if(uses_level >= lemma->level())
+        {
+          lemma->update_cube(lemma->get_pob(), conj);
+          lemma->set_level(uses_level);
+          return true;
+        }
+      else
+        {
+          //Lemma cannot block pob at this point. Create a new lemma and add to pob
+          lemma_ref lm = alloc(class lemma, pob_ref(lemma->get_pob()), conj, uses_level);
+
+          pt.add_lemma(lm.get());
+          // TODO : increase number of lemmas in stats
+          return false;
+        }
+    }
+    else {
         TRACE("merge_dbg", tout << "Not inductive!"
                                 << "\n";);
         return false;
