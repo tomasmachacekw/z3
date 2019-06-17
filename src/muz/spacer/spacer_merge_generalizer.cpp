@@ -559,29 +559,16 @@ bool lemma_merge_generalizer::check_inductive_and_update(
 
 bool lemma_merge_generalizer::check_inductive_and_update_multiple(
     lemma_ref &lemma, expr_ref_vector conjs, expr_ref_vector non_var_or_bool_Literals) {
-    bool found_inductive = false;
-    for (auto &conj : conjs) {
-        expr_ref_vector c(m);
-        c.append(non_var_or_bool_Literals);
-        c.push_back(conj);
-        STRACE("multi_merge", tout << "Attempt to update lemma with: " << c
-                                   << "; at level " << lemma->level(););
-        pred_transformer &pt = lemma->get_pob()->pt();
-        unsigned uses_level = 0;
-        if (pt.check_inductive(lemma->level(), c, uses_level,
-                               lemma->weakness())) {
-            STRACE("multi_merge", tout << " found Inductive!\n";);
-            lemma->update_cube(lemma->get_pob(), c);
-            lemma->set_level(uses_level);
-            found_inductive = true;
-            //HG : need to decide which conjecture to use if more than one is
-            //inductive. Right now, this is being done arbitrarly
-            break;
-        } else {
-            STRACE("multi_merge", tout << " is Not inductive!\n";);
-        }
+    expr_ref_vector conj_and(m);
+    for (auto* conj : conjs) {
+      //HG : need to decide which conjecture to use if more than one is
+      //inductive. Right now, this is being done arbitrarly
+      conj_and.reset();
+      flatten_and(conj, conj_and);
+      if(check_inductive_and_update(lemma, conj_and, non_var_or_bool_Literals))
+        return true;
     }
-    return found_inductive;
+    return false;
 }
 
 void lemma_merge_generalizer::collect_statistics(statistics &st) const {
