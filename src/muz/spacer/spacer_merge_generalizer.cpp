@@ -393,28 +393,28 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                   "First neighbour: "
                << mk_pp(neighbours.get(1), m) << "\n";);
 
-    expr_ref pat(m);
-    pat = neighbours.get(0);
-
-    // Seperating boolean literals and non-boolean ones
-    expr_ref_vector non_var_or_bool_Literals(m);
     if(has_nonlinear_var_mul(neighbours.get(0), m))
       {
         lemma->get_pob()->set_pattern(neighbours.get(0));
         lemma->get_pob()->set_split();
         return true;
       }
+
+    expr_ref pat(m);
+    pat = neighbours.get(0);
     expr_ref normalized_pattern(m);
     normalize_order(pat, normalized_pattern);
-    if (m.is_and(normalized_pattern)) {
-        for (expr *c : *to_app(normalized_pattern)) {
-            if (m.is_not(c) && is_uninterp_const(to_app(c)->get_arg(0))) {
-                non_var_or_bool_Literals.push_back(c);
-            } else if (!is_uninterp_const(c) && get_num_vars(c) > 0) {
-                non_bool_lit_pattern.push_back(c);
-            } else
-                non_var_or_bool_Literals.push_back(c);
-        }
+    expr_ref_vector norm_pat_vec(m);
+    norm_pat_vec.push_back(normalized_pattern);
+    flatten_and(norm_pat_vec);
+    // Seperating boolean literals and non-boolean ones
+    for (expr *c : norm_pat_vec) {
+      if (m.is_not(c) && is_uninterp_const(to_app(c)->get_arg(0))) {
+        non_var_or_bool_Literals.push_back(c);
+      } else if (!is_uninterp_const(c) && get_num_vars(c) > 0) {
+        non_bool_lit_pattern.push_back(c);
+      } else
+        non_var_or_bool_Literals.push_back(c);
     }
     TRACE("merge_dbg", tout << "partitioned " << mk_pp(neighbours.get(0), m)
                             << "into:\n"
