@@ -24,8 +24,15 @@ lemma_cluster::lemma_cluster(context &ctx, int disT)
       m_dis_threshold(disT) {}
 
 // TODO: better distance metrics; currently implemented as boolean function
-int lemma_cluster::distance(expr_ref antiU_result, substitution &s1,
+int lemma_cluster::distance(expr_ref antiU_result,
+                            substitution &s1,
                             substitution &s2) {
+
+  // JEF: identical expressions result in m_vars.reset() for s1 and s2
+  // sub.get_num_bindings() still zero out gracefully but we shouldn't probe further
+  if(s1.get_num_bindings() == 0 && s2.get_num_bindings() == 0)
+    return 0;
+
     SASSERT(s1.get_num_bindings() == s2.get_num_bindings());
     int dis = 0;
     expr_ref_vector uninterp_s1(m), uninterp_s2(m);
@@ -100,7 +107,7 @@ void lemma_cluster::operator()(lemma_ref &lemma) {
     if (!neighbours.empty() && num_vars_in_pattern > 0) {
         lemma->update_neighbours(pattern, neighbours);
         m_st.max_group_size = std::max(m_st.max_group_size, neighbours.size());
-        TRACE("cluster_stats", 
+        TRACE("cluster_stats",
                tout << "pattern: " << pattern << "\n"
                << "lemma cube: " << cube << "\n"
                << "neighbours: " << neighbours << "\n";);
@@ -110,6 +117,13 @@ void lemma_cluster::operator()(lemma_ref &lemma) {
                    << "pattern: " << pattern << "\n"
                    << "lemma cube: " << cube << "\n"
                    << "neighbours: " << neighbours << "\n";);
+
+        // JEF: hunt for numeric relations within neighbourhood
+        if(neighbours.size() > 2 && num_vars_in_pattern > 1){
+          IF_VERBOSE(1,
+                     verbose_stream() << "\n == neighbourhood relation ==\n"
+                     << neighbours << "\n == neighbourhood relation ==\n";);
+        }
     }
 
     CTRACE(
