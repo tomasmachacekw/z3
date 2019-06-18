@@ -603,6 +603,8 @@ bool is_le_or_lt(const expr *e, expr_ref &lhs, expr_ref &rhs) {
     return false;
 }
 
+//HG: if the expression is (not (a < b)), the comuted lhs is a. However, in the
+//actual expression(b >= a), a is the rhs
 bool is_ge_or_gt(const expr *e, expr_ref &lhs, expr_ref &rhs) {
     ast_manager &m = rhs.m();
     arith_util m_arith(m);

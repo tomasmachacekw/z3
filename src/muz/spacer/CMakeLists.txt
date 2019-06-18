@@ -30,6 +30,7 @@ z3_add_component(spacer
   spacer_pdr.cpp
   spacer_sat_answer.cpp
   spacer_underApproximate.cpp
+  spacer_convex_closure.cpp
   spacer_abstraction.cpp
   COMPONENT_DEPENDENCIES
   arith_tactics

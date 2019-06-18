@@ -173,6 +173,8 @@ class lemma_merge_generalizer : public lemma_generalizer {
         unsigned half_plane03_success;
         unsigned half_planeXX;
         unsigned half_planeXX_success;
+        unsigned half_plane_prog;
+        unsigned half_plane_prog_success;
         stopwatch watch;
         stats() { reset(); }
         void reset() {
@@ -184,6 +186,8 @@ class lemma_merge_generalizer : public lemma_generalizer {
             half_plane03_success = 0;
             half_planeXX = 0;
             half_planeXX_success = 0;
+            half_plane_prog = 0;
+            half_plane_prog_success = 0;
             watch.reset();
         }
     };
@@ -217,7 +221,7 @@ class lemma_merge_generalizer : public lemma_generalizer {
     bool monotonic_coeffcient(expr_ref &literal, app *pattern, expr_ref &out);
     bool neighbour_equality(expr_ref &literal, app *pattern,
                             expr_ref_vector &neighbour, expr_ref &out);
-
+    bool get_eq_integers(expr *& lhs, const expr_ref_vector & lemmas, vector<rational>& data);
     // Guards
     bool lt_or_leq(const expr_ref &literal);
     bool gt_or_geq(const expr_ref &literal);
@@ -225,6 +229,9 @@ class lemma_merge_generalizer : public lemma_generalizer {
     bool is_simple_literal(const expr_ref &literal);
 
     // Merge Strats
+    bool half_plane_prog(const expr_ref &literal, const expr_ref &pattern,
+                       const expr_ref_vector &neighbour_lemmas,
+                       expr_ref_vector &conjectures);
     bool half_plane_01(const expr_ref &literal, const expr_ref &pattern,
                        const expr_ref_vector &neighbour_lemmas,
                        expr_ref_vector &conjectures);
