@@ -357,6 +357,22 @@ bool lemma_merge_generalizer::half_plane_XX(
        rw(conj);
        conjectures.push_back(conj);
        return true;
+    } else if (m.is_eq(fst)) {
+      // from t1 = k1 & t2 op k2 conjecture t1 + t2 op k1 + k2
+      conj = m.mk_app(to_app(snd)->get_family_id(),
+                      to_app(snd)->get_decl_kind(),
+                      m_arith.mk_add(t1, t2),
+                      m_arith.mk_numeral(k1 + k2, true));
+      conjectures.push_back(conj);
+      return true;
+    } else if (m.is_eq(snd)) {
+      // from t2 = k2 & t1 op k1 conjecture t1 + t2 op k1 + k2
+      conj = m.mk_app(to_app(fst)->get_family_id(),
+                      to_app(fst)->get_decl_kind(),
+                      m_arith.mk_add(t1, t2),
+                      m_arith.mk_numeral(k1 + k2, true));
+      conjectures.push_back(conj);
+      return true;
     }
     // none of the conjectures fits, give up!
     return false;
