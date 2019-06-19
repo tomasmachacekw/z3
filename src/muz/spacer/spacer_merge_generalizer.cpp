@@ -291,11 +291,6 @@ bool lemma_merge_generalizer::half_plane_XX(
     fst = to_app(literal)->get_arg(0);
     snd = to_app(literal)->get_arg(1);
 
-    // check for right operators
-    if (!(only_halfSpace(fst)) || !(only_halfSpace(snd))) {
-        return false;
-    }
-
     // check for numerics
     rational k1, k2;
     if (!(m_arith.is_numeral(to_app(fst)->get_arg(1), k1)) ||
