@@ -530,31 +530,33 @@ bool lemma_merge_generalizer::check_inductive_and_update(
                             << "at level " << lemma->level() << "\n";);
     pred_transformer &pt = lemma->get_pob()->pt();
     unsigned uses_level = 0;
-    if (pt.check_inductive(0, conj, uses_level,
+    if (pt.check_inductive(lemma->level(), conj, uses_level,
                            lemma->weakness())) {
-      TRACE("merge_dbg", tout << "True at level " << uses_level
+      TRACE("merge_dbg", tout << "POB blocked using merge at level " << uses_level
             << "\n";);
-      if(uses_level >= lemma->level())
-        {
-          lemma->update_cube(lemma->get_pob(), conj);
-          lemma->set_level(uses_level);
-          return true;
-        }
-      else
-        {
-          //Lemma cannot block pob at this point. Create a new lemma and add to pob
-          lemma_ref lm = alloc(class lemma, pob_ref(lemma->get_pob()), conj, uses_level);
-
-          pt.add_lemma(lm.get());
-          // TODO : increase number of lemmas in stats
-          return false;
-        }
+      lemma->update_cube(lemma->get_pob(), conj);
+      lemma->set_level(uses_level);
+      return true;
     }
-    else {
-        TRACE("merge_dbg", tout << "Not inductive!"
-                                << "\n";);
-        return false;
-    }
+    //HG: add lemma to highest valid level
+    for(int i = lemma->level() - 1; i > 0; i--)
+      {
+        TRACE("merge_dbg", tout << "checking inductiveness of merge lemma at level " << i
+              << "\n";);
+        if (pt.check_inductive(i, conj, uses_level,
+                                lemma->weakness()))
+          {
+            TRACE("merge_dbg", tout << "merge lemma learned at level " << uses_level
+                  << "\n";);
+            //Lemma cannot block pob at this point. Create a new lemma and add to pob
+            lemma_ref lm = alloc(class lemma, pob_ref(lemma->get_pob()), conj, uses_level);
+            pt.add_lemma(lm.get());
+            // TODO : increase number of lemmas in stats
+            return false;
+          }
+      }
+    TRACE("merge_dbg", tout << "merge lemma not true at any level \n";);
+    return false;
 }
 
 bool lemma_merge_generalizer::check_inductive_and_update_multiple(
