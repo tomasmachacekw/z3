@@ -535,7 +535,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
 
 /* core lemma update function*/
 bool lemma_merge_generalizer::check_inductive_and_update(
-    lemma_ref &lemma, expr_ref_vector conj, expr_ref_vector non_var_or_bool_Literals) {
+    lemma_ref &lemma, expr_ref_vector& conj, expr_ref_vector& non_var_or_bool_Literals) {
     conj.append(non_var_or_bool_Literals);
     TRACE("merge_dbg", tout << "Attempt to update lemma with: " << conj << "\n"
                             << "at level " << lemma->level() << "\n";);
@@ -571,7 +571,7 @@ bool lemma_merge_generalizer::check_inductive_and_update(
 }
 
 bool lemma_merge_generalizer::check_inductive_and_update_multiple(
-    lemma_ref &lemma, expr_ref_vector conjs, expr_ref_vector non_var_or_bool_Literals) {
+    lemma_ref &lemma, expr_ref_vector& conjs, expr_ref_vector& non_var_or_bool_Literals) {
     expr_ref_vector conj_and(m);
     for (auto* conj : conjs) {
       //HG : need to decide which conjecture to use if more than one is
