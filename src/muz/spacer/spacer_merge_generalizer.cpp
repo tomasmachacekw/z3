@@ -95,7 +95,8 @@ bool lemma_merge_generalizer::half_plane_prog(
     if(!get_eq_integers(lhs, neighbours, data))
       return false;
 
-    data.push_back(num);
+    if(!data.contains(num))
+      data.push_back(num);
 
     TRACE("merge_strategies", tout << "entered half_plane_prog with data: "; for(auto e : data) tout << mk_epp(m_arith.mk_numeral(e, true), m) << " "; tout << "\n"; );
 

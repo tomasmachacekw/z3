@@ -9,6 +9,8 @@ struct lt_rational {
 namespace spacer {
 bool convex_closure::compute_cls(vector<rational>& data, expr*& cnst, expr_ref& cls)
 {
+  //TODO handle duplicates in data
+  //TODO use solver in z3
   lt_rational lt;
   std::sort(data.begin(), data.end(), lt);
   rational cd = data[1] - data[0];
