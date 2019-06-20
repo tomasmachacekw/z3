@@ -3523,16 +3523,15 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
       expr_ref_vector under_approx_vec(m);
       bool success = ua.under_approximate(n.post(), model, under_approx_vec, n.get_pattern());
 
-      if(success)
-        {
-          pob *new_pob = n.pt().mk_pob(n.parent(), n.level(), n.depth(),
-                                       mk_and(under_approx_vec), n.get_binding());
+      if(success) {
+        pob *new_pob = n.pt().mk_pob(n.parent(), n.level(), n.depth(),
+                                     mk_and(under_approx_vec), n.get_binding());
 
-          TRACE("under_approximate", tout<<"pob"<<mk_pp(n.post(),m)<<" is split into"<<mk_pp(new_pob->post(),m)<<"\n";);
-          out.push_back(&(*new_pob));
-          out.push_back(&n);
-          return l_undef;
-        }
+        TRACE("under_approximate", tout<<"pob"<<mk_pp(n.post(),m)<<" is split into"<<mk_pp(new_pob->post(),m)<<"\n";);
+        out.push_back(&(*new_pob));
+        out.push_back(&n);
+        return l_undef;
+      }
     }
     model=nullptr;
     predecessor_eh();
