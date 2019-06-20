@@ -184,4 +184,5 @@ def_module_params('fp',
                           ('spacer.split_pob', BOOL, False, 'Enable POB splitting'),
                           ('spacer.re_con_gen', BOOL, False, 'Reconstruct boolean literals after lemma generalization'),
                           ('spacer.abstract_pob', BOOL, True, 'Enable abstraction of proof obligations'),
+                          ('spacer.gen_blk', BOOL, True, 'Enable attempts to block generalization of proof obligations'),
 ))

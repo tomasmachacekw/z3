@@ -540,6 +540,7 @@ bool lemma_merge_generalizer::check_inductive_and_update(
     TRACE("merge_dbg", tout << "Attempt to update lemma with: " << conj << "\n"
                             << "at level " << lemma->level() << "\n";);
     pred_transformer &pt = lemma->get_pob()->pt();
+    pob_ref pob = lemma->get_pob();
     unsigned uses_level = 0;
     if (pt.check_inductive(lemma->level(), conj, uses_level,
                            lemma->weakness())) {
@@ -549,24 +550,13 @@ bool lemma_merge_generalizer::check_inductive_and_update(
       lemma->set_level(uses_level);
       return true;
     }
-    //HG: add lemma to highest valid level
-    for(int i = lemma->level() - 1; i > 0; i--)
-      {
-        TRACE("merge_dbg", tout << "checking inductiveness of merge lemma at level " << i
-              << "\n";);
-        if (pt.check_inductive(i, conj, uses_level,
-                                lemma->weakness()))
-          {
-            TRACE("merge_dbg", tout << "merge lemma learned at level " << uses_level
-                  << "\n";);
-            //Lemma cannot block pob at this point. Create a new lemma and add to pob
-            lemma_ref lm = alloc(class lemma, pob_ref(lemma->get_pob()), conj, uses_level);
-            pt.add_lemma(lm.get());
-            // TODO : increase number of lemmas in stats
-            return false;
-          }
-      }
-    TRACE("merge_dbg", tout << "merge lemma not true at any level \n";);
+
+    if(pob->get_merge_atmpts() > 3) {
+      pob->set_merge_conj(conj);
+      TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(conj) << " set on pob " << pob->post() << "\n";);
+    }
+    //keep track of failed merge attempts
+    pob->bump_merge_atmpts();
     return false;
 }
 

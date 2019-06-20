@@ -72,7 +72,7 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_level (level), m_depth (depth),
     m_open (true), m_use_farkas (true), m_in_queue(false),
     m_weakness(0), m_blocked_lvl(0), m_ua(0), m_is_abs(false), m_can_abs(true),
-    m_abs_pattern(m_pt.get_ast_manager()), m_refine(false), m_shd_split(false), m_pattern(m_pt.get_ast_manager()), m_concrete(nullptr){
+    m_abs_pattern(m_pt.get_ast_manager()), m_refine(false), m_shd_split(false), m_pattern(m_pt.get_ast_manager()), m_concrete(nullptr), m_merge_atmpts(0), m_merge_conj(m_pt.get_ast_manager()), m_gen_blk_atmpt(false) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -2368,7 +2368,7 @@ void context::updt_params() {
     m_re_con_gen = m_params.spacer_re_con_gen();
     m_diverge_bailout = (m_params.spacer_diverge_depth() != 7) ? true : m_params.spacer_diverge_bailout();
     m_diverge_depth = m_params.spacer_diverge_depth();
-
+    m_gen_blk = m_params.spacer_gen_blk();
     if (m_use_gpdr) {
         // set options to be compatible with GPDR
         m_weak_abs = false;
@@ -3512,8 +3512,26 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                tout << "This pob can be blocked by instantiation\n";);
     }
 
-    if(!is_blocked && should_split(n) && m_split_pob)
-    {
+    // TODO : figure out when to give up on proving conjecture
+    // before blocking pob, try blocking the conjecture
+    if(m_gen_blk && n.get_merge_conj().size() > 0 && !n.gen_blk_atmpt() ) {
+      expr_ref c(m);
+      c = mk_and(n.get_merge_conj());
+      pob *f = n.pt().find_pob(n.parent(), c);
+      // skip if a similar pob is already in the queue
+      if (f != &n && (!f || !f->is_in_queue())) {
+        pob *new_pob = n.pt().mk_pob(n.parent(), n.level(), n.depth(), mk_and(n.get_merge_conj()), n.get_binding());
+        TRACE("merge_dbg", tout << "Attempting to block pob " << mk_pp(n.post(),m) << " using generalization " << mk_pp(new_pob->post(),m) << "\n";);
+        out.push_back(&(*new_pob));
+        //mark as attempted
+        n.mark_gen_blk_atmpt();
+        out.push_back(&n);
+        return l_undef;
+      }
+      TRACE("merge_dbg", tout << "duplicate pob conjecture found. Did not add to pob_queue\n";);
+    }
+
+    if(!is_blocked && should_split(n) && m_split_pob) {
       //Priority for pobs at the same level and depth are decided by the number of times a pob has been split.
       //never split it more than 10 times
       SASSERT(n.get_no_ua() < 10);
@@ -4189,7 +4207,10 @@ inline bool pob_lt_proc::operator()(const pob *pn1, const pob *pn2) const {
     if (n1.get_no_ua() != n2.get_no_ua()) {
         return n1.get_no_ua() < n2.get_no_ua();
     }
-
+    //TODO: compare merge_conj sizes only if they have the same parent.
+    if (n1.get_merge_conj().size() != n2.get_merge_conj().size()) {
+      return n1.get_merge_conj().size() > n2.get_merge_conj().size();
+    }
     // -- a more deterministic order of proof obligations in a queue
     // if (!n1.get_context ().get_params ().spacer_nondet_tie_break ())
     {
