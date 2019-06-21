@@ -45,33 +45,33 @@ bool lemma_merge_generalizer::is_simple_literal(const expr_ref &literal) {
    conjecture(s) these rules are implemented for simple literals
    XXX SASSERT(uninterp consts prefix normal form)!
 */
-  //fetch all integers d such that lhs = d
-  bool lemma_merge_generalizer::get_eq_integers(expr *&lhs, const expr_ref_vector & exprs, vector<rational>& data){
-    expr *t_lhs, *t_rhs;
-    rational num;
-    bool is_int = false;
-    expr_ref_vector expr_lits(m);
-    for(auto* expr : exprs)
-      {
-        expr_lits.reset();
-        flatten_and(expr,expr_lits);
-        for(auto* e: expr_lits)
-          {
-            if(m.is_eq(e,t_lhs, t_rhs) && t_lhs == lhs)
-              {
-                if(!(m_arith.is_numeral(t_rhs, num, is_int) && is_int))
-                  {
-                    data.reset();
-                    return false;
-                  }
-                is_int = false;
-                data.push_back(num);
-                break;
-              }
-          }
-      }
-    return true;
-  }
+//fetch all integers d in exprs such that lhs = d
+bool lemma_merge_generalizer::get_eq_integers(expr *&lhs, const expr_ref_vector & exprs, vector<rational>& data){
+  expr *t_lhs, *t_rhs;
+  rational num;
+  bool is_int = false;
+  expr_ref_vector expr_lits(m);
+  for(auto* expr : exprs)
+    {
+      expr_lits.reset();
+      flatten_and(expr,expr_lits);
+      for(auto* e: expr_lits)
+        {
+          if(m.is_eq(e, t_lhs, t_rhs) && t_lhs == lhs)
+            {
+              if(!(m_arith.is_numeral(t_rhs, num, is_int) && is_int))
+                {
+                  data.reset();
+                  return false;
+                }
+              is_int = false;
+              data.push_back(num);
+              break;
+            }
+        }
+    }
+  return true;
+}
 bool lemma_merge_generalizer::half_plane_prog(
     const expr_ref &literal, const expr_ref &pattern,
     const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures) {
