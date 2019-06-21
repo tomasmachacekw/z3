@@ -381,6 +381,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
 
     if(has_nonlinear_var_mul(neighbours.get(0), m))
       {
+        TRACE("merge_dbg", tout << "Found non linear pattern. Marked to split \n";);
         lemma->get_pob()->set_pattern(neighbours.get(0));
         lemma->get_pob()->set_split();
         return true;
