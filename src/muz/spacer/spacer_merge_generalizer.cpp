@@ -306,58 +306,27 @@ bool lemma_merge_generalizer::half_plane_XX(
     if (t1 == t2) return false;
 
     if (gt_or_geq(fst) && lt_or_leq(snd)) {
-        // t1 >= k1 && t2 <= k2
-        if (k1 > k2) {
-            // [Branch 1]
-            conj = m_arith.mk_gt(t1, t2);
-            conjectures.push_back(conj);
-            conj = m_arith.mk_le(m_arith.mk_sub(t2, t1),
-                                 m_arith.mk_numeral(k2 - k1, true));
-            // simplify newly constructed literal
-            rw(conj);
-            conjectures.push_back(conj);
-            return true;
-        } else {
-            STRACE("merge_dbg", tout << "got here with k2 >= k1\n";);
-            conj = m_arith.mk_ge(t2, t1);
-            conjectures.push_back(conj);
-            conj = m_arith.mk_gt(t2, t1);
-            conjectures.push_back(conj);
-            conj = m_arith.mk_le(m_arith.mk_sub(t2, t1),
-                                 m_arith.mk_numeral(k2 - k1, true));
-            // dont forget we're in cube space!
-            // so (2 * a < b) => (>= (* 2 a) b)
-            // conj = m_arith.mk_ge(m_arith.mk_mul(m_arith.mk_int(2), t1), t2);
-            conjectures.push_back(conj);
-            return true;
-        }
+      // t1 >= k1 && t2 <= k2
+      conj = m_arith.mk_le(m_arith.mk_sub(t2, t1),
+                           m_arith.mk_numeral(k2 - k1, true));
+      rw(conj);
+      conjectures.push_back(conj);
+      return true;
     } else if (lt_or_leq(fst) && gt_or_geq(snd)) {
         // t1 <= k1 && t2 >= k2
-        if (k1 < k2) {
-            // [Branch 2]
-            conj = m_arith.mk_le(m_arith.mk_sub(t1, t2),
-                                 m_arith.mk_numeral(k1 - k2, true));
+      conj = m_arith.mk_le(m_arith.mk_sub(t1, t2),
+                           m_arith.mk_numeral(k1 - k2, true));
             // simplify newly constructed literal
-            rw(conj);
-            conjectures.push_back(conj);
-            conj = m_arith.mk_lt(t1, t2);
-            conjectures.push_back(conj);
-            return true;
-        }
+      rw(conj);
+      conjectures.push_back(conj);
+      return true;
     } else if (gt_or_geq(fst) && gt_or_geq(snd)) {
-       if (k1 + k2 > 0) {
-            conj = m_arith.mk_gt(m_arith.mk_add(t1, t2),
-                                 m_arith.mk_numeral(rational(0), true));
-            rw(conj);
-            conjectures.push_back(conj);
-        }
-
-       // t1 >= k1 && t2 >= k2
-       conj = m_arith.mk_ge(m_arith.mk_add(t1, t2),
-                            m_arith.mk_numeral(k1 + k2, true));
-       rw(conj);
-       conjectures.push_back(conj);
-       return true;
+      // t1 >= k1 && t2 >= k2
+      conj = m_arith.mk_ge(m_arith.mk_add(t1, t2),
+                           m_arith.mk_numeral(k1 + k2, true));
+      rw(conj);
+      conjectures.push_back(conj);
+      return true;
     } else if (m.is_eq(fst)) {
       // from t1 = k1 & t2 op k2 conjecture t1 + t2 op k1 + k2
       conj = m.mk_app(to_app(snd)->get_family_id(),
