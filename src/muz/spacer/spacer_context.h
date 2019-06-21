@@ -746,7 +746,7 @@ public:
 
     pob* parent () const { return m_parent.get (); }
 
-    pob* concrete () const { SASSERT(m_is_abs  && m_concrete); return m_concrete.get(); }
+    pob* concrete () const { SASSERT(m_is_abs); return m_concrete.get(); }
     void set_concrete(pob* pob) { SASSERT(m_is_abs); m_concrete = pob; }
     bool is_abs() const { return m_is_abs; }
     void set_abs() { m_is_abs = true ; }

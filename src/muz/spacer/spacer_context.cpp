@@ -76,6 +76,10 @@ pob::pob (pob* parent, pred_transformer& pt,
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
+    if (m_parent) {
+      m_is_abs = m_parent->is_abs();
+      m_can_abs = m_parent->can_abs();
+    }
 }
 
 void pob::set_post(expr* post) {
@@ -3175,9 +3179,13 @@ lbool context::solve_core (unsigned from_lvl)
 //neighbours of the lemma that was used to create pob_abs
 static void set_nvr_abs(const pob_ref & pob_abs)
 {
-  if(!pob_abs || !pob_abs->concrete()) return;
+  if(!pob_abs) return;
   //HG : this pob shuold be an abstraction. The neighbours are selected later
   SASSERT(pob_abs->is_abs());
+  //do not compute abstractions of abstractions
+  pob_abs->set_nvr_abs();
+
+  if(!pob_abs->concrete()) return;
   pob_abs->concrete()->set_nvr_abs();
   //get pattern that was used to create reachable
   const expr * pob_pattern = pob_abs->concrete()->get_abs_pattern();
