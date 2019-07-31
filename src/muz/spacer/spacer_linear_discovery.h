@@ -31,9 +31,9 @@ namespace sapcer{
     vector<int> m_base_vector;
     unsigned m_rows;     // number of rows; corresponds to number of substitutions
     unsigned m_columns;  // number of columns; corresponds to number of values per each substitution
-    dense_matrix<int, int> lhs;
-    dense_matrix<int, int> rhs;
-    dense_matrix<int, int> result; // result of solve_right
+    lp::dense_matrix<int, int> lhs;
+    lp::dense_matrix<int, int> rhs;
+    lp::dense_matrix<int, int> result; // result of solve_right
 
     spacer_linear_discovery(list<substitution> subs);
     void reset();
