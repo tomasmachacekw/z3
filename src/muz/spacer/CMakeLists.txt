@@ -32,6 +32,7 @@ z3_add_component(spacer
   spacer_underApproximate.cpp
   spacer_convex_closure.cpp
   spacer_abstraction.cpp
+  spacer_linear_discovery.cpp
   COMPONENT_DEPENDENCIES
   arith_tactics
   core_tactics
