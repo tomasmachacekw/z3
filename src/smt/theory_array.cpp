@@ -100,10 +100,14 @@ namespace smt {
         for (enode* n : d->m_stores) {
             instantiate_axiom2a(s, n);
         }
-        if (!m_params.m_array_weak && !m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
+        if (!m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
             for (enode* store : d->m_parent_stores) {
                 SASSERT(is_store(store));
                 if (!m_params.m_array_cg || store->is_cgr()) {
+                    if (m_params.m_array_weak) {
+                        found_unsupported_op(store->get_owner());
+                        break;
+                    }
                     instantiate_axiom2b(s, store);
                 }
             }
@@ -118,10 +122,17 @@ namespace smt {
         var_data * d     = m_var_data[v];
         d->m_parent_stores.push_back(s);
         m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d->m_parent_stores));
-        if (!m_params.m_array_weak && !m_params.m_array_delay_exp_axiom && d->m_prop_upward) 
-            for (enode* n : d->m_parent_selects) 
-                if (!m_params.m_array_cg || n->is_cgr())
+        if (d->m_prop_upward && !m_params.m_array_delay_exp_axiom) {
+            for (enode* n : d->m_parent_selects) {
+                if (!m_params.m_array_cg || n->is_cgr()) {
+                    if (m_params.m_array_weak) {
+                        found_unsupported_op(s);
+                        break;
+                    }
                     instantiate_axiom2b(n, s);
+                }
+            }
+        }
     }
 
     bool theory_array::instantiate_axiom2b_for(theory_var v) {
@@ -138,14 +149,16 @@ namespace smt {
        \brief Mark v for upward propagation. That is, enables the propagation of select(v, i) to store(v,j,k).
     */
     void theory_array::set_prop_upward(theory_var v) {
-        if (m_params.m_array_weak)
-            return;
         v = find(v);
         var_data * d = m_var_data[v];
         if (!d->m_prop_upward) {
             TRACE("array", tout << "#" << v << "\n";);
             m_trail_stack.push(reset_flag_trail<theory_array>(d->m_prop_upward));
             d->m_prop_upward = true;
+            if (m_params.m_array_weak) {
+                found_unsupported_op(v);
+                return;
+            }
             if (!m_params.m_array_delay_exp_axiom)
                 instantiate_axiom2b_for(v);
             for (enode * n : d->m_stores) 
@@ -229,6 +242,7 @@ namespace smt {
         if (m_params.m_array_extensional && assert_extensionality(a1, a2)) 
             m_stats.m_num_extensionality++;
     }
+
 
     bool theory_array::internalize_atom(app * atom, bool) {
         return internalize_term(atom);
@@ -382,9 +396,9 @@ namespace smt {
                     r = assert_delayed_axioms();
             }
         }
-        TRACE("array", tout << "m_found_unsupported_op: " << m_found_unsupported_op << " " << r << "\n";);
         if (r == FC_DONE && m_found_unsupported_op && !get_context().get_fparams().m_array_fake_support) 
             r = FC_GIVEUP;
+        CTRACE("array", r != FC_DONE || m_found_unsupported_op, tout << r << "\n";);
         return r;
     }
 
