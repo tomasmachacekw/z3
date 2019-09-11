@@ -24,6 +24,7 @@ Notes:
 #include <sstream>
 #include <iomanip>
 
+#include "spacer_sage_interface.h"
 #include "muz/spacer/spacer_underApproximate.h"
 #include "muz/base/dl_util.h"
 #include "ast/rewriter/rewriter.h"
@@ -3047,6 +3048,8 @@ lbool context::solve_core (unsigned from_lvl)
     pob *root = m_query->mk_pob(nullptr,from_lvl,0,m.mk_true());
     m_pob_queue.set_root (*root);
 
+    Sage s;
+    s.test();
     unsigned max_level = m_max_level;
 
     for (unsigned i = from_lvl; i < max_level; ++i) {
