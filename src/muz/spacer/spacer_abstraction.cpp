@@ -95,17 +95,18 @@ bool context::mono_coeff_lm(pob &n, expr_ref &lit) {
 // If a lemma of n matches the mono_var_pattern, abstract all literals that
 // contain  the uninterpreted constants in the pattern.  If there are multiple
 // mono_var_patterns, pick one
-bool context::abstract_pob(pob &n, expr_ref &leq_lit, pob_ref_buffer &out) {
+bool context::abstract_pob(pob &n, expr_ref &leq_lit, expr_ref_vector & new_pob) {
     if (!n.can_abs()) return false;
+    SASSERT(new_pob.size() == 0);
     expr *lhs;
-    expr_ref_vector new_pob(m), pob_cube(m), u_consts(m), lhs_consts(m);
+    expr_ref_vector pob_cube(m), u_consts(m), lhs_consts(m);
     pob_cube.push_back(n.post());
     flatten_and(pob_cube);
 
-    // assume that lhs is a term (actually an uninterpreted constant)
+    // assume that lhs is a term
     lhs = (to_app(leq_lit))->get_arg(0);
     get_uninterp_consts(lhs, lhs_consts);
-    // filter from pob_cube all literals that contain lhs
+    // filter from pob_cube all literals that contain all uninterpreted constants in lhs
     for (auto &c : pob_cube) {
         get_uninterp_consts(c, u_consts);
         SASSERT(u_consts.size() > 0);
@@ -114,25 +115,8 @@ bool context::abstract_pob(pob &n, expr_ref &leq_lit, pob_ref_buffer &out) {
     }
 
     // compute abstract pob if any literals found and at least one was removed
-    if (new_pob.size() > 0 && new_pob.size() < pob_cube.size()) {
-        expr_ref c = mk_and(new_pob);
-        pob *f = n.pt().find_pob(&n, c);
-        // skip if new pob is already in the queue
-        if (f && f->is_in_queue()) return false;
-
-        // create abstract pob
-        f = n.pt().mk_pob(n.parent(), n.level(), n.depth(), c, n.get_binding());
-        f->set_abs();
-        f->set_concrete(&n);
-        out.push_back(f);
-
-        TRACE("merge_dbg", tout << " abstracting " << mk_pp(n.post(), m)
-                                << " id is " << n.post()->get_id()
-                                << "\n into pob " << c << " id is "
-                                << f->post()->get_id() << "\n";);
-        m_stats.m_num_abstractions++;
+    if (new_pob.size() > 0 && new_pob.size() < pob_cube.size())
         return true;
-    }
     return false;
 }
 

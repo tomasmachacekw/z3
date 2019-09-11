@@ -1122,7 +1122,7 @@ class context {
                    unsigned full_prop_lvl);
     bool is_reachable(pob &n);
     lbool expand_pob(pob &n, pob_ref_buffer &out);
-    bool abstract_pob(pob &n, expr_ref &lit, pob_ref_buffer &out);
+    bool abstract_pob(pob &n, expr_ref &lit, expr_ref_vector &out);
     bool mono_var_pattern(expr *pattern, expr_ref &leq_lit);
     bool mono_coeff_lm(pob& n, expr_ref &lit);
 

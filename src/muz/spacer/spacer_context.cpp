@@ -3626,7 +3626,26 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         expr_ref lit(m);
         //HG : compute abstraction of the pob
         if (m_abstract_pob && m_adhoc_gen && mono_coeff_lm(n, lit)) {
-          if(!abstract_pob(n, lit, out)){
+          expr_ref_vector abs_pob(m);
+          if(abstract_pob(n, lit, abs_pob)) {
+            expr_ref c = mk_and(abs_pob);
+            pob *f = n.pt().find_pob(&n, c);
+            // skip if new pob is already in the queue
+            if (f && !f->is_in_queue()) {
+              // create abstract pob
+              f = n.pt().mk_pob(n.parent(), n.level(), n.depth(), c, n.get_binding());
+              f->set_abs();
+              f->set_concrete(&n);
+              out.push_back(f);
+
+              TRACE("merge_dbg", tout << " abstracting " << mk_pp(n.post(), m)
+                    << " id is " << n.post()->get_id()
+                    << "\n into pob " << c << " id is "
+                    << f->post()->get_id() << "\n";);
+              m_stats.m_num_abstractions++;
+            }
+          }
+          else {
             //If the pob cannot be abstracted, stop using generalization on it.
             TRACE("merge_dbg", tout << "marked to refine pob " << mk_pp(n.post(), m)
                   << " id is " << n.post()->get_id() << "\n";);
