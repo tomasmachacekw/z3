@@ -18,7 +18,7 @@
 #include "muz/spacer/spacer_util.h"
 #include "util/vector.h"
 #include "util/mpq.h"
-#include "util/lp/general_matrix.h"
+
 
 using namespace spacer;
 namespace spacer {
@@ -77,7 +77,7 @@ void lemma_cluster::operator()(lemma_ref &lemma) {
 
     //matrix for discovering linear equalities
     vector<mpq> v;
-    general_matrix lhs;
+    //general_matrix lhs;
 
     expr_ref pattern(m);
     unsigned num_vars_in_pattern = 0;
