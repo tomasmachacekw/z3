@@ -16,6 +16,9 @@
 #include "muz/spacer/spacer_generalizers.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_util.h"
+#include "util/vector.h"
+#include "util/mpq.h"
+#include "util/lp/general_matrix.h"
 
 using namespace spacer;
 namespace spacer {
@@ -69,7 +72,13 @@ bool lemma_cluster::are_neighbours(const expr_ref &cube, const expr_ref &lcube,
 
 void lemma_cluster::operator()(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
+
     expr_ref_vector neighbours(m);
+
+    //matrix for discovering linear equalities
+    vector<mpq> v;
+    general_matrix lhs;
+
     expr_ref pattern(m);
     unsigned num_vars_in_pattern = 0;
 
@@ -90,6 +99,14 @@ void lemma_cluster::operator()(lemma_ref &lemma) {
         normalize_order(lcube, lcube);
         if (are_neighbours(cube, lcube, lpat, sub1, sub2)) {
             neighbours.push_back(lcube);
+
+            //SEE END OF THIS FILE for assumption
+            //pushing elems in sub1 into vector v (v.push_back(mpq(elem)))
+            //lhs.push_row(v)
+            //v.clear()
+            //repeat for sub2
+            //lhs.push_row(v) and v.clear()
+
             if (sub1.get_num_bindings() > num_vars_in_pattern) {
                 pattern = lpat;
                 num_vars_in_pattern = sub1.get_num_bindings();
@@ -100,7 +117,7 @@ void lemma_cluster::operator()(lemma_ref &lemma) {
     if (!neighbours.empty() && num_vars_in_pattern > 0) {
         lemma->update_neighbours(pattern, neighbours);
         m_st.max_group_size = std::max(m_st.max_group_size, neighbours.size());
-        TRACE("cluster_stats", 
+        TRACE("cluster_stats",
                tout << "pattern: " << pattern << "\n"
                << "lemma cube: " << cube << "\n"
                << "neighbours: " << neighbours << "\n";);
@@ -131,7 +148,8 @@ void lemma_cluster::collect_statistics(statistics &st) const {
 }
 } // namespace spacer
 
-// [Old dev remarks]
-// Given a unary distance function, Could we decide based on dis_new == dis_old?
-// int dis_new = distance(subs_newLemma);
-// int dis_old = distance(subs_oldLemma);
+//Finding linear eqaulities note:
+//The assumption here is that all subs are of the same size
+//But if we only work with 2 substitutions, they are by of same size by creation
+//namely sub1.get_num_bindings() == sub2.get_num_bindings()
+//this is a postcondition of anti_unifier, see L166 spacer_antiunify.cpp
