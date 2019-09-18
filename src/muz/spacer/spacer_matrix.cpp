@@ -32,17 +32,17 @@ namespace spacer
         }
     }
 
-    unsigned spacer_matrix::num_rows()
+    unsigned spacer_matrix::num_rows() const
     {
         return m_num_rows;
     }
 
-    unsigned spacer_matrix::num_cols()
+    unsigned spacer_matrix::num_cols() const
     {
         return m_num_cols;
     }
 
-    const rational& spacer_matrix::get(unsigned int i, unsigned int j)
+    const rational& spacer_matrix::get(unsigned int i, unsigned int j) const
     {
         SASSERT(i < m_num_rows);
         SASSERT(j < m_num_cols);

@@ -27,10 +27,10 @@ namespace spacer {
     public:
         spacer_matrix(unsigned m, unsigned n); // m rows, n columns
 
-        unsigned num_rows();
-        unsigned num_cols();
+        unsigned num_rows() const;
+        unsigned num_cols() const;
 
-        const rational& get(unsigned i, unsigned j);
+        const rational& get(unsigned i, unsigned j) const;
         void set(unsigned i, unsigned j, const rational& v);
 
         unsigned perform_gaussian_elimination();
