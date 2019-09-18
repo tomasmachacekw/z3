@@ -1,4 +1,5 @@
 #include <istream>
+#include <sstream>
 #include "spacer_sage_interface.h"
 namespace spacer {
    Sage::Sage() {
@@ -72,30 +73,27 @@ namespace spacer {
     fprintf(out, "f = open (\"\%s\", 'w')\n", m_sage.get_tmp_filename().c_str());
 
     //construct  matrix in sage
-    std::string t = " a = matrix(ZZ,";
-    t.append(std::to_string(m));
-    t.append(", ");
-    t.append(std::to_string(n + 1));
-    t.append(", [");
+    std::stringstream t;
+    t << " a = matrix(ZZ,";
+    t << std::to_string(m);
+    t << (", ");
+    t << (std::to_string(n + 1));
+    t << (", [");
     for(unsigned i = 0; i < m; i++)
       {
-        t.append("[");
+        t << ("[");
         for(unsigned j = 0; j < n; j++)
           {
-            // t.append(std::to_string(m_matrix.get(i,j)));
-            t.append(", ");
+            // t. << (std::to_string(m_matrix.get(i,j)));
+            t << (", ");
           }
-        t.append("1");
-        t.append("], ");
+        t << ("1");
+        t << ("], ");
       }
-    t.append("]);\n");
-    fprintf(out, "%s", t.c_str());
-    fflush(out);
-
-    t.clear();
-    t.append("b = a.transpose();\n");
-    t.append("c = b.right_kernel().basis();\n");
-
+    t << ("]);\n");
+    fprintf(out, "%s", t.str().c_str());
+    fprintf(out, "b = a.transpose();\n");
+    fprintf(out, "c = b.right_kernel().basis();\n");
     fprintf(out, "print >> f, c\n");
     fprintf(out, "print >> f, \"ok\"\n");
     fprintf(out, "f.close()\n");
