@@ -3016,7 +3016,7 @@ expr_ref context::get_ground_sat_answer() const {
     if (pf) {
         cex.push_back(m.get_fact(pf));
     }
- 
+
     TRACE ("spacer", tout << "ground cex\n" << cex << "\n";);
 
     return mk_and(cex);
@@ -3047,9 +3047,6 @@ lbool context::solve_core (unsigned from_lvl)
 
     pob *root = m_query->mk_pob(nullptr,from_lvl,0,m.mk_true());
     m_pob_queue.set_root (*root);
-
-    Sage<int> s;
-    s.test();
     unsigned max_level = m_max_level;
 
     for (unsigned i = from_lvl; i < max_level; ++i) {

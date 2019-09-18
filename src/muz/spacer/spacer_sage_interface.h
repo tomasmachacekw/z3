@@ -1,122 +1,54 @@
 #include <fstream>
 #include <unistd.h>
 #include <signal.h>
+#include <unistd.h>
 #include "util/util.h"
 #include "spacer_arith_kernel.h"
 
 namespace spacer {
-  template <typename T>
-    class Sage : public arith_kernel<T> {
+
+  /*
+    Interface to Sage. Supports initialization and writing to sage. To get
+    output from Sage, write to file and read from the file. Could not find
+    standard methods to convert file descriptors to streams. Easier to write to
+    file and use ifstream
+   */
+  class Sage {
     FILE* m_out;
-    FILE* m_in;
+    std::string tmp_name;
     pid_t child_pid;
+    std::string m_tmp_name;
   public:
     Sage();
     void test();
-    void compute_arith_kernel(const T**& matrix, unsigned m, unsigned n, T**& kernel);
     ~Sage() {
       kill(child_pid, SIGQUIT);
+    }
+    std::string get_tmp_filename() {
+      //The compiler says this is deprecated. Did not find a replacement for it.
+      //there is libstd/mkstemp but it creates a file and not just a name
+      if (tmp_name.size() == 0) {
+        tmp_name = tmpnam(NULL) + std::string(".out");
+        TRACE ("sage-interface", tout << "output file name " << tmp_name << "\n";);
+      }
+      return tmp_name;
     }
     FILE*& get_ostream() {
       return m_out;
     }
-    FILE*& get_istream() {
-      return m_in;
-    }
   };
 
-
-template <typename T>
-  Sage<T>::Sage() {
-    int to_sage_pipe[2];
-    int from_sage_pipe[2];
-    int ok = pipe(to_sage_pipe);
-    if (ok) {
-      perror("sage pipe1");
-      exit(1);
+  /*
+    Compute kernel using Sage.
+   */
+  class Sage_kernel : public arith_kernel {
+    Sage m_sage;
+    void compute_arith_kernel() override;
+  public :
+    Sage_kernel(const spacer_matrix& matrix) : arith_kernel(matrix), m_sage() {
+      m_sage.test();
     }
-    ok = pipe(from_sage_pipe);
-    if (ok) {
-      perror("sage pipe2");
-      exit(1);
-    }
+    ~Sage_kernel() override { }
+  };
 
-    pid_t pid = fork();
-    if (pid) {
-      m_out = fdopen(to_sage_pipe[1], "w");
-      m_in = fdopen(from_sage_pipe[0], "r");
-
-      /* parent */
-      close(to_sage_pipe[0]);
-      close(from_sage_pipe[1]);
-
-      child_pid = pid;
-      sleep(3);
-      //read and discard the startup text in sage.
-      char t_h[256];
-      fgets(t_h, 256, m_in);
-
-    } else if (pid == 0) {
-      /* child */
-
-      //setup file descriptors
-      close(to_sage_pipe[1]);
-      close(from_sage_pipe[0]);
-
-      dup2(to_sage_pipe[0], STDIN_FILENO);
-      dup2(from_sage_pipe[1], STDOUT_FILENO);
-
-      //setup arguments
-      char* const argv[3] = {
-                             (char*)"sage",
-                             NULL,
-                             NULL
-      };
-      char* const env[1] = {
-                            (char*)"HOME=/Users/hgvk"
-      };
-      execve("/Users/hgvk/Downloads/UWaterloo/code/sage/sage-8.8/sage", argv, env);
-      perror("execvpe for sage");
-    } else {
-      perror("fork");
-      exit(1);
-    }
-  }
-  template <typename T>
-  void Sage<T>::test() {
-    char t_h[256];
-    fprintf(m_out, "2 + 2\n");
-    fflush(m_out);
-    fgets(t_h, 256, m_in);
-    IF_VERBOSE(1, verbose_stream() << "output from sage " << t_h << "\n");
-  }
-
-  template <typename T>
-    void Sage<T>:: compute_arith_kernel(const T**& matrix, unsigned m, unsigned n, T**& kernel)
-    {
-      std::string t = " a = matrix(ZZ,";
-      t.append(std::to_string(m));
-      t.append(", ");
-      t.append(std::to_string(n + 1));
-      t.append(", [");
-      for(unsigned i = 0; i < m; i++)
-        {
-          t.append("[");
-          for(unsigned j = 0; j < n; j++)
-            {
-              t.append(std::to_string(matrix[i][j]));
-              t.append(", ");
-            }
-          t.append("1");
-          t.append("], ");
-        }
-      t.append("]);\n");
-      t.append("b = a.transpose();\n");
-      t.append("b.right_kernel().basis()");
-      fprintf(m_out, "%s", t.c_str());
-      fflush(m_out);
-      char t_h[m*n + 100];
-      fgets(t_h, m*n + 100,m_in);
-      IF_VERBOSE(1, verbose_stream() << "output from sage " << t_h << "\n");
-    }
 }
