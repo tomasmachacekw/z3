@@ -35,6 +35,10 @@ namespace spacer {
                              NULL,
                              NULL
       };
+      //TODO: sage complains that it can't find $HOME. But sage works without it.
+      // char* const env[1] = {
+      //                       (char*)"HOME=/Users/hgvk"
+      // };
       execvp("sage", argv);
       perror("execvpe for sage");
     } else {
