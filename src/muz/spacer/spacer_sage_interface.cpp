@@ -36,10 +36,10 @@ namespace spacer {
                              NULL
       };
       //TODO: replace this with /proc/self
-      char* const env[1] = {
-                            (char*)"HOME=/Users/hgvk"
-      };
-      execve("/Users/hgvk/Downloads/UWaterloo/code/sage/sage-8.8/sage", argv, env);
+      // char* const env[1] = {
+      //                       (char*)"HOME=/Users/hgvk"
+      // };
+      execvp("sage", argv);
       perror("execvpe for sage");
     } else {
       perror("fork");
