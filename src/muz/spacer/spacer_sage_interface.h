@@ -15,12 +15,13 @@ namespace spacer {
    */
   class Sage {
     FILE* m_out;
+    FILE* m_in;
     std::string tmp_name;
     pid_t child_pid;
     std::string m_tmp_name;
   public:
     Sage();
-    void test();
+    bool test();
     ~Sage() {
       kill(child_pid, SIGQUIT);
     }
@@ -36,9 +37,7 @@ namespace spacer {
     Sage m_sage;
     void compute_arith_kernel() override;
   public :
-    Sage_kernel(const spacer_matrix& matrix) : arith_kernel(matrix), m_sage() {
-      m_sage.test();
-    }
+    Sage_kernel(const spacer_matrix& matrix) : arith_kernel(matrix), m_sage() { }
     ~Sage_kernel() override { }
   };
 
