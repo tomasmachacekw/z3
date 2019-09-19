@@ -48,13 +48,16 @@ namespace spacer {
   }
 
   void Sage::test() {
-    fprintf(m_out, "f = open (\"\%s\", 'w')\n", get_tmp_filename().c_str());
-    fprintf(m_out, "print >>f, 2 + 2\n");
+    char temp_name[] = "/tmp/spacerSage/sage.XXXXXX";
+    int tmp_fd = mkstemp(temp_name);
+    TRACE ("SPACER_TRACE", tout << temp_name <<"\n";);
+    fprintf(m_out, "f = open (\"\%s\", 'w')\n", temp_name);
+    fprintf(m_out, "print >>f, 2 + 3\n");
     fprintf(m_out, "print >>f, \"ok\"\n");
     fprintf(m_out, "f.close()\n");
     fflush(m_out);
     //read output
-    std::ifstream ifs(get_tmp_filename(), std::ifstream::in);
+    std::ifstream ifs(temp_name, std::ifstream::in);
     std::string ok;
     while(!ifs.eof()) {
       std::getline(ifs, ok);
