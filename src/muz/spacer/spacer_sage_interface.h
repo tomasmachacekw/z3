@@ -15,9 +15,7 @@ namespace spacer {
    */
   class Sage {
     FILE* m_out;
-    std::string tmp_name;
     pid_t child_pid;
-    std::string m_tmp_name;
   public:
     Sage();
     void test();
