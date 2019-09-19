@@ -35,10 +35,6 @@ namespace spacer {
                              NULL,
                              NULL
       };
-      //TODO: replace this with /proc/self
-      // char* const env[1] = {
-      //                       (char*)"HOME=/Users/hgvk"
-      // };
       execvp("sage", argv);
       perror("execvpe for sage");
     } else {
@@ -48,16 +44,20 @@ namespace spacer {
   }
 
   void Sage::test() {
-    char temp_name[] = "/tmp/spacerSage/sage.XXXXXX";
+    char temp_name[] = "/tmp/spacersage.XXXXXX";
     int tmp_fd = mkstemp(temp_name);
     if(tmp_fd == -1){
       //Error: failed to create temp file
+      perror("temp file create");
+      exit(1);
     }
+    TRACE ("sage-interface", tout << temp_name << "\n";);
     fprintf(m_out, "f = open (\"\%s\", 'w')\n", temp_name);
     fprintf(m_out, "print >>f, 2 + 2\n");
     fprintf(m_out, "print >>f, \"ok\"\n");
     fprintf(m_out, "f.close()\n");
     fflush(m_out);
+
     //read output
     std::ifstream ifs(temp_name, std::ifstream::in);
     std::string ok;
@@ -72,10 +72,17 @@ namespace spacer {
   }
 
   void Sage_kernel::compute_arith_kernel()  {
+    char temp_name[] = "/tmp/spacersage.XXXXXX";
+    int tmp_fd = mkstemp(temp_name);
+    if(tmp_fd == -1){
+      //Error: failed to create temp file
+      perror("temp file create");
+      exit(1);
+    }
     unsigned m = m_matrix.num_cols();
     unsigned n = m_matrix.num_rows();
     auto& out = m_sage.get_ostream();
-    fprintf(out, "f = open (\"\%s\", 'w')\n", m_sage.get_tmp_filename().c_str());
+    fprintf(out, "f = open (\"\%s\", 'w')\n", temp_name);
 
     //construct  matrix in sage
     std::stringstream t;
@@ -105,7 +112,7 @@ namespace spacer {
     fflush(out);
 
     //read output
-    std::ifstream ifs(m_sage.get_tmp_filename(), std::ifstream::in);
+    std::ifstream ifs(temp_name, std::ifstream::in);
     std::string ok;
     while(!ifs.eof()) {
       std::getline(ifs, ok);

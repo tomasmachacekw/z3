@@ -24,15 +24,6 @@ namespace spacer {
     ~Sage() {
       kill(child_pid, SIGQUIT);
     }
-    std::string get_tmp_filename() {
-      //The compiler says this is deprecated. Did not find a replacement for it.
-      //there is libstd/mkstemp but it creates a file and not just a name
-      if (tmp_name.size() == 0) {
-        tmp_name = tmpnam(NULL) + std::string(".out");
-        TRACE ("sage-interface", tout << "output file name " << tmp_name << "\n";);
-      }
-      return tmp_name;
-    }
     FILE*& get_ostream() {
       return m_out;
     }
