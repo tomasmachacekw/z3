@@ -79,6 +79,7 @@ namespace spacer {
       perror("temp file create");
       exit(1);
     }
+    TRACE ("sage-interface", tout << temp_name << "\n";);
     unsigned m = m_matrix.num_cols();
     unsigned n = m_matrix.num_rows();
     auto& out = m_sage.get_ostream();

@@ -3049,6 +3049,9 @@ lbool context::solve_core (unsigned from_lvl)
     m_pob_queue.set_root (*root);
     unsigned max_level = m_max_level;
 
+    spacer_matrix matrix = spacer_matrix(3, 3);
+    Sage_kernel s(matrix);
+
     for (unsigned i = from_lvl; i < max_level; ++i) {
         checkpoint();
         m_expanded_lvl = infty_level ();

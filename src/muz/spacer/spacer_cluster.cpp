@@ -100,6 +100,12 @@ void lemma_cluster::operator()(lemma_ref &lemma) {
         if (are_neighbours(cube, lcube, lpat, sub1, sub2)) {
             neighbours.push_back(lcube);
 
+            SASSERT(sub1.get_num_bindings() == sub2.get_num_bindings());
+            if(sub1.get_num_bindings() == 1){
+              // Only one binding here;
+             } else {
+              //
+            }
             //SEE END OF THIS FILE for assumption
             //pushing elems in sub1 into vector v (v.push_back(mpq(elem)))
             //lhs.push_row(v)
