@@ -249,40 +249,32 @@ class lemma_merge_generalizer : public lemma_generalizer {
                          expr_ref_vector &conjectures);
 };
 
-class lemma_cluster : public lemma_generalizer {
-    struct stats {
-        unsigned max_group_size;
-        stopwatch watch;
-        stats() { reset(); }
-        void reset() {
-            max_group_size = 0;
-            watch.reset();
-        }
-    };
+class lemma_cluster_finder : public lemma_generalizer {
+  struct stats {
+    unsigned max_group_size;
+    stopwatch watch;
+    stats() { reset(); }
+    void reset() {
+      max_group_size = 0;
+      watch.reset();
+    }
+  };
+  ast_manager &m;
+  arith_util m_arith;
+  typedef std::pair<unsigned, unsigned> var_offset;
+  bool are_neighbours(expr_ref antiU_result, substitution &s1, substitution &s2);
 
-    ast_manager &m;
-    arith_util m_arith;
-    int m_dis_threshold;
-    typedef std::pair<unsigned, unsigned> var_offset;
-    stats m_st;
+  bool are_neighbours(const expr_ref &cube, const expr_ref &lcube,
+                      expr_ref &pat, substitution &sub1, substitution &sub2);
 
-  private:
-    /// Returns an approximate distance between two substitutions relative to a
-    /// pattern 0 means that the substitutions are equivalent, larger number
-    /// means less similarity
-    int distance(expr_ref antiU_result, substitution &s1, substitution &s2);
-    void with_var_coeff(app *a, expr_ref_vector &out, bool has_var_coeff);
 
-    bool are_neighbours(const expr_ref &cube, const expr_ref &lcube,
-                        expr_ref &pat, substitution &sub1, substitution &sub2);
-
-  public:
-    lemma_cluster(context &ctx, int disT);
-    ~lemma_cluster() override {}
-    void operator()(lemma_ref &lemma) override;
-
-    void collect_statistics(statistics &st) const override;
-    void reset_statistics() override { m_st.reset(); }
+public:
+  lemma_cluster_finder(context &ctx);
+  ~lemma_cluster_finder() override {}
+  void operator()(lemma_ref &lemma) override;
+  void collect_statistics(statistics &st) const override;
+  void reset_statistics() override { m_st.reset(); }
+  stats m_st;
 };
 } // namespace spacer
 

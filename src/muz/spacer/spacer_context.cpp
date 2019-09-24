@@ -2371,8 +2371,6 @@ void context::updt_params() {
     m_abstract_pob = m_params.spacer_abstract_pob();
     m_split_pob = m_params.spacer_split_pob();
     m_re_con_gen = m_params.spacer_re_con_gen();
-    m_diverge_bailout = (m_params.spacer_diverge_depth() != 7) ? true : m_params.spacer_diverge_bailout();
-    m_diverge_depth = m_params.spacer_diverge_depth();
     m_gen_blk = m_params.spacer_gen_blk();
     if (m_use_gpdr) {
         // set options to be compatible with GPDR
@@ -2699,7 +2697,7 @@ void context::init_lemma_generalizers()
     }
 
     if (m_adhoc_gen){
-        m_lemma_generalizers.push_back(alloc(lemma_cluster, *this, m_diverge_depth));
+        m_lemma_generalizers.push_back(alloc(lemma_cluster_finder, *this));
         m_lemma_generalizers.push_back(alloc(lemma_merge_generalizer, *this));
     }
     if (m_re_con_gen)
@@ -3048,9 +3046,6 @@ lbool context::solve_core (unsigned from_lvl)
     pob *root = m_query->mk_pob(nullptr,from_lvl,0,m.mk_true());
     m_pob_queue.set_root (*root);
     unsigned max_level = m_max_level;
-
-    spacer_matrix matrix = spacer_matrix(3, 3);
-    Sage_kernel s(matrix);
 
     for (unsigned i = from_lvl; i < max_level; ++i) {
         checkpoint();

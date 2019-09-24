@@ -32,7 +32,7 @@ Notes:
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_prop_solver.h"
 #include "muz/spacer/spacer_json.h"
-
+#include "muz/spacer/spacer_sem_matcher.h"
 #include "muz/base/fp_params.hpp"
 
 namespace datalog {
@@ -205,6 +205,66 @@ struct lemma_lt_proc : public std::binary_function<lemma*, lemma *, bool> {
 };
 
 
+class lemma_info {
+    lemma_ref m_lemma;
+    substitution m_sub;
+  public:
+    lemma_info(const lemma_ref& l, const substitution& sub): m_lemma(l), m_sub(sub) { }
+    const lemma_ref& get_lemma() const { return m_lemma; }
+    const substitution& get_sub() const {return m_sub; }
+};
+ typedef vector<lemma_info, true> lemma_info_vector;
+//
+// a cluster of lemmas
+// a pattern and lemmas that match the pattern
+class lemma_cluster {
+      unsigned m_ref_count;
+      expr_ref m_pattern;
+      lemma_info_vector m_lemma_vec;
+      ast_manager& m;
+      sem_matcher m_matcher;
+      //checks whether e matches pattern.
+      //If so, returns the substitution that gets e from pattern
+      bool match(const expr_ref& e, const expr_ref& pattern, substitution& sub) {
+        m_matcher.reset();
+        bool pos;
+        bool is_match = m_matcher(pattern.get(), e.get(), sub, pos);
+        return is_match && pos;
+      }
+
+    public:
+      lemma_cluster(const expr_ref& pattern): m_ref_count(0), m_pattern(pattern), m(pattern.get_manager()), m_matcher(m) { }
+
+      const lemma_info_vector& get_lemmas() {
+        return m_lemma_vec;
+      }
+
+      bool add_lemma(const lemma_ref& lemma) {
+        substitution sub(m);
+        sub.reserve(1, get_num_vars(m_pattern.get()));
+        expr_ref cube(m);
+        cube = mk_and(lemma->get_cube());
+        normalize_order(cube, cube);
+        if(!match(cube, m_pattern, sub)) return false;
+        lemma_info l_i(lemma, sub);
+        m_lemma_vec.push_back(l_i);
+        TRACE("cluster_stats", tout << "Added lemma " << lemma->get_cube() << " to  existing cluster " << m_pattern << "\n";);
+        return true;
+      }
+      bool contains(const lemma_ref& lemma) {
+        for(const lemma_info& l : m_lemma_vec) {
+          if (lemma == l.get_lemma()) return true;
+        }
+        return false;
+      }
+      unsigned get_size() const { return m_lemma_vec.size(); }
+      const expr_ref& get_pattern() const { return m_pattern;}
+      void inc_ref () {++m_ref_count;}
+      void dec_ref () {
+        --m_ref_count;
+        if (m_ref_count == 0) {dealloc(this);}
+        }
+    };
 
 //
 // Predicate transformer state.
@@ -400,6 +460,48 @@ class pred_transformer {
 
     };
 
+    class cluster_db {
+      sref_vector<lemma_cluster> m_clusters;
+      unsigned m_max_grp_size;
+    public:
+      cluster_db(): m_max_grp_size(0) {}
+      unsigned get_max_grp_size() const { return m_max_grp_size; }
+
+      bool add_to_cluster(const lemma_ref& lemma) {
+        bool found = false;
+        for(auto* c: m_clusters) {
+          if(c->add_lemma(lemma)) {
+            found = true;
+            m_max_grp_size = std::max(m_max_grp_size, c->get_size());
+            //exiting on the first cluster to which the lemma belongs to.
+            break;
+          }
+        }
+        return found;
+      }
+
+      lemma_cluster* mk_cluster(const expr_ref& pattern, unsigned n_lemmas = 0) {
+        lemma_cluster* l_c = alloc(lemma_cluster, pattern);
+        m_clusters.push_back(l_c);
+        m_max_grp_size = std::max(m_max_grp_size, n_lemmas);
+        return l_c;
+      }
+
+      lemma_cluster* get_cluster(const lemma_ref& lemma) {
+        for(lemma_cluster* lc : m_clusters) {
+          if(lc->contains(lemma)) return lc;
+        }
+        return nullptr;
+      }
+
+      lemma_cluster* get_cluster(const expr* pattern) {
+        for(lemma_cluster* lc : m_clusters) {
+          if(lc->get_pattern().get() == pattern) return lc;
+        }
+        return nullptr;
+      }
+    };
+
     manager&                     pm;                // spacer::manager
     ast_manager&                 m;                 // ast_manager
     context&                     ctx;               // spacer::context
@@ -427,6 +529,7 @@ class pred_transformer {
     stopwatch                    m_must_reachable_watch;
     stopwatch                    m_ctp_watch;
     stopwatch                    m_mbp_watch;
+    cluster_db                   m_cluster_db;
 
     void init_sig();
     app_ref mk_extend_lit();
@@ -630,6 +733,23 @@ public:
     expr_ref_vector seen_patterns(){
         return m_seen_lemma_patterns;
     }
+
+    lemma_cluster* mk_cluster(const expr_ref& pattern, unsigned n_lemmas = 0) {
+    return m_cluster_db.mk_cluster(pattern, n_lemmas);
+    }
+
+    bool add_to_cluster(const lemma_ref& lemma) {
+      return m_cluster_db.add_to_cluster(lemma);
+    }
+
+    lemma_cluster* get_cluster(const lemma_ref& lemma) {
+    return m_cluster_db.get_cluster(lemma);
+    }
+
+    lemma_cluster* get_cluster(const expr* pattern) {
+    return m_cluster_db.get_cluster(pattern);
+    }
+
 };
 
 
@@ -1096,9 +1216,7 @@ class context {
     bool                 m_abstract_pob;
     bool                 m_split_pob;
     bool                 m_re_con_gen;
-    bool                 m_diverge_bailout;
     bool                 m_gen_blk;
-    unsigned             m_diverge_depth;
     unsigned             m_push_pob_max_depth;
     unsigned             m_max_level;
     unsigned             m_restart_initial_threshold;
