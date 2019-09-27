@@ -114,8 +114,40 @@ namespace spacer {
     return ok == 4;
   }
 
-  void Sage_kernel::compute_arith_kernel()  {
-    char temp_name[] = "/tmp/spacersage.XXXXXX";
+  std::string Sage_kernel::print_matrix() const {
+    std::stringstream ss;
+    ss << "[\n";
+    for(unsigned i = 0; i < m_matrix.num_rows(); i++) {
+      ss << "(" ;
+      for(unsigned j = 0; j < m_matrix.num_cols() - 1; j++) {
+        ss << m_matrix.get(i, j).to_string();
+        ss << ", ";
+      }
+      ss << m_matrix.get(i, m_matrix.num_cols() - 1).to_string();
+      ss << "),\n";
+    }
+    ss << "]\n";
+    return ss.str();
+  }
+
+  std::string Sage_kernel::print_kernel() const {
+    std::stringstream ss;
+    ss << "[\n";
+    for(unsigned i = 0; i < m_kernel.num_rows(); i++) {
+      ss << "(" ;
+      for(unsigned j = 0; j < m_kernel.num_cols() - 1; j++) {
+        ss << m_kernel.get(i, j).to_string();
+        ss << ", ";
+      }
+      ss << m_kernel.get(i, m_kernel.num_cols() - 1).to_string();
+      ss << "),\n";
+    }
+    ss << "]\n";
+    return ss.str();
+  }
+
+  bool Sage_kernel::compute_arith_kernel()  {
+    char temp_name[] = "/var/tmp/spacersage.XXXXXX";
     int tmp_fd = mkstemp(temp_name);
     if(tmp_fd == -1){
       //Error: failed to create temp file
@@ -123,36 +155,39 @@ namespace spacer {
       exit(1);
     }
     TRACE ("sage-interface", tout << temp_name << "\n";);
-    unsigned m = m_matrix.num_cols();
-    unsigned n = m_matrix.num_rows();
+    unsigned n_cols = m_matrix.num_cols();
+    unsigned n_rows = m_matrix.num_rows();
+    TRACE("sage-interface", tout << "Going to compute kernel of "<< n_rows << " by " << n_cols << " matrix \n" << print_matrix() << "\n";);
+
     auto& out = m_sage.get_ostream();
     fprintf(out, "f = open (\"\%s\", 'w')\n", temp_name);
 
     //construct  matrix in sage
-    std::stringstream t;
-    t << " a = matrix(ZZ,";
-    t << std::to_string(m);
-    t << (", ");
-    t << (std::to_string(n + 1));
-    t << (", [");
-    for(unsigned i = 0; i < m; i++)
-      {
-        t << ("[");
-        for(unsigned j = 0; j < n; j++)
-          {
-            // t. << (std::to_string(m_matrix.get(i,j)));
-            t << (", ");
-          }
-        t << ("1");
-        t << ("], ");
+    std::stringstream ss_stream;
+    ss_stream << " a = matrix(ZZ,";
+    ss_stream << std::to_string(n_rows);
+    ss_stream << (", ");
+    ss_stream << (std::to_string(n_cols + 1));
+    ss_stream << (", [");
+    for(unsigned i = 0; i < n_rows; i++) {
+      ss_stream << ("[");
+      for(unsigned j = 0; j < n_cols; j++) {
+        ss_stream << m_matrix.get(i,j).to_string();
+        ss_stream << (", ");
       }
-    t << ("]);\n");
-    fprintf(out, "%s", t.str().c_str());
-    fprintf(out, "b = a.transpose();\n");
-    fprintf(out, "c = b.right_kernel().basis();\n");
-    fprintf(out, "print >> f, c\n");
-    fprintf(out, "print >> f, \"ok\"\n");
+      ss_stream << ("1");
+      ss_stream << ("], ");
+    }
+    ss_stream << ("]);\n");
+    fprintf(out, "%s", ss_stream.str().c_str());
+    fprintf(out, "c = a.right_kernel().basis();\n");
+    fflush(out);
+    fprintf(out, "print >> f, len(c);\n");
+    fprintf(out, "print >> f, c;\n");
     fprintf(out, "f.close()\n");
+    fflush(out);
+    fprintf(out, "print \"\\nok\\n\"\n");
+    fprintf(out, "sys.stdout.flush()\n");
     fflush(out);
 
     //read output

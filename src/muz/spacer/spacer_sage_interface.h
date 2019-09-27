@@ -34,7 +34,9 @@ namespace spacer {
    */
   class Sage_kernel : public arith_kernel {
     Sage m_sage;
-    void compute_arith_kernel() override;
+    bool compute_arith_kernel() override;
+    std::string print_matrix() const;
+    std::string print_kernel() const;
   public :
     Sage_kernel(const spacer_matrix& matrix) : arith_kernel(matrix), m_sage() { }
     ~Sage_kernel() override { }

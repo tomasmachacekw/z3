@@ -40,41 +40,10 @@ bool lemma_merge_generalizer::is_simple_literal(const expr_ref &literal) {
 }
 /* end of Guards */
 
-/* Conjecture Rules
-   each rule returns if the conjecture can be made; together with the
-   conjecture(s) these rules are implemented for simple literals
-   XXX SASSERT(uninterp consts prefix normal form)!
-*/
-//fetch all integers d in exprs such that lhs = d
-bool lemma_merge_generalizer::get_eq_integers(expr *&lhs, const expr_ref_vector & exprs, vector<rational>& data){
-  expr *t_lhs, *t_rhs;
-  rational num;
-  bool is_int = false;
-  expr_ref_vector expr_lits(m);
-  for(auto* expr : exprs)
-    {
-      expr_lits.reset();
-      flatten_and(expr,expr_lits);
-      for(auto* e: expr_lits)
-        {
-          if(m.is_eq(e, t_lhs, t_rhs) && t_lhs == lhs)
-            {
-              if(!(m_arith.is_numeral(t_rhs, num, is_int) && is_int))
-                {
-                  data.reset();
-                  return false;
-                }
-              is_int = false;
-              data.push_back(num);
-              break;
-            }
-        }
-    }
-  return true;
-}
+
 bool lemma_merge_generalizer::half_plane_prog(
     const expr_ref &literal, const expr_ref &pattern,
-    const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures) {
+    const lemma_info_vector& lemmas, expr_ref_vector &conjectures) {
 
     expr *lhs, *rhs;
     vector<rational> data;
@@ -84,16 +53,20 @@ bool lemma_merge_generalizer::half_plane_prog(
     if(!(m.is_eq(literal, lhs, rhs) && m_arith.is_numeral(rhs, num, is_int) && is_int)) return false;
 
     TRACE("merge_strategies", tout << "entered half_plane_prog with: "
-                                   << mk_epp(literal, m) << "\n";);
-
-    //skip pattern from neighbours
-    expr_ref_vector neighbours(m);
-    for(unsigned i = 1; i < neighbour_lemmas.size(); i++)
-      neighbours.push_back(neighbour_lemmas.get(i));
-
-    //compute numerals which form the pattern
-    if(!get_eq_integers(lhs, neighbours, data))
-      return false;
+                                   << mk_epp(pattern, m) << "\n";);
+    rhs = to_app(pattern)->get_arg(1);
+    SASSERT(is_var(rhs));
+    var* v = to_var(rhs);
+    rational neighbour_num;
+    expr_offset neighbour_rhs;
+    for(const lemma_info& lemma: lemmas) {
+      const substitution& s(lemma.get_sub());
+      s.find(v, 0, neighbour_rhs);
+      if(!m_arith.is_numeral(neighbour_rhs.get_expr(), num, is_int) && is_int) {
+        return false;
+      }
+      data.push_back(neighbour_num);
+    }
 
     if(!data.contains(num))
       data.push_back(num);
@@ -101,91 +74,18 @@ bool lemma_merge_generalizer::half_plane_prog(
     TRACE("merge_strategies", tout << "entered half_plane_prog with data: "; for(auto e : data) tout << mk_epp(m_arith.mk_numeral(e, true), m) << " "; tout << "\n"; );
 
     //search for pattern only if there are atleast 3 neighbours
-    if(data.size() < 3 )
-      return false;
+    if( data.size() < 3 ) { return false; }
 
     //compute convex closure
     expr_ref conj(m);
     convex_closure cvx_cls(m);
     bool success = cvx_cls.compute_cls(data, lhs, conj);
-    if (!success)
-      return false;
+    if (!success) { return false; }
     conjectures.push_back(conj);
 
     TRACE("merge_strategies",
           tout << "conjectures are " << mk_and(conjectures) << "\n";);
     return true;
-}
-
-/* (<= t k)  for k < 0
-   ------
-   (<= t 0)
-*/
-// XXX zero trick is needed to avoid ambiguious `mk_numeral`
-bool lemma_merge_generalizer::half_plane_01(
-    const expr_ref &literal, const expr_ref &pattern,
-    const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures) {
-    if (!(lt_or_leq(literal) && is_simple_literal(literal))) return false;
-
-    TRACE("merge_strategies", tout << "entered half_plane_01 with: "
-                                   << mk_epp(literal, m) << "\n";);
-    expr_ref conj(m);
-    rational rhs, zero(0);
-    bool isInt;
-    if (m_arith.is_numeral(to_app(literal)->get_arg(1), rhs, isInt)) {
-        TRACE("merge_strategies",
-              tout << "rhs, isInt?: " << rhs << " / " << isInt << "\n";
-              tout << "numeral: " << mk_epp(m_arith.mk_numeral(zero, isInt), m)
-                   << "\n";);
-        if (rhs < zero) {
-            conj = m.mk_app(to_app(literal)->get_family_id(),
-                            to_app(literal)->get_decl_kind(),
-                            to_app(literal)->get_arg(0),
-                            m_arith.mk_numeral(zero, isInt));
-            TRACE("merge_strategies",
-                  tout << "Conj: " << mk_epp(conj, m) << "\n";);
-            conjectures.push_back(conj);
-            return true;
-        } else if (rhs >= zero) {
-            // XXX not applicable since the literal is t <= k with k > 0,
-            // XXX can only make k greater, but don't know by how much
-            return false;
-        }
-    }
-    return false;
-}
-
-/* (>= t k)  for k > 0
-   ------
-   (>= t 0)
-*/
-bool lemma_merge_generalizer::half_plane_02(
-    const expr_ref &literal, const expr_ref &pattern,
-    const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures) {
-    if (!(gt_or_geq(literal) && is_simple_literal(literal))) return false;
-
-    TRACE("merge_strategies", tout << "entered half_plane_02 with: "
-                                   << mk_epp(literal, m) << "\n";);
-    expr_ref conj(m);
-    rational rhs, zero(0);
-    bool isInt;
-    if (m_arith.is_numeral(to_app(literal)->get_arg(1), rhs, isInt)) {
-        if (rhs > zero) {
-            conj = m.mk_app(to_app(literal)->get_family_id(),
-                            to_app(literal)->get_decl_kind(),
-                            to_app(literal)->get_arg(0),
-                            m_arith.mk_numeral(zero, isInt));
-            TRACE("merge_strategies", tout << "half_plane_02 rhs > zero: "
-                                           << mk_epp(conj, m) << "\n";);
-            conjectures.push_back(conj);
-            return true;
-        } else if (rhs <= zero) {
-            // XXX not applicable since the literal is t >= k with k <= 0,
-            // XXX can only make k smaller, but don't know by how much
-            return false;
-        }
-    }
-    return false;
 }
 
 /*
@@ -196,8 +96,7 @@ bool lemma_merge_generalizer::half_plane_02(
    (>= (+ t_1 t_2) 0)
 */
 bool lemma_merge_generalizer::half_plane_03(
-    const expr_ref &literal, const expr *pattern,
-    const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures) {
+    const expr_ref &literal, const expr *pattern, expr_ref_vector &conjectures) {
     if (!only_halfSpace(literal)) { return false; }
     TRACE("merge_strategies", tout << "entered half_plane_03 with: "
                                    << mk_epp(literal, m) << "\n";);
@@ -281,8 +180,7 @@ bool lemma_merge_generalizer::half_plane_03(
 
 */
 bool lemma_merge_generalizer::half_plane_XX(
-    const expr_ref &literal, const expr_ref &pattern,
-    const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures) {
+    const expr_ref &literal, const expr_ref &pattern, expr_ref_vector &conjectures) {
     expr_ref conj(m);
     if (!(m.is_and(literal) && to_app(literal)->get_num_args() == 2))
         return false;
@@ -360,39 +258,32 @@ void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
 }
 
 bool lemma_merge_generalizer::core(lemma_ref &lemma) {
-    const expr_ref_vector &neighbours = lemma->get_neighbours();
-    if (neighbours.size() < 2 ) { return false; }
+    lemma_cluster* lc = (&*lemma->get_pob())->pt().get_cluster(lemma);
+    if(lc == nullptr || lc->get_size() < 2) {
+      return false;
+    }
     substitution subs_newLemma(m), subs_oldLemma(m);
     expr_ref cube(m), normalizedCube(m), out(m);
     expr_ref_vector non_boolean_literals(m), non_bool_lit_pattern(m);
     expr_ref_vector conjuncts(m);
     expr_ref_vector non_var_or_bool_Literals(m);
 
+    const expr_ref& pattern(lc->get_pattern());
     cube = mk_and(lemma->get_cube());
     normalize_order(cube, normalizedCube);
     TRACE("merge_dbg",
           tout << "Start merging with lemma cube: " << normalizedCube
-               << "\n"
-                  "Discovered pattern: "
-               << mk_pp(neighbours.get(0), m)
-               << "\n"
-                  "First neighbour: "
-               << mk_pp(neighbours.get(1), m) << "\n";);
+               << "\n Discovered pattern: " << pattern <<"\n";);
 
-    if(has_nonlinear_var_mul(neighbours.get(0), m))
-      {
+    if(has_nonlinear_var_mul(pattern, m)) {
         TRACE("merge_dbg", tout << "Found non linear pattern. Marked to split \n";);
-        lemma->get_pob()->set_pattern(neighbours.get(0));
+        lemma->get_pob()->set_pattern(pattern.get());
         lemma->get_pob()->set_split();
         return true;
-      }
+    }
 
-    expr_ref pat(m);
-    pat = neighbours.get(0);
-    expr_ref normalized_pattern(m);
-    normalize_order(pat, normalized_pattern);
     expr_ref_vector norm_pat_vec(m);
-    norm_pat_vec.push_back(normalized_pattern);
+    norm_pat_vec.push_back(pattern);
     flatten_and(norm_pat_vec);
     // Seperating boolean literals and non-boolean ones
     for (expr *c : norm_pat_vec) {
@@ -403,7 +294,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
       } else
         non_var_or_bool_Literals.push_back(c);
     }
-    TRACE("merge_dbg", tout << "partitioned " << mk_pp(neighbours.get(0), m)
+    TRACE("merge_dbg", tout << "partitioned " << pattern
                             << "into:\n"
                             << "bools and non vars: " << non_var_or_bool_Literals << "\n"
                             << "non-bools: " << non_bool_lit_pattern<< "\n";);
@@ -417,10 +308,10 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         non_boolean_literals.push_back(c);
     }
     normalizedCube = mk_and(non_boolean_literals);
-    TRACE("fun",
+    TRACE("merge_dbg",
           tout << "non_boolean_literals_cube: " << normalizedCube << "\n";);
 
-    if (half_plane_prog(normalizedCube, normalizedCube, neighbours, conjuncts)) {
+    if (half_plane_prog(normalizedCube, mk_and(non_bool_lit_pattern), lc->get_lemmas(), conjuncts)) {
       TRACE("merge_strategies",
             tout << "Applied half_plane_prog on: " << normalizedCube << "\n";);
       m_st.half_plane_prog++;
@@ -431,32 +322,8 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
       }
     }
 
-    if (false &&
-        half_plane_01(normalizedCube, normalizedCube, neighbours, conjuncts)) {
-        TRACE("merge_strategies",
-              tout << "Applied half_plane_01 on: " << normalizedCube << "\n";);
-        m_st.half_plane01++;
-        if (check_inductive_and_update(lemma, conjuncts, non_var_or_bool_Literals)) {
-            m_st.half_plane01_success++;
-            IF_VERBOSE(1, verbose_stream() << "M01Y ");
-            return true;
-        }
-    }
 
-    if (false &&
-        half_plane_02(normalizedCube, normalizedCube, neighbours, conjuncts)) {
-        TRACE("merge_strategies",
-              tout << "Applied half_plane_02 on: " << normalizedCube << "\n";);
-        m_st.half_plane02++;
-        if (check_inductive_and_update(lemma, conjuncts, non_var_or_bool_Literals)) {
-            m_st.half_plane02_success++;
-            IF_VERBOSE(1, verbose_stream() << "M02Y ");
-            return true;
-        }
-    }
-
-    if (half_plane_03(normalizedCube, neighbours.get(0), neighbours,
-                      conjuncts)) {
+    if (half_plane_03(normalizedCube, mk_and(non_bool_lit_pattern), conjuncts)) {
         TRACE("merge_strategies",
               tout << "Applied half_plane_03 on: " << normalizedCube << "\n";);
         m_st.half_plane03++;
@@ -467,7 +334,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         }
     }
 
-    if (half_plane_XX(normalizedCube, normalizedCube, neighbours, conjuncts)) {
+    if (half_plane_XX(normalizedCube, mk_and(non_bool_lit_pattern), conjuncts)) {
         TRACE("merge_strategies",
               tout << "Applied half_plane_XX on: " << normalizedCube << "\n";);
         m_st.half_planeXX++;
@@ -493,11 +360,10 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         }
     }
 
-    if (neighbours.size() >= 10) {
+    if (lc->get_size() >= 10) {
         TRACE("cluster_stats",
               tout << "Found big cluster and Tried all merge strategies\n";);
         return false;
-        // throw unknown_exception();
     }
 
     TRACE("merge_dbg", tout << "tried all merge strategies\n";);
@@ -546,13 +412,7 @@ bool lemma_merge_generalizer::check_inductive_and_update_multiple(
 }
 
 void lemma_merge_generalizer::collect_statistics(statistics &st) const {
-    st.update("SPACER merge gen half plane 01", m_st.half_plane01);
-    st.update("SPACER merge gen half plane 01 success",
-              m_st.half_plane01_success);
-    st.update("SPACER merge gen half plane 02", m_st.half_plane02);
-    st.update("SPACER merge gen half plane 02 success",
-              m_st.half_plane02_success);
-    st.update("SPACER merge gen half plane 03", m_st.half_plane03);
+      st.update("SPACER merge gen half plane 03", m_st.half_plane03);
     st.update("SPACER merge gen half plane 03 success",
               m_st.half_plane03_success);
     st.update("SPACER merge gen half plane XX", m_st.half_planeXX);
@@ -561,38 +421,5 @@ void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.merge", m_st.watch.get_seconds());
     st.update("SPACER merge half plane prog",m_st.half_plane_prog);
     st.update("SPACER merge half plane prog success",m_st.half_plane_prog_success);
-}
-
-/*
-  Summarize using concrete numerical bounds from neighbours
-  1) simple half spaces (>= t1 n1)
- */
-bool lemma_merge_generalizer::merge_summarize(
-    const expr_ref &literal, const expr_ref pattern,
-    const expr_ref_vector &neighbour_lemmas, expr_ref_vector &conjectures) {
-    if (!only_halfSpace(literal)) { return false; }
-    TRACE(
-        "merge_dbg_summarize", tout << "---Pattern---\n"
-                                    << pattern << "\n"
-                                    << "---Concrete lemmas---\n";
-        for (auto *n
-             : neighbour_lemmas) {
-            tout << "(" << n->get_id() << "):\n" << mk_epp(n, m) << "\n";
-        };
-        tout << "\n------\n";);
-
-    // case 1) simple half spaces
-    if (is_simple_literal(pattern)) {
-        rational maxima(0), minima(0), temp(0);
-        for (auto *n : neighbour_lemmas) {
-            if (!m_arith.is_numeral(to_app(n)->get_arg(1), temp)) { continue; }
-            if (temp >= maxima) { maxima = temp; }
-            if (temp <= minima) { minima = temp; }
-        }
-        TRACE("merge_dbg_summarize", tout << "---Simple half spaces---\n";
-              tout << "MAX/MIN: " << maxima << "/" << minima;
-              tout << "\n------\n";);
-    }
-    return false;
 }
 } // namespace spacer

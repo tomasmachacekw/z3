@@ -498,11 +498,10 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_body(body, m), m_cube(m),
     m_zks(m), m_bindings(m),
     m_pob(nullptr), m_ctp(nullptr),
-    m_lvl(lvl), m_init_lvl(m_lvl), 
+    m_lvl(lvl), m_init_lvl(m_lvl),
     m_bumped(0), m_weakness(WEAKNESS_MAX),
     m_external(false), m_blocked(false),
-    m_background(false),
-    m_neighbours(m) {
+    m_background(false) {
     SASSERT(m_body);
     normalize(m_body, m_body);
 }
@@ -515,8 +514,7 @@ lemma::lemma(pob_ref const &p) :
     m_lvl(p->level()), m_init_lvl(m_lvl),
     m_bumped(0), m_weakness(p->weakness()),
     m_external(false), m_blocked(false),
-    m_background(false),
-    m_neighbours(m) {
+    m_background(false) {
     SASSERT(m_pob);
     m_pob->get_skolems(m_zks);
     add_binding(m_pob->get_binding());
@@ -531,8 +529,7 @@ lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
     m_lvl(p->level()), m_init_lvl(m_lvl),
     m_bumped(0), m_weakness(p->weakness()),
     m_external(false), m_blocked(false),
-    m_background(false),
-    m_neighbours(m) {
+    m_background(false) {
     if (m_pob) {
         m_pob->get_skolems(m_zks);
         add_binding(m_pob->get_binding());
@@ -786,6 +783,7 @@ void pred_transformer::collect_statistics(statistics& st) const
                m_must_reachable_watch.get_seconds ());
     st.update("time.spacer.ctp", m_ctp_watch.get_seconds());
     st.update("time.spacer.mbp", m_mbp_watch.get_seconds());
+    st.update("SPACER max cluster size", m_cluster_db.get_max_cluster_size());
 }
 
 void pred_transformer::reset_statistics()
@@ -2032,10 +2030,7 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
             if (!new_lemma->get_bindings().empty()) {
                 old_lemma->add_binding(new_lemma->get_bindings());
             }
-            // update neighbourhood to the most recent one
-            if (!new_lemma->get_neighbours().empty()) {
-                old_lemma->set_neighbours(new_lemma->get_neighbours());
-            }
+
             // if the lemma is at a higher level, skip it,
             if (old_lemma->level() >= new_lemma->level()) {
                 TRACE("spacer", tout << "Already at a higher level: "
@@ -3093,8 +3088,7 @@ lbool context::solve_core (unsigned from_lvl)
 //given an abstract reachable lemma, mark all related pobs to never abstract
 //again. A pob p is related to an abstract pob pob_abs if lemmas that block p are
 //neighbours of the lemma that was used to create pob_abs
-static void set_nvr_abs(const pob_ref & pob_abs)
-{
+static void set_nvr_abs(const pob_ref & pob_abs) {
   if(!pob_abs) return;
   //HG : this pob shuold be an abstraction. The neighbours are selected later
   SASSERT(pob_abs->is_abs());
@@ -3108,14 +3102,12 @@ static void set_nvr_abs(const pob_ref & pob_abs)
   //if there is no pattern, return. This happens when pob_abs is a predecessor of
   //another abstract pob
   if (!pob_pattern) return ;
-  lemma_ref_vector all_lemmas;
-  pob_abs->pt().get_all_lemmas(all_lemmas, false);
 
-  //scan through all lemmas in the database to check whether they are neighbours
-  for ( auto *l : all_lemmas) {
-      const expr_ref_vector & t_neighbours = l->get_neighbours();
-      if(!t_neighbours.empty() && t_neighbours.get(0) == pob_pattern )
-          l->get_pob()->set_nvr_abs();
+  lemma_cluster* lc = pob_abs->pt().get_cluster(pob_pattern);
+  SASSERT(lc != nullptr);
+  const lemma_info_vector& lemmas = lc->get_lemmas();
+  for(const lemma_info& lemma : lemmas ) {
+    lemma.get_lemma()->get_pob()->set_nvr_abs();
   }
 }
 //

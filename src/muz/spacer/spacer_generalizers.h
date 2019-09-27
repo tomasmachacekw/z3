@@ -165,10 +165,6 @@ class lemma_quantifier_generalizer : public lemma_generalizer {
 
 class lemma_merge_generalizer : public lemma_generalizer {
     struct stats {
-        unsigned half_plane01;
-        unsigned half_plane01_success;
-        unsigned half_plane02;
-        unsigned half_plane02_success;
         unsigned half_plane03;
         unsigned half_plane03_success;
         unsigned half_planeXX;
@@ -178,10 +174,6 @@ class lemma_merge_generalizer : public lemma_generalizer {
         stopwatch watch;
         stats() { reset(); }
         void reset() {
-            half_plane01 = 0;
-            half_plane01_success = 0;
-            half_plane02 = 0;
-            half_plane02_success = 0;
             half_plane03 = 0;
             half_plane03_success = 0;
             half_planeXX = 0;
@@ -230,23 +222,12 @@ class lemma_merge_generalizer : public lemma_generalizer {
 
     // Merge Strats
     bool half_plane_prog(const expr_ref &literal, const expr_ref &pattern,
-                       const expr_ref_vector &neighbour_lemmas,
-                       expr_ref_vector &conjectures);
-    bool half_plane_01(const expr_ref &literal, const expr_ref &pattern,
-                       const expr_ref_vector &neighbour_lemmas,
-                       expr_ref_vector &conjectures);
-    bool half_plane_02(const expr_ref &literal, const expr_ref &pattern,
-                       const expr_ref_vector &neighbour_lemmas,
+                       const lemma_info_vector &neighbour_lemmas,
                        expr_ref_vector &conjectures);
     bool half_plane_03(const expr_ref &literal, const expr *pattern,
-                       const expr_ref_vector &neighbour_lemmas,
                        expr_ref_vector &conjectures);
     bool half_plane_XX(const expr_ref &literal, const expr_ref &pattern,
-                       const expr_ref_vector &neighbour_lemmas,
                        expr_ref_vector &conjectures);
-    bool merge_summarize(const expr_ref &literal, const expr_ref pattern,
-                         const expr_ref_vector &neighbour_lemmas,
-                         expr_ref_vector &conjectures);
 };
 
 class lemma_cluster_finder : public lemma_generalizer {

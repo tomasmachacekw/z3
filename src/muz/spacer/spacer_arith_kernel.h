@@ -10,17 +10,15 @@ namespace spacer {
   protected:
     const spacer_matrix& m_matrix;
     spacer_matrix m_kernel;
-    virtual void compute_arith_kernel() {};
+    virtual bool compute_arith_kernel() { return false; };
 
   public:
-    //The maximum number of rows in the kernel is (matrix.rows - 1)
-    arith_kernel(const spacer_matrix& matrix) : m_matrix(matrix),
-      m_kernel(spacer_matrix(m_matrix.num_rows(), m_matrix.num_cols())){
-    }
+    //No default constructor for spacer_matrix. Dummy initialization
+    arith_kernel(const spacer_matrix& matrix) : m_matrix(matrix), m_kernel(0, 0){}
     bool compute_kernel() {
-      compute_arith_kernel();
-      return m_kernel.num_rows();
+      return compute_arith_kernel();
     }
+    const spacer_matrix& get_kernel() const { return m_kernel;}
     virtual ~arith_kernel() {};
   };
 

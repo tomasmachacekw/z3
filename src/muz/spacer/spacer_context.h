@@ -132,8 +132,6 @@ class lemma {
     unsigned m_blocked:1;     // blocked by CTP
     unsigned m_background:1;  // background assumed fact
 
-    expr_ref_vector m_neighbours;
-
     void mk_expr_core();
     void mk_cube_core();
 public:
@@ -176,10 +174,6 @@ public:
     unsigned level () const {return m_lvl;}
     unsigned init_level() const {return m_init_lvl;}
     void set_level (unsigned lvl);
-
-    expr_ref_vector const &get_neighbours() const { return m_neighbours; }
-    void update_neighbours(expr_ref &pattern, const expr_ref_vector &n) { m_neighbours.reset(); m_neighbours.push_back(pattern); m_neighbours.append(n); }
-    void set_neighbours(const expr_ref_vector &n) { m_neighbours.reset(); m_neighbours.append(n); }
 
     app_ref_vector& get_bindings() {return m_bindings;}
     bool has_binding(app_ref_vector const &binding);
@@ -462,17 +456,17 @@ class pred_transformer {
 
     class cluster_db {
       sref_vector<lemma_cluster> m_clusters;
-      unsigned m_max_grp_size;
+      unsigned m_max_cluster_size;
     public:
-      cluster_db(): m_max_grp_size(0) {}
-      unsigned get_max_grp_size() const { return m_max_grp_size; }
+      cluster_db(): m_max_cluster_size(0) {}
+      unsigned get_max_cluster_size() const { return m_max_cluster_size; }
 
       bool add_to_cluster(const lemma_ref& lemma) {
         bool found = false;
         for(auto* c: m_clusters) {
           if(c->add_lemma(lemma)) {
             found = true;
-            m_max_grp_size = std::max(m_max_grp_size, c->get_size());
+            m_max_cluster_size = std::max(m_max_cluster_size, c->get_size());
             //exiting on the first cluster to which the lemma belongs to.
             break;
           }
@@ -483,7 +477,7 @@ class pred_transformer {
       lemma_cluster* mk_cluster(const expr_ref& pattern, unsigned n_lemmas = 0) {
         lemma_cluster* l_c = alloc(lemma_cluster, pattern);
         m_clusters.push_back(l_c);
-        m_max_grp_size = std::max(m_max_grp_size, n_lemmas);
+        m_max_cluster_size = std::max(m_max_cluster_size, n_lemmas);
         return l_c;
       }
 

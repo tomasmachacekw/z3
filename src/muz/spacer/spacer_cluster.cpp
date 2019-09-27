@@ -104,6 +104,7 @@ void lemma_cluster_finder::operator()(lemma_ref& lemma) {
     if (are_neighbours(cube, lcube, lpat, sub1, sub2)) {
       neighbours.push_back(&*l);
       patterns.push_back(lpat);
+      num_vars_in_pattern = std::max(get_num_vars(lpat), num_vars_in_pattern);
     }
   }
   //go through all the patterns to see if there is a pattern which is general enough to include all elemmas.
@@ -115,22 +116,26 @@ void lemma_cluster_finder::operator()(lemma_ref& lemma) {
       lcube = mk_and(l->get_cube());
       normalize_order(lcube, lcube);
       matcher.reset();
+      sub1.reset();
+      sub1.reserve(1, num_vars_in_pattern);
       if(!(matcher(e, lcube.get(), sub1, pos) && pos)) {
         //this pattern is no good
         is_general_pattern = false;
         break;
       }
-      if(is_general_pattern) {
-        //found a good pattern. make a cluster with it.
-        pattern = e;
-        num_vars_in_pattern = get_num_vars(pattern);
-        break;
-      }
+    }
+    if(is_general_pattern) {
+      SASSERT(e != nullptr);
+      TRACE("cluster_stats", tout << "Found a general pattern " << mk_pp(e, m) << "\n";);
+      //found a good pattern. make a cluster with it.
+      pattern = expr_ref(e, m);
+      SASSERT(num_vars_in_pattern == get_num_vars(e));
+      break;
     }
   }
 
   CTRACE("cluster_stats", !neighbours.empty() && num_vars_in_pattern > 0 && !is_general_pattern,
-         tout << "Failed to find a general pattern for cluster. Lemma is: " << lemma->get_cube() << "\n";);
+         tout << "Failed to find a general pattern for cluster. Lemma is: " << lemma->get_cube() << " patterns are " << patterns << "\n";);
 
   if (is_general_pattern && !neighbours.empty() && num_vars_in_pattern > 0) {
     neighbours.push_back(lemma.get());
@@ -145,6 +150,9 @@ void lemma_cluster_finder::operator()(lemma_ref& lemma) {
     }
     TRACE("cluster_stats",
           tout << "created new cluster with pattern: " << pattern << "\n"
+          << " and lemma cube: " << cube << "\n";);
+    IF_VERBOSE(1,
+               verbose_stream() << "created new cluster with pattern: " << pattern << "\n"
           << " and lemma cube: " << cube << "\n";);
   }
 }

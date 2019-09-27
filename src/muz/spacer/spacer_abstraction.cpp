@@ -73,14 +73,13 @@ bool context::mono_coeff_lm(pob &n, expr_ref &lit) {
     // for every lemma l of n
     for (auto &l : lemmas) {
         // find a group containing lemma l
-        const expr_ref_vector &neighbours = l->get_neighbours();
-
+        lemma_cluster* lc = n.pt().get_cluster(l);
         // skip lemma if no group is found
-        if (neighbours.empty() || !neighbours.get(0)) continue;
+        if (lc == nullptr) continue;
 
-        expr *pattern = neighbours.get(0);
+        const expr_ref& pattern = lc->get_pattern();
 
-        if (mono_var_pattern(pattern, lit)) {
+        if (mono_var_pattern(pattern.get(), lit)) {
             // HG : store the pattern in the pob. Required because there could
             // be multile patterns among lemmas
             TRACE("merge_dbg",
