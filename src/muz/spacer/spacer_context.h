@@ -1208,6 +1208,7 @@ class context {
     bool                 m_use_bg_invs;
     bool                 m_adhoc_gen;
     bool                 m_abstract_pob;
+    bool                 m_use_sage;
     bool                 m_split_pob;
     bool                 m_re_con_gen;
     bool                 m_gen_blk;
@@ -1359,7 +1360,7 @@ public:
     void new_pob_eh(pob *p);
 
     bool is_inductive();
-
+    bool use_sage() { return m_use_sage;}
 
     // three different solvers with three different sets of parameters
     // different solvers are used for different types of queries in spacer

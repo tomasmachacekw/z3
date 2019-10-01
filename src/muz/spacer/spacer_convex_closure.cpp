@@ -1,29 +1,48 @@
 #include "muz/spacer/spacer_convex_closure.h"
 
 namespace spacer {
-bool convex_closure::compute_cls(vector<rational> &data, expr *&cnst,
-                                 expr_ref &cls) {
-    // TODO handle duplicates in data
-    // TODO use solver in z3
+bool convex_closure::is_int_points() const {
+    rational val;
+    for (unsigned i = 0; i < m_data.num_rows(); i++) {
+        for (unsigned j = 0; j < m_data.num_cols(); j++)
+            if (!m_data.get(i, j).is_int()) return false;
+    }
+    return true;
+}
+
+unsigned convex_closure::reduce_dim() {
+    if (m_dim <= 1) { return m_dim; }
+
+    bool non_null_ker = m_kernel->compute_kernel();
+    if (!non_null_ker) {
+        TRACE("cvx_dbg",
+              tout << "No linear dependencies between pattern vars\n";);
+        return m_dim;
+    }
+    return m_kernel->get_kernel().num_cols();
+}
+// returns whether the closure is exact or not (i.e syntactic)
+bool convex_closure::closure(expr_ref &res) {
+
+    unsigned red_dim = reduce_dim();
+    // TODO rewrite linear dependencies
+
+    // Yet to be implemented
+    if (red_dim != 1) { NOT_IMPLEMENTED_YET(); }
+
+    // The convex closure over one dimension is just a bound
+    vector<rational> &data = m_data.get_row(0);
+    SASSERT(is_int_points());
     std::sort(
         data.begin(), data.end(),
         [](rational const &x, rational const &y) -> bool { return x < y; });
-    rational step = data[1] - data[0];
-    for (unsigned i = 1; i < data.size() - 1; ++i) {
-        if (step != data[i + 1] - data[i]) return false;
-    }
-    // AG: don't understand the comment, improve
-    // progression is (forall i step*i + offset) where offset is ( d % step )
-    // for any d
-    expr_ref cd_expr(m_arith.mk_numeral(step, true), m);
-    expr_ref d_expr(m_arith.mk_numeral(data.get(0), true), m);
-    expr_ref lhs(m_arith.mk_mod(cnst, cd_expr), m);
-    // AG: rhs is a number. It should be reduced to a number not to a mod expression!
-    expr_ref rhs(m_arith.mk_mod(d_expr, cd_expr), m);
-    // AG: simplify the case when rhs is 1
-    // AG: the result is not a convex closure because bounds on cnst are not returned
-    // AG: expected output is: data[0] <= cnst <= data[N] && cnst mod step == (data[0] mod step)
-    cls = expr_ref(m.mk_eq(lhs, rhs), m);
+    expr_ref ub(m_arith.mk_numeral(data[0], true), m);
+    expr_ref lb(m_arith.mk_numeral(data[data.size() - 1], true), m);
+    expr *var = m_dim_vars[0];
+    app *ub_expr = m_arith.mk_le(var, ub.get());
+    app *lb_expr = m_arith.mk_ge(var, lb.get());
+    // TODO add division constraints.
+    res = m.mk_and(ub_expr, lb_expr);
     return true;
 };
 } // namespace spacer

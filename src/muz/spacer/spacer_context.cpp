@@ -2364,6 +2364,7 @@ void context::updt_params() {
     m_use_bg_invs = m_params.spacer_use_bg_invs();
     m_adhoc_gen = m_params.spacer_adhoc_gen();
     m_abstract_pob = m_params.spacer_abstract_pob();
+    m_use_sage = m_params.spacer_use_sage();
     m_split_pob = m_params.spacer_split_pob();
     m_re_con_gen = m_params.spacer_re_con_gen();
     m_gen_blk = m_params.spacer_gen_blk();

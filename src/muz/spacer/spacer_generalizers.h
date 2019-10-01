@@ -21,7 +21,9 @@ Revision History:
 #define _SPACER_GENERALIZERS_H_
 
 #include "ast/arith_decl_plugin.h"
+#include "muz/spacer/spacer_arith_kernel.h"
 #include "muz/spacer/spacer_context.h"
+#include "muz/spacer/spacer_convex_closure.h"
 
 namespace spacer {
 
@@ -189,16 +191,17 @@ class lemma_merge_generalizer : public lemma_generalizer {
     typedef std::pair<rational, expr *> num_expr_pair;
     typedef vector<num_expr_pair> num_expr_pair_vec;
     stats m_st;
+    convex_closure m_cvx_cls;
 
   public:
     lemma_merge_generalizer(context &ctx);
     ~lemma_merge_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
-    bool check_inductive_and_update(lemma_ref &lemma, expr_ref_vector& conj,
-                                    expr_ref_vector& bool_literals);
+    bool check_inductive_and_update(lemma_ref &lemma, expr_ref_vector &conj,
+                                    expr_ref_vector &bool_literals);
     bool check_inductive_and_update_multiple(lemma_ref &lemma,
-                                             expr_ref_vector& conjs,
-                                             expr_ref_vector& bool_literals);
+                                             expr_ref_vector &conjs,
+                                             expr_ref_vector &bool_literals);
 
     void collect_statistics(statistics &st) const override;
     void reset_statistics() override { m_st.reset(); }
@@ -213,7 +216,8 @@ class lemma_merge_generalizer : public lemma_generalizer {
     bool monotonic_coeffcient(expr_ref &literal, app *pattern, expr_ref &out);
     bool neighbour_equality(expr_ref &literal, app *pattern,
                             expr_ref_vector &neighbour, expr_ref &out);
-    bool get_eq_integers(expr *& lhs, const expr_ref_vector & lemmas, vector<rational>& data);
+    bool get_eq_integers(expr *&lhs, const expr_ref_vector &lemmas,
+                         vector<rational> &data);
     // Guards
     bool lt_or_leq(const expr_ref &literal);
     bool gt_or_geq(const expr_ref &literal);
@@ -222,8 +226,8 @@ class lemma_merge_generalizer : public lemma_generalizer {
 
     // Merge Strats
     bool half_plane_prog(const expr_ref &literal, const expr_ref &pattern,
-                       const lemma_info_vector &neighbour_lemmas,
-                       expr_ref_vector &conjectures);
+                         const lemma_info_vector &neighbour_lemmas,
+                         expr_ref_vector &conjectures);
     bool half_plane_03(const expr_ref &literal, const expr *pattern,
                        expr_ref_vector &conjectures);
     bool half_plane_XX(const expr_ref &literal, const expr_ref &pattern,
@@ -231,31 +235,31 @@ class lemma_merge_generalizer : public lemma_generalizer {
 };
 
 class lemma_cluster_finder : public lemma_generalizer {
-  struct stats {
-    unsigned max_group_size;
-    stopwatch watch;
-    stats() { reset(); }
-    void reset() {
-      max_group_size = 0;
-      watch.reset();
-    }
-  };
-  ast_manager &m;
-  arith_util m_arith;
-  typedef std::pair<unsigned, unsigned> var_offset;
-  bool are_neighbours(expr_ref antiU_result, substitution &s1, substitution &s2);
+    struct stats {
+        unsigned max_group_size;
+        stopwatch watch;
+        stats() { reset(); }
+        void reset() {
+            max_group_size = 0;
+            watch.reset();
+        }
+    };
+    ast_manager &m;
+    arith_util m_arith;
+    typedef std::pair<unsigned, unsigned> var_offset;
+    bool are_neighbours(expr_ref antiU_result, substitution &s1,
+                        substitution &s2);
 
-  bool are_neighbours(const expr_ref &cube, const expr_ref &lcube,
-                      expr_ref &pat, substitution &sub1, substitution &sub2);
+    bool are_neighbours(const expr_ref &cube, const expr_ref &lcube,
+                        expr_ref &pat, substitution &sub1, substitution &sub2);
 
-
-public:
-  lemma_cluster_finder(context &ctx);
-  ~lemma_cluster_finder() override {}
-  void operator()(lemma_ref &lemma) override;
-  void collect_statistics(statistics &st) const override;
-  void reset_statistics() override { m_st.reset(); }
-  stats m_st;
+  public:
+    lemma_cluster_finder(context &ctx);
+    ~lemma_cluster_finder() override {}
+    void operator()(lemma_ref &lemma) override;
+    void collect_statistics(statistics &st) const override;
+    void reset_statistics() override { m_st.reset(); }
+    stats m_st;
 };
 } // namespace spacer
 

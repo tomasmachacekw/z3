@@ -23,25 +23,26 @@ Revision History:
 
 namespace spacer {
 
-    class spacer_matrix {
-    public:
-        spacer_matrix(unsigned m, unsigned n); // m rows, n columns
+class spacer_matrix {
+  public:
+    spacer_matrix(unsigned m, unsigned n); // m rows, n columns
 
-        unsigned num_rows() const;
-        unsigned num_cols() const;
+    unsigned num_rows() const;
+    unsigned num_cols() const;
 
-        const rational& get(unsigned i, unsigned j) const;
-        void set(unsigned i, unsigned j, const rational& v);
+    const rational &get(unsigned i, unsigned j) const;
+    void set(unsigned i, unsigned j, const rational &v);
 
-        unsigned perform_gaussian_elimination();
+    unsigned perform_gaussian_elimination();
 
-        void print_matrix();
-        void normalize();
-    private:
-        unsigned m_num_rows;
-        unsigned m_num_cols;
-        vector<vector<rational>> m_matrix;
-    };
-}
+    void print_matrix();
+    void normalize();
+
+  private:
+    unsigned m_num_rows;
+    unsigned m_num_cols;
+    vector<vector<rational>> m_matrix;
+};
+} // namespace spacer
 
 #endif

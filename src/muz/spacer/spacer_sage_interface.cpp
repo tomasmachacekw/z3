@@ -57,7 +57,7 @@ namespace spacer {
   }
 
   bool Sage::test() {
-    char temp_name[] = "/var/tmp/spacersage.XXXXXX";
+    char temp_name[] = "/tmp/spacersage.XXXXXX";
     int tmp_fd = mkstemp(temp_name);
     if (tmp_fd == -1) {
       //Error: failed to create temp file
@@ -111,6 +111,7 @@ namespace spacer {
 
     TRACE ("sage-interface", tout << "got sage output " << ok << "\n";);
     ifs.close();
+    std::remove(temp_name);
     return ok == 4;
   }
 
@@ -147,7 +148,7 @@ namespace spacer {
   }
 
   bool Sage_kernel::compute_arith_kernel()  {
-    char temp_name[] = "/var/tmp/spacersage.XXXXXX";
+    char temp_name[] = "/tmp/spacersage.XXXXXX";
     int tmp_fd = mkstemp(temp_name);
     if(tmp_fd == -1){
       //Error: failed to create temp file
@@ -159,15 +160,15 @@ namespace spacer {
     unsigned n_rows = m_matrix.num_rows();
     TRACE("sage-interface", tout << "Going to compute kernel of "<< n_rows << " by " << n_cols << " matrix \n" << print_matrix() << "\n";);
 
-    auto& out = m_sage.get_ostream();
+    auto out = m_sage.get_ostream();
     fprintf(out, "f = open (\"\%s\", 'w')\n", temp_name);
 
     //construct  matrix in sage
     std::stringstream ss_stream;
     ss_stream << " a = matrix(ZZ,";
-    ss_stream << std::to_string(n_rows);
+    ss_stream << n_rows;
     ss_stream << (", ");
-    ss_stream << (std::to_string(n_cols + 1));
+    ss_stream << (n_cols + 1);
     ss_stream << (", [");
     for(unsigned i = 0; i < n_rows; i++) {
       ss_stream << ("[");
@@ -190,17 +191,76 @@ namespace spacer {
     fprintf(out, "sys.stdout.flush()\n");
     fflush(out);
 
-    //read output
-    std::ifstream ifs(temp_name, std::ifstream::in);
-    std::string ok;
-    while(!ifs.eof()) {
-      std::getline(ifs, ok);
-      //TODO read integers instead of characters...
-      TRACE ("sage-interface", tout << "reading from sage " << ok << "\n";);
-      if(ok.compare(0, 2, "ok")) {
-        TRACE ("sage-interface", tout << "got sage output\n";);
-        break;
+    //first wait for sage to write ok
+    char *std_ok = nullptr;
+    size_t n = 0;
+    ssize_t t = 0;
+    //read all the lines printed by sage until we get okay
+    auto in = m_sage.get_istream();
+    do {
+      t = getline(&std_ok, &n, in);
+      if (t == -1 || feof(in) || ferror(in)) {
+        TRACE("sage-interface", tout << "error while reading from sage pipe \n";);
+        return false;
       }
+      CTRACE("sage-interface-verb", t > 0, tout << "got sage std output " << std_ok << "\n";);
+    }while (strcmp(std_ok, "ok\n") != 0);
+    //delete object allocated by getline
+    delete std_ok;
+    TRACE ("sage-interface", tout << "got ok from sage \n";);
+
+    //read output from file
+    std::ifstream ifs(temp_name);
+    if ( !ifs.is_open() ) {
+      TRACE ("sage-interface", tout << "failed to open file\n";);
+      return false;
     }
+
+    int num;
+    unsigned total_rows = 0, row = 0, col = 0;
+    char misc_char;
+    ifs >> std::skipws;
+    ifs >> total_rows;
+    if(total_rows == 0) {
+      ifs.close();
+      TRACE("sage-interface", tout << "Rank of kernel is zero\n";);
+      return false;
+    }
+    m_kernel = spacer_matrix(total_rows, n_cols + 1);
+    ifs >> misc_char;
+    SASSERT(misc_char == '[');
+    while(true) {
+      while(misc_char != '(' && misc_char != ']')
+        ifs >> misc_char;
+      if(misc_char == ']')
+        break;
+      SASSERT(misc_char == '(');
+      col = 0;
+      while(!ifs.bad() && !ifs.eof()) {
+        ifs >> num;
+        ifs >> misc_char;
+        m_kernel.set(row, col, rational(num));
+        col++;
+        if(misc_char == ')') {
+          break;
+        }
+        SASSERT(misc_char == ',');
+      }
+      row++;
+    }
+    SASSERT(row == total_rows);
+    if(ifs.bad()) {
+      TRACE("sage-interface", tout << "error when reading from file\n";);
+      ifs.close();
+      return false;
+    }
+
+    TRACE ("sage-interface", tout << "finished reading sage output\n";);
+    ifs.close();
+
+    TRACE("sage-interface", tout << "Kernel is " << print_kernel() << "\n";);
+
+    std::remove(temp_name);
+    return true;
   }
 }
