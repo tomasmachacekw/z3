@@ -18,21 +18,24 @@ class convex_closure {
     arith_kernel *m_kernel;
     unsigned reduce_dim();
     void rewrite_lin_deps();
+    bool m_shd_rewrite;
 
   public:
     convex_closure(ast_manager &man, bool use_sage)
-        : m(man), m_arith(m), m_dim(0), m_use_sage(use_sage), m_data(0, 0) {
-        if (m_use_sage) m_kernel = new Sage_kernel(0, 0);
+        : m(man), m_arith(m), m_dim(0), m_use_sage(use_sage), m_data(0, 0),
+          m_shd_rewrite(false) {
+        if (m_use_sage) m_kernel = new Sage_kernel(m_data);
     }
     ~convex_closure() {
         if (m_use_sage) delete m_kernel;
     }
-    void reset(unsigned n_rows, unsigned n_cols) {
-        m_data = spacer_matrix(n_rows, n_cols);
+    void reset(unsigned n_cols) {
+        m_kernel->reset();
+        m_data.reset(n_cols);
         m_dim_vars.reset();
         m_dim = n_cols;
+        m_shd_rewrite = false;
         m_dim_vars.reserve(m_dim);
-        m_kernel->reset(n_rows, n_cols);
     }
     /// Incremental interface
 
@@ -43,25 +46,39 @@ class convex_closure {
         m_dim_vars[i] = v;
     }
     /// \brief Return number of dimensions of each point
-    unsigned dims() { return m_dim; }
+    unsigned dims() const { return m_dim; }
+
+    /// returns the dim_vars
+    const vector<expr *> &get_dim_vars() const { return m_dim_vars; }
 
     /// \brief add one-dimensional point
     void push_back(rational x) {
         SASSERT(dims() == 1);
-        // Insert into m_kernel as well
-        NOT_IMPLEMENTED_YET();
+        vector<rational> row;
+        row.push_back(x);
+        m_data.add_row(row);
     }
+
     /// \brief add two-dimensional point
-    void push_back(rational x, rational y) { NOT_IMPLEMENTED_YET(); }
-    /// \brief add three-dimensional point
-    void push_back(rational x, rational y, rational z) {
-        NOT_IMPLEMENTED_YET();
+    void push_back(rational x, rational y) {
+        SASSERT(dims() == 2);
+        vector<rational> row;
+        row.push_back(x);
+        row.push_back(y);
+        m_data.add_row(row);
     }
+
     /// \brief add n-dimensional point
-    void push_back(vector<rational> &point) { NOT_IMPLEMENTED_YET(); };
+    void push_back(vector<rational> &point) {
+        SASSERT(point.size() == dims());
+        m_data.add_row(point);
+    };
 
     /// \brief compute convex closure of current set of points
     /// return true if it was possible to compute the closure
     bool closure(expr_ref &res);
+
+    /// returns whether dim_vars need to be re-written
+    bool shd_rewrite() const { return m_shd_rewrite; }
 };
 } // namespace spacer

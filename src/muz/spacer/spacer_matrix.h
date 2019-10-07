@@ -35,6 +35,22 @@ class spacer_matrix {
 
     unsigned perform_gaussian_elimination();
 
+    vector<rational> &get_row(unsigned i) {
+        SASSERT(i < num_rows());
+        return m_matrix.get(i);
+    }
+
+    const vector<rational> &get_row(unsigned i) const {
+        SASSERT(i < m_num_rows);
+        return m_matrix.get(i);
+    }
+
+    void add_row(vector<rational> &row);
+    void reset(unsigned n_cols) {
+        m_num_rows = 0;
+        m_num_cols = n_cols;
+        m_matrix.reset();
+    }
     void print_matrix();
     void normalize();
 
@@ -44,5 +60,4 @@ class spacer_matrix {
     vector<vector<rational>> m_matrix;
 };
 } // namespace spacer
-
 #endif

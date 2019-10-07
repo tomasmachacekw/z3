@@ -167,23 +167,10 @@ class lemma_quantifier_generalizer : public lemma_generalizer {
 
 class lemma_merge_generalizer : public lemma_generalizer {
     struct stats {
-        unsigned half_plane03;
-        unsigned half_plane03_success;
-        unsigned half_planeXX;
-        unsigned half_planeXX_success;
-        unsigned half_plane_prog;
-        unsigned half_plane_prog_success;
+        // TODO add stats
         stopwatch watch;
         stats() { reset(); }
-        void reset() {
-            half_plane03 = 0;
-            half_plane03_success = 0;
-            half_planeXX = 0;
-            half_planeXX_success = 0;
-            half_plane_prog = 0;
-            half_plane_prog_success = 0;
-            watch.reset();
-        }
+        void reset() { watch.reset(); }
     };
 
     ast_manager &m;
@@ -199,39 +186,11 @@ class lemma_merge_generalizer : public lemma_generalizer {
     void operator()(lemma_ref &lemma) override;
     bool check_inductive_and_update(lemma_ref &lemma, expr_ref_vector &conj,
                                     expr_ref_vector &bool_literals);
-    bool check_inductive_and_update_multiple(lemma_ref &lemma,
-                                             expr_ref_vector &conjs,
-                                             expr_ref_vector &bool_literals);
-
     void collect_statistics(statistics &st) const override;
     void reset_statistics() override { m_st.reset(); }
 
   private:
     bool core(lemma_ref &lemma);
-    bool leq_monotonic_k(expr_ref &l, app *pattern, expr_ref &out);
-    bool leq_monotonic_neg_k(expr_ref &l, app *pattern, expr_ref &out);
-    bool merge_halfspaces(expr_ref &literal, app *pattern, expr_ref &out,
-                          expr_ref_vector &conjuncts);
-    bool merge_lines(expr_ref &literal, app *pattern, expr_ref &out);
-    bool monotonic_coeffcient(expr_ref &literal, app *pattern, expr_ref &out);
-    bool neighbour_equality(expr_ref &literal, app *pattern,
-                            expr_ref_vector &neighbour, expr_ref &out);
-    bool get_eq_integers(expr *&lhs, const expr_ref_vector &lemmas,
-                         vector<rational> &data);
-    // Guards
-    bool lt_or_leq(const expr_ref &literal);
-    bool gt_or_geq(const expr_ref &literal);
-    bool only_halfSpace(const expr_ref &literal);
-    bool is_simple_literal(const expr_ref &literal);
-
-    // Merge Strats
-    bool half_plane_prog(const expr_ref &literal, const expr_ref &pattern,
-                         const lemma_info_vector &neighbour_lemmas,
-                         expr_ref_vector &conjectures);
-    bool half_plane_03(const expr_ref &literal, const expr *pattern,
-                       expr_ref_vector &conjectures);
-    bool half_plane_XX(const expr_ref &literal, const expr_ref &pattern,
-                       expr_ref_vector &conjectures);
 };
 
 class lemma_cluster_finder : public lemma_generalizer {

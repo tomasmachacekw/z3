@@ -3,8 +3,8 @@
 #include "util/util.h"
 #include <fstream>
 #include <signal.h>
+#include <sys/wait.h>
 #include <unistd.h>
-
 namespace spacer {
 
 /*
@@ -22,7 +22,11 @@ class Sage {
   public:
     Sage();
     bool test();
-    ~Sage() { kill(child_pid, SIGQUIT); }
+    ~Sage() {
+        kill(child_pid, SIGKILL);
+        int status;
+        waitpid(child_pid, &status, 0);
+    }
     FILE *get_ostream() const { return m_out; }
     FILE *get_istream() const { return m_in; }
 };
@@ -37,8 +41,7 @@ class Sage_kernel : public arith_kernel {
     std::string print_kernel() const;
 
   public:
-    Sage_kernel(unsigned n_rows, unsigned n_cols)
-        : arith_kernel(n_rows, n_cols), m_sage() {}
+    Sage_kernel(spacer_matrix &matrix) : arith_kernel(matrix), m_sage() {}
     ~Sage_kernel() override {}
 };
 
