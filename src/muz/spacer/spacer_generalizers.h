@@ -179,6 +179,9 @@ class lemma_merge_generalizer : public lemma_generalizer {
     typedef vector<num_expr_pair> num_expr_pair_vec;
     stats m_st;
     convex_closure m_cvx_cls;
+    // save fresh constants for mbp
+    app_ref_vector m_dim_frsh_cnsts;
+    vector<expr *> m_dim_vars;
 
   public:
     lemma_merge_generalizer(context &ctx);
@@ -191,6 +194,7 @@ class lemma_merge_generalizer : public lemma_generalizer {
 
   private:
     bool core(lemma_ref &lemma);
+    void rewrite_pattern(expr *pattern, expr_ref &rw_pattern);
 };
 
 class lemma_cluster_finder : public lemma_generalizer {

@@ -3590,11 +3590,6 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         bool v = n.pt().add_lemma(lemma_pob.get());
         if (v) { m_stats.m_num_lemmas++; }
 
-        // // XXX JEFF
-        TRACE("lemma_dbg", tout <<
-              (lemma_pob->get_expr())->get_id() << ": " << mk_pp(mk_and(lemma_pob->get_cube()), m) << "\n";);
-
-
         // Optionally update the node to be the negation of the lemma
         if (v && m_use_lemma_as_pob) {
             expr_ref c(m);

@@ -5,11 +5,13 @@
 */
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_util.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "muz/spacer/spacer_context.h"
 #include "muz/spacer/spacer_generalizers.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_matrix.h"
 #include "muz/spacer/spacer_util.h"
+#include "smt/smt_solver.h"
 using namespace spacer;
 namespace {
 // returns that var in expr whose idx is x
@@ -28,9 +30,9 @@ expr *var_find(expr *exp, unsigned x) {
 }
 } // namespace
 namespace spacer {
-
 lemma_merge_generalizer::lemma_merge_generalizer(context &ctx)
     : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m),
+      m_cvx_cls(m, ctx.use_sage()), m_dim_frsh_cnsts(m) {}
 
 void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
@@ -99,9 +101,14 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
           tout << "non_boolean_literals_cube: " << normalizedCube << "\n";);
 
     unsigned n_vars = get_num_vars(mk_and(non_bool_lit_pattern));
-
+    SASSERT(n_vars > 0);
     // start convex closure computation
     m_cvx_cls.reset(n_vars);
+    m_dim_vars.reset();
+    m_dim_frsh_cnsts.reset();
+    m_dim_frsh_cnsts.reserve(n_vars);
+    m_dim_vars.reserve(n_vars);
+
     const lemma_info_vector lemmas = lc->get_lemmas();
     const substitution &t_sub(lemmas[0].get_sub());
 
@@ -114,6 +121,10 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         expr *var = var_find(pattern, v.first);
         SASSERT(var != nullptr);
         m_cvx_cls.set_dimension(j, var);
+        m_dim_vars[j] = var;
+        app_ref var_app(m);
+        var_app = m.mk_fresh_const("mrg_cvx", m_arith.mk_int());
+        m_dim_frsh_cnsts[j] = var_app;
     }
 
     // add points
@@ -133,16 +144,50 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         }
         m_cvx_cls.push_back(point);
     }
-    expr_ref cls(m);
+    expr_ref_vector cls(m);
     bool exact = m_cvx_cls.closure(cls);
     if (!exact) { return false; }
 
-    }
+    cls.push_back(pattern.get());
+    expr_ref cvx_pattern(m);
+    rewrite_pattern(mk_and(cls), cvx_pattern);
 
+    model_ref mdl;
 
+    // get a model for the lemma
+    // TODO: replace with pob's model
+    ref<solver> sol = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+    expr_ref_vector pat(m);
+    pat.push_back(cvx_pattern);
+    sol->assert_expr(pat);
+    lbool res = sol->check_sat(0, nullptr);
+    VERIFY(res == l_true);
+    sol->get_model(mdl);
+    SASSERT(mdl.get() != nullptr);
+    TRACE("merge_dbg", tout << "calling mbp with " << cvx_pattern << "\n";);
+    qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true, true);
+    TRACE("merge_dbg",
+          tout << "Pattern after computing cvx cls: " << cvx_pattern << "\n";);
+    if (m_dim_frsh_cnsts.size() > 0) {
+        TRACE("merge_dbg", tout << "could not eliminate all vars\n";);
         return false;
     }
+    pat.reset();
+    pat.push_back(cvx_pattern);
+    return check_inductive_and_update(lemma, pat, non_var_or_bool_Literals);
+}
 
+// rewrites all variables into their corresponding frsh constants
+void lemma_merge_generalizer::rewrite_pattern(expr *pattern,
+                                              expr_ref &rw_pattern) {
+    expr_safe_replace s(m);
+    obj_map<expr, expr *> sub;
+    for (unsigned i = 0; i < m_dim_vars.size(); i++) {
+        s.insert(m_dim_vars[i], to_expr(m_dim_frsh_cnsts[i].get()));
+    }
+    s(pattern, rw_pattern);
+    TRACE("merge_dbg", tout << "Rewrote " << mk_pp(pattern, m) << " into "
+                            << rw_pattern << "\n";);
 }
 
 /* core lemma update function*/

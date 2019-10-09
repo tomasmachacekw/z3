@@ -35,14 +35,17 @@ class spacer_matrix {
 
     unsigned perform_gaussian_elimination();
 
-    vector<rational> &get_row(unsigned i) {
+    const vector<rational> &get_row(unsigned i) const {
         SASSERT(i < num_rows());
         return m_matrix.get(i);
     }
 
-    const vector<rational> &get_row(unsigned i) const {
-        SASSERT(i < m_num_rows);
-        return m_matrix.get(i);
+    // copies over all the elements in col i
+    void get_col(unsigned i, vector<rational> &data) const {
+        SASSERT(i < m_num_cols);
+        data.reset();
+        data.reserve(m_num_rows);
+        for (auto &v : m_matrix) { data.push_back(v.get(i)); }
     }
 
     void add_row(vector<rational> &row);

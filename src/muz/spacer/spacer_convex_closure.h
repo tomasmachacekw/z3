@@ -18,12 +18,10 @@ class convex_closure {
     arith_kernel *m_kernel;
     unsigned reduce_dim();
     void rewrite_lin_deps();
-    bool m_shd_rewrite;
 
   public:
     convex_closure(ast_manager &man, bool use_sage)
-        : m(man), m_arith(m), m_dim(0), m_use_sage(use_sage), m_data(0, 0),
-          m_shd_rewrite(false) {
+        : m(man), m_arith(m), m_dim(0), m_use_sage(use_sage), m_data(0, 0) {
         if (m_use_sage) m_kernel = new Sage_kernel(m_data);
     }
     ~convex_closure() {
@@ -34,7 +32,6 @@ class convex_closure {
         m_data.reset(n_cols);
         m_dim_vars.reset();
         m_dim = n_cols;
-        m_shd_rewrite = false;
         m_dim_vars.reserve(m_dim);
     }
     /// Incremental interface
@@ -47,9 +44,6 @@ class convex_closure {
     }
     /// \brief Return number of dimensions of each point
     unsigned dims() const { return m_dim; }
-
-    /// returns the dim_vars
-    const vector<expr *> &get_dim_vars() const { return m_dim_vars; }
 
     /// \brief add one-dimensional point
     void push_back(rational x) {
@@ -76,9 +70,6 @@ class convex_closure {
 
     /// \brief compute convex closure of current set of points
     /// return true if it was possible to compute the closure
-    bool closure(expr_ref &res);
-
-    /// returns whether dim_vars need to be re-written
-    bool shd_rewrite() const { return m_shd_rewrite; }
+    bool closure(expr_ref_vector &res);
 };
 } // namespace spacer

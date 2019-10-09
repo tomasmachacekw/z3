@@ -76,9 +76,11 @@ void convex_closure::rewrite_lin_deps() {
         SASSERT(rw.size() > 0);
 
         expr *rw_term = m_arith.mk_add(rw.size(), rw.c_ptr());
+        expr *pv_var = m_dim_vars[pv];
         if (coeff != 1) {
-            rw_term = m_arith.mk_idiv(rw_term, m_arith.mk_numeral(coeff, true));
+            pv_var = m_arith.mk_mul(pv_var, m_arith.mk_numeral(coeff, true));
         }
+        rw_term = m.mk_eq(pv_var, rw_term);
         TRACE("cvx_dbg", tout << "rewrote " << mk_pp(m_dim_vars[pv], m)
                               << " into " << mk_pp(rw_term, m) << "\n";);
         m_dim_vars[pv] = rw_term;
@@ -86,32 +88,41 @@ void convex_closure::rewrite_lin_deps() {
 }
 
 // returns whether the closure is exact or not (i.e syntactic)
-bool convex_closure::closure(expr_ref &res) {
+bool convex_closure::closure(expr_ref_vector &res_vec) {
 
     unsigned red_dim = reduce_dim();
     // Yet to be implemented
     if (red_dim > 1) { NOT_IMPLEMENTED_YET(); }
+    // store dim var before rewrite
+    expr *var = m_dim_vars[0];
     if (red_dim < dims()) {
         rewrite_lin_deps();
-        m_shd_rewrite = true;
+        expr *lhs, *rhs;
+        for (expr *v : m_dim_vars) {
+            if (m.is_eq(v, lhs, rhs) && lhs != rhs)
+                res_vec.push_back(expr_ref(v, m));
+        }
     }
-
+    TRACE("cvx_dbg", tout << "Linear equalities true of the matrix "
+                          << mk_and(res_vec) << "\n";);
     // zero dimensional convex closure
     if (red_dim == 0) { return true; }
 
     // The convex closure over one dimension is just a bound
-    vector<rational> &data = m_data.get_row(0);
+    vector<rational> data;
+    m_data.get_col(0, data);
     SASSERT(is_int_points());
     std::sort(
         data.begin(), data.end(),
-        [](rational const &x, rational const &y) -> bool { return x < y; });
-    expr_ref ub(m_arith.mk_numeral(data[0], true), m);
-    expr_ref lb(m_arith.mk_numeral(data[data.size() - 1], true), m);
-    expr *var = m_dim_vars[0];
-    app *ub_expr = m_arith.mk_le(var, ub.get());
-    app *lb_expr = m_arith.mk_ge(var, lb.get());
+        [](rational const &x, rational const &y) -> bool { return x > y; });
+    expr *ub = m_arith.mk_numeral(data[0], true);
+    expr *lb = m_arith.mk_numeral(data[data.size() - 1], true);
+
+    expr *ub_expr = m_arith.mk_le(var, ub);
+    expr *lb_expr = m_arith.mk_ge(var, lb);
     // TODO add division constraints.
-    res = m.mk_and(ub_expr, lb_expr);
+    res_vec.push_back(ub_expr);
+    res_vec.push_back(lb_expr);
     return true;
 };
 } // namespace spacer
