@@ -38,9 +38,7 @@ void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
 
     if (core(lemma)) {
-        lemma_bool_inductive_generalizer ind_gen(m_ctx, 0, false, false);
-        ind_gen(lemma);
-        TRACE("merge_dbg", tout << "Lemma cube after inductive generalization: "
+        TRACE("merge_dbg", tout << "Lemma cube after merge generalization: "
                                 << lemma->get_cube() << "\n";);
     }
 }
@@ -67,7 +65,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
               tout << "Found non linear pattern. Marked to split \n";);
         lemma->get_pob()->set_pattern(pattern.get());
         lemma->get_pob()->set_split();
-        return true;
+        return false;
     }
 
     expr_ref_vector norm_pat_vec(m);

@@ -45,7 +45,9 @@ class spacer_matrix {
         SASSERT(i < m_num_cols);
         data.reset();
         data.reserve(m_num_rows);
-        for (auto &v : m_matrix) { data.push_back(v.get(i)); }
+        unsigned j = 0;
+        for (auto &v : m_matrix) { data[j++] = (v.get(i)); }
+        SASSERT(data.size() == m_num_rows);
     }
 
     void add_row(vector<rational> &row);
