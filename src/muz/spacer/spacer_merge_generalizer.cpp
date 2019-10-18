@@ -163,16 +163,47 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     sol->get_model(mdl);
     SASSERT(mdl.get() != nullptr);
     TRACE("merge_dbg", tout << "calling mbp with " << cvx_pattern << "\n";);
-    qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true, true);
+    expr_ref mbp_pat(cvx_pattern, m);
+    qe_project(m, m_dim_frsh_cnsts, mbp_pat, *mdl.get(), true, true, true);
     TRACE("merge_dbg",
-          tout << "Pattern after computing cvx cls: " << cvx_pattern << "\n";);
+          tout << "Pattern after mbp of computing cvx cls: " << mbp_pat << "\n";);
     if (m_dim_frsh_cnsts.size() > 0) {
         TRACE("merge_dbg", tout << "could not eliminate all vars\n";);
         return false;
     }
+
+    //check whether mbp over approximates cnx_cls
+    //If not, remove literals from mbp till mbp overapproximates cnx_cls
+    expr_ref_vector neg_mbp(m);
     pat.reset();
-    pat.push_back(cvx_pattern);
-    return check_inductive_and_update(lemma, pat, non_var_or_bool_Literals);
+    flatten_and(mbp_pat, pat);
+    for(expr* e : pat) {
+        neg_mbp.push_back(mk_not(m, e));
+    }
+    expr_ref_vector asmpts(m);
+    while(neg_mbp.size() > 0) {
+        asmpts.reset();
+        expr_ref asmpt(mk_or(neg_mbp), m);
+        asmpts.push_back(asmpt);
+        TRACE("merge_dbg", tout << "checking neg mbp: " << asmpt << "\n";);
+        res = sol->check_sat(1, asmpts.c_ptr());
+        if(res == l_false) {
+            return check_inductive_and_update(lemma, pat, non_var_or_bool_Literals);
+        }
+        model_ref rslt;
+        sol->get_model(rslt);
+        expr_ref rslt_val(m);
+        for(unsigned i = 0; i < neg_mbp.size(); i++) {
+            if (rslt->is_true(neg_mbp.get(i))) {
+                neg_mbp.erase(i);
+                pat.erase(i);
+                i--;
+            }
+        }
+    }
+    //could not find an over approximation
+    TRACE("merge_dbg", tout <<"mbp could not overapproximate cnx_cls\n";);
+    return false;
 }
 
 // rewrites all variables into their corresponding frsh constants

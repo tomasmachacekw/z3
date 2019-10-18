@@ -3617,7 +3617,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             expr_ref c = mk_and(abs_pob);
             pob *f = n.pt().find_pob(&n, c);
             // skip if new pob is already in the queue
-            if (f && !f->is_in_queue()) {
+            if (!f || !f->is_in_queue()) {
               // create abstract pob
               f = n.pt().mk_pob(n.parent(), n.level(), n.depth(), c, n.get_binding());
               f->set_abs();

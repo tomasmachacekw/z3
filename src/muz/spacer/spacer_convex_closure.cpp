@@ -20,7 +20,7 @@ unsigned convex_closure::reduce_dim() {
     const spacer_matrix &ker(m_kernel->get_kernel());
 
     SASSERT(ker.num_rows() > 0);
-    SASSERT(ker.num_rows() < m_dim);
+    SASSERT(ker.num_rows() <= m_dim);
     SASSERT(ker.num_cols() == m_dim + 1);
     // m_dim - ker.num_rows() is the number of variables that have no linear
     // dependencies
@@ -38,7 +38,7 @@ void convex_closure::rewrite_lin_deps() {
     expr_ref_vector rw(m);
     // are we constructing rhs or lhs
     bool rhs = false;
-
+    vector<expr *> temp(m_dim_vars);
     // start generating equalities from bottom row
     for (unsigned i = n_rows; i > 0; i--) {
 
@@ -72,8 +72,11 @@ void convex_closure::rewrite_lin_deps() {
 
         // make sure that there is a non-zero entry
         SASSERT(pv != -1);
-        // there need to be something to rewrite
-        SASSERT(rw.size() > 0);
+
+        if(rw.size() == 0) {
+            temp[pv] = m_arith.mk_eq(m_dim_vars[pv], m_arith.mk_numeral(rational(0), true));
+            continue;
+        }
 
         expr *rw_term = m_arith.mk_add(rw.size(), rw.c_ptr());
         expr *pv_var = m_dim_vars[pv];
@@ -83,8 +86,10 @@ void convex_closure::rewrite_lin_deps() {
         rw_term = m.mk_eq(pv_var, rw_term);
         TRACE("cvx_dbg", tout << "rewrote " << mk_pp(m_dim_vars[pv], m)
                               << " into " << mk_pp(rw_term, m) << "\n";);
-        m_dim_vars[pv] = rw_term;
+        temp[pv] = rw_term;
     }
+    m_dim_vars.reset();
+    m_dim_vars = temp;
 }
 
 // returns whether the closure is exact or not (i.e syntactic)
