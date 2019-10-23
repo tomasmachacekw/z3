@@ -161,8 +161,7 @@ void lemma_cluster_finder::operator()(lemma_ref &lemma) {
                         << " and pattern is: " << pattern
                         << " the original lemma is " << lemma->get_cube()
                         << "\n";);
-            SASSERT(added);
-            TRACE("cluster_stats",
+            CTRACE("cluster_stats", added,
                   tout << "Added lemma " << mk_and(l->get_cube()) << "\n";);
         }
     }

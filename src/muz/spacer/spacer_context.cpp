@@ -783,6 +783,7 @@ void pred_transformer::collect_statistics(statistics& st) const
                m_must_reachable_watch.get_seconds ());
     st.update("time.spacer.ctp", m_ctp_watch.get_seconds());
     st.update("time.spacer.mbp", m_mbp_watch.get_seconds());
+    // -- Max cluster size can decrease during run
     st.update("SPACER max cluster size", m_cluster_db.get_max_cluster_size());
 }
 
@@ -4196,4 +4197,37 @@ inline bool pob_lt_proc::operator()(const pob *pn1, const pob *pn2) const {
     //   return &n1 < &n2;
 }
 
+void lemma_cluster :: rm_subsumed(lemma_info_vector &removed_lemmas) {
+    removed_lemmas.reset();
+    if (m_lemma_vec.size() <= 1) return;
+    tactic_ref simplifier = mk_unit_subsumption_tactic(m);
+    goal_ref g(alloc(goal, m, false, false, false));
+
+    goal_ref_buffer result;
+    for (auto l : m_lemma_vec) { g->assert_expr(l.get_lemma()->get_expr()); }
+    (*simplifier)(g, result);
+    SASSERT(result.size() == 1);
+    goal *r = result[0];
+    if (r->size() == m_lemma_vec.size()) return;
+    lemma_info_vector non_subsumd_lemmas;
+    for (auto l : m_lemma_vec) {
+        bool found = false;
+        for (unsigned i = 0; i < r->size(); i++) {
+            if (l.get_lemma()->get_expr() == r->form(i)) {
+                found = true;
+                non_subsumd_lemmas.push_back(l);
+                break;
+            }
+        }
+        if (!found) {
+            TRACE("cluster_stats", tout << "Removing subsumed lemma "
+                                        << l.get_lemma()->get_cube()
+                                        << "\n";);
+            removed_lemmas.push_back(l);
+        }
+
+    }
+    m_lemma_vec.reset();
+    m_lemma_vec.append(non_subsumd_lemmas);
+}
 } // namespace spacer

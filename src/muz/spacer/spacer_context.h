@@ -222,6 +222,8 @@ class lemma_cluster {
     lemma_info_vector m_lemma_vec;
     ast_manager &m;
     sem_matcher m_matcher;
+    //removes subsumptions and returns a list of removed lemmas
+    void rm_subsumed(lemma_info_vector &removed_lemmas);
     // checks whether e matches pattern.
     // If so, returns the substitution that gets e from pattern
     bool match(const expr_ref &e, const expr_ref &pattern, substitution &sub) {
@@ -238,6 +240,7 @@ class lemma_cluster {
 
     const lemma_info_vector &get_lemmas() { return m_lemma_vec; }
 
+    //WARNING: Adding a lemma can reduce the size of the cluster due to subsumption check
     bool add_lemma(const lemma_ref &lemma) {
         substitution sub(m);
         sub.reserve(1, get_num_vars(m_pattern.get()));
@@ -247,6 +250,13 @@ class lemma_cluster {
         if (!match(cube, m_pattern, sub)) return false;
         lemma_info l_i(lemma, sub);
         m_lemma_vec.push_back(l_i);
+        lemma_info_vector removed_lemmas;
+        rm_subsumed(removed_lemmas);
+        for(auto r_l : removed_lemmas) {
+            //There is going to atmost subsumed lemma that matches l_i
+            if(r_l.get_lemma() == l_i.get_lemma())
+                return false;
+        }
         TRACE("cluster_stats", tout << "Added lemma " << lemma->get_cube()
                                     << " to  existing cluster " << m_pattern
                                     << "\n";);
@@ -483,12 +493,14 @@ class pred_transformer {
             for (auto *c : m_clusters) {
                 if (c->add_lemma(lemma)) {
                     found = true;
-                    m_max_cluster_size =
-                        std::max(m_max_cluster_size, c->get_size());
-                    // exiting on the first cluster to which the lemma belongs
-                    // to.
+                    // exiting on the first cluster to which the lemma belongs to.
                     break;
                 }
+            }
+            //Due to subsumption check, cluster sizes could have decreased
+            for(auto *c : m_clusters) {
+                m_max_cluster_size =
+                    std::max(m_max_cluster_size, c->get_size());
             }
             return found;
         }
