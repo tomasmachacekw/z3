@@ -18,10 +18,12 @@ class convex_closure {
     arith_kernel *m_kernel;
     unsigned reduce_dim();
     void rewrite_lin_deps();
+    var_ref_vector m_nw_vars;
+    void syn_cls(unsigned i, expr_ref_vector& res_vec);
 
   public:
     convex_closure(ast_manager &man, bool use_sage)
-        : m(man), m_arith(m), m_dim(0), m_use_sage(use_sage), m_data(0, 0) {
+        : m(man), m_arith(m), m_dim(0), m_use_sage(use_sage), m_data(0, 0), m_nw_vars(m) {
         if (m_use_sage) m_kernel = new Sage_kernel(m_data);
     }
     ~convex_closure() {
@@ -33,6 +35,7 @@ class convex_closure {
         m_dim_vars.reset();
         m_dim = n_cols;
         m_dim_vars.reserve(m_dim);
+        m_nw_vars.reset();
     }
     /// Incremental interface
 
@@ -45,6 +48,7 @@ class convex_closure {
     /// \brief Return number of dimensions of each point
     unsigned dims() const { return m_dim; }
 
+    const var_ref_vector& get_nw_vars() const { return m_nw_vars; }
     /// \brief add one-dimensional point
     void push_back(rational x) {
         SASSERT(dims() == 1);

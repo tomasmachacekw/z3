@@ -62,7 +62,7 @@ void convex_closure::rewrite_lin_deps() {
                     // In integer echelon form, the pivot need not be 1
                     if (val != 1) coeff = val;
                 } else {
-                    expr *prod = m_arith.mk_numeral(-1 * val, true);
+                    expr *prod = m_arith.mk_int(-1 * val);
                     if (j != row.size() - 1)
                         prod = m_arith.mk_mul(m_dim_vars[j], prod);
                     rw.push_back(prod);
@@ -74,14 +74,14 @@ void convex_closure::rewrite_lin_deps() {
         SASSERT(pv != -1);
 
         if(rw.size() == 0) {
-            temp[pv] = m_arith.mk_eq(m_dim_vars[pv], m_arith.mk_numeral(rational(0), true));
+            temp[pv] = m_arith.mk_eq(m_dim_vars[pv], m_arith.mk_int(rational::zero()));
             continue;
         }
 
         expr *rw_term = m_arith.mk_add(rw.size(), rw.c_ptr());
         expr *pv_var = m_dim_vars[pv];
         if (coeff != 1) {
-            pv_var = m_arith.mk_mul(pv_var, m_arith.mk_numeral(coeff, true));
+            pv_var = m_arith.mk_mul(pv_var, m_arith.mk_int(coeff));
         }
         rw_term = m.mk_eq(pv_var, rw_term);
         TRACE("cvx_dbg", tout << "rewrote " << mk_pp(m_dim_vars[pv], m)
@@ -92,12 +92,19 @@ void convex_closure::rewrite_lin_deps() {
     m_dim_vars = temp;
 }
 
+void convex_closure::syn_cls(unsigned i, expr_ref_vector& res_vec) {
+    vector<expr *> add;
+    for(unsigned j = 0; j < m_nw_vars.size(); j++) {
+        expr* exp = to_expr(m_nw_vars.get(j));
+        expr* mul = m_arith.mk_mul(m_arith.mk_real(m_data.get(j, i)), exp);
+        add.push_back(mul);
+    }
+    res_vec.push_back(m.mk_eq(m_arith.mk_add(add.size(), add.c_ptr()), m_dim_vars[i]));
+}
 // returns whether the closure is exact or not (i.e syntactic)
 bool convex_closure::closure(expr_ref_vector &res_vec) {
 
     unsigned red_dim = reduce_dim();
-    // Yet to be implemented
-    if (red_dim > 1) { NOT_IMPLEMENTED_YET(); }
     // store dim var before rewrite
     expr *var = m_dim_vars[0];
     if (red_dim < dims()) {
@@ -108,8 +115,36 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
                 res_vec.push_back(expr_ref(v, m));
         }
     }
+
     TRACE("cvx_dbg", tout << "Linear equalities true of the matrix "
                           << mk_and(res_vec) << "\n";);
+
+    if(red_dim >= 1) {
+        SASSERT(m_nw_vars.size() == 0);
+        TRACE("merge_dbg", tout << "Computing syntactic convex closure for the first 3 rows\n";);
+        for(unsigned i = 0; i < m_data.num_rows() && i <= 2; i++) {
+            var_ref v(m.mk_var(i + dims(), m_arith.mk_real()), m);
+            m_nw_vars.push_back(v);
+        }
+
+        vector<expr *> exprs;
+        for (auto v : m_nw_vars) {
+            expr* e = to_expr(v);
+            exprs.push_back(e);
+            res_vec.push_back(m_arith.mk_ge(e, m_arith.mk_int(rational::zero())));
+        }
+
+        for(unsigned i = 0; i < m_dim_vars.size(); i++) {
+            expr* e = m_dim_vars[i];
+            if(is_var(e))
+                syn_cls(i, res_vec);
+        }
+        res_vec.push_back(
+            m.mk_eq(m_arith.mk_add(m_nw_vars.size(), exprs.c_ptr()),
+                    m_arith.mk_int(rational::one())));
+        return false;
+    }
+
     // zero dimensional convex closure
     if (red_dim == 0) { return true; }
 
@@ -120,8 +155,8 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
     std::sort(
         data.begin(), data.end(),
         [](rational const &x, rational const &y) -> bool { return x > y; });
-    expr *ub = m_arith.mk_numeral(data[0], true);
-    expr *lb = m_arith.mk_numeral(data[data.size() - 1], true);
+    expr *ub = m_arith.mk_int(data[0]);
+    expr *lb = m_arith.mk_int(data[data.size() - 1]);
 
     expr *ub_expr = m_arith.mk_le(var, ub);
     expr *lb_expr = m_arith.mk_ge(var, lb);

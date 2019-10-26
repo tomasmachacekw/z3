@@ -195,6 +195,15 @@ class lemma_merge_generalizer : public lemma_generalizer {
   private:
     bool core(lemma_ref &lemma);
     void rewrite_pattern(expr *pattern, expr_ref &rw_pattern);
+    //rewrites a formula
+    void to_real(const expr_ref_vector& e, expr_ref& rw_e);
+    //rewrites an arithmetic expression
+    void to_real(expr_ref &fml);
+    //convert reals to ints by dividing with gcd
+    void normalize(expr_ref &fml);
+    rational get_lcm(expr* e);
+    void mul_and_simp(expr_ref &fml, rational num);
+    void to_int(expr_ref &fml);
 };
 
 class lemma_cluster_finder : public lemma_generalizer {
