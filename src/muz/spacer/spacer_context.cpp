@@ -3655,6 +3655,11 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     }
     case l_undef:
         // something went wrong
+        //if the pob is an abstraction, bail out
+        if(n.is_abs()) {
+            n.close();
+            return l_true;
+        }
         if (n.weakness() < 10 /* MAX_WEAKENSS */) {
             bool has_new_child = false;
             SASSERT(m_weak_abs);
