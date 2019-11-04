@@ -118,11 +118,10 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
 
     TRACE("cvx_dbg", tout << "Linear equalities true of the matrix "
                           << mk_and(res_vec) << "\n";);
-
-    if(red_dim >= 1) {
+    if(red_dim > 1) {
         SASSERT(m_nw_vars.size() == 0);
-        TRACE("merge_dbg", tout << "Computing syntactic convex closure for the first 3 rows\n";);
-        for(unsigned i = 0; i < m_data.num_rows() && i <= 2; i++) {
+        TRACE("merge_dbg", tout << "Computing syntactic convex closure\n";);
+        for(unsigned i = 0; i < m_data.num_rows(); i++) {
             var_ref v(m.mk_var(i + dims(), m_arith.mk_real()), m);
             m_nw_vars.push_back(v);
         }
