@@ -233,6 +233,32 @@ class lemma_cluster_finder : public lemma_generalizer {
     void reset_statistics() override { m_st.reset(); }
     stats m_st;
 };
+
+class wide_generalizer : public lemma_generalizer {
+    struct stats {
+        unsigned wide_atmpts;
+        unsigned wide_sucess;
+        stopwatch watch;
+        stats() { reset(); }
+        void reset() {
+            wide_atmpts = 0;
+            wide_sucess = 0;
+            watch.reset();
+        }
+    };
+    ast_manager &m;
+    arith_util m_arith;
+    vector<rational> m_consts;
+    bool should_apply(const expr* lit, rational val, rational n);
+  public:
+    wide_generalizer(context &ctx);
+    ~wide_generalizer() override {}
+    void operator()(lemma_ref &lemma) override;
+    void collect_statistics(statistics &st) const override;
+    void reset_statistics() override { m_stats.reset(); }
+    stats m_stats;
+};
+
 } // namespace spacer
 
 #endif

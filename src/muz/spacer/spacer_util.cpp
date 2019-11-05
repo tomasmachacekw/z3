@@ -1223,6 +1223,33 @@ void get_uninterp_consts_with_neg_coeff(const expr *e, expr_ref_vector &out) {
                                            false, out);
     for_each_expr(proc, const_cast<expr *>(e));
 }
+
+bool is_leq(expr *pattern, ast_manager &m, arith_util &a_util) {
+    expr *e;
+    if (m.is_not(pattern, e)) return is_leq(e, m, a_util);
+    if (a_util.is_arith_expr(to_app(pattern)) || m.is_eq(pattern)) {
+        return get_num_vars(pattern) == 1 && !has_nonlinear_var_mul(pattern, m);
+    }
+    return false;
+}
+
+// a mono_var_pattern has only one variable in the whole expression and is
+// linear returns the literal with the variable
+bool mono_var_pattern(const expr_ref &pattern, expr_ref &leq_lit) {
+    if(get_num_vars(pattern) != 1) return false;
+    ast_manager &m = leq_lit.m();
+    arith_util a_util(m);
+    // if the pattern has multiple literals, check whether exactly one of them is leq
+    expr_ref_vector pattern_and(m);
+    pattern_and.push_back(pattern);
+    flatten_and(pattern_and);
+    unsigned count = 0;
+    for (auto *lit : pattern_and) {
+      if (is_leq(lit, m, a_util)) { leq_lit = lit; count++; }
+    }
+    return count == 1;
+}
+
 } // namespace spacer
 template class rewriter_tpl<spacer::adhoc_rewriter_cfg>;
 template class rewriter_tpl<spacer::adhoc_rewriter_rpp>;

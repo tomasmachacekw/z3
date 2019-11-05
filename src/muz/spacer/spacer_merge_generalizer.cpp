@@ -438,4 +438,96 @@ bool lemma_merge_generalizer::check_inductive_and_update(
 void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.merge", m_st.watch.get_seconds());
 }
+void wide_generalizer::collect_statistics(statistics &st) const {
+    st.update("time.spacer.solve.reach.gen.wide", m_stats.watch.get_seconds());
+    st.update("SPACER wide attmpts", m_stats.wide_atmpts);
+    st.update("SPACER wide success", m_stats.wide_sucess);
+}
+wide_generalizer::wide_generalizer(context &ctx): lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m) {
+    m_consts.push_back(rational::one());
+    m_consts.push_back(rational::zero());
+    m_consts.push_back(rational::minus_one());
+    m_consts.push_back(rational(100));
+}
+
+bool wide_generalizer::should_apply(const expr* lit, rational val, rational n) {
+    //the only case in which negation and non negation agree
+    if(val == n)
+        return false;
+
+    //negation is the actual negation modulo val == n
+    expr* neg_lit;
+    if(m.is_not(lit, neg_lit)) {
+        return !should_apply(neg_lit, val, n);
+    }
+
+    SASSERT(val != n);
+    if(m.is_eq(lit))
+        return true;
+    switch(to_app(lit)->get_decl_kind()) {
+    case OP_LE:
+        return n > val;
+    case OP_LT:
+        return n > val;
+    case OP_GT:
+        return n < val;
+    case OP_GE:
+        return n < val;
+    default:
+        return false;
+    }
+}
+
+void wide_generalizer::operator()(lemma_ref & lemma) {
+    pob_ref lemma_pob = lemma->get_pob();
+    if(!lemma_pob->widen()) return ;
+    m_stats.wide_atmpts++;
+    pred_transformer& pt = lemma_pob->pt();
+    lemma_cluster *lc = pt.get_cluster(lemma);
+    if(lc == nullptr) return;
+    const expr_ref& pattern = lc->get_pattern();
+    expr_ref lit(m);
+    if(!mono_var_pattern(pattern, lit)) return;
+    TRACE("merge_dbg", tout << "Applying widening on " << mk_pp(lemma->get_expr(), m) << " literal is " << lit << "\n";);
+    SASSERT(to_app(lit.get())->get_num_args() == 2);
+    lemma_info* lemma_info = lc->get_lemma_info(lemma);
+    substitution subst = lemma_info->get_sub();
+    expr_offset r;
+    std::pair<unsigned, unsigned> v;
+    subst.get_binding(0, v, r);
+    expr* var = var_find(pattern, v.first);
+
+    expr* num = r.get_expr();
+    rational val;
+    bool is_int = false;
+    bool is_numeral = m_arith.is_numeral(num, val,  is_int);
+    SASSERT(is_numeral);
+    if(!is_int) return;
+    bool success = false;
+    expr_safe_replace s(m);
+    expr_ref_vector conj(m);
+    expr_ref sub(m);
+    for(rational n : m_consts){
+        if(should_apply(lit, val, n)) {
+            conj.reset();
+            sub.reset();
+            s.reset();
+            s.insert(var, m_arith.mk_int(n));
+            s(pattern, sub);
+            flatten_and(sub, conj);
+            unsigned uses_level = 0;
+            TRACE("merge_dbg_verb", tout <<"Attempting to update lemma with " << conj << "\n";);
+            bool is_ind = pt.check_inductive(lemma->level(), conj, uses_level , lemma->weakness());
+            if(is_ind) {
+                lemma->update_cube(lemma->get_pob(), conj);
+                lemma->set_level(uses_level);
+                val = n;
+                TRACE("merge_dbg", tout << "widening succeeded with " << n << "\n";);
+            }
+            success = success || is_ind;
+        }
+    }
+    m_stats.wide_sucess += success;
+    lemma_pob->stop_widening();
+}
 } // namespace spacer

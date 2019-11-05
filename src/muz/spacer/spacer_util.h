@@ -159,6 +159,9 @@ namespace spacer {
     void get_uninterp_consts_with_pos_coeff(const expr *e, expr_ref_vector &out);
     void get_uninterp_consts_with_neg_coeff(const expr *e, expr_ref_vector &out);
 
+    bool is_leq(expr *pattern, ast_manager &m, arith_util &a_util);
+    bool mono_var_pattern(const expr_ref &p, expr_ref &lit);
+
     bool is_ge_or_gt(const expr *e, expr_ref &lhs, expr_ref &rhs);
     bool is_le_or_lt(const expr *e, expr_ref &lhs, expr_ref &rhs);
 }

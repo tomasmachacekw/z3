@@ -230,7 +230,19 @@ class lemma_cluster {
         m_matcher.reset();
         bool pos;
         bool is_match = m_matcher(pattern.get(), e.get(), sub, pos);
-        return is_match && pos;
+        unsigned n_binds = sub.get_num_bindings();
+        std::pair<unsigned, unsigned> var;
+        expr_offset r;
+        arith_util a_util(m);
+        if(!(is_match && pos))
+            return false;
+        //All the matches should be numerals
+        for(unsigned i = 0; i< n_binds; i++) {
+            sub.get_binding(i, var, r);
+            if(!a_util.is_numeral(r.get_expr()))
+                return false;
+        }
+        return true;
     }
 
   public:
@@ -267,6 +279,16 @@ class lemma_cluster {
             if (lemma == l.get_lemma()) return true;
         }
         return false;
+    }
+    lemma_info* get_lemma_info(const lemma_ref &lemma) {
+        SASSERT(contains(lemma));
+        for(lemma_info& l : m_lemma_vec) {
+            if(lemma == l.get_lemma()) {
+                return &l;
+            }
+        }
+        UNREACHABLE();
+        return nullptr;
     }
     unsigned get_size() const { return m_lemma_vec.size(); }
     const expr_ref &get_pattern() const { return m_pattern; }
@@ -854,6 +876,9 @@ class pob {
     // has attempted to block a generalization of this pob
     bool m_gen_blk_atmpt;
 
+    //should widen pob
+    bool m_widen_pob;
+
   public:
     pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth = 0,
         bool add_to_parent = true);
@@ -906,6 +931,9 @@ class pob {
     }
     bool is_abs() const { return m_is_abs; }
     void set_abs() { m_is_abs = true; }
+
+    void stop_widening() { m_widen_pob = false;}
+    bool widen() { return m_widen_pob; }
 
     void set_pattern(expr *pattern) {
         m_pattern = expr_ref(pattern, get_ast_manager());
@@ -1281,7 +1309,6 @@ class context {
     bool is_reachable(pob &n);
     lbool expand_pob(pob &n, pob_ref_buffer &out);
     bool abstract_pob(pob &n, expr_ref &lit, expr_ref_vector &out);
-    bool mono_var_pattern(expr *pattern, expr_ref &leq_lit);
     bool mono_coeff_lm(pob &n, expr_ref &lit);
 
     bool create_children(pob &n, const datalog::rule &r, model &mdl,

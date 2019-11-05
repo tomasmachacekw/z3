@@ -73,7 +73,7 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_level (level), m_depth (depth),
     m_open (true), m_use_farkas (true), m_in_queue(false),
     m_weakness(0), m_blocked_lvl(0), m_ua(0), m_is_abs(false), m_can_abs(true),
-    m_abs_pattern(m_pt.get_ast_manager()), m_refine(false), m_shd_split(false), m_pattern(m_pt.get_ast_manager()), m_concrete(nullptr), m_merge_atmpts(0), m_merge_conj(m_pt.get_ast_manager()), m_gen_blk_atmpt(false) {
+    m_abs_pattern(m_pt.get_ast_manager()), m_refine(false), m_shd_split(false), m_pattern(m_pt.get_ast_manager()), m_concrete(nullptr), m_merge_atmpts(0), m_merge_conj(m_pt.get_ast_manager()), m_gen_blk_atmpt(false), m_widen_pob(true) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -2699,6 +2699,7 @@ void context::init_lemma_generalizers()
     }
     if (m_re_con_gen)
       m_lemma_generalizers.push_back(alloc(lemma_re_construct_bool, *this));
+    m_lemma_generalizers.push_back(alloc(wide_generalizer, *this));
 
     if (m_validate_lemmas) {
       m_lemma_generalizers.push_back(alloc(lemma_sanity_checker, *this));

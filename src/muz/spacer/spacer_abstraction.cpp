@@ -39,32 +39,6 @@ namespace {
 
 namespace spacer {
 
-bool is_leq(expr *pattern, ast_manager &m, arith_util &a_util)
-{
-  expr *e;
-  if (m.is_not(pattern, e)) return is_leq(e, m, a_util);
-  if (a_util.is_arith_expr(to_app(pattern)) || m.is_eq(pattern)) {
-    return get_num_vars(pattern) == 1 && !has_nonlinear_var_mul(pattern, m);
-  }
-  return false;
-}
-// a mono_var_pattern has only one variable in the whole expression and is
-// linear returns the literal with the variable
-bool context::mono_var_pattern(expr *pattern, expr_ref &leq_lit) {
-    if(get_num_vars(pattern) != 1) return false;
-    ast_manager &m = leq_lit.m();
-    arith_util a_util(m);
-    // if the pattern has multiple literals, check whether exactly one of them is leq
-    expr_ref_vector pattern_and(m);
-    pattern_and.push_back(pattern);
-    flatten_and(pattern_and);
-    unsigned count = 0;
-    for (auto *lit : pattern_and) {
-      if (is_leq(lit, m, a_util)) { leq_lit = lit; count++; }
-    }
-    return count == 1;
-}
-
 // Finds a lemma matching the mono_var_pattern
 // stores the pattern in n
 bool context::mono_coeff_lm(pob &n, expr_ref &lit) {
@@ -79,7 +53,7 @@ bool context::mono_coeff_lm(pob &n, expr_ref &lit) {
 
         const expr_ref& pattern = lc->get_pattern();
 
-        if (mono_var_pattern(pattern.get(), lit)) {
+        if (mono_var_pattern(pattern, lit)) {
             // HG : store the pattern in the pob. Required because there could
             // be multile patterns among lemmas
             TRACE("merge_dbg",
