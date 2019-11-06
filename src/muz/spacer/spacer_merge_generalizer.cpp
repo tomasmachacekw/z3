@@ -420,6 +420,7 @@ bool lemma_merge_generalizer::check_inductive_and_update(
                            lemma->weakness())) {
         TRACE("merge_dbg", tout << "POB blocked using merge at level "
                                 << uses_level << "\n";);
+        //TODO update cluster to remove this lemmas if it no longer matches the pattern
         lemma->update_cube(lemma->get_pob(), conj);
         lemma->set_level(uses_level);
         return true;
@@ -519,6 +520,8 @@ void wide_generalizer::operator()(lemma_ref & lemma) {
             TRACE("merge_dbg_verb", tout <<"Attempting to update lemma with " << conj << "\n";);
             bool is_ind = pt.check_inductive(lemma->level(), conj, uses_level , lemma->weakness());
             if(is_ind) {
+                // TODO update cluster to remove this lemmas if it no longer
+                // matches the pattern
                 lemma->update_cube(lemma->get_pob(), conj);
                 lemma->set_level(uses_level);
                 val = n;

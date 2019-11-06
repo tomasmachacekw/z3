@@ -260,6 +260,7 @@ class lemma_cluster {
         cube = mk_and(lemma->get_cube());
         normalize_order(cube, cube);
         if (!match(cube, m_pattern, sub)) return false;
+        TRACE("cluster_stats_verb", tout << "Trying to add lemma " << lemma->get_cube() << "\n";);
         lemma_info l_i(lemma, sub);
         m_lemma_vec.push_back(l_i);
         lemma_info_vector removed_lemmas;

@@ -245,6 +245,15 @@ bool Sage_kernel::compute_arith_kernel() {
         col = 0;
         while (!ifs.bad() && !ifs.eof()) {
             ifs >> num;
+            if(ifs.fail() || ifs.bad()) {
+                TRACE("sage-interface", tout << "Woops!!! Couldn't read sage output propertly. Abording\n";);
+                ifs.close();
+                close(tmp_fd);
+                std::remove(temp_name);
+                m_kernel.reset(0);
+                SASSERT(false);
+                return false;
+            }
             ifs >> misc_char;
             m_kernel.set(row, col, rational(num));
             col++;

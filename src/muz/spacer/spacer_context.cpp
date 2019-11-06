@@ -3216,6 +3216,15 @@ bool context::check_reachability ()
             break;
         case l_undef:
             SASSERT(m_pob_queue.size() == old_sz);
+            // collapse abstractions if the reachability of one of them cannot be estimated
+            if(node->is_abs() && new_pobs.size() == 0) {
+                last_reachable = node;
+                last_reachable->close();
+                while(last_reachable->parent()->is_abs()) {
+                    last_reachable = last_reachable->parent();
+                    last_reachable->close();
+                }
+            }
             for (auto pob : new_pobs) {m_pob_queue.push(*pob);}
             break;
         }
@@ -3555,6 +3564,15 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         lemma_ref lemma_pob;
         if(!n.should_refine()){
             lemma_pob = alloc(class lemma, pob_ref(&n), cube, uses_level);
+            // -- run all lemma generalizers
+            for (unsigned i = 0;
+                 // -- only generalize if lemma was constructed using farkas
+                 n.use_farkas_generalizer() && !lemma_pob->is_false() &&
+                 i < m_lemma_generalizers.size();
+                 ++i) {
+                checkpoint();
+                (*m_lemma_generalizers[i])(lemma_pob);
+            }
         }
         else{
           //refine lemma. Right now the refinement is to learn the negation of pob
@@ -3566,13 +3584,6 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
           TRACE("merge_dbg", tout << " refining " << mk_pp(n.post(), m)
                 << " id is " << n.post()->get_id()
                 << "\n into pob " << mk_and(lemma_pob->get_cube()) << "\n";);
-        }
-        // -- run all lemma generalizers
-        for (unsigned i = 0;
-             // -- only generalize if lemma was constructed using farkas
-             n.use_farkas_generalizer() && !lemma_pob->is_false() && i < m_lemma_generalizers.size(); ++i) {
-          checkpoint ();
-          (*m_lemma_generalizers[i])(lemma_pob);
         }
 
         CTRACE("merge_dbg", n.is_abs(), tout << " Blocked abs pob " << mk_pp(n.post(), m)
@@ -3659,7 +3670,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         //if the pob is an abstraction, bail out
         if(n.is_abs()) {
             n.close();
-            return l_true;
+            m_stats.m_expand_pob_undef++;
+            return l_undef;
         }
         if (n.weakness() < 10 /* MAX_WEAKENSS */) {
             bool has_new_child = false;
@@ -4222,11 +4234,14 @@ void lemma_cluster :: rm_subsumed(lemma_info_vector &removed_lemmas) {
             if (l.get_lemma()->get_expr() == r->form(i)) {
                 found = true;
                 non_subsumd_lemmas.push_back(l);
+                TRACE("cluster_stats_verb", tout << "Keeping lemma "
+                                            << l.get_lemma()->get_cube()
+                                            << "\n";);
                 break;
             }
         }
         if (!found) {
-            TRACE("cluster_stats", tout << "Removing subsumed lemma "
+            TRACE("cluster_stats_verb", tout << "Removing subsumed lemma "
                                         << l.get_lemma()->get_cube()
                                         << "\n";);
             removed_lemmas.push_back(l);
