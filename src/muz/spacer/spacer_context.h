@@ -48,6 +48,7 @@ class pred_transformer;
 class derivation;
 class pob_queue;
 class context;
+class lemma_cluster_finder;
 
 typedef obj_map<datalog::rule const, app_ref_vector *> rule2inst;
 typedef obj_map<func_decl, pred_transformer *> decl2rel;
@@ -252,8 +253,13 @@ class lemma_cluster {
 
     const lemma_info_vector &get_lemmas() { return m_lemma_vec; }
 
+    lemma_cluster(lemma_cluster& lc): m_ref_count(0), m_pattern(lc.get_pattern()), m(m_pattern.get_manager()), m_matcher(m) {
+            for(const lemma_info& l : lc.get_lemmas()) {
+                m_lemma_vec.push_back(l);
+            }
+        }
     //WARNING: Adding a lemma can reduce the size of the cluster due to subsumption check
-    bool add_lemma(const lemma_ref &lemma) {
+    bool add_lemma(const lemma_ref &lemma, bool subs_check = false) {
         substitution sub(m);
         sub.reserve(1, get_num_vars(m_pattern.get()));
         expr_ref cube(m);
@@ -263,30 +269,41 @@ class lemma_cluster {
         TRACE("cluster_stats_verb", tout << "Trying to add lemma " << lemma->get_cube() << "\n";);
         lemma_info l_i(lemma, sub);
         m_lemma_vec.push_back(l_i);
-        lemma_info_vector removed_lemmas;
-        rm_subsumed(removed_lemmas);
-        for(auto r_l : removed_lemmas) {
-            //There is going to atmost subsumed lemma that matches l_i
-            if(r_l.get_lemma() == l_i.get_lemma())
-                return false;
+        if(subs_check) {
+            lemma_info_vector removed_lemmas;
+            rm_subsumed(removed_lemmas);
+            for(auto r_l : removed_lemmas) {
+                //There is going to atmost subsumed lemma that matches l_i
+                if(r_l.get_lemma() == l_i.get_lemma())
+                    return false;
+            }
         }
         TRACE("cluster_stats", tout << "Added lemma " << lemma->get_cube()
                                     << " to  existing cluster " << m_pattern
                                     << "\n";);
         return true;
     }
+
     bool contains(const lemma_ref &lemma) {
         for (const lemma_info &l : m_lemma_vec) {
             if (lemma == l.get_lemma()) return true;
         }
         return false;
     }
-    lemma_info* get_lemma_info(const lemma_ref &lemma) {
+
+    bool can_contain(const lemma_ref &lemma) {
+        substitution sub(m);
+        sub.reserve(1, get_num_vars(m_pattern.get()));
+        expr_ref cube(m);
+        cube = mk_and(lemma->get_cube());
+        normalize_order(cube, cube);
+        return match(cube, m_pattern, sub);
+    }
+
+    lemma_info *get_lemma_info(const lemma_ref &lemma) {
         SASSERT(contains(lemma));
-        for(lemma_info& l : m_lemma_vec) {
-            if(lemma == l.get_lemma()) {
-                return &l;
-            }
+        for (lemma_info &l : m_lemma_vec) {
+            if (lemma == l.get_lemma()) { return &l; }
         }
         UNREACHABLE();
         return nullptr;
@@ -514,7 +531,7 @@ class pred_transformer {
         bool add_to_cluster(const lemma_ref &lemma) {
             bool found = false;
             for (auto *c : m_clusters) {
-                if (c->add_lemma(lemma)) {
+                if (c->add_lemma(lemma, true)) {
                     found = true;
                     // exiting on the first cluster to which the lemma belongs to.
                     break;
@@ -528,28 +545,37 @@ class pred_transformer {
             return found;
         }
 
+        lemma_cluster* can_contain(const lemma_ref &lemma) {
+            for (auto *c : m_clusters) {
+                if (c->can_contain(lemma)) {
+                    return c;
+                }
+            }
+            return nullptr;
+        }
+
         lemma_cluster *mk_cluster(const expr_ref &pattern,
-                                  unsigned n_lemmas = 0) {
-            lemma_cluster *l_c = alloc(lemma_cluster, pattern);
-            m_clusters.push_back(l_c);
-            m_max_cluster_size = std::max(m_max_cluster_size, n_lemmas);
-            return l_c;
-        }
-
-        lemma_cluster *get_cluster(const lemma_ref &lemma) {
-            for (lemma_cluster *lc : m_clusters) {
-                if (lc->contains(lemma)) return lc;
+                                      unsigned n_lemmas = 0) {
+                lemma_cluster *l_c = alloc(lemma_cluster, pattern);
+                m_clusters.push_back(l_c);
+                m_max_cluster_size = std::max(m_max_cluster_size, n_lemmas);
+                return l_c;
             }
-            return nullptr;
-        }
 
-        lemma_cluster *get_cluster(const expr *pattern) {
-            for (lemma_cluster *lc : m_clusters) {
-                if (lc->get_pattern().get() == pattern) return lc;
+            lemma_cluster *get_cluster(const lemma_ref &lemma) {
+                for (lemma_cluster *lc : m_clusters) {
+                    if (lc->contains(lemma)) return lc;
+                }
+                return nullptr;
             }
-            return nullptr;
-        }
-    };
+
+            lemma_cluster *get_cluster(const expr *pattern) {
+                for (lemma_cluster *lc : m_clusters) {
+                    if (lc->get_pattern().get() == pattern) return lc;
+                }
+                return nullptr;
+            }
+        };
 
     manager &pm;    // spacer::manager
     ast_manager &m; // ast_manager
@@ -787,6 +813,11 @@ class pred_transformer {
 
     bool add_to_cluster(const lemma_ref &lemma) {
         return m_cluster_db.add_to_cluster(lemma);
+    }
+
+    //checks whether lemma CAN belong to any existing cluster
+    lemma_cluster* clstr_match(const lemma_ref &lemma) {
+        return m_cluster_db.can_contain(lemma);
     }
 
     lemma_cluster *get_cluster(const lemma_ref &lemma) {
@@ -1251,6 +1282,8 @@ class context {
     unsigned m_inductive_lvl;
     unsigned m_expanded_lvl;
     ptr_buffer<lemma_generalizer> m_lemma_generalizers;
+
+    lemma_cluster_finder* m_lmma_cluster;
     stats m_stats;
     model_converter_ref m_mc;
     proof_converter_ref m_pc;

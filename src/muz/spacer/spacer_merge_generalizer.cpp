@@ -201,16 +201,18 @@ void lemma_merge_generalizer::to_real(const expr_ref_vector& fml, expr_ref& nw_f
     nw_fml = mk_and(rw_fml);
 }
 bool lemma_merge_generalizer::core(lemma_ref &lemma) {
-    lemma_cluster *lc = (&*lemma->get_pob())->pt().get_cluster(lemma);
-    if (lc == nullptr || lc->get_size() < 2) { return false; }
+    lemma_cluster* pt_cls = (&*lemma->get_pob())->pt().clstr_match(lemma);
+    if(pt_cls == nullptr) return false;
+    lemma_cluster lc(*pt_cls);
 
+    lc.add_lemma(lemma);
     substitution subs_newLemma(m), subs_oldLemma(m);
     expr_ref cube(m), normalizedCube(m), out(m);
     expr_ref_vector non_boolean_literals(m), non_bool_lit_pattern(m);
     expr_ref_vector conjuncts(m);
     expr_ref_vector non_var_or_bool_Literals(m);
 
-    const expr_ref &pattern(lc->get_pattern());
+    const expr_ref &pattern(lc.get_pattern());
     cube = mk_and(lemma->get_cube());
     normalize_order(cube, normalizedCube);
     TRACE("merge_dbg",
@@ -243,7 +245,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                << "bools and non vars: " << non_var_or_bool_Literals << "\n"
                << "non-bools: " << non_bool_lit_pattern << "\n";);
 
-    if (non_bool_lit_pattern.empty()) { return false; }
+    SASSERT(!non_bool_lit_pattern.empty());
     non_boolean_literals.reset();
     expr_ref_vector normalizedCube_vec(m);
     flatten_and(normalizedCube, normalizedCube_vec);
@@ -262,7 +264,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     m_dim_frsh_cnsts.reserve(n_vars);
     m_dim_vars.reserve(n_vars);
 
-    const lemma_info_vector lemmas = lc->get_lemmas();
+    const lemma_info_vector lemmas = lc.get_lemmas();
     const substitution &t_sub(lemmas[0].get_sub());
 
     // add dimension variable

@@ -206,34 +206,6 @@ class lemma_merge_generalizer : public lemma_generalizer {
     void to_int(expr_ref &fml);
 };
 
-class lemma_cluster_finder : public lemma_generalizer {
-    struct stats {
-        unsigned max_group_size;
-        stopwatch watch;
-        stats() { reset(); }
-        void reset() {
-            max_group_size = 0;
-            watch.reset();
-        }
-    };
-    ast_manager &m;
-    arith_util m_arith;
-    typedef std::pair<unsigned, unsigned> var_offset;
-    bool are_neighbours(expr_ref antiU_result, substitution &s1,
-                        substitution &s2);
-
-    bool are_neighbours(const expr_ref &cube, const expr_ref &lcube,
-                        expr_ref &pat, substitution &sub1, substitution &sub2);
-
-  public:
-    lemma_cluster_finder(context &ctx);
-    ~lemma_cluster_finder() override {}
-    void operator()(lemma_ref &lemma) override;
-    void collect_statistics(statistics &st) const override;
-    void reset_statistics() override { m_st.reset(); }
-    stats m_st;
-};
-
 class wide_generalizer : public lemma_generalizer {
     struct stats {
         unsigned wide_atmpts;

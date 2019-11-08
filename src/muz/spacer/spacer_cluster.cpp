@@ -12,9 +12,8 @@
 #include "ast/rewriter/var_subst.h"
 #include "ast/substitution/substitution.h"
 #include "muz/spacer/spacer_antiunify.h"
-#include "muz/spacer/spacer_cluster.h"
 #include "muz/spacer/spacer_context.h"
-#include "muz/spacer/spacer_generalizers.h"
+#include "muz/spacer/spacer_cluster.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_util.h"
 #include "util/mpq.h"
@@ -22,8 +21,7 @@
 
 using namespace spacer;
 namespace spacer {
-lemma_cluster_finder::lemma_cluster_finder(context &ctx)
-    : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m) {}
+lemma_cluster_finder::lemma_cluster_finder(ast_manager& am) : m(am), m_arith(m) {}
 
 bool lemma_cluster_finder::are_neighbours(expr_ref antiU_result,
                                           substitution &s1, substitution &s2) {
@@ -73,12 +71,15 @@ bool lemma_cluster_finder::are_neighbours(const expr_ref &cube,
     return are_neighbours(pat, sub1, sub2);
 }
 
-void lemma_cluster_finder::operator()(lemma_ref &lemma) {
+void lemma_cluster_finder::cluster(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
-    pred_transformer &pt = (&*lemma->get_pob())->pt();
+    pred_transformer &pt = (lemma->get_pob())->pt();
 
-    // try to add lemma to existing clusters
-    if (pt.add_to_cluster(lemma)) { return; }
+    //check whether lemmas has already been added
+    if (pt.get_cluster(lemma) != nullptr) { return; }
+    //if the lemma matches a pattern of one of the clusters, don't create new cluster
+    //done to avoid creating clusters with subsumed lemmas
+    if (pt.clstr_match(lemma)) { return; }
 
     // lemma cannot be added to any existing clusters
     // Check whether it forms a new cluster
@@ -104,6 +105,7 @@ void lemma_cluster_finder::operator()(lemma_ref &lemma) {
         if (are_neighbours(cube, lcube, lpat, sub1, sub2)) {
             neighbours.push_back(&*l);
             patterns.push_back(lpat);
+            TRACE("cluster_stats_verb", tout << "adding neighbour " << l->get_cube() << " to pattern " << lpat << "\n";);
             num_vars_in_pattern =
                 std::max(get_num_vars(lpat), num_vars_in_pattern);
         }
@@ -154,7 +156,7 @@ void lemma_cluster_finder::operator()(lemma_ref &lemma) {
                                        << " and lemma cube: " << cube << "\n";);
         bool added = true;
         for (const lemma_ref &l : neighbours) {
-            added = cluster->add_lemma(l);
+            added = cluster->add_lemma(l, l == lemma);
             CTRACE("cluster_stats", !added,
                    tout << "Failed to add lemma to a cluster. Lemma is: "
                         << l->get_cube() << "\n"
@@ -167,6 +169,6 @@ void lemma_cluster_finder::operator()(lemma_ref &lemma) {
     }
 }
 void lemma_cluster_finder::collect_statistics(statistics &st) const {
-    st.update("time.spacer.solve.reach.gen.group", m_st.watch.get_seconds());
+    st.update("time.spacer.solve.reach.cluster", m_st.watch.get_seconds());
 }
 } // namespace spacer

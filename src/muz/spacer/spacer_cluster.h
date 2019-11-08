@@ -1,34 +1,30 @@
-
-#include "util/chashtable.h"
-
+#pragma once
+#include "muz/spacer/spacer_context.h"
 namespace spacer {
-  class lem_cluster{
-  protected:
-    struct hash_proc {
-      unsigned operator()(expr const & e){ return e.hash(); }
+class lemma_cluster_finder {
+    struct stats {
+        unsigned max_group_size;
+        stopwatch watch;
+        stats() { reset(); }
+        void reset() {
+            max_group_size = 0;
+            watch.reset();
+        }
     };
-    struct eq_proc {
-      bool operator()(expr *e1, expr *e2){ return e1 == e2; }
-    };
-
-    typedef chashtable<expr, hash_proc, eq_proc> set;
-
     ast_manager &m;
-    expr_ref m_pattern;
-    set m_lemmaSet;
+    arith_util m_arith;
+    typedef std::pair<unsigned, unsigned> var_offset;
+    bool are_neighbours(expr_ref antiU_result, substitution &s1,
+                        substitution &s2);
+
+    bool are_neighbours(const expr_ref &cube, const expr_ref &lcube,
+                        expr_ref &pat, substitution &sub1, substitution &sub2);
+    stats m_st;
 
   public:
-    lem_cluster();
-    ~lem_cluster();
-
-    bool contains(expr &lemma);
-
-    void insert(expr &lemma);
-    bool insert_if_not_there(expr &lemma);
-
-    // not sure if we want to expose m_lemmaSet
-    const set get_lemmas() { return m_lemmaSet; }
-
-    void reset();
-  };
+    lemma_cluster_finder(ast_manager& m);
+    void cluster(lemma_ref &lemma);
+    void collect_statistics(statistics &st) const;
+    void reset_statistics() { m_st.reset(); }
+};
 }
