@@ -206,7 +206,7 @@ class lemma_merge_generalizer : public lemma_generalizer {
     void to_int(expr_ref &fml);
 };
 
-class wide_generalizer : public lemma_generalizer {
+class widen_bnd_generalizer : public lemma_generalizer {
     struct stats {
         unsigned wide_atmpts;
         unsigned wide_sucess;
@@ -223,8 +223,8 @@ class wide_generalizer : public lemma_generalizer {
     vector<rational> m_consts;
     bool should_apply(const expr* lit, rational val, rational n);
   public:
-    wide_generalizer(context &ctx);
-    ~wide_generalizer() override {}
+    widen_bnd_generalizer(context &ctx);
+    ~widen_bnd_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
     void collect_statistics(statistics &st) const override;
     void reset_statistics() override { m_stats.reset(); }

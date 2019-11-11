@@ -2699,7 +2699,7 @@ void context::init_lemma_generalizers()
     }
     if (m_re_con_gen)
       m_lemma_generalizers.push_back(alloc(lemma_re_construct_bool, *this));
-    m_lemma_generalizers.push_back(alloc(wide_generalizer, *this));
+    m_lemma_generalizers.push_back(alloc(widen_bnd_generalizer, *this));
 
     if (m_validate_lemmas) {
       m_lemma_generalizers.push_back(alloc(lemma_sanity_checker, *this));

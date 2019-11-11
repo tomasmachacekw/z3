@@ -441,19 +441,19 @@ bool lemma_merge_generalizer::check_inductive_and_update(
 void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.merge", m_st.watch.get_seconds());
 }
-void wide_generalizer::collect_statistics(statistics &st) const {
+void widen_bnd_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.wide", m_stats.watch.get_seconds());
     st.update("SPACER wide attmpts", m_stats.wide_atmpts);
     st.update("SPACER wide success", m_stats.wide_sucess);
 }
-wide_generalizer::wide_generalizer(context &ctx): lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m) {
+widen_bnd_generalizer::widen_bnd_generalizer(context &ctx): lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m) {
     m_consts.push_back(rational::one());
     m_consts.push_back(rational::zero());
     m_consts.push_back(rational::minus_one());
     m_consts.push_back(rational(100));
 }
 
-bool wide_generalizer::should_apply(const expr* lit, rational val, rational n) {
+bool widen_bnd_generalizer::should_apply(const expr* lit, rational val, rational n) {
     //the only case in which negation and non negation agree
     if(val == n)
         return false;
@@ -481,7 +481,7 @@ bool wide_generalizer::should_apply(const expr* lit, rational val, rational n) {
     }
 }
 
-void wide_generalizer::operator()(lemma_ref & lemma) {
+void widen_bnd_generalizer::operator()(lemma_ref & lemma) {
     pob_ref lemma_pob = lemma->get_pob();
     if(!lemma_pob->widen()) return ;
     m_stats.wide_atmpts++;
