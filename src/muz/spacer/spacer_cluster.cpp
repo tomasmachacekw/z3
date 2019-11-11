@@ -79,7 +79,11 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
     if (pt.get_cluster(lemma) != nullptr) { return; }
     //if the lemma matches a pattern of one of the clusters, don't create new cluster
     //done to avoid creating clusters with subsumed lemmas
-    if (pt.clstr_match(lemma)) { return; }
+    if (pt.clstr_match(lemma)) {
+        TRACE("cluster_stats", tout << "Trying to add lemma " << lemma->get_cube() << " to existing clusters\n";);
+        pt.add_to_cluster(lemma);
+        return;
+    }
 
     // lemma cannot be added to any existing clusters
     // Check whether it forms a new cluster

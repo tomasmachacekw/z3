@@ -187,8 +187,7 @@ class lemma_merge_generalizer : public lemma_generalizer {
     lemma_merge_generalizer(context &ctx);
     ~lemma_merge_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
-    bool check_inductive_and_update(lemma_ref &lemma, expr_ref_vector &conj,
-                                    expr_ref_vector &bool_literals);
+    bool check_inductive_and_update(lemma_ref &lemma, expr_ref_vector &conj);
     void collect_statistics(statistics &st) const override;
     void reset_statistics() override { m_st.reset(); }
 
