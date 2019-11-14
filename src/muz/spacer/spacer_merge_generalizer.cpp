@@ -48,7 +48,19 @@ struct compute_lcm {
 namespace spacer {
 lemma_merge_generalizer::lemma_merge_generalizer(context &ctx)
     : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m),
-      m_cvx_cls(m, ctx.use_sage()), m_dim_frsh_cnsts(m) {}
+      m_cvx_cls(m, ctx.use_sage()), m_dim_frsh_cnsts(m) {
+    m_consts.push_back(rational::one());
+    m_consts.push_back(rational::zero());
+    m_consts.push_back(rational::minus_one());
+    m_consts.push_back(rational(100));
+    m_consts.push_back(rational(49));
+    m_consts.push_back(rational(102));
+    m_consts.push_back(rational(103));
+    m_consts.push_back(rational(104));
+    m_consts.push_back(rational(51));
+    m_consts.push_back(rational(52));
+    m_consts.push_back(rational(53));
+}
 
 void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
@@ -56,6 +68,25 @@ void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
     if (core(lemma)) {
         TRACE("merge_dbg", tout << "Lemma cube after merge generalization: "
                                 << lemma->get_cube() << "\n";);
+
+        if(!lemma->get_pob()->widen()) return;
+        //try expanding cvx bounds
+        expr_ref_vector conj = lemma->get_cube();
+        expr_ref_vector expand_expr(m), updt_conj(conj);
+        expr *num, *term;
+        expr_ref nw_bnd(m);
+        for(auto * bnd : conj) {
+            if((m_arith.is_le(bnd, term, num) || m_arith.is_ge(bnd, term, num)) && m_arith.is_numeral(num) && is_uninterp(term)) {
+                TRACE("merge_dbg_verb", tout << "bnd is " << mk_pp(bnd, m) << "\n";);
+                expand_expr.reset();
+                for(expr *t : updt_conj) if (t != bnd) expand_expr.push_back(t);
+                if(apply_widen(lemma, bnd, expand_expr, nw_bnd)) {
+                    updt_conj.erase(bnd);
+                    updt_conj.push_back(nw_bnd);
+                }
+            }
+        }
+        lemma->get_pob()->stop_widening();
     }
 }
 
@@ -435,7 +466,7 @@ bool lemma_merge_generalizer::check_inductive_and_update(
 
     if (pob->get_merge_atmpts() > 1) {
         pob->set_merge_conj(conj);
-        pob->set_farkas_generalizer(false);
+        pob->set_refine();
         TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(conj)
                                 << " set on pob " << pob->post() << "\n";);
     }
@@ -446,21 +477,12 @@ bool lemma_merge_generalizer::check_inductive_and_update(
 
 void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.merge", m_st.watch.get_seconds());
-}
-void widen_bnd_generalizer::collect_statistics(statistics &st) const {
-    st.update("time.spacer.solve.reach.gen.wide", m_stats.watch.get_seconds());
-    st.update("SPACER wide attmpts", m_stats.wide_atmpts);
-    st.update("SPACER wide success", m_stats.wide_sucess);
-}
-widen_bnd_generalizer::widen_bnd_generalizer(context &ctx)
-    : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m) {
-    m_consts.push_back(rational::one());
-    m_consts.push_back(rational::zero());
-    m_consts.push_back(rational::minus_one());
-    m_consts.push_back(rational(100));
+    st.update("time.spacer.solve.reach.gen.wide", m_st.watch.get_seconds());
+    st.update("SPACER wide attmpts", m_st.wide_atmpts);
+    st.update("SPACER wide success", m_st.wide_sucess);
 }
 
-bool widen_bnd_generalizer::should_apply(const expr *lit, rational val,
+bool lemma_merge_generalizer::should_apply(const expr *lit, rational val,
                                          rational n) {
     // the only case in which negation and non negation agree
     if (val == n) return false;
@@ -485,68 +507,52 @@ bool widen_bnd_generalizer::should_apply(const expr *lit, rational val,
     }
 }
 
-void widen_bnd_generalizer::operator()(lemma_ref &lemma) {
-    pob_ref lemma_pob = lemma->get_pob();
-    if (!lemma_pob->widen()) return;
-    m_stats.wide_atmpts++;
-    pred_transformer &pt = lemma_pob->pt();
-    lemma_cluster *pt_cls = pt.clstr_match(lemma);
-    if (pt_cls == nullptr) return;
-    lemma_cluster lc(*pt_cls);
-    lc.add_lemma(lemma);
+void lemma_merge_generalizer::substitute(expr* var, rational n, expr* fml, expr_ref& sub) {
+    expr_safe_replace s(m);
+    sub.reset();
+    s.insert(var, m_arith.mk_int(n));
+    expr_ref f(fml, m);
+    s(f, sub);
+}
 
-    const expr_ref &pattern = lc.get_pattern();
-    expr_ref lit(m);
-    TRACE("merge_dbg_verb",
-          tout << "Widen checking pattern " << pattern << "\n";);
-    if (!mono_var_pattern(pattern, lit)) return;
+bool lemma_merge_generalizer::apply_widen(lemma_ref& lemma, expr *lit, expr_ref_vector &conj, expr_ref& nw_bnd) {
+    SASSERT(!conj.contains(lit));
     TRACE("merge_dbg", tout << "Applying widening on "
-                            << mk_pp(lemma->get_expr(), m) << " literal is "
-                            << lit << "\n";);
-    SASSERT(to_app(lit.get())->get_num_args() == 2);
-    lemma_info *lemma_info = lc.get_lemma_info(lemma);
-    substitution subst = lemma_info->get_sub();
-    expr_offset r;
-    std::pair<unsigned, unsigned> v;
-    subst.get_binding(0, v, r);
-    expr *var = var_find(pattern, v.first);
-
-    expr *num = r.get_expr();
+          << conj << " with literal "
+          << mk_pp(lit, m) << "\n";);
+    SASSERT(to_app(lit)->get_num_args() == 2);
+    expr* num = to_app(lit)->get_arg(1);
     rational val;
     bool is_int = false;
     bool is_numeral = m_arith.is_numeral(num, val, is_int);
     SASSERT(is_numeral);
-    if (!is_int) return;
+    expr_ref n_lit(m);
+    if (!is_int) return false;
     bool success = false;
-    expr_safe_replace s(m);
-    expr_ref_vector conj(m);
-    expr_ref sub(m);
     for (rational n : m_consts) {
         if (should_apply(lit, val, n)) {
-            conj.reset();
-            sub.reset();
-            s.reset();
-            s.insert(var, m_arith.mk_int(n));
-            s(pattern, sub);
-            flatten_and(sub, conj);
+            m_st.wide_atmpts++;
+            substitute(num, n, lit, n_lit);
+            conj.push_back(n_lit);
             unsigned uses_level = 0;
             TRACE("merge_dbg_verb",
                   tout << "Attempting to update lemma with " << conj << "\n";);
-            bool is_ind = pt.check_inductive(lemma->level(), conj, uses_level,
-                                             lemma->weakness());
-            if (is_ind) {
-                // TODO update cluster to remove this lemmas if it no longer
-                // matches the pattern
+            bool is_ind = (lemma->get_pob())->pt().check_inductive(lemma->level(), conj, uses_level,
+                                             -lemma->weakness());
+
+            if(is_ind) {
+                m_st.wide_sucess++;
                 lemma->update_cube(lemma->get_pob(), conj);
                 lemma->set_level(uses_level);
                 val = n;
                 TRACE("merge_dbg",
                       tout << "widening succeeded with " << n << "\n";);
+                success = true;
+                nw_bnd = n_lit;
             }
-            success = success || is_ind;
+            conj.pop_back();
         }
     }
-    m_stats.wide_sucess += success;
-    lemma_pob->stop_widening();
+    return success;
 }
 } // namespace spacer

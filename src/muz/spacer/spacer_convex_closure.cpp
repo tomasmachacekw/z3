@@ -11,6 +11,7 @@ bool convex_closure::is_int_points() const {
 }
 
 unsigned convex_closure::reduce_dim() {
+    if(m_dim <= 1) return m_dim;
     bool non_null_ker = m_kernel->compute_kernel();
     if (!non_null_ker) {
         TRACE("cvx_dbg",

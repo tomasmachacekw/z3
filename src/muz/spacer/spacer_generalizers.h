@@ -168,9 +168,19 @@ class lemma_quantifier_generalizer : public lemma_generalizer {
 class lemma_merge_generalizer : public lemma_generalizer {
     struct stats {
         // TODO add stats
+        unsigned wide_atmpts;
+        unsigned wide_sucess;
         stopwatch watch;
-        stats() { reset(); }
-        void reset() { watch.reset(); }
+        stats() {
+            reset();
+            wide_atmpts = 0;
+            wide_sucess = 0;
+        }
+        void reset() {
+            watch.reset();
+            wide_atmpts = 0;
+            wide_sucess = 0;
+        }
     };
 
     ast_manager &m;
@@ -182,6 +192,7 @@ class lemma_merge_generalizer : public lemma_generalizer {
     // save fresh constants for mbp
     app_ref_vector m_dim_frsh_cnsts;
     vector<expr *> m_dim_vars;
+    vector<rational> m_consts;
 
   public:
     lemma_merge_generalizer(context &ctx);
@@ -203,31 +214,9 @@ class lemma_merge_generalizer : public lemma_generalizer {
     rational get_lcm(expr* e);
     void mul_and_simp(expr_ref &fml, rational num);
     void to_int(expr_ref &fml);
-};
-
-class widen_bnd_generalizer : public lemma_generalizer {
-    struct stats {
-        unsigned wide_atmpts;
-        unsigned wide_sucess;
-        stopwatch watch;
-        stats() { reset(); }
-        void reset() {
-            wide_atmpts = 0;
-            wide_sucess = 0;
-            watch.reset();
-        }
-    };
-    ast_manager &m;
-    arith_util m_arith;
-    vector<rational> m_consts;
-    bool should_apply(const expr* lit, rational val, rational n);
-  public:
-    widen_bnd_generalizer(context &ctx);
-    ~widen_bnd_generalizer() override {}
-    void operator()(lemma_ref &lemma) override;
-    void collect_statistics(statistics &st) const override;
-    void reset_statistics() override { m_stats.reset(); }
-    stats m_stats;
+    bool should_apply(const expr *lit, rational val, rational n);
+    bool apply_widen(lemma_ref &lemma, expr *lit, expr_ref_vector &res, expr_ref& nw_bnd);
+    void substitute(expr *var, rational n, expr *fml, expr_ref &sub);
 };
 
 } // namespace spacer
