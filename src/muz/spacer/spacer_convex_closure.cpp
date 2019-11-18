@@ -12,6 +12,7 @@ bool convex_closure::is_int_points() const {
 
 void convex_closure::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.merge.cvx_cls", m_st.watch.get_seconds());
+    st.update("SPACER sage calls", m_kernel->get_sage_calls());
 }
 unsigned convex_closure::reduce_dim() {
     scoped_watch _w_(m_st.watch);

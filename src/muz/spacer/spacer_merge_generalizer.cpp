@@ -454,8 +454,8 @@ bool lemma_merge_generalizer::check_inductive_and_update(
     pred_transformer &pt = lemma->get_pob()->pt();
     pob_ref pob = lemma->get_pob();
     unsigned uses_level = 0;
-    if (pt.check_inductive(lemma->level(), conj, uses_level,
-                           lemma->weakness())) {
+    if (pt.check_inductive(infty_level(), conj, uses_level, lemma->weakness()) || pt.check_inductive(lemma->level(), conj, uses_level,
+                               lemma->weakness())) {
         TRACE("merge_dbg", tout << "POB blocked using merge at level "
                                 << uses_level << "\n";);
         // TODO update cluster to remove this lemmas if it no longer matches the

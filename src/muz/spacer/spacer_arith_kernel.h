@@ -13,10 +13,11 @@ class arith_kernel {
     const spacer_matrix &m_matrix;
     spacer_matrix m_kernel;
     virtual bool compute_arith_kernel() { return false; };
+    unsigned m_sage_calls;
 
   public:
     // No default constructor for spacer_matrix. Dummy initialization
-    arith_kernel(spacer_matrix &matrix) : m_matrix(matrix), m_kernel(0, 0) {}
+    arith_kernel(spacer_matrix &matrix) : m_matrix(matrix), m_kernel(0, 0), m_sage_calls(0) {}
     bool compute_kernel() {
         SASSERT(m_matrix.num_rows() > 1);
         if(m_matrix.compute_linear_deps(m_kernel)) {
@@ -27,10 +28,12 @@ class arith_kernel {
             m_kernel.reset(m_kernel.num_cols());
             SASSERT(m_matrix.num_cols() > 2);
         }
+        m_sage_calls++;
         TRACE("cvx_dbg_verb", tout << "Calling sage \n";);
         return (m_matrix.num_cols() > 2) && compute_arith_kernel(); }
     void reset() { m_kernel = spacer_matrix(0, 0); }
     const spacer_matrix &get_kernel() const { return m_kernel; }
+    unsigned get_sage_calls() const { return m_sage_calls; }
     virtual ~arith_kernel(){};
 };
 

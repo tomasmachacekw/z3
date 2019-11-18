@@ -2695,7 +2695,8 @@ void context::init_lemma_generalizers()
     }
 
     if (m_adhoc_gen){
-        m_lemma_generalizers.push_back(alloc(lemma_merge_generalizer, *this));
+        m_merge_gen = alloc(lemma_merge_generalizer, *this);
+        m_lemma_generalizers.push_back(m_merge_gen);
     }
     if (m_re_con_gen)
       m_lemma_generalizers.push_back(alloc(lemma_re_construct_bool, *this));
@@ -3583,7 +3584,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
           TRACE("merge_dbg", tout << " refining " << mk_pp(n.post(), m)
                 << " id is " << n.post()->get_id()
                 << "\n into pob " << mk_and(lemma_pob->get_cube()) << "\n";);
-          //TODO: Run merge generalizer on refined pob
+          if(m_merge_gen != nullptr)
+              (*m_merge_gen)(lemma_pob);
         }
 
         CTRACE("merge_dbg", n.is_abs(), tout << " Blocked abs pob " << mk_pp(n.post(), m)
