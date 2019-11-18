@@ -319,6 +319,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         m_dim_vars[j] = var;
         app_ref var_app(m);
         var_app = m.mk_fresh_const("mrg_cvx", m_arith.mk_int());
+        //TODO: handle a <= x <= b
         m_dim_frsh_cnsts[j] = var_app;
     }
 
@@ -480,6 +481,7 @@ void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.wide", m_st.watch.get_seconds());
     st.update("SPACER wide attmpts", m_st.wide_atmpts);
     st.update("SPACER wide success", m_st.wide_sucess);
+    m_cvx_cls.collect_statistics(st);
 }
 
 bool lemma_merge_generalizer::should_apply(const expr *lit, rational val,

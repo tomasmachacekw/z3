@@ -6,6 +6,7 @@
 #include "muz/spacer/spacer_matrix.h"
 #include "muz/spacer/spacer_sage_interface.h"
 #include "muz/spacer/spacer_util.h"
+#include "util/statistics.h"
 namespace spacer {
 class convex_closure {
     ast_manager &m;
@@ -20,7 +21,16 @@ class convex_closure {
     void rewrite_lin_deps();
     var_ref_vector m_nw_vars;
     void syn_cls(unsigned i, expr_ref_vector& res_vec);
-
+    struct stats {
+        stopwatch watch;
+        stats() {
+            reset();
+        }
+        void reset() {
+            watch.reset();
+        }
+    };
+    stats m_st;
   public:
     convex_closure(ast_manager &man, bool use_sage)
         : m(man), m_arith(m), m_dim(0), m_use_sage(use_sage), m_data(0, 0), m_nw_vars(m) {
@@ -75,5 +85,7 @@ class convex_closure {
     /// \brief compute convex closure of current set of points
     /// return true if it was possible to compute the closure
     bool closure(expr_ref_vector &res);
+    void collect_statistics(statistics &st) const;
+    void reset_statistics() { m_st.reset(); }
 };
 } // namespace spacer

@@ -10,7 +10,11 @@ bool convex_closure::is_int_points() const {
     return true;
 }
 
+void convex_closure::collect_statistics(statistics &st) const {
+    st.update("time.spacer.solve.reach.gen.merge.cvx_cls", m_st.watch.get_seconds());
+}
 unsigned convex_closure::reduce_dim() {
+    scoped_watch _w_(m_st.watch);
     if(m_dim <= 1) return m_dim;
     bool non_null_ker = m_kernel->compute_kernel();
     if (!non_null_ker) {
@@ -115,10 +119,10 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
             if (m.is_eq(v, lhs, rhs) && lhs != rhs)
                 res_vec.push_back(expr_ref(v, m));
         }
+        TRACE("cvx_dbg", tout << "Linear equalities true of the matrix "
+                              << mk_and(res_vec) << "\n";);
     }
 
-    TRACE("cvx_dbg", tout << "Linear equalities true of the matrix "
-                          << mk_and(res_vec) << "\n";);
     if(red_dim > 1) {
         SASSERT(m_nw_vars.size() == 0);
         TRACE("merge_dbg", tout << "Computing syntactic convex closure\n";);

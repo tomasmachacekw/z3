@@ -58,11 +58,13 @@ class spacer_matrix {
     }
     void print_matrix();
     void normalize();
+    bool compute_linear_deps(spacer_matrix& eq) const;
 
   private:
     unsigned m_num_rows;
     unsigned m_num_cols;
     vector<vector<rational>> m_matrix;
+    bool is_lin_reltd(unsigned i, unsigned j, rational& coeff1, rational& coeff2, rational& off) const;
 };
 } // namespace spacer
 #endif
