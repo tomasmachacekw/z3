@@ -31,6 +31,7 @@ class convex_closure {
         }
     };
     stats m_st;
+    bool compute_div_constraint(const vector<rational>& data, rational& m, rational& d);
   public:
     convex_closure(ast_manager &man, bool use_sage)
         : m(man), m_arith(m), m_dim(0), m_use_sage(use_sage), m_data(0, 0), m_nw_vars(m) {

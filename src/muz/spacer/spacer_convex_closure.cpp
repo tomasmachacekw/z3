@@ -107,6 +107,49 @@ void convex_closure::syn_cls(unsigned i, expr_ref_vector& res_vec) {
     }
     res_vec.push_back(m.mk_eq(m_arith.mk_add(add.size(), add.c_ptr()), m_dim_vars[i]));
 }
+namespace {
+    bool is_sorted(const vector<rational>& data) {
+        for(unsigned i = 0; i < data.size() - 1; i++) {
+            if(data[i] < data[i + 1]) return false;
+        }
+        return true;
+    }
+}
+// check whether \exists m, d s.t data[i] mod m = d. Returns the largest m and corresponding d
+bool convex_closure::compute_div_constraint(const vector<rational>& data, rational &m, rational& d) {
+    TRACE("cvx_dbg_verb", tout << "computing div constraints for ";
+          for(rational r : data) tout << r << " ";
+          tout << "\n";);
+    SASSERT(data.size() > 1);
+    SASSERT(is_sorted(data));
+    //data without duplicates
+    vector<rational> sequence;
+    sequence.push_back(data[0]);
+    for(rational r: data) {
+        if(r != sequence[sequence.size() - 1])
+            sequence.push_back(r);
+    }
+    if(sequence.size() <=  1) return false;
+    //find the least difference
+    m = sequence[0] - sequence[1];
+    for(unsigned i = 2; i < sequence.size(); i++) {
+        rational cd = sequence[i - 1] - sequence[i];
+        if(cd < m)
+            m = cd;
+    }
+    SASSERT(m > 0 );
+    d = sequence[0] % m;
+
+    TRACE("cvx_dbg_verb", tout << "The cd  is " << m << " and off is " << d << "\n";);
+    if (m == 1) return false;
+    for(rational r : sequence) {
+        if(r % m != d) {
+            return false;
+        }
+    }
+    TRACE("cvx_dbg_verb", tout << "div constraint generated\n";);
+    return true;
+}
 // returns whether the closure is exact or not (i.e syntactic)
 bool convex_closure::closure(expr_ref_vector &res_vec) {
 
@@ -165,7 +208,10 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
 
     expr *ub_expr = m_arith.mk_le(var, ub);
     expr *lb_expr = m_arith.mk_ge(var, lb);
-    // TODO add division constraints.
+    rational cr, off;
+    bool div_constr = compute_div_constraint(data, cr, off);
+    if(div_constr)
+        res_vec.push_back(m_arith.mk_eq(m_arith.mk_mod(var, m_arith.mk_int(cr)), m_arith.mk_int(off)));
     res_vec.push_back(ub_expr);
     res_vec.push_back(lb_expr);
     return true;
