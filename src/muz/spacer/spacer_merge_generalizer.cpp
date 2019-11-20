@@ -69,18 +69,22 @@ void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
         TRACE("merge_dbg", tout << "Lemma cube after merge generalization: "
                                 << lemma->get_cube() << "\n";);
 
-        if(!lemma->get_pob()->widen()) return;
-        //try expanding cvx bounds
+        if (!lemma->get_pob()->widen()) return;
+        // try expanding cvx bounds
         expr_ref_vector conj = lemma->get_cube();
         expr_ref_vector expand_expr(m), updt_conj(conj);
         expr *num, *term;
         expr_ref nw_bnd(m);
-        for(auto * bnd : conj) {
-            if((m_arith.is_le(bnd, term, num) || m_arith.is_ge(bnd, term, num)) && m_arith.is_numeral(num) && is_uninterp(term)) {
-                TRACE("merge_dbg_verb", tout << "bnd is " << mk_pp(bnd, m) << "\n";);
+        for (auto *bnd : conj) {
+            if ((m_arith.is_le(bnd, term, num) ||
+                 m_arith.is_ge(bnd, term, num)) &&
+                m_arith.is_numeral(num) && is_uninterp(term)) {
+                TRACE("merge_dbg_verb",
+                      tout << "bnd is " << mk_pp(bnd, m) << "\n";);
                 expand_expr.reset();
-                for(expr *t : updt_conj) if (t != bnd) expand_expr.push_back(t);
-                if(apply_widen(lemma, bnd, expand_expr, nw_bnd)) {
+                for (expr *t : updt_conj)
+                    if (t != bnd) expand_expr.push_back(t);
+                if (apply_widen(lemma, bnd, expand_expr, nw_bnd)) {
                     updt_conj.erase(bnd);
                     updt_conj.push_back(nw_bnd);
                 }
@@ -145,8 +149,8 @@ void lemma_merge_generalizer::mul_and_simp(expr_ref &fml, rational num) {
         if (m_arith.is_mul(chld)) {
             expr_ref numeral(to_app(chld)->get_arg(0), m);
             rational val;
-            bool is_numeral = m_arith.is_numeral(numeral, val);
-            SASSERT(is_numeral);
+            SASSERT(m_arith.is_numeral(numeral));
+            m_arith.is_numeral(numeral, val);
             rational nw_coeff = val * num;
             numeral = m_arith.mk_int(nw_coeff);
             nw_args.push_back(
@@ -319,7 +323,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         m_dim_vars[j] = var;
         app_ref var_app(m);
         var_app = m.mk_fresh_const("mrg_cvx", m_arith.mk_int());
-        //TODO: handle a <= x <= b
+        // TODO: handle a <= x <= b
         m_dim_frsh_cnsts[j] = var_app;
     }
 
@@ -454,12 +458,14 @@ bool lemma_merge_generalizer::check_inductive_and_update(
     pred_transformer &pt = lemma->get_pob()->pt();
     pob_ref pob = lemma->get_pob();
     unsigned uses_level = 0;
-    if (pt.check_inductive(infty_level(), conj, uses_level, lemma->weakness()) || pt.check_inductive(lemma->level(), conj, uses_level,
-                               lemma->weakness())) {
+    if (pt.check_inductive(infty_level(), conj, uses_level,
+                           lemma->weakness()) ||
+        pt.check_inductive(lemma->level(), conj, uses_level,
+                           lemma->weakness())) {
         TRACE("merge_dbg", tout << "POB blocked using merge at level "
                                 << uses_level << "\n";);
-        // TODO update cluster to remove this lemmas if it no longer matches the
-        // pattern
+        // TODO update cluster to remove this lemmas if it no longer
+        // matches the pattern
         lemma->update_cube(lemma->get_pob(), conj);
         lemma->set_level(uses_level);
         return true;
@@ -485,7 +491,7 @@ void lemma_merge_generalizer::collect_statistics(statistics &st) const {
 }
 
 bool lemma_merge_generalizer::should_apply(const expr *lit, rational val,
-                                         rational n) {
+                                           rational n) {
     // the only case in which negation and non negation agree
     if (val == n) return false;
 
@@ -509,7 +515,8 @@ bool lemma_merge_generalizer::should_apply(const expr *lit, rational val,
     }
 }
 
-void lemma_merge_generalizer::substitute(expr* var, rational n, expr* fml, expr_ref& sub) {
+void lemma_merge_generalizer::substitute(expr *var, rational n, expr *fml,
+                                         expr_ref &sub) {
     expr_safe_replace s(m);
     sub.reset();
     s.insert(var, m_arith.mk_int(n));
@@ -517,17 +524,18 @@ void lemma_merge_generalizer::substitute(expr* var, rational n, expr* fml, expr_
     s(f, sub);
 }
 
-bool lemma_merge_generalizer::apply_widen(lemma_ref& lemma, expr *lit, expr_ref_vector &conj, expr_ref& nw_bnd) {
+bool lemma_merge_generalizer::apply_widen(lemma_ref &lemma, expr *lit,
+                                          expr_ref_vector &conj,
+                                          expr_ref &nw_bnd) {
     SASSERT(!conj.contains(lit));
-    TRACE("merge_dbg", tout << "Applying widening on "
-          << conj << " with literal "
-          << mk_pp(lit, m) << "\n";);
+    TRACE("merge_dbg", tout << "Applying widening on " << conj
+                            << " with literal " << mk_pp(lit, m) << "\n";);
     SASSERT(to_app(lit)->get_num_args() == 2);
-    expr* num = to_app(lit)->get_arg(1);
+    expr *num = to_app(lit)->get_arg(1);
     rational val;
     bool is_int = false;
-    bool is_numeral = m_arith.is_numeral(num, val, is_int);
-    SASSERT(is_numeral);
+    SASSERT(m_arith.is_numeral(num));
+    m_arith.is_numeral(num, val, is_int);
     expr_ref n_lit(m);
     if (!is_int) return false;
     bool success = false;
@@ -539,10 +547,12 @@ bool lemma_merge_generalizer::apply_widen(lemma_ref& lemma, expr *lit, expr_ref_
             unsigned uses_level = 0;
             TRACE("merge_dbg_verb",
                   tout << "Attempting to update lemma with " << conj << "\n";);
-            bool is_ind = (lemma->get_pob())->pt().check_inductive(lemma->level(), conj, uses_level,
-                                             -lemma->weakness());
+            bool is_ind = (lemma->get_pob())
+                              ->pt()
+                              .check_inductive(lemma->level(), conj, uses_level,
+                                               -lemma->weakness());
 
-            if(is_ind) {
+            if (is_ind) {
                 m_st.wide_sucess++;
                 lemma->update_cube(lemma->get_pob(), conj);
                 lemma->set_level(uses_level);
