@@ -24,19 +24,6 @@
 #include "muz/spacer/spacer_context.h"
 #include "muz/spacer/spacer_util.h"
 
-namespace {
-  //a \subseteq b
-  bool is_subset(const expr_ref_vector &a ,const expr_ref_vector &b)
-  {
-    if(a.size() > b.size())
-      return false;
-    for(expr * e : a)
-      if(!b.contains(e))
-        return false;
-    return true;
-  }
-}
-
 namespace spacer {
 
 // Finds a lemma matching the mono_var_pattern
@@ -78,13 +65,10 @@ bool context::abstract_pob(pob &n, expr_ref &leq_lit, expr_ref_vector & new_pob)
 
     // assume that lhs is a term
     lhs = (to_app(leq_lit))->get_arg(0);
-    get_uninterp_consts(lhs, lhs_consts);
     // filter from pob_cube all literals that contain all uninterpreted constants in lhs
     for (auto &c : pob_cube) {
-        get_uninterp_consts(c, u_consts);
-        SASSERT(u_consts.size() > 0);
-        if (!is_subset(lhs_consts, u_consts)) new_pob.push_back(c);
-        u_consts.reset();
+        if (to_app(c)->get_arg(0) != lhs)
+            new_pob.push_back(c);
     }
 
     // compute abstract pob if any literals found and at least one was removed
