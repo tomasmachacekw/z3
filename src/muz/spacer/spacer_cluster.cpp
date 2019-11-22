@@ -12,8 +12,8 @@
 #include "ast/rewriter/var_subst.h"
 #include "ast/substitution/substitution.h"
 #include "muz/spacer/spacer_antiunify.h"
-#include "muz/spacer/spacer_context.h"
 #include "muz/spacer/spacer_cluster.h"
+#include "muz/spacer/spacer_context.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_util.h"
 #include "util/mpq.h"
@@ -21,112 +21,78 @@
 
 using namespace spacer;
 namespace spacer {
-lemma_cluster_finder::lemma_cluster_finder(ast_manager& am) : m(am), m_arith(m) {}
+lemma_cluster_finder::lemma_cluster_finder(ast_manager &am)
+    : m(am), m_arith(m) {}
 
-bool lemma_cluster_finder::are_neighbours(expr_ref antiU_result,
-                                          substitution &s1, substitution &s2) {
+//returns whether formulas differ only in interpreted constants
+bool lemma_cluster_finder::is_intrp_diff(expr_ref antiU_result,
+                                         substitution &s1, substitution &s2) {
     SASSERT(s1.get_num_bindings() == s2.get_num_bindings());
-    expr_ref_vector uninterp_s1(m), uninterp_s2(m);
+    expr_ref e(m), e2(m);
+    expr_offset r1, r2;
+    var_offset v1, v2;
     for (unsigned j = 0, sz = s1.get_num_bindings(); j < sz; j++) {
-        expr_ref e(m), e2(m);
-        expr_offset r, r2;
-        var_offset v, v2;
-        s1.get_binding(j, v, r);
+        s1.get_binding(j, v1, r1);
         s2.get_binding(j, v2, r2);
-        if (is_uninterp_const(r.get_expr()) &&
-            is_uninterp_const(r2.get_expr())) {
-            // HG: right now, we are concerned only with difference in
-            // interpreted constants Not sure whether we need this for now.
-            uninterp_s1.push_back(r.get_expr());
-            uninterp_s2.push_back(r2.get_expr());
-        } else if (m_arith.is_numeral(r.get_expr()) &&
-                   m_arith.is_numeral(r2.get_expr())) {
-            continue; // good match
-        }             // else if( is_uninterp_const(r.get_expr()) ||
-                      // is_uninterp_const(r2.get_expr()) ){}
-        else {
-            return false; // anything else is a bad match
-        }
-    }
-
-    // Go through the uninterp consts and make sure contains
-    SASSERT(uninterp_s1.size() == uninterp_s2.size());
-    for (unsigned j = 0, sz = uninterp_s1.size(); j < sz; j++) {
-        if (!m.are_equal(uninterp_s1.get(j), uninterp_s2.get(j))) {
-            // HG: seems like this piece of code will never get executed
-            // If both of them are the same uninterpreted constant, they
-            // wouldn't be antiunified.
+        if (!(m_arith.is_numeral(r1.get_expr()) &&
+              m_arith.is_numeral(r2.get_expr())))
             return false;
-        }
     }
     return true;
 }
 
 bool lemma_cluster_finder::are_neighbours(const expr_ref &cube,
-                                          const expr_ref &lcube, expr_ref &pat,
-                                          substitution &sub1,
-                                          substitution &sub2) {
+                                          const expr_ref &lcube) {
     anti_unifier anti(m);
+    expr_ref pat(m);
+    substitution sub1(m), sub2(m);
     anti(cube, lcube, pat, sub1, sub2);
-    return are_neighbours(pat, sub1, sub2);
+    return is_intrp_diff(pat, sub1, sub2);
 }
 
-void lemma_cluster_finder::cluster(lemma_ref &lemma) {
-    scoped_watch _w_(m_st.watch);
-    pred_transformer &pt = (lemma->get_pob())->pt();
-
-    //check whether lemmas has already been added
-    if (pt.get_cluster(lemma) != nullptr) { return; }
-    //if the lemma matches a pattern of one of the clusters, don't create new cluster
-    //done to avoid creating clusters with subsumed lemmas
-    if (pt.clstr_match(lemma)) {
-        TRACE("cluster_stats", tout << "Trying to add lemma " << lemma->get_cube() << " to existing clusters\n";);
-        pt.add_to_cluster(lemma);
-        return;
-    }
-
-    // lemma cannot be added to any existing clusters
-    // Check whether it forms a new cluster
+// Compute antiunification of cube with all formulas in fmls.
+// should return \exist res (\forall f \in fmls (\exist i_sub res[i_sub] == f))
+// however, the algorithm is incomplete: it returns such a res iff the res \in {antiU(cube, e) | e \in fmls}
+bool lemma_cluster_finder::anti_unify_n_intrp(expr_ref &cube,
+                                              expr_ref_vector &fmls,
+                                              expr_ref &res) {
     expr_ref_vector patterns(m);
-    unsigned num_vars_in_pattern = 0;
-    lemma_ref_vector all_lemmas;
-    pt.get_all_lemmas(all_lemmas, false);
-
-    expr_ref cube(m), pattern(m);
-    cube = mk_and(lemma->get_cube());
-    normalize_order(cube, cube);
-
-    expr_ref lcube(m), lpat(m);
+    expr_ref pat(m), fml(m);
     substitution sub1(m), sub2(m);
-    lemma_ref_vector neighbours;
+    anti_unifier anti_u(m);
+    substitution s1(m), s2(m);
 
-    // compute the most general pattern to which lemmas fit
-    for (auto *l : all_lemmas) {
-        sub1.reset();
-        sub2.reset();
-        lcube = mk_and(l->get_cube());
-        normalize_order(lcube, lcube);
-        if (are_neighbours(cube, lcube, lpat, sub1, sub2)) {
-            neighbours.push_back(&*l);
-            patterns.push_back(lpat);
-            TRACE("cluster_stats_verb", tout << "adding neighbour " << l->get_cube() << " to pattern " << lpat << "\n";);
-            num_vars_in_pattern =
-                std::max(get_num_vars(lpat), num_vars_in_pattern);
-        }
+    TRACE("cluster_stats_verb", tout << "Trying to generate a general pattern for " << cube <<
+          " neighbours are " << fmls << "\n";);
+
+    //collect candidates for res
+    for (expr* c : fmls) {
+        anti_u.reset();
+        s1.reset();
+        s2.reset();
+        fml.reset();
+        fml = expr_ref(c, m);
+        SASSERT(are_neighbours(cube, fml));
+        anti_u(cube, fml, pat, s1, s2);
+        patterns.push_back(pat);
     }
+
     // go through all the patterns to see if there is a pattern which is general
     // enough to include all lemmas.
-    bool is_general_pattern = false, pos = true;
+    bool is_general_pattern = false, pos = true, all_same = true;
     sem_matcher matcher(m);
+    unsigned n_vars_pat = 0;
     for (expr *e : patterns) {
+
+        TRACE("cluster_stats_verb", tout << "Checking pattern " << mk_pp(e, m) << "\n";);
         is_general_pattern = true;
-        for (auto *l : neighbours) {
-            lcube = mk_and(l->get_cube());
-            normalize_order(lcube, lcube);
+        n_vars_pat = get_num_vars(e);
+        all_same = all_same && n_vars_pat == 0;
+        for (auto *lcube : fmls) {
             matcher.reset();
-            sub1.reset();
-            sub1.reserve(1, num_vars_in_pattern);
-            if (!(matcher(e, lcube.get(), sub1, pos) && pos)) {
+            s1.reset();
+            s1.reserve(1, n_vars_pat);
+            if (!(matcher(e, lcube, s1, pos) && pos)) {
                 // this pattern is no good
                 is_general_pattern = false;
                 break;
@@ -136,42 +102,90 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
             SASSERT(e != nullptr);
             TRACE("cluster_stats",
                   tout << "Found a general pattern " << mk_pp(e, m) << "\n";);
-            // found a good pattern. make a cluster with it.
-            pattern = expr_ref(e, m);
-            SASSERT(num_vars_in_pattern == get_num_vars(e));
-            break;
+            // found a good pattern
+            res = expr_ref(e, m);
+            return true;
         }
     }
 
-    CTRACE("cluster_stats",
-           !neighbours.empty() && num_vars_in_pattern > 0 &&
-               !is_general_pattern,
-           tout << "Failed to find a general pattern for cluster. Lemma is: "
-                << lemma->get_cube() << " patterns are " << patterns << "\n";);
-
-    if (is_general_pattern && !neighbours.empty() && num_vars_in_pattern > 0) {
-        neighbours.push_back(lemma.get());
-        lemma_cluster *cluster = pt.mk_cluster(pattern, neighbours.size());
-        TRACE("cluster_stats",
-              tout << "created new cluster with pattern: " << pattern << "\n"
-                   << " and lemma cube: " << cube << "\n";);
-        IF_VERBOSE(1, verbose_stream() << "\ncreated new cluster with pattern: "
-                                       << pattern << "\n"
-                                       << " and lemma cube: " << cube << "\n";);
-        bool added = true;
-        for (const lemma_ref &l : neighbours) {
-            added = cluster->add_lemma(l, l == lemma);
-            CTRACE("cluster_stats", !added,
-                   tout << "Failed to add lemma to a cluster. Lemma is: "
-                        << l->get_cube() << "\n"
-                        << " and pattern is: " << pattern
-                        << " the original lemma is " << lemma->get_cube()
-                        << "\n";);
-            CTRACE("cluster_stats", added,
-                  tout << "Added lemma " << mk_and(l->get_cube()) << "\n";);
-        }
-    }
+    CTRACE("cluster_stats", !all_same,
+           tout << "Failed to find a general pattern for cluster. Cube is: "
+           << cube << " Patterns are " << patterns <<  "\n";);
+    return false;
 }
+
+void lemma_cluster_finder::cluster(lemma_ref &lemma) {
+    scoped_watch _w_(m_st.watch);
+    pred_transformer &pt = (lemma->get_pob())->pt();
+
+    // check whether lemmas has already been added
+    if (pt.get_cluster(lemma) != nullptr) return;
+
+    // if the lemma matches a pattern of one of the clusters, but is not in it,
+    // add it.
+    if (pt.clstr_match(lemma)) {
+        TRACE("cluster_stats_verb", tout << "Trying to add lemma "
+                                         << lemma->get_cube()
+                                         << " to existing clusters\n";);
+        pt.add_to_cluster(lemma);
+
+        // avoid creating clusters with lemmas that can't be added to existing
+        // clusters
+        return;
+    }
+
+    // Check whether a new cluster can be formed
+    lemma_ref_vector all_lemmas;
+    pt.get_all_lemmas(all_lemmas, false);
+
+    expr_ref lcube(m), cube(m);
+    lcube = mk_and(lemma->get_cube());
+    normalize_order(lcube, lcube);
+
+    expr_ref_vector lma_cubes(m);
+    lemma_ref_vector neighbours;
+
+    for (auto *l : all_lemmas) {
+        cube.reset();
+        cube = mk_and(l->get_cube());
+        normalize_order(cube, cube);
+        if (are_neighbours(lcube, cube) && cube != lcube) {
+            neighbours.push_back(l);
+            lma_cubes.push_back(cube);
+        }
+    }
+
+    if (neighbours.empty()) return;
+
+    // compute the most general pattern to which lemmas fit
+    expr_ref pattern(m);
+    bool is_cluster = anti_unify_n_intrp(lcube, lma_cubes, pattern);
+
+    // no general pattern
+    if (!is_cluster || get_num_vars(pattern) == 0) return;
+
+    lemma_cluster *cluster = pt.mk_cluster(pattern, neighbours.size());
+
+    TRACE("cluster_stats",
+          tout << "created new cluster with pattern: " << pattern << "\n"
+               << " and lemma cube: " << lcube << "\n";);
+
+    IF_VERBOSE(1, verbose_stream() << "\ncreated new cluster with pattern: "
+                                   << pattern << "\n"
+                                   << " and lemma cube: " << lcube << "\n";);
+
+    for (const lemma_ref &l : neighbours) {
+        SASSERT(cluster->can_contain(l));
+        cluster->add_lemma(l, false);
+        TRACE("cluster_stats",
+               tout << "Added lemma " << mk_and(l->get_cube()) << "\n";);
+    }
+
+    // finally add the lemma and do subsumption check
+    cluster->add_lemma(lemma, true);
+    SASSERT(cluster->get_size() >= 1);
+}
+
 void lemma_cluster_finder::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.cluster", m_st.watch.get_seconds());
 }

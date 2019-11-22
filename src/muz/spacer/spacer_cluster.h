@@ -14,17 +14,21 @@ class lemma_cluster_finder {
     ast_manager &m;
     arith_util m_arith;
     typedef std::pair<unsigned, unsigned> var_offset;
-    bool are_neighbours(expr_ref antiU_result, substitution &s1,
-                        substitution &s2);
+    bool is_intrp_diff(expr_ref antiU_result, substitution &s1,
+                       substitution &s2);
 
-    bool are_neighbours(const expr_ref &cube, const expr_ref &lcube,
-                        expr_ref &pat, substitution &sub1, substitution &sub2);
+    bool are_neighbours(const expr_ref &cube, const expr_ref &lcube);
+
     stats m_st;
+    // n-arry antiunify. Returns whether there is a substitution with only
+    // interpreted consts
+    bool anti_unify_n_intrp(expr_ref &cube, expr_ref_vector &fmls,
+                            expr_ref &res);
 
   public:
-    lemma_cluster_finder(ast_manager& m);
+    lemma_cluster_finder(ast_manager &m);
     void cluster(lemma_ref &lemma);
     void collect_statistics(statistics &st) const;
     void reset_statistics() { m_st.reset(); }
 };
-}
+} // namespace spacer
