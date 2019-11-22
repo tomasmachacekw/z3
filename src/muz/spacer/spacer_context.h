@@ -227,10 +227,10 @@ class lemma_cluster {
     void rm_subsumed(lemma_info_vector &removed_lemmas);
     // checks whether e matches pattern.
     // If so, returns the substitution that gets e from pattern
-    bool match(const expr_ref &e, const expr_ref &pattern, substitution &sub) {
+    bool match(const expr_ref &e, substitution &sub) {
         m_matcher.reset();
         bool pos;
-        bool is_match = m_matcher(pattern.get(), e.get(), sub, pos);
+        bool is_match = m_matcher(m_pattern.get(), e.get(), sub, pos);
         unsigned n_binds = sub.get_num_bindings();
         std::pair<unsigned, unsigned> var;
         expr_offset r;
@@ -265,7 +265,7 @@ class lemma_cluster {
         expr_ref cube(m);
         cube = mk_and(lemma->get_cube());
         normalize_order(cube, cube);
-        if (!match(cube, m_pattern, sub)) return false;
+        if (!match(cube, sub)) return false;
         TRACE("cluster_stats_verb", tout << "Trying to add lemma " << lemma->get_cube() << "\n";);
         lemma_info l_i(lemma, sub);
         m_lemma_vec.push_back(l_i);
@@ -297,7 +297,7 @@ class lemma_cluster {
         expr_ref cube(m);
         cube = mk_and(lemma->get_cube());
         normalize_order(cube, cube);
-        return match(cube, m_pattern, sub);
+        return match(cube, sub);
     }
 
     lemma_info *get_lemma_info(const lemma_ref &lemma) {
