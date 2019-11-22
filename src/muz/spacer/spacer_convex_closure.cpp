@@ -139,6 +139,9 @@ bool convex_closure::compute_div_constraint(const vector<rational>& data, ration
     }
     SASSERT(m > 0 );
     d = sequence[0] % m;
+    SASSERT(m != rational::one() || d == rational::zero());
+    //work around for z3::rational::rem returning negative numbers.
+    d = abs(d);
 
     TRACE("cvx_dbg_verb", tout << "The cd  is " << m << " and off is " << d << "\n";);
     if (m == 1) return false;
