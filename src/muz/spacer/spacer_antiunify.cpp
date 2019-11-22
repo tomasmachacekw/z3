@@ -170,12 +170,8 @@ void anti_unifier::operator()(expr *e1, expr *e2, expr_ref &res,
 
     for (unsigned i = 0, sz = m_subs.size(); i < sz; ++i) {
         expr_pair p = m_subs.get(i);
-        expr *r;
-        m_cache.find(p.first, p.second, r);
-        SASSERT(is_var(r));
-        var *v = to_var(r);
-        s1.insert(v->get_idx(), 0, expr_offset(p.first, 1));
-        s2.insert(v->get_idx(), 0, expr_offset(p.second, 1));
+        s1.insert(i, 0, expr_offset(p.first, 1));
+        s2.insert(i, 0, expr_offset(p.second, 1));
     }
 }
 
