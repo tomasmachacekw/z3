@@ -67,7 +67,12 @@ bool context::abstract_pob(pob &n, expr_ref &leq_lit, expr_ref_vector & new_pob)
     lhs = (to_app(leq_lit))->get_arg(0);
     // filter from pob_cube all literals that contain all uninterpreted constants in lhs
     for (auto &c : pob_cube) {
-        if (to_app(c)->get_num_args() != 2 ||  to_app(c)->get_arg(0) != lhs)
+        app* c_app = to_app(c);
+        expr* not_chld;
+        if(m.is_not(c_app, not_chld)) {
+            c_app = to_app(not_chld);
+        }
+        if (c_app->get_num_args() != 2 ||  c_app->get_arg(0) != lhs)
             new_pob.push_back(c);
     }
 
