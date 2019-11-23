@@ -49,6 +49,7 @@ class pred_transformer;
 class derivation;
 class pob_queue;
 class context;
+class lemma_cluster_finder;
 
 typedef obj_map<datalog::rule const, app_ref_vector*> rule2inst;
 typedef obj_map<func_decl, pred_transformer*> decl2rel;
@@ -338,6 +339,14 @@ class pred_transformer {
             if (with_bg) {
                 for (auto &lemma : m_bg_invs)
                     out.push_back(lemma->get_expr());
+            }
+        }
+
+        void get_frame_all_lemmas(lemma_ref_vector &out,
+                                  bool with_bg = false) const {
+            for (auto &lemma : m_lemmas) { out.push_back(lemma); }
+            if (with_bg) {
+                for (auto &lemma : m_bg_invs) out.push_back(lemma);
             }
         }
 
@@ -710,8 +719,13 @@ public:
     void updt_solver(prop_solver *solver);
 
     void updt_solver_with_lemmas(prop_solver *solver,
-                                 const pred_transformer &pt,
-                                 app *rule_tag, unsigned pos);
+                                 const pred_transformer &pt, app *rule_tag,
+                                 unsigned pos);
+    // exposing ACTIVE lemmas (alternatively, one can expose `m_pinned_lemmas`
+    // for ALL lemmas)
+    void get_all_lemmas(lemma_ref_vector &out, bool with_bg = false) const {
+        m_frames.get_frame_all_lemmas(out, with_bg);
+    }
     void update_solver_with_rfs(prop_solver *solver,
                               const pred_transformer &pt,
                               app *rule_tag, unsigned pos);
@@ -1101,6 +1115,8 @@ class context {
     unsigned             m_inductive_lvl;
     unsigned             m_expanded_lvl;
     ptr_buffer<lemma_generalizer>  m_lemma_generalizers;
+    lemma_cluster_finder *m_lmma_cluster;
+
     stats                m_stats;
     model_converter_ref  m_mc;
     proof_converter_ref  m_pc;
@@ -1133,6 +1149,7 @@ class context {
     bool                 m_simplify_formulas_post;
     bool                 m_pdr_bfs;
     bool                 m_use_bg_invs;
+    bool m_adhoc_gen;
     unsigned             m_push_pob_max_depth;
     unsigned             m_max_level;
     unsigned             m_restart_initial_threshold;
