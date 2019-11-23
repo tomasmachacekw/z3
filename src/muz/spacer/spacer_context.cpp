@@ -4258,4 +4258,47 @@ void lemma_cluster :: rm_subsumed(lemma_info_vector &removed_lemmas) {
     m_lemma_vec.reset();
     m_lemma_vec.append(non_subsumd_lemmas);
 }
+
+bool lemma_cluster :: match(const expr_ref &e, substitution &sub) {
+    m_matcher.reset();
+    bool pos;
+    bool is_match = m_matcher(m_pattern.get(), e.get(), sub, pos);
+    unsigned n_binds = sub.get_num_bindings();
+    std::pair<unsigned, unsigned> var;
+    expr_offset r;
+    arith_util a_util(m);
+    if (!(is_match && pos)) return false;
+    // All the matches should be numerals
+    for (unsigned i = 0; i < n_binds; i++) {
+        sub.get_binding(i, var, r);
+        if (!a_util.is_numeral(r.get_expr())) return false;
+    }
+    return true;
+}
+
+bool lemma_cluster ::add_lemma(const lemma_ref &lemma, bool subs_check) {
+    substitution sub(m);
+    sub.reserve(1, get_num_vars(m_pattern.get()));
+    expr_ref cube(m);
+    cube = mk_and(lemma->get_cube());
+    normalize_order(cube, cube);
+    if (!match(cube, sub)) return false;
+    TRACE("cluster_stats_verb",
+          tout << "Trying to add lemma " << lemma->get_cube() << "\n";);
+    lemma_info l_i(lemma, sub);
+    m_lemma_vec.push_back(l_i);
+    if (subs_check) {
+        lemma_info_vector removed_lemmas;
+        rm_subsumed(removed_lemmas);
+        for (auto r_l : removed_lemmas) {
+            // There is going to atmost subsumed lemma that matches l_i
+            if (r_l.get_lemma() == l_i.get_lemma()) return false;
+        }
+    }
+    TRACE("cluster_stats", tout << "Added lemma " << lemma->get_cube()
+                                << " to  existing cluster " << m_pattern
+                                << "\n";);
+    return true;
+}
+
 } // namespace spacer
