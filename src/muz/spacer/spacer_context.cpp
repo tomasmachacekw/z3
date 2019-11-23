@@ -2326,6 +2326,7 @@ context::context(fp_params const& params, ast_manager& m) :
 context::~context()
 {
     reset_lemma_generalizers();
+    dealloc(m_lmma_cluster);
     reset();
 }
 
