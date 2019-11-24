@@ -61,18 +61,21 @@ Notes:
 namespace spacer {
 
 /// pob -- proof obligation
-pob::pob (pob* parent, pred_transformer& pt,
-          unsigned level, unsigned depth, bool add_to_parent):
-    m_ref_count (0),
-    m_parent (parent), m_pt (pt),
-    m_post (m_pt.get_ast_manager ()),
-    m_binding(m_pt.get_ast_manager()),
-    m_new_post (m_pt.get_ast_manager ()),
-    m_level (level), m_depth (depth),
-    m_open (true), m_use_farkas (true), m_in_queue(false),
-    m_weakness(0), m_blocked_lvl(0) {
+pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
+         bool add_to_parent)
+    : m_ref_count(0), m_parent(parent), m_pt(pt),
+      m_post(m_pt.get_ast_manager()), m_binding(m_pt.get_ast_manager()),
+      m_new_post(m_pt.get_ast_manager()), m_level(level), m_depth(depth),
+      m_open(true), m_use_farkas(true), m_in_queue(false), m_weakness(0),
+      m_blocked_lvl(0), m_is_abs(false), m_can_abs(true),
+      m_abs_pattern(m_pt.get_ast_manager()), m_refine(false),
+      m_concrete(nullptr) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
+    }
+    if (m_parent) {
+        m_is_abs = m_parent->is_abs();
+        m_can_abs = m_parent->can_abs();
     }
 }
 
@@ -2361,6 +2364,7 @@ void context::updt_params() {
     m_pdr_bfs = m_params.spacer_gpdr_bfs();
     m_use_bg_invs = m_params.spacer_use_bg_invs();
     m_adhoc_gen = m_params.spacer_adhoc_gen();
+    m_abstract_pob = m_params.spacer_abstract_pob();
     if (m_use_gpdr) {
         // set options to be compatible with GPDR
         m_weak_abs = false;
@@ -3306,6 +3310,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     pob::on_expand_event _evt(n);
     TRACE ("spacer",
            tout << "expand-pob: " << n.pt().head()->get_name()
+           << (n.is_abs() ? " ABS" : "")
            << " level: " << n.level()
            << " depth: " << (n.depth () - m_pob_queue.min_depth ())
            << " fvsz: " << n.get_free_vars_size() << "\n"
@@ -3313,6 +3318,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
     STRACE ("spacer_progress",
             tout << "** expand-pob: " << n.pt().head()->get_name()
+            << (n.is_abs() ? " ABS" : "")
             << " level: " << n.level()
             << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
             << mk_epp(n.post(), m) << "\n\n";);
@@ -3328,6 +3334,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                 << " (" << n.level () << ", "
                 << (n.depth () - m_pob_queue.min_depth ()) << ") "
                 << (n.use_farkas_generalizer () ? "FAR " : "SUB ")
+                << (n.is_abs() ? "ABS " : "")
                 << " w(" << n.weakness() << ") "
                 << n.post ()->get_id ();
                 verbose_stream().flush ();
@@ -3388,7 +3395,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             // otherwise if n has no derivation or no new children, report l_true
             pob *next = nullptr;
             scoped_ptr<derivation> deriv;
-            if (n.has_derivation()) {deriv = n.detach_derivation();}
+            if (n.has_derivation()) { deriv = n.detach_derivation(); }
 
             // -- close n, it is reachable
             // -- don't worry about removing n from the obligation queue
@@ -3406,6 +3413,9 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                 }
             }
 
+            CTRACE("merge_dbg", n.is_abs(),
+                   tout << "Failed to block abstraction "
+                   << n.post()->get_id() << "\n";);
 
             IF_VERBOSE(1, verbose_stream () << (next ? " X " : " T ")
                        << std::fixed << std::setprecision(2)
@@ -3839,6 +3849,10 @@ void context::collect_statistics(statistics& st) const
     st.update("SPACER num lemmas", m_stats.m_num_lemmas);
     // -- number of restarts taken
     st.update("SPACER restarts", m_stats.m_num_restarts);
+    // -- number of time pob abstraction was invoked
+    st.update("SPACER num abstractions", m_stats.m_num_abstractions);
+    st.update("SPACER num abstractions failed",
+              m_stats.m_num_abstractions_failed);
 
     // -- time to initialize the rules
     st.update ("time.spacer.init_rules", m_init_rules_watch.get_seconds ());

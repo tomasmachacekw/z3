@@ -160,15 +160,16 @@ std::ostream &json_marshaller::marshal(std::ostream &out) const {
                 std::ostringstream pob_expr;
                 json_marshal(pob_expr, n->post(), n->get_ast_manager());
 
-                nodes << ((unsigned)nodes.tellp() == 0 ? "" : ",\n") <<
-                    "{\"id\":\"" << depth << n <<
-                    "\",\"relative_time\":\"" << expand_time / root_expand_time <<
-                    "\",\"absolute_time\":\"" << std::setprecision(2) << expand_time <<
-                    "\",\"predicate\":\"" << n->pt().head()->get_name() <<
-                    "\",\"expr_id\":\"" << n->post()->get_id() <<
-                    "\",\"pob_id\":\"" << pob_id <<
-                    "\",\"depth\":\"" << depth <<
-                    "\",\"expr\":" << pob_expr.str() << "}";
+                nodes << ((unsigned)nodes.tellp() == 0 ? "" : ",\n")
+                      << "{\"id\":\"" << depth << n << "\",\"abs\":\""
+                      << n->is_abs() << "\",\"relative_time\":\""
+                      << expand_time / root_expand_time
+                      << "\",\"absolute_time\":\"" << std::setprecision(2)
+                      << expand_time << "\",\"predicate\":\""
+                      << n->pt().head()->get_name() << "\",\"expr_id\":\""
+                      << n->post()->get_id() << "\",\"pob_id\":\"" << pob_id
+                      << "\",\"depth\":\"" << depth
+                      << "\",\"expr\":" << pob_expr.str() << "}";
                 if (n->parent()) {
                     edges << ((unsigned)edges.tellp() == 0 ? "" : ",\n") <<
                         "{\"from\":\"" << depth << n->parent() <<
