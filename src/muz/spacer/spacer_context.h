@@ -1219,6 +1219,8 @@ class context {
     // p are in the same cluster as the lemma that was used to create pob_abs
     void set_nvr_abs(const pob_ref &pob_abs);
 
+
+    void refine_pob(pob& n, expr_ref_vector& res);
     bool create_children(pob& n, const datalog::rule &r,
                          model &mdl,
                          const vector<bool>& reach_pred_used,

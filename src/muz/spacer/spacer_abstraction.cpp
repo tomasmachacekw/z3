@@ -75,4 +75,11 @@ void context::set_nvr_abs(const pob_ref &pob_abs) {
     }
 }
 
+// refine lemma. Right now the refinement is to learn the negation of pob
+void context::refine_pob(pob &n, expr_ref_vector &pob_cube) {
+    pob_cube.reset();
+    pob_cube.push_back(n.post());
+    flatten_and(pob_cube);
+    simplify_bounds(pob_cube);
+}
 } // namespace spacer
