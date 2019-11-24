@@ -52,34 +52,28 @@ bool context::mono_coeff_lm(pob &n, expr_ref &lit) {
     return false;
 }
 
-// If a lemma of n matches the mono_var_pattern, abstract all literals that
-// contain  the uninterpreted constants in the pattern.  If there are multiple
-// mono_var_patterns, pick one
-bool context::abstract_pob(pob &n, expr_ref &leq_lit, expr_ref_vector & new_pob) {
-    if (!n.can_abs()) return false;
-    SASSERT(new_pob.size() == 0);
-    expr *lhs;
-    expr_ref_vector pob_cube(m), u_consts(m), lhs_consts(m);
-    pob_cube.push_back(n.post());
-    flatten_and(pob_cube);
+void context::set_nvr_abs(const pob_ref & pob_abs) {
+  if(!pob_abs) return;
+  //HG : this pob should be an abstraction. The neighbours are selected later
+  SASSERT(pob_abs->is_abs());
+  //do not compute abstractions of abstractions
+  pob_abs->set_nvr_abs();
 
-    // assume that lhs is a term
-    lhs = (to_app(leq_lit))->get_arg(0);
-    // filter from pob_cube all literals that contain all uninterpreted constants in lhs
-    for (auto &c : pob_cube) {
-        app* c_app = to_app(c);
-        expr* not_chld;
-        if(m.is_not(c_app, not_chld)) {
-            c_app = to_app(not_chld);
-        }
-        if (c_app->get_num_args() != 2 ||  c_app->get_arg(0) != lhs)
-            new_pob.push_back(c);
-    }
+  //if pob_abs is a predecessor of another abs_pob, there are no pob related to pob_abs
+  if(!pob_abs->concrete()) return;
+  pob_abs->concrete()->set_nvr_abs();
+  //get pattern that was used to create reachable
+  const expr * pob_pattern = pob_abs->concrete()->get_abs_pattern();
+  SASSERT(pob_pattern != nullptr);
 
-    // compute abstract pob if any literals found and at least one was removed
-    if (new_pob.size() > 0 && new_pob.size() < pob_cube.size())
-        return true;
-    return false;
+  lemma_cluster* lc = pob_abs->pt().get_cluster(pob_pattern);
+  SASSERT(lc != nullptr);
+  lemma_ref_vector all_lemmas;
+  pob_abs->pt().get_all_lemmas(all_lemmas, false);
+  for(auto *l : all_lemmas) {
+      if (lc->can_contain(l))
+          l->get_pob()->set_nvr_abs();
+  }
 }
 
 } // namespace spacer

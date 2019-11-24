@@ -3089,31 +3089,6 @@ lbool context::solve_core (unsigned from_lvl)
     return l_undef;
 }
 
-//given an abstract reachable lemma, mark all related pobs to never abstract
-//again. A pob p is related to an abstract pob pob_abs if lemmas that block p are
-//neighbours of the lemma that was used to create pob_abs
-static void set_nvr_abs(const pob_ref & pob_abs) {
-  if(!pob_abs) return;
-  //HG : this pob shuold be an abstraction. The neighbours are selected later
-  SASSERT(pob_abs->is_abs());
-  //do not compute abstractions of abstractions
-  pob_abs->set_nvr_abs();
-
-  if(!pob_abs->concrete()) return;
-  pob_abs->concrete()->set_nvr_abs();
-  //get pattern that was used to create reachable
-  const expr * pob_pattern = pob_abs->concrete()->get_abs_pattern();
-  //if there is no pattern, return. This happens when pob_abs is a predecessor of
-  //another abstract pob
-  if (!pob_pattern) return ;
-
-  lemma_cluster* lc = pob_abs->pt().get_cluster(pob_pattern);
-  SASSERT(lc != nullptr);
-  const lemma_info_vector& lemmas = lc->get_lemmas();
-  for(const lemma_info& lemma : lemmas ) {
-    lemma.get_lemma()->get_pob()->set_nvr_abs();
-  }
-}
 //
 bool context::check_reachability ()
 {
@@ -3144,7 +3119,7 @@ bool context::check_reachability ()
             if (m_pob_queue.is_root(*node)) { return true; }
             //HG : if an abstraction is reachable, never abstracted related pobs in future
             if (node->is_abs()) {
-                m_stats.m_num_abstractions_failed++;
+                if(node->concrete() != nullptr) m_stats.m_num_abstractions_failed++;
                 set_nvr_abs(node);
             }
             if (is_reachable (*node->parent())) {
@@ -3632,31 +3607,43 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         expr_ref lit(m);
         //HG : compute abstraction of the pob
         if (m_abstract_pob && m_adhoc_gen && mono_coeff_lm(n, lit)) {
-          expr_ref_vector abs_pob(m);
-          if(abstract_pob(n, lit, abs_pob)) {
-            expr_ref c = mk_and(abs_pob);
-            pob *f = n.pt().find_pob(&n, c);
-            // skip if new pob is already in the queue
-            if (!f || !f->is_in_queue()) {
-              // create abstract pob
-              f = n.pt().mk_pob(n.parent(), n.level(), n.depth(), c, n.get_binding());
-              f->set_abs();
-              f->set_concrete(&n);
-              out.push_back(f);
-
-              TRACE("merge_dbg", tout << " abstracting " << mk_pp(n.post(), m)
-                    << " id is " << n.post()->get_id()
-                    << "\n into pob " << c << " id is "
-                    << f->post()->get_id() << "\n";);
-              m_stats.m_num_abstractions++;
+            expr_ref n_pob = expr_ref(n.post(), m);
+            expr_ref_vector fml_vec(m);
+            fml_vec.push_back(n_pob);
+            flatten_and(fml_vec);
+            if (!n.can_abs() || fml_vec.size() == 1) {
+                // If the pob cannot be abstracted, stop using generalization on it.
+                TRACE("merge_dbg", tout << "marked to refine pob "
+                                        << mk_pp(n.post(), m) << " id is "
+                                        << n.post()->get_id() << "\n";);
+                n.set_refine();
             }
-          }
-          else {
-            //If the pob cannot be abstracted, stop using generalization on it.
-            TRACE("merge_dbg", tout << "marked to refine pob " << mk_pp(n.post(), m)
-                  << " id is " << n.post()->get_id() << "\n";);
-            n.set_refine();
-          }
+            else {
+                //try abstracting the pob
+                expr_ref_vector abs_pob(m);
+                abstract_fml(fml_vec, lit, abs_pob);
+                SASSERT(abs_pob.size() > 0);
+                // If the lit does not appear in pob, don't abstract
+                if (fml_vec.size() > abs_pob.size()) {
+                    expr_ref c = mk_and(abs_pob);
+                    pob *f = n.pt().find_pob(&n, c);
+                    // skip if new pob is already in the queue
+                    if (!f || !f->is_in_queue()) {
+                        // create abstract pob
+                        f = n.pt().mk_pob(n.parent(), n.level(), n.depth(), c,
+                                          n.get_binding());
+                        f->set_abs();
+                        f->set_concrete(&n);
+                        out.push_back(f);
+                        TRACE("merge_dbg",
+                              tout << " abstracting " << mk_pp(n.post(), m)
+                                   << " id is " << n.post()->get_id()
+                                   << "\n into pob " << c << " id is "
+                                   << f->post()->get_id() << "\n";);
+                        m_stats.m_num_abstractions++;
+                    }
+                }
+            }
         }
 
         // schedule the node to be placed back in the queue

@@ -1233,8 +1233,6 @@ bool is_leq(expr *pattern, ast_manager &m, arith_util &a_util) {
     return false;
 }
 
-// a mono_var_pattern has only one variable in the whole expression and is
-// linear returns the literal with the variable
 bool mono_var_pattern(const expr_ref &pattern, expr_ref &leq_lit) {
     if(get_num_vars(pattern) != 1) return false;
     ast_manager &m = leq_lit.m();
@@ -1250,6 +1248,39 @@ bool mono_var_pattern(const expr_ref &pattern, expr_ref &leq_lit) {
     return count == 1;
 }
 
+void abstract_fml(expr_ref_vector &fml_vec, expr_ref &leq_lit,
+                  expr_ref_vector &abs_fml) {
+    abs_fml.reset();
+    expr *lhs;
+    ast_manager &m = leq_lit.get_manager();
+    expr_ref cube(m);
+
+    // assume that lhs is a term
+    lhs = (to_app(leq_lit))->get_arg(0);
+
+    // long way to check two expressions are the same. normalize and then
+    // antiunify
+    anti_unifier anti(m);
+    expr_ref pat(m);
+    substitution sub1(m), sub2(m);
+    app *c_app;
+    expr *neg_chld;
+    for (auto &c : fml_vec) {
+        c_app = to_app(c);
+        if (m.is_not(c_app, neg_chld)) c_app = to_app(neg_chld);
+        if (c_app->get_num_args() != 2) {
+            abs_fml.push_back(c);
+            continue;
+        }
+        anti.reset();
+        sub1.reset();
+        sub2.reset();
+        cube = expr_ref(c_app->get_arg(0), m);
+        normalize_order(cube, cube);
+        anti(cube, lhs, pat, sub1, sub2);
+        if (sub1.get_num_bindings() != 0) abs_fml.push_back(c);
+    }
+}
 } // namespace spacer
 template class rewriter_tpl<spacer::adhoc_rewriter_cfg>;
 template class rewriter_tpl<spacer::adhoc_rewriter_rpp>;
