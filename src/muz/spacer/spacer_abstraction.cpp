@@ -34,7 +34,7 @@ bool context::mono_coeff_lm(pob &n, expr_ref &lit) {
     // for every lemma l of n
     for (auto &l : lemmas) {
         // find a group containing lemma l
-        lemma_cluster* lc = n.pt().get_cluster(l);
+        lemma_cluster *lc = n.pt().clstr_match(l);
         // skip lemma if no group is found
         if (lc == nullptr) continue;
 
