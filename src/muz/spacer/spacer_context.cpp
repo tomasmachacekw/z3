@@ -3107,11 +3107,18 @@ bool context::check_reachability ()
             node = last_reachable;
             last_reachable = nullptr;
             if (m_pob_queue.is_root(*node)) { return true; }
+            // HG : if an abstraction is reachable, never abstracted related
+            // pobs in future
+            if (node->is_abs()) {
+                if (node->concrete() != nullptr)
+                    m_stats.m_num_abstractions_failed++;
+                set_nvr_abs(node);
+            }
             if (is_reachable (*node->parent())) {
                 last_reachable = node->parent ();
                 SASSERT(last_reachable->is_closed());
                 last_reachable->close ();
-            } else if (!node->parent()->is_closed()) {
+            } else if (!node->is_abs() && !node->parent()->is_closed()) {
                 /* bump node->parent */
                 node->parent ()->bump_weakness();
             }
@@ -3154,6 +3161,7 @@ bool context::check_reachability ()
         size_t old_sz = m_pob_queue.size();
         (void)old_sz;
         SASSERT (node->level () <= m_pob_queue.max_level ());
+        unsigned saved_level = node->level();
         switch (expand_pob(*node, new_pobs)) {
         case l_true:
             SASSERT(m_pob_queue.size() == old_sz);
@@ -3164,14 +3172,28 @@ bool context::check_reachability ()
             break;
         case l_false:
             SASSERT(m_pob_queue.size() == old_sz);
+            // re-queue all pobs at the current level (introduced by
+            // abstraction) and any pobs that can be blocked at a higher level
             for (auto pob : new_pobs) {
-                if (is_requeue(*pob)) {m_pob_queue.push(*pob);}
+                if (pob->level() <= saved_level || is_requeue(*pob)) {
+                    m_pob_queue.push(*pob);
+                }
             }
 
             if (m_pob_queue.is_root(*node)) {return false;}
             break;
         case l_undef:
             SASSERT(m_pob_queue.size() == old_sz);
+            // collapse abstractions if the reachability of one of them cannot
+            // be estimated
+            if (node->is_abs() && new_pobs.size() == 0) {
+                last_reachable = node;
+                last_reachable->close();
+                while (last_reachable->parent()->is_abs()) {
+                    last_reachable = last_reachable->parent();
+                    last_reachable->close();
+                }
+            }
             for (auto pob : new_pobs) {m_pob_queue.push(*pob);}
             break;
         }
@@ -3450,36 +3472,56 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
         pob_ref nref(&n);
         // -- create lemma from a pob and last unsat core
-        lemma_ref lemma = alloc(class lemma, pob_ref(&n), cube, uses_level);
+        lemma_ref lemma_pob;
+        if (!n.should_refine()) {
+            lemma_pob = alloc(class lemma, pob_ref(&n), cube, uses_level);
 
-        // -- run all lemma generalizers
-        for (unsigned i = 0;
-             // -- only generalize if lemma was constructed using farkas
-             n.use_farkas_generalizer () && !lemma->is_false() &&
-                 i < m_lemma_generalizers.size(); ++i) {
-            checkpoint ();
-            (*m_lemma_generalizers[i])(lemma);
+            // -- run all lemma generalizers
+            for (unsigned i = 0;
+                 // -- only generalize if lemma was constructed using farkas
+                 n.use_farkas_generalizer() && !lemma_pob->is_false() &&
+                 i < m_lemma_generalizers.size();
+                 ++i) {
+                checkpoint();
+                (*m_lemma_generalizers[i])(lemma_pob);
+            }
+        } else {
+            // refine lemma. Right now the refinement is to learn the negation
+            // of pob
+            expr_ref_vector pob_cube(m);
+            pob_cube.push_back(n.post());
+            flatten_and(pob_cube);
+            simplify_bounds(pob_cube);
+            lemma_pob = alloc(class lemma, pob_ref(&n), pob_cube, n.level());
+            TRACE("merge_dbg", tout << " refining " << mk_pp(n.post(), m)
+                                    << " id is " << n.post()->get_id()
+                                    << "\n into pob "
+                                    << mk_and(lemma_pob->get_cube()) << "\n";);
         }
-        DEBUG_CODE(
-            lemma_sanity_checker sanity_checker(*this);
-            sanity_checker(lemma);
-            );
 
+        CTRACE("merge_dbg", n.is_abs(),
+               tout << " Blocked abs pob " << mk_pp(n.post(), m)
+                    << " using lemma " << mk_pp(lemma_pob->get_expr(), m)
+                    << " Level " << lemma_pob->level() << " id "
+                    << n.post()->get_id() << "\n";);
+        DEBUG_CODE(lemma_sanity_checker sanity_checker(*this);
+                   sanity_checker(lemma_pob););
 
-        TRACE("spacer", tout << "invariant state: "
-              << (is_infty_level(lemma->level())?"(inductive)":"")
-              <<  mk_pp(lemma->get_expr(), m) << "\n";);
+        TRACE("spacer",
+              tout << "invariant state: "
+                   << (is_infty_level(lemma_pob->level()) ? "(inductive)" : "")
+                   << mk_pp(lemma_pob->get_expr(), m) << "\n";);
 
-        bool v = n.pt().add_lemma (lemma.get());
+        bool v = n.pt().add_lemma(lemma_pob.get());
         if (v) {
-            if (m_adhoc_gen) m_lmma_cluster->cluster(lemma);
+            if (m_adhoc_gen) m_lmma_cluster->cluster(lemma_pob);
             m_stats.m_num_lemmas++;
         }
 
         // Optionally update the node to be the negation of the lemma
         if (v && m_use_lemma_as_pob) {
             expr_ref c(m);
-            c = mk_and(lemma->get_cube());
+            c = mk_and(lemma_pob->get_cube());
             // check that the post condition is different
             if (c  != n.post()) {
                 pob *f = n.pt().find_pob(n.parent(), c);
@@ -3491,6 +3533,48 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                     f->inc_level();
                     //f->set_farkas_generalizer(false);
                     out.push_back(f);
+                }
+            }
+        }
+
+        expr_ref lit(m);
+        // HG : compute abstraction of the pob
+        if (m_abstract_pob && m_adhoc_gen && mono_coeff_lm(n, lit)) {
+            expr_ref n_pob = expr_ref(n.post(), m);
+            expr_ref_vector fml_vec(m);
+            fml_vec.push_back(n_pob);
+            flatten_and(fml_vec);
+            if (!n.can_abs() || fml_vec.size() == 1) {
+                // If the pob cannot be abstracted, stop using generalization on
+                // it.
+                TRACE("merge_dbg", tout << "marked to refine pob "
+                                        << mk_pp(n.post(), m) << " id is "
+                                        << n.post()->get_id() << "\n";);
+                n.set_refine();
+            } else {
+                // try abstracting the pob
+                expr_ref_vector abs_pob(m);
+                abstract_fml(fml_vec, lit, abs_pob);
+                SASSERT(abs_pob.size() > 0);
+                // If the lit does not appear in pob, don't abstract
+                if (fml_vec.size() > abs_pob.size()) {
+                    expr_ref c = mk_and(abs_pob);
+                    pob *f = n.pt().find_pob(&n, c);
+                    // skip if new pob is already in the queue
+                    if (!f || !f->is_in_queue()) {
+                        // create abstract pob
+                        f = n.pt().mk_pob(n.parent(), n.level(), n.depth(), c,
+                                          n.get_binding());
+                        f->set_abs();
+                        f->set_concrete(&n);
+                        out.push_back(f);
+                        TRACE("merge_dbg",
+                              tout << " abstracting " << mk_pp(n.post(), m)
+                                   << " id is " << n.post()->get_id()
+                                   << "\n into pob " << c << " id is "
+                                   << f->post()->get_id() << "\n";);
+                        m_stats.m_num_abstractions++;
+                    }
                 }
             }
         }
@@ -3510,6 +3594,12 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     }
     case l_undef:
         // something went wrong
+        // if the pob is an abstraction, bail out
+        if (n.is_abs()) {
+            n.close();
+            m_stats.m_expand_pob_undef++;
+            return l_undef;
+        }
         if (n.weakness() < 10 /* MAX_WEAKENSS */) {
             bool has_new_child = false;
             SASSERT(m_weak_abs);
