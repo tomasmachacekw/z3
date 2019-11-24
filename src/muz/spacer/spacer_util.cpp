@@ -985,4 +985,43 @@ namespace {
         }
         return count;
 }
+
+// HG : checks whether n contains a non linear multiplication containing a
+// variable
+namespace has_nonlinear_var_mul_ns {
+struct found {};
+struct proc {
+    arith_util m_arith;
+    proc(ast_manager &m) : m_arith(m) {}
+    bool is_numeral(expr *e) const {
+        // XXX possibly handle cases where e simplifies to a numeral
+        return m_arith.is_numeral(e);
+    }
+    void operator()(var *n) const {}
+    void operator()(quantifier *q) const {}
+    void operator()(app const *n) const {
+        expr *e1, *e2;
+        if (m_arith.is_mul(n, e1, e2) && ((is_var(e1) && !is_numeral(e2)) ||
+                                          (is_var(e2) && !is_numeral(e1))))
+            throw found();
+    }
+};
+} // namespace has_nonlinear_var_mul_ns
+
+bool has_nonlinear_var_mul(expr *e, ast_manager &m) {
+    has_nonlinear_var_mul_ns::proc proc(m);
+    try {
+        for_each_expr(proc, e);
+    } catch (const has_nonlinear_var_mul_ns::found &) { return true; }
+    return false;
+}
+
+bool is_mono_var(expr *pattern, ast_manager &m, arith_util &a_util) {
+    expr *e;
+    if (m.is_not(pattern, e)) return is_mono_var(e, m, a_util);
+    if (a_util.is_arith_expr(to_app(pattern)) || m.is_eq(pattern)) {
+        return get_num_vars(pattern) == 1 && !has_nonlinear_var_mul(pattern, m);
+    }
+    return false;
+}
 } // namespace spacer

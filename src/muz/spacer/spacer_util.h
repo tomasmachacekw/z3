@@ -144,6 +144,12 @@ namespace spacer {
     bool is_atom(ast_manager &m, expr *n);
     /// Returns number of free variables in a given expression
     unsigned get_num_vars(expr *e);
+
+    /// Checks whether there is a var*u_c term
+    bool has_nonlinear_var_mul(expr *e, ast_manager &m);
+
+    //check whether lit is an instance of mono_var_pattern
+    bool is_mono_var(expr *lit, ast_manager &m, arith_util &a_util);
 }
 
 #endif
