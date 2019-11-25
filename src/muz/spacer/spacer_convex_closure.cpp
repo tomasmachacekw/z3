@@ -70,7 +70,7 @@ void convex_closure::rewrite_lin_deps() {
                 } else {
                     expr *prod = m_arith.mk_int(-1 * val);
                     if (j != row.size() - 1)
-                        prod = m_arith.mk_mul(m_dim_vars[j], prod);
+                        prod = val == rational::minus_one()? m_dim_vars[j] : m_arith.mk_mul(prod, m_dim_vars[j]);
                     rw.push_back(prod);
                 }
             }
