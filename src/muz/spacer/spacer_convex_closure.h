@@ -15,20 +15,26 @@ class convex_closure {
     bool m_use_sage;
     spacer_matrix m_data;
     bool is_int_points() const;
-    vector<expr *> m_dim_vars;
+    expr_ref_vector m_dim_vars;
     arith_kernel *m_kernel;
+    unsigned reduce_dim();
+    void rewrite_lin_deps();
+    void add_lin_deps(expr_ref_vector& res_vec);
     var_ref_vector m_nw_vars;
     struct stats {
         stopwatch watch;
         stats() { reset(); }
         void reset() { watch.reset(); }
     };
+    void mul_if_not_one(rational coeff, expr *e, expr_ref &res);
     stats m_st;
 
+    //compute one dimensional convex closure
+    void do_one_dim_cls(expr_ref var, expr_ref_vector& res);
   public:
     convex_closure(ast_manager &man, bool use_sage)
         : m(man), m_arith(m), m_dim(0), m_use_sage(use_sage), m_data(0, 0),
-          m_nw_vars(m) {
+          m_dim_vars(m), m_nw_vars(m) {
         if (m_use_sage) m_kernel = new Sage_kernel(m_data);
     }
     ~convex_closure() {
@@ -77,6 +83,9 @@ class convex_closure {
         m_data.add_row(point);
     };
 
+    /// \brief compute convex closure of current set of points
+    /// return true if it was possible to compute the closure
+    bool closure(expr_ref_vector &res);
     void collect_statistics(statistics &st) const;
     void reset_statistics() { m_st.reset(); }
 };
