@@ -17,6 +17,8 @@ class convex_closure {
     bool is_int_points() const;
     vector<expr *> m_dim_vars;
     arith_kernel *m_kernel;
+    unsigned reduce_dim();
+    void rewrite_lin_deps();
     var_ref_vector m_nw_vars;
     struct stats {
         stopwatch watch;
@@ -77,6 +79,9 @@ class convex_closure {
         m_data.add_row(point);
     };
 
+    /// \brief compute convex closure of current set of points
+    /// return true if it was possible to compute the closure
+    bool closure(expr_ref_vector &res);
     void collect_statistics(statistics &st) const;
     void reset_statistics() { m_st.reset(); }
 };
