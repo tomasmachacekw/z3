@@ -20,6 +20,7 @@ class convex_closure {
     unsigned reduce_dim();
     void rewrite_lin_deps();
     var_ref_vector m_nw_vars;
+    void syn_cls(unsigned i, expr_ref_vector& res_vec);
     struct stats {
         stopwatch watch;
         stats() { reset(); }
