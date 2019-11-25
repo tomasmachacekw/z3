@@ -251,16 +251,16 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
 
     lc.add_lemma(lemma);
     substitution subs_newLemma(m), subs_oldLemma(m);
-    expr_ref cube(m), normalizedCube(m), out(m);
-    expr_ref_vector non_boolean_literals(m), non_bool_lit_pattern(m);
+    expr_ref cube(m), out(m);
+    expr_ref_vector non_bool_lit_pattern(m);
     expr_ref_vector conjuncts(m);
     expr_ref_vector non_var_or_bool_Literals(m);
 
     const expr_ref &pattern(lc.get_pattern());
     cube = mk_and(lemma->get_cube());
-    normalize_order(cube, normalizedCube);
+    normalize_order(cube, cube);
     TRACE("merge_dbg",
-          tout << "Start merging with lemma cube: " << normalizedCube
+          tout << "Start merging with lemma cube: " << cube
                << "\n Discovered pattern: " << pattern << "\n";);
 
     if (has_nonlinear_var_mul(pattern, m)) {
@@ -277,11 +277,9 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
 
     // Seperating boolean literals and non-boolean ones
     for (expr *c : norm_pat_vec) {
-        if (m.is_not(c) && is_uninterp_const(to_app(c)->get_arg(0))) {
-            non_var_or_bool_Literals.push_back(c);
-        } else if (!is_uninterp_const(c) && get_num_vars(c) > 0) {
+        if (get_num_vars(c) > 0)
             non_bool_lit_pattern.push_back(c);
-        } else
+        else
             non_var_or_bool_Literals.push_back(c);
     }
     TRACE("merge_dbg_verb",
@@ -290,14 +288,6 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                << "non-bools: " << non_bool_lit_pattern << "\n";);
 
     SASSERT(!non_bool_lit_pattern.empty());
-    non_boolean_literals.reset();
-    expr_ref_vector normalizedCube_vec(m);
-    flatten_and(normalizedCube, normalizedCube_vec);
-    for (auto c : normalizedCube_vec) {
-        if (!non_var_or_bool_Literals.contains(c))
-            non_boolean_literals.push_back(c);
-    }
-    normalizedCube = mk_and(non_boolean_literals);
 
     unsigned n_vars = get_num_vars(mk_and(non_bool_lit_pattern));
     SASSERT(n_vars > 0);
@@ -311,13 +301,15 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     const lemma_info_vector lemmas = lc.get_lemmas();
     const substitution &t_sub(lemmas[0].get_sub());
 
+    expr_offset r;
+    std::pair<unsigned, unsigned> v;
+    expr* var = nullptr;
+
     // add dimension variable
     for (unsigned j = 0; j < n_vars; j++) {
         // long way to get variable
-        expr_offset r;
-        std::pair<unsigned, unsigned> v;
         t_sub.get_binding(j, v, r);
-        expr *var = var_find(pattern, v.first);
+        var = var_find(pattern, v.first);
         SASSERT(var != nullptr);
         m_cvx_cls.set_dimension(j, var);
         m_dim_vars[j] = var;
