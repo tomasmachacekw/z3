@@ -20,13 +20,16 @@ class convex_closure {
     unsigned reduce_dim();
     void rewrite_lin_deps();
     var_ref_vector m_nw_vars;
-    void syn_cls(unsigned i, expr_ref_vector& res_vec);
+    void syn_cls(unsigned i, expr_ref_vector &res_vec);
     struct stats {
         stopwatch watch;
         stats() { reset(); }
         void reset() { watch.reset(); }
     };
     stats m_st;
+
+    bool compute_div_constraint(const vector<rational> &data, rational &m,
+                                rational &d);
 
   public:
     convex_closure(ast_manager &man, bool use_sage)
