@@ -102,7 +102,7 @@ void convex_closure::syn_cls(unsigned i, expr_ref_vector& res_vec) {
     vector<expr *> add;
     for(unsigned j = 0; j < m_nw_vars.size(); j++) {
         expr* exp = to_expr(m_nw_vars.get(j));
-        expr* mul = m_arith.mk_mul(m_arith.mk_real(m_data.get(j, i)), exp);
+        expr *mul = m_data.get(j, i) == rational::one() ? exp : m_arith.mk_mul(m_arith.mk_real(m_data.get(j, i)), exp);
         add.push_back(mul);
     }
     res_vec.push_back(m.mk_eq(m_arith.mk_add(add.size(), add.c_ptr()), m_dim_vars[i]));
