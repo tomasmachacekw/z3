@@ -143,12 +143,13 @@ bool convex_closure::compute_div_constraint(const vector<rational> &data,
     if (m <= 1) return false;
     d = data[0] % m;
     // work around for z3::rational::rem returning negative numbers.
-    d = abs(d);
+    d = (m + d) % m;
+    SASSERT(d >= rational::zero());
 
     TRACE("cvx_dbg_verb",
           tout << "The cd  is " << m << " and off is " << d << "\n";);
-    if (r % m != d) {
-        for (rational r : data) { return false; }
+    for (rational r : data) {
+        if (((r % m) + m) % m != d) { return false; }
     }
     TRACE("cvx_dbg_verb", tout << "div constraint generated\n";);
     return true;
