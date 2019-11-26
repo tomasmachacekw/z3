@@ -29,7 +29,27 @@ expr *var_find(expr *exp, unsigned x) {
     }
     return nullptr;
 }
+    struct found {};
+struct mod_chld {
+    ast_manager &m;
+    arith_util m_arith;
+    mod_chld(ast_manager& a_m): m(a_m), m_arith(m) {}
+    void operator() (expr *n) const {}
+    void operator() (app *n) {
+        if(m_arith.is_mod(n))
+            throw found();
+    }
+};
 
+bool has_mod_chld(expr_ref e) {
+    mod_chld t(e.get_manager());
+    try {
+        for_each_expr(t, e);
+        return true;
+    } catch(const found &){
+        return false;
+    }
+}
 struct compute_lcm {
     ast_manager &m;
     arith_util m_arith;
@@ -203,13 +223,30 @@ void lemma_merge_generalizer::to_int(expr_ref &fml) {
 void lemma_merge_generalizer::normalize(expr_ref &fml) {
     expr_ref_vector fml_vec(m), rw_fml(m);
     flatten_and(fml.get(), fml_vec);
+    expr* s, *t;
     for (expr *e : fml_vec) {
         if (!(m_arith.is_arith_expr(e) || m.is_eq(e))) continue;
-        rational lcm = get_lcm(e);
         app *e_app = to_app(e);
         SASSERT(e_app->get_num_args() == 2);
         expr_ref lhs(e_app->get_arg(0), m);
         expr_ref rhs(e_app->get_arg(1), m);
+        //handle mod
+        if(m_arith.is_mod(lhs, s, t)) {
+            rational val;
+            bool is_int = false;
+            // if e is mod, it should already be in linear integer arithmetic
+            if(!(m_arith.is_numeral(t, val, is_int) && is_int && get_lcm(s) == rational::one()))
+                NOT_IMPLEMENTED_YET();
+            //mod cannot be equal to a non-integer
+            SASSERT(m_arith.is_numeral(rhs, val, is_int) && is_int);
+            //since e is already in linear integer arithmetic, it is already normalized
+            rw_fml.push_back(e);
+            continue;
+        }
+        //make sure that no child is a mod expression
+        SASSERT(!has_mod_chld(lhs));
+        SASSERT(!has_mod_chld(rhs));
+        rational lcm = get_lcm(e);
         if (lcm != 1) {
             mul_and_simp(lhs, lcm);
             mul_and_simp(rhs, lcm);
