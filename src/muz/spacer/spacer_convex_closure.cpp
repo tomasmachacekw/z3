@@ -134,30 +134,21 @@ bool convex_closure::compute_div_constraint(const vector<rational> &data,
           tout << "\n";);
     SASSERT(data.size() > 1);
     SASSERT(is_sorted(data));
-    // data without duplicates
-    vector<rational> sequence;
-    sequence.push_back(data[0]);
-    for (rational r : data) {
-        if (r != sequence[sequence.size() - 1]) sequence.push_back(r);
-    }
-    if (sequence.size() <= 1) return false;
     // find the least difference
-    m = sequence[0] - sequence[1];
-    for (unsigned i = 2; i < sequence.size(); i++) {
-        rational cd = sequence[i - 1] - sequence[i];
-        if (cd < m) m = cd;
+    m = data[0] - data[1];
+    for (unsigned i = 2; i < data.size(); i++) {
+        rational cd = data[i - 1] - data[i];
+        if (cd < m && cd > 0) m = cd;
     }
-    SASSERT(m > 0);
-    d = sequence[0] % m;
-    SASSERT(m != rational::one() || d == rational::zero());
+    if (m <= 1) return false;
+    d = data[0] % m;
     // work around for z3::rational::rem returning negative numbers.
     d = abs(d);
 
     TRACE("cvx_dbg_verb",
           tout << "The cd  is " << m << " and off is " << d << "\n";);
-    if (m == 1) return false;
-    for (rational r : sequence) {
-        if (r % m != d) { return false; }
+    if (r % m != d) {
+        for (rational r : data) { return false; }
     }
     TRACE("cvx_dbg_verb", tout << "div constraint generated\n";);
     return true;
