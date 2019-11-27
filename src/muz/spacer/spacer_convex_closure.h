@@ -15,7 +15,7 @@ class convex_closure {
     bool m_use_sage;
     spacer_matrix m_data;
     bool is_int_points() const;
-    vector<expr *> m_dim_vars;
+    expr_ref_vector m_dim_vars;
     arith_kernel *m_kernel;
     unsigned reduce_dim();
     void rewrite_lin_deps();
@@ -36,6 +36,7 @@ class convex_closure {
         stats() { reset(); }
         void reset() { watch.reset(); }
     };
+    void mul_if_not_one(rational coeff, expr *e, expr_ref &res);
     stats m_st;
 
     bool compute_div_constraint(const vector<rational> &data, rational &m,
@@ -44,7 +45,7 @@ class convex_closure {
   public:
     convex_closure(ast_manager &man, bool use_sage)
         : m(man), m_arith(m), m_dim(0), m_use_sage(use_sage), m_data(0, 0),
-          m_nw_vars(m) {
+          m_dim_vars(m), m_nw_vars(m) {
         if (m_use_sage) m_kernel = new Sage_kernel(m_data);
     }
     ~convex_closure() {

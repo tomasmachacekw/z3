@@ -34,6 +34,13 @@ unsigned convex_closure::reduce_dim() {
     return m_dim - ker.num_rows();
 }
 
+void convex_closure::mul_if_not_one(rational coeff, expr *e, expr_ref &res) {
+    if (coeff == rational::one())
+        res = expr_ref(e, m);
+    else
+        res = m_arith.mk_mul(m_arith.mk_numeral(coeff, coeff.is_int()), e);
+}
+
 // for each row [0, 1, 0, 1 , 1], rewrite v1 = -1*v3 + -1*1
 void convex_closure::rewrite_lin_deps() {
     const spacer_matrix &ker(m_kernel->get_kernel());
@@ -45,7 +52,7 @@ void convex_closure::rewrite_lin_deps() {
     expr_ref_vector rw(m);
     // are we constructing rhs or lhs
     bool rhs = false;
-    vector<expr *> temp(m_dim_vars);
+    expr_ref_vector temp(m_dim_vars);
     // start generating equalities from bottom row
     for (unsigned i = n_rows; i > 0; i--) {
 
@@ -69,11 +76,11 @@ void convex_closure::rewrite_lin_deps() {
                     // In integer echelon form, the pivot need not be 1
                     if (val != 1) coeff = val;
                 } else {
-                    expr *prod = m_arith.mk_int(-1 * val);
+                    expr_ref prod(m);
                     if (j != row.size() - 1)
-                        prod = val == rational::minus_one()
-                                   ? m_dim_vars[j]
-                                   : m_arith.mk_mul(prod, m_dim_vars[j]);
+                        mul_if_not_one(-1 * val, m_dim_vars[j].get(), prod);
+                    else
+                        prod = m_arith.mk_int(-1 * val);
                     rw.push_back(prod);
                 }
             }
@@ -83,37 +90,38 @@ void convex_closure::rewrite_lin_deps() {
         SASSERT(pv != -1);
 
         if (rw.size() == 0) {
-            temp[pv] =
-                m_arith.mk_eq(m_dim_vars[pv], m_arith.mk_int(rational::zero()));
+            temp[pv] = m_arith.mk_eq(m_dim_vars[pv].get(),
+                                     m_arith.mk_int(rational::zero()));
             continue;
         }
 
-        expr *rw_term = m_arith.mk_add(rw.size(), rw.c_ptr());
-        expr *pv_var = m_dim_vars[pv];
-        if (coeff != 1) {
-            pv_var = m_arith.mk_mul(pv_var, m_arith.mk_int(coeff));
-        }
+        expr_ref rw_term(m);
+        rw_term = m_arith.mk_add(rw.size(), rw.c_ptr());
+        expr_ref pv_var(m);
+        mul_if_not_one(coeff, m_dim_vars[pv].get(), pv_var);
+
         rw_term = m.mk_eq(pv_var, rw_term);
-        TRACE("cvx_dbg", tout << "rewrote " << mk_pp(m_dim_vars[pv], m)
-                              << " into " << mk_pp(rw_term, m) << "\n";);
+        TRACE("cvx_dbg", tout << "rewrote " << mk_pp(m_dim_vars[pv].get(), m)
+                              << " into " << rw_term << "\n";);
         temp[pv] = rw_term;
     }
+
+    // copy temp back to m_dim_vars
     m_dim_vars.reset();
-    m_dim_vars = temp;
+    for (auto t : temp) m_dim_vars.push_back(t);
 }
 
 void convex_closure::add_sum_cnstr(unsigned i, expr_ref_vector &res_vec) {
-    vector<expr *> add;
+    expr_ref_vector add(m);
+    expr_ref exp(m);
+    expr_ref mul(m);
     for (unsigned j = 0; j < m_nw_vars.size(); j++) {
-        expr *exp = to_expr(m_nw_vars.get(j));
-        expr *mul =
-            m_data.get(j, i) == rational::one()
-                ? exp
-                : m_arith.mk_mul(m_arith.mk_real(m_data.get(j, i)), exp);
+        exp = to_expr(m_nw_vars.get(j));
+        mul_if_not_one(m_data.get(j, i), exp.get(), mul);
         add.push_back(mul);
     }
     res_vec.push_back(
-        m.mk_eq(m_arith.mk_add(add.size(), add.c_ptr()), m_dim_vars[i]));
+        m.mk_eq(m_arith.mk_add(add.size(), add.c_ptr()), m_dim_vars[i].get()));
 }
 
 void convex_closure::syn_cls(expr_ref_vector &res_vec) {
@@ -133,7 +141,7 @@ void convex_closure::syn_cls(expr_ref_vector &res_vec) {
     }
 
     for (unsigned i = 0; i < m_dim_vars.size(); i++) {
-        e = m_dim_vars[i];
+        e = m_dim_vars[i].get();
         if (is_var(e)) add_sum_cnstr(i, res_vec);
     }
 
@@ -186,13 +194,16 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
 
     unsigned red_dim = reduce_dim();
     // store dim var before rewrite
-    expr *var = m_dim_vars[0];
+    expr_ref var(m);
+    var = m_dim_vars[0].get();
     if (red_dim < dims()) {
         rewrite_lin_deps();
         expr *lhs, *rhs;
-        for (expr *v : m_dim_vars) {
-            if (m.is_eq(v, lhs, rhs) && lhs != rhs)
+        for (auto v : m_dim_vars) {
+            if (m.is_eq(v, lhs, rhs)) {
+                SASSERT(lhs != rhs);
                 res_vec.push_back(expr_ref(v, m));
+            }
         }
         TRACE("cvx_dbg", tout << "Linear equalities true of the matrix "
                               << mk_and(res_vec) << "\n";);
@@ -215,16 +226,17 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
     std::sort(
         data.begin(), data.end(),
         [](rational const &x, rational const &y) -> bool { return x > y; });
-    expr *ub = m_arith.mk_int(data[0]);
-    expr *lb = m_arith.mk_int(data[data.size() - 1]);
 
-    expr *ub_expr = m_arith.mk_le(var, ub);
-    expr *lb_expr = m_arith.mk_ge(var, lb);
+    expr_ref ub_expr(m), lb_expr(m);
+    ub_expr = m_arith.mk_le(var, m_arith.mk_int(data[0]));
+    lb_expr = m_arith.mk_ge(var, m_arith.mk_int(data[data.size() - 1]));
+
     rational cr, off;
     bool div_constr = compute_div_constraint(data, cr, off);
     if (div_constr)
         res_vec.push_back(m_arith.mk_eq(m_arith.mk_mod(var, m_arith.mk_int(cr)),
                                         m_arith.mk_int(off)));
+
     res_vec.push_back(ub_expr);
     res_vec.push_back(lb_expr);
     return true;
