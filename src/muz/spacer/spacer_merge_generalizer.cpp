@@ -15,21 +15,7 @@
 #include "smt/smt_solver.h"
 
 namespace {
-// returns that var in expr whose idx is x
-// returns nullptr if var is not found
-expr *var_find(expr *exp, unsigned x) {
-    if (is_var(exp) && to_var(exp)->get_idx() == x) return exp;
-    if (is_app(exp)) {
-        app *app = to_app(exp);
-        unsigned n_chld = app->get_num_args();
-        for (unsigned i = 0; i < n_chld; i++) {
-            expr *res = var_find(app->get_arg(i), x);
-            if (res != nullptr) return res;
-        }
-    }
-    return nullptr;
-}
-    struct found {};
+struct found {};
 struct mod_chld {
     ast_manager &m;
     arith_util m_arith;
@@ -68,7 +54,7 @@ struct compute_lcm {
 namespace spacer {
 lemma_merge_generalizer::lemma_merge_generalizer(context &ctx)
     : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m),
-      m_cvx_cls(m, ctx.use_sage()), m_dim_frsh_cnsts(m) {
+      m_cvx_cls(m, ctx.use_sage()), m_dim_frsh_cnsts(m), m_dim_vars(m) {
     m_consts.push_back(rational::one());
     m_consts.push_back(rational::zero());
     m_consts.push_back(rational::minus_one());
@@ -115,7 +101,6 @@ void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
 }
 
 void lemma_merge_generalizer::to_real(expr_ref &fml) {
-    TRACE("merge_dbg_verb", tout << "to_real " << fml << "\n";);
     if (m_arith.is_numeral(fml)) return;
     if (is_uninterp_const(fml) && m_arith.is_int(fml)) {
         fml = m_arith.mk_to_real(fml);
@@ -125,8 +110,9 @@ void lemma_merge_generalizer::to_real(expr_ref &fml) {
         app *fml_app = to_app(fml);
         unsigned N = fml_app->get_num_args();
         expr_ref_vector nw_args(m);
+        expr_ref chld(m);
         for (unsigned i = 0; i < N; i++) {
-            expr_ref chld(fml_app->get_arg(i), m);
+            chld = fml_app->get_arg(i);
             to_real(chld);
             nw_args.push_back(chld);
         }
@@ -145,8 +131,9 @@ rational lemma_merge_generalizer::get_lcm(expr *e) {
 
 void lemma_merge_generalizer::mul_and_simp(expr_ref &fml, rational num) {
     SASSERT(m_arith.is_arith_expr(fml));
-    SASSERT(!num.is_zero());
     SASSERT(num.is_pos());
+    if(num.is_one()) return;
+
     TRACE("merge_dbg_verb",
           tout << "mul and simp called with " << mk_pp(fml, m) << "\n";);
     if (is_uninterp_const(fml)) {
@@ -247,6 +234,7 @@ void lemma_merge_generalizer::normalize(expr_ref &fml) {
         SASSERT(!has_mod_chld(lhs));
         SASSERT(!has_mod_chld(rhs));
         rational lcm = get_lcm(e);
+        SASSERT(lcm != rational::zero());
         if (lcm != 1) {
             mul_and_simp(lhs, lcm);
             mul_and_simp(rhs, lcm);
@@ -262,6 +250,7 @@ void lemma_merge_generalizer::normalize(expr_ref &fml) {
     }
     fml = mk_and(rw_fml);
 }
+
 void lemma_merge_generalizer::to_real(const expr_ref_vector &fml,
                                       expr_ref &nw_fml) {
     expr_ref lhs(m), rhs(m);
@@ -274,100 +263,35 @@ void lemma_merge_generalizer::to_real(const expr_ref_vector &fml,
         rhs = e_app->get_arg(1);
         to_real(rhs);
         to_real(lhs);
-        rw_fml.push_back(
-            expr_ref(to_expr(m.mk_app(e_app->get_family_id(),
-                                      e_app->get_decl_kind(), lhs, rhs)),
-                     m));
+        rw_fml.push_back(to_expr(m.mk_app(e_app->get_family_id(),
+                                      e_app->get_decl_kind(), lhs, rhs)));
     }
     nw_fml = mk_and(rw_fml);
 }
-bool lemma_merge_generalizer::core(lemma_ref &lemma) {
-    lemma_cluster *pt_cls = (&*lemma->get_pob())->pt().clstr_match(lemma);
-    if (pt_cls == nullptr) return false;
-    lemma_cluster lc(*pt_cls);
-
-    lc.add_lemma(lemma);
-    substitution subs_newLemma(m), subs_oldLemma(m);
-    expr_ref cube(m), out(m);
-    expr_ref_vector non_bool_lit_pattern(m);
-    expr_ref_vector conjuncts(m);
-    expr_ref_vector non_var_or_bool_Literals(m);
 
 void lemma_merge_generalizer::add_dim_vars(const lemma_cluster& lc) {
     const expr_ref &pattern(lc.get_pattern());
-    cube = mk_and(lemma->get_cube());
-    normalize_order(cube, cube);
-    TRACE("merge_dbg",
-          tout << "Start merging with lemma cube: " << cube
-               << "\n Discovered pattern: " << pattern << "\n";);
-
-    if (has_nonlinear_var_mul(pattern, m)) {
-        TRACE("merge_dbg",
-              tout << "Found non linear pattern. Marked to split \n";);
-        lemma->get_pob()->set_pattern(pattern.get());
-        lemma->get_pob()->set_split();
-        return false;
-    }
-
-    expr_ref_vector norm_pat_vec(m);
-    norm_pat_vec.push_back(pattern);
-    flatten_and(norm_pat_vec);
-
-    // Seperating boolean literals and non-boolean ones
-    for (expr *c : norm_pat_vec) {
-        if (get_num_vars(c) > 0)
-            non_bool_lit_pattern.push_back(c);
-        else
-            non_var_or_bool_Literals.push_back(c);
-    }
-    TRACE("merge_dbg_verb",
-          tout << "partitioned " << pattern << "into:\n"
-               << "bools and non vars: " << non_var_or_bool_Literals << "\n"
-               << "non-bools: " << non_bool_lit_pattern << "\n";);
-
-    SASSERT(!non_bool_lit_pattern.empty());
-
-    unsigned n_vars = get_num_vars(mk_and(non_bool_lit_pattern));
-    SASSERT(n_vars > 0);
-    // start convex closure computation
-    m_cvx_cls.reset(n_vars);
-    m_dim_vars.reset();
-    m_dim_frsh_cnsts.reset();
-    m_dim_frsh_cnsts.reserve(n_vars);
-    m_dim_vars.reserve(n_vars);
-
-    const lemma_info_vector lemmas = lc.get_lemmas();
-    const substitution &t_sub(lemmas[0].get_sub());
-
     expr_offset r;
     std::pair<unsigned, unsigned> v;
-    expr* var = nullptr;
-
-    // add dimension variable
     unsigned n_vars = get_num_vars(pattern);
     // temporary pointer to an existing expr
     expr_ref var(m);
     const lemma_info_vector& lemmas(lc.get_lemmas());
     const substitution &t_sub(lemmas[0].get_sub());
     for (unsigned j = 0; j < n_vars; j++) {
-        // long way to get variable
         // get var id
         t_sub.get_binding(j, v, r);
-        var = var_find(pattern, v.first);
-        SASSERT(var != nullptr);
         // get variable
         var = m.mk_var(v.first, m_arith.mk_int());
         m_cvx_cls.set_dimension(j, var);
         m_dim_vars[j] = var;
         app_ref var_app(m);
         var_app = m.mk_fresh_const("mrg_cvx", m_arith.mk_int());
-        // TODO: handle a <= x <= b
         // TODO: do we need two variables for a <= x <= b ?
         m_dim_frsh_cnsts[j] = var_app;
     }
 }
 
-    // add points
 void lemma_merge_generalizer::add_points(const lemma_cluster& lc) {
     vector<rational> point;
     unsigned n_vars = get_num_vars(lc.get_pattern());
@@ -378,11 +302,8 @@ void lemma_merge_generalizer::add_points(const lemma_cluster& lc) {
         const substitution &sub(lemma.get_sub());
         point.reset();
         for (unsigned j = 0; j < n_vars; j++) {
-            expr_offset r;
-            std::pair<unsigned, unsigned> v;
             sub.get_binding(j, v, r);
             rational coeff;
-            bool is_int;
             bool is_int = false;
             m_arith.is_numeral(r.get_expr(), coeff, is_int);
             SASSERT(is_int);
@@ -400,6 +321,28 @@ void lemma_merge_generalizer::reset(unsigned n_vars) {
         m_dim_vars.reserve(n_vars);
         m_exact = true;
 }
+
+bool lemma_merge_generalizer::core(lemma_ref &lemma) {
+    lemma_cluster *pt_cls = (&*lemma->get_pob())->pt().clstr_match(lemma);
+    if (pt_cls == nullptr) return false;
+    lemma_cluster lc(*pt_cls);
+
+    lc.add_lemma(lemma);
+
+    const expr_ref &pattern(lc.get_pattern());
+
+    TRACE("merge_dbg",
+          tout << "Start merging with lemma cube: " << lemma->get_cube()
+               << "\n Discovered pattern: " << pattern << "\n";);
+
+    if (has_nonlinear_var_mul(pattern, m)) {
+        TRACE("merge_dbg",
+              tout << "Found non linear pattern. Marked to split \n";);
+        lemma->get_pob()->set_pattern(pattern.get());
+        lemma->get_pob()->set_split();
+        return false;
+    }
+
     unsigned n_vars = get_num_vars(pattern);
     SASSERT(n_vars > 0);
     reset(n_vars);
@@ -409,22 +352,26 @@ void lemma_merge_generalizer::reset(unsigned n_vars) {
     add_points(lc);
 
     expr_ref_vector cls(m);
-    bool exact = m_cvx_cls.closure(cls);
-    CTRACE("merge_dbg", !exact,
+    m_exact = m_cvx_cls.closure(cls);
+    CTRACE("merge_dbg", !m_exact,
            tout << "Convex closure introduced new variables. Closure is"
                 << mk_and(cls) << "\n";);
-    if (!exact) {
+
+    if (!m_exact) {
+        // Add the new variables to the list of variables to be eliminated
         const var_ref_vector &vars = m_cvx_cls.get_nw_vars();
+        app_ref var_app(m);
         for (auto v : vars) {
             m_dim_vars.push_back(to_expr(v));
-            app_ref var_app(m);
             var_app = m.mk_fresh_const("mrg_syn_cvx", m_arith.mk_real());
             m_dim_frsh_cnsts.push_back(var_app);
         }
     }
+
+
     cls.push_back(pattern.get());
     expr_ref cvx_pattern(m);
-    rewrite_pattern(mk_and(cls), cvx_pattern);
+    var_to_const(mk_and(cls), cvx_pattern);
 
     model_ref mdl;
 
@@ -439,20 +386,19 @@ void lemma_merge_generalizer::reset(unsigned n_vars) {
     sol->get_model(mdl);
     SASSERT(mdl.get() != nullptr);
     TRACE("merge_dbg", tout << "calling mbp with " << cvx_pattern << "\n";);
-    expr_ref mbp_pat(cvx_pattern, m);
-    qe_project(m, m_dim_frsh_cnsts, mbp_pat, *mdl.get(), true, true, true);
+    qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true, true);
     TRACE("merge_dbg", tout << "Pattern after mbp of computing cvx cls: "
-                            << mbp_pat << "\n";);
+                            << cvx_pattern << "\n";);
     if (m_dim_frsh_cnsts.size() > 0) {
         TRACE("merge_dbg", tout << "could not eliminate all vars\n";);
         return false;
     }
-    if (!exact) { normalize(mbp_pat); }
+    if (!m_exact) { normalize(cvx_pattern); }
     // check whether mbp over approximates cnx_cls
     // If not, remove literals from mbp till mbp overapproximates cnx_cls
     expr_ref_vector neg_mbp(m);
     pat.reset();
-    flatten_and(mbp_pat, pat);
+    flatten_and(cvx_pattern, pat);
     for (expr *e : pat) { neg_mbp.push_back(mk_not(m, e)); }
     expr_ref_vector asmpts(m);
     while (neg_mbp.size() > 0) {
@@ -462,6 +408,7 @@ void lemma_merge_generalizer::reset(unsigned n_vars) {
         TRACE("merge_dbg", tout << "checking neg mbp: " << asmpt << "\n";);
         res = sol->check_sat(1, asmpts.c_ptr());
         if (res == l_false) { return check_inductive_and_update(lemma, pat); }
+        //remove all literals that are true in the model
         model_ref rslt;
         sol->get_model(rslt);
         expr_ref rslt_val(m);
@@ -478,37 +425,35 @@ void lemma_merge_generalizer::reset(unsigned n_vars) {
     return false;
 }
 
-// rewrites all variables into their corresponding frsh constants
-void lemma_merge_generalizer::rewrite_pattern(expr *pattern,
+void lemma_merge_generalizer::var_to_const(expr *pattern,
                                               expr_ref &rw_pattern) {
     expr_safe_replace s(m);
     obj_map<expr, expr *> sub;
     for (unsigned i = 0; i < m_dim_vars.size(); i++) {
-        s.insert(m_dim_vars[i], to_expr(m_dim_frsh_cnsts[i].get()));
+        s.insert(m_dim_vars[i].get(), to_expr(m_dim_frsh_cnsts[i].get()));
     }
     s(pattern, rw_pattern);
     TRACE("merge_dbg_verb", tout << "Rewrote all vars into u_consts "
                                  << mk_pp(pattern, m) << " into " << rw_pattern
                                  << "\n";);
-    bool all_ints = true;
-    for (auto &a : m_dim_vars) {
-        if (m_arith.is_real(a)) {
-            all_ints = false;
-            break;
-        }
-    }
+
     expr_ref_vector nw_pattern(m);
     flatten_and(rw_pattern, nw_pattern);
-    if (!all_ints) {
-        to_real(nw_pattern, rw_pattern);
-        TRACE("merge_dbg_verb",
-              tout << "To real produced " << rw_pattern << "\n";);
-        for (unsigned i = 0; i < m_dim_vars.size(); i++) {
-            if (m_arith.is_real(m_dim_frsh_cnsts[i].get())) continue;
-            app_ref var_app(m);
-            var_app = m_arith.mk_to_real(m_dim_frsh_cnsts[i].get());
-            m_dim_frsh_cnsts[i] = var_app;
-        }
+
+    if (m_exact) {
+        TRACE("merge_dbg_verb", tout << "Rewrote " << mk_pp(pattern, m)
+                                     << " into " << rw_pattern << "\n";);
+        return;
+    }
+
+    to_real(nw_pattern, rw_pattern);
+    TRACE("merge_dbg_verb",
+          tout << "To real produced " << rw_pattern << "\n";);
+    for (unsigned i = 0; i < m_dim_vars.size(); i++) {
+        if (m_arith.is_real(m_dim_frsh_cnsts[i].get())) continue;
+        app_ref var_app(m);
+        var_app = m_arith.mk_to_real(m_dim_frsh_cnsts[i].get());
+        m_dim_frsh_cnsts[i] = var_app;
     }
     TRACE("merge_dbg_verb", tout << "Rewrote " << mk_pp(pattern, m) << " into "
                                  << rw_pattern << "\n";);
@@ -528,8 +473,6 @@ bool lemma_merge_generalizer::check_inductive_and_update(
                            lemma->weakness())) {
         TRACE("merge_dbg", tout << "POB blocked using merge at level "
                                 << uses_level << "\n";);
-        // TODO update cluster to remove this lemmas if it no longer
-        // matches the pattern
         lemma->update_cube(lemma->get_pob(), conj);
         lemma->set_level(uses_level);
         return true;

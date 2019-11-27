@@ -185,14 +185,13 @@ class lemma_merge_generalizer : public lemma_generalizer {
 
     ast_manager &m;
     arith_util m_arith;
-    typedef std::pair<rational, expr *> num_expr_pair;
-    typedef vector<num_expr_pair> num_expr_pair_vec;
     stats m_st;
     convex_closure m_cvx_cls;
     // save fresh constants for mbp
     app_ref_vector m_dim_frsh_cnsts;
-    vector<expr *> m_dim_vars;
+    expr_ref_vector m_dim_vars;
     vector<rational> m_consts;
+    bool m_exact;
 
   public:
     lemma_merge_generalizer(context &ctx);
@@ -204,8 +203,7 @@ class lemma_merge_generalizer : public lemma_generalizer {
 
   private:
     bool core(lemma_ref &lemma);
-    void rewrite_pattern(expr *pattern, expr_ref &rw_pattern);
-    //rewrites a formula
+
     // create new vars to compute convex cls
     void add_dim_vars(const lemma_cluster& lc);
 
@@ -215,14 +213,29 @@ class lemma_merge_generalizer : public lemma_generalizer {
     //reset state
     void reset(unsigned n_vars);
 
+    //replaces vars with uninterpreted constants in fml
+    void var_to_const(expr *fml, expr_ref &rw_fml);
+
+    //rewrite all uninterpreted constants in e to real
     void to_real(const expr_ref_vector& e, expr_ref& rw_e);
-    //rewrites an arithmetic expression
+
+    // rewrite all uninterpreted constants in e to real
     void to_real(expr_ref &fml);
-    //convert reals to ints by dividing with gcd
+
+    //convert reals to ints by multiplying with lcm of denominators
     void normalize(expr_ref &fml);
+
+    //get lcm of all the denominators of all the rational values in e
     rational get_lcm(expr* e);
+
+    //multiply fml with num and simplify rationals to ints
+    //assumes that fml is in sop form and is linear
     void mul_and_simp(expr_ref &fml, rational num);
+
+    //converts all numerals and uninterpreted constants in fml to int
+    //assumes that fml is in sop
     void to_int(expr_ref &fml);
+
     bool should_apply(const expr *lit, rational val, rational n);
     bool apply_widen(lemma_ref &lemma, expr *lit, expr_ref_vector &res, expr_ref& nw_bnd);
     void substitute(expr *var, rational n, expr *fml, expr_ref &sub);
