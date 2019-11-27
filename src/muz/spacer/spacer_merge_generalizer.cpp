@@ -30,8 +30,8 @@ bool has_mod_chld(expr_ref e) {
     mod_chld t(e.get_manager());
     try {
         for_each_expr(t, e);
-        return true;
-    } catch (const found &) { return false; }
+        return false;
+    } catch (const found &) { return true; }
 }
 struct compute_lcm {
     ast_manager &m;
