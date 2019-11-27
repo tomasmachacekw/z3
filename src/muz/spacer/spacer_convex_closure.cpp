@@ -98,7 +98,7 @@ void convex_closure::rewrite_lin_deps() {
     m_dim_vars = temp;
 }
 
-void convex_closure::syn_cls(unsigned i, expr_ref_vector& res_vec) {
+void convex_closure::add_sum_cnstr(unsigned i, expr_ref_vector& res_vec) {
     vector<expr *> add;
     for(unsigned j = 0; j < m_nw_vars.size(); j++) {
         expr* exp = to_expr(m_nw_vars.get(j));
@@ -107,6 +107,33 @@ void convex_closure::syn_cls(unsigned i, expr_ref_vector& res_vec) {
     }
     res_vec.push_back(m.mk_eq(m_arith.mk_add(add.size(), add.c_ptr()), m_dim_vars[i]));
 }
+
+void convex_closure::syn_cls(expr_ref_vector &res_vec) {
+    for (unsigned i = 0; i < m_data.num_rows(); i++) {
+        var_ref v(m.mk_var(i + dims(), m_arith.mk_real()), m);
+        m_nw_vars.push_back(v);
+    }
+
+    expr_ref_vector exprs(m);
+    expr_ref e(m);
+
+    //\forall j . m_nw_vars[j] >= 0
+    for (auto v : m_nw_vars) {
+        e = expr_ref(to_expr(v), m);
+        exprs.push_back(e);
+        res_vec.push_back(m_arith.mk_ge(e, m_arith.mk_int(rational::zero())));
+    }
+
+    for (unsigned i = 0; i < m_dim_vars.size(); i++) {
+        e = m_dim_vars[i];
+        if (is_var(e)) add_sum_cnstr(i, res_vec);
+    }
+
+    //(\Sum j . m_nw_vars[j]) = 1
+    res_vec.push_back(m.mk_eq(m_arith.mk_add(m_nw_vars.size(), exprs.c_ptr()),
+                              m_arith.mk_int(rational::one())));
+}
+
 namespace {
     bool is_sorted(const vector<rational>& data) {
         for(unsigned i = 0; i < data.size() - 1; i++) {
@@ -164,26 +191,7 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
     if(red_dim > 1) {
         SASSERT(m_nw_vars.size() == 0);
         TRACE("merge_dbg", tout << "Computing syntactic convex closure\n";);
-        for(unsigned i = 0; i < m_data.num_rows(); i++) {
-            var_ref v(m.mk_var(i + dims(), m_arith.mk_real()), m);
-            m_nw_vars.push_back(v);
-        }
-
-        vector<expr *> exprs;
-        for (auto v : m_nw_vars) {
-            expr* e = to_expr(v);
-            exprs.push_back(e);
-            res_vec.push_back(m_arith.mk_ge(e, m_arith.mk_int(rational::zero())));
-        }
-
-        for(unsigned i = 0; i < m_dim_vars.size(); i++) {
-            expr* e = m_dim_vars[i];
-            if(is_var(e))
-                syn_cls(i, res_vec);
-        }
-        res_vec.push_back(
-            m.mk_eq(m_arith.mk_add(m_nw_vars.size(), exprs.c_ptr()),
-                    m_arith.mk_int(rational::one())));
+        syn_cls(res_vec);
         return false;
     }
 
