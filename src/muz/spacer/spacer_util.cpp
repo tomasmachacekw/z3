@@ -1077,4 +1077,24 @@ void abstract_fml(expr_ref_vector &fml_vec, expr_ref &leq_lit,
         if (sub1.get_num_bindings() != 0) abs_fml.push_back(c);
     }
 }
+
+namespace contains_mod_ns {
+struct found {};
+struct contains_mod_proc {
+    ast_manager &m;
+    arith_util m_arith;
+    contains_mod_proc(ast_manager &a_m) : m(a_m), m_arith(m) {}
+    void operator()(expr *n) const {}
+    void operator()(app *n) {
+        if (m_arith.is_mod(n)) throw found();
+    }
+};
+} // namespace search_mode
+bool contains_mod(expr_ref e) {
+    contains_mod_ns::contains_mod_proc t(e.get_manager());
+    try {
+        for_each_expr(t, e);
+        return false;
+    } catch (const contains_mod_ns::found &) { return true; }
+}
 } // namespace spacer

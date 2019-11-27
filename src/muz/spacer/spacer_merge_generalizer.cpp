@@ -15,6 +15,22 @@
 #include "smt/smt_solver.h"
 #include "model/model2expr.h"
 
+namespace {
+struct compute_lcm {
+    ast_manager &m;
+    arith_util m_arith;
+    rational m_val;
+    compute_lcm(ast_manager &a_m) : m(a_m), m_arith(m), m_val(1) {}
+    void operator()(expr *n) const {}
+    void operator()(app *n) {
+        rational val;
+        if (m_arith.is_numeral(n, val)) {
+            m_val = lcm(denominator(abs(val)), m_val);
+        }
+    }
+};
+
+} // namespace
 namespace spacer {
 lemma_merge_generalizer::lemma_merge_generalizer(context &ctx)
     : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m),
@@ -52,6 +68,138 @@ void lemma_merge_generalizer::to_real(expr_ref &fml) {
     }
 }
 
+rational lemma_merge_generalizer::get_lcm(expr *e) {
+    compute_lcm g(m);
+    for_each_expr(g, e);
+    TRACE("merge_dbg_verb",
+          tout << "lcm of " << mk_pp(e, m) << " is " << g.m_val << "\n";);
+    return g.m_val;
+}
+
+void lemma_merge_generalizer::mul_and_simp(expr_ref &fml, rational num) {
+    SASSERT(m_arith.is_arith_expr(fml));
+    SASSERT(num.is_pos());
+    if (num.is_one()) return;
+
+    TRACE("merge_dbg_verb",
+          tout << "mul and simp called with " << mk_pp(fml, m) << "\n";);
+    if (is_uninterp_const(fml)) {
+        fml = m_arith.mk_mul(m_arith.mk_int(num), fml);
+        TRACE("merge_dbg_verb",
+              tout << "simplified to " << mk_pp(fml, m) << "\n";);
+        return;
+    }
+    rational val;
+    if (m_arith.is_numeral(fml, val)) {
+        val = val * num;
+        fml = m_arith.mk_int(val);
+        return;
+    }
+    app *fml_app = to_app(fml);
+    unsigned N = fml_app->get_num_args();
+    expr_ref_vector nw_args(m);
+    for (unsigned i = 0; i < N; i++) {
+        expr *chld = fml_app->get_arg(i);
+        if (m_arith.is_mul(chld)) {
+            expr_ref numeral(to_app(chld)->get_arg(0), m);
+            rational val;
+            SASSERT(m_arith.is_numeral(numeral));
+            m_arith.is_numeral(numeral, val);
+            rational nw_coeff = val * num;
+            numeral = m_arith.mk_int(nw_coeff);
+            nw_args.push_back(
+                m_arith.mk_mul(numeral, to_app(chld)->get_arg(1)));
+        } else {
+            nw_args.push_back(m_arith.mk_mul(m_arith.mk_int(num), chld));
+        }
+    }
+    fml = m.mk_app(fml_app->get_family_id(), fml_app->get_decl_kind(),
+                   nw_args.size(), nw_args.c_ptr());
+    TRACE("merge_dbg_verb", tout << "simplified to " << mk_pp(fml, m) << "\n";);
+}
+
+void lemma_merge_generalizer::to_int(expr_ref &fml) {
+    TRACE("merge_dbg_verb", tout << "to int " << mk_pp(fml, m) << "\n";);
+    if (m_arith.is_to_real(fml)) {
+        fml = to_app(fml)->get_arg(0);
+        TRACE("merge_dbg_verb",
+              tout << "to int finished " << mk_pp(fml, m) << "\n";);
+        return;
+    }
+
+    SASSERT((!is_uninterp_const(fml)) || m_arith.is_int(fml));
+
+    rational val;
+    if (m_arith.is_numeral(fml, val)) {
+        // If its not an integer, try constructing int from it
+        fml = m_arith.mk_int(val);
+
+        TRACE("merge_dbg_verb",
+              tout << "to int finished " << mk_pp(fml, m) << "\n";);
+        return;
+    }
+    SASSERT(m_arith.is_arith_expr(fml));
+    app *fml_app = to_app(fml);
+    unsigned N = fml_app->get_num_args();
+    expr_ref_vector nw_args(m);
+    for (unsigned i = 0; i < N; i++) {
+        expr_ref chld(fml_app->get_arg(i), m);
+        to_int(chld);
+        nw_args.push_back(chld);
+    }
+    fml = m.mk_app(fml_app->get_family_id(), fml_app->get_decl_kind(),
+                   nw_args.size(), nw_args.c_ptr());
+
+    TRACE("merge_dbg_verb",
+          tout << "to int finished " << mk_pp(fml, m) << "\n";);
+}
+
+void lemma_merge_generalizer::normalize(expr_ref &fml) {
+    expr_ref_vector fml_vec(m), rw_fml(m);
+    flatten_and(fml.get(), fml_vec);
+    expr *s, *t;
+    for (expr *e : fml_vec) {
+        if (!(m_arith.is_arith_expr(e) || m.is_eq(e))) continue;
+        app *e_app = to_app(e);
+        SASSERT(e_app->get_num_args() == 2);
+        expr_ref lhs(e_app->get_arg(0), m);
+        expr_ref rhs(e_app->get_arg(1), m);
+        // handle mod
+        if (m_arith.is_mod(lhs, s, t)) {
+            rational val;
+            bool is_int = false;
+            // if e is mod, it should already be in linear integer arithmetic
+            if (!(m_arith.is_numeral(t, val, is_int) && is_int &&
+                  get_lcm(s) == rational::one()))
+                NOT_IMPLEMENTED_YET();
+            // mod cannot be equal to a non-integer
+            SASSERT(m_arith.is_numeral(rhs, val, is_int) && is_int);
+            // since e is already in linear integer arithmetic, it is already
+            // normalized
+            rw_fml.push_back(e);
+            continue;
+        }
+
+        // make sure that no child is a mod expression
+        SASSERT(!contains_mod(lhs));
+        SASSERT(!contains_mod(rhs));
+        rational lcm = get_lcm(e);
+        SASSERT(lcm != rational::zero());
+        if (lcm != 1) {
+            mul_and_simp(lhs, lcm);
+            mul_and_simp(rhs, lcm);
+            TRACE("merge_dbg_verb", tout << "mul and simp reduced lhs to "
+                                         << mk_pp(lhs, m) << " and rhs to "
+                                         << mk_pp(rhs, m) << "\n";);
+        }
+        to_int(lhs);
+        to_int(rhs);
+        app *norm_e =
+            m.mk_app(e_app->get_family_id(), e_app->get_decl_kind(), lhs, rhs);
+        rw_fml.push_back(to_expr(norm_e));
+    }
+    fml = mk_and(rw_fml);
+}
 void lemma_merge_generalizer::to_real(const expr_ref_vector &fml,
                                       expr_ref &nw_fml) {
     expr_ref lhs(m), rhs(m);
@@ -206,6 +354,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         return false;
     }
 
+    if (!m_exact) { normalize(cvx_pattern); }
     // TODO check mbp over approximates cvx cls and update lemma
     return false;
 }
