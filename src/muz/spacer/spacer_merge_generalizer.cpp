@@ -349,7 +349,34 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     }
 
     if (!m_exact) { normalize(cvx_pattern); }
-    // TODO check mbp over approximates cvx cls and update lemma
+    // check whether mbp over approximates cnx_cls
+    // If not, remove literals from mbp till mbp overapproximates cnx_cls
+    expr_ref_vector neg_mbp(m);
+    pat.reset();
+    flatten_and(cvx_pattern, pat);
+    for (expr *e : pat) { neg_mbp.push_back(mk_not(m, e)); }
+    expr_ref_vector asmpts(m);
+    while (neg_mbp.size() > 0) {
+        asmpts.reset();
+        expr_ref asmpt(mk_or(neg_mbp), m);
+        asmpts.push_back(asmpt);
+        TRACE("merge_dbg", tout << "checking neg mbp: " << asmpt << "\n";);
+        res = sol->check_sat(1, asmpts.c_ptr());
+        if (res == l_false) { return check_inductive_and_update(lemma, pat); }
+        // remove all literals that are true in the model
+        model_ref rslt;
+        sol->get_model(rslt);
+        expr_ref rslt_val(m);
+        for (unsigned i = 0; i < neg_mbp.size(); i++) {
+            if (rslt->is_true(neg_mbp.get(i))) {
+                neg_mbp.erase(i);
+                pat.erase(i);
+                i--;
+            }
+        }
+    }
+    // could not find an over approximation
+    TRACE("merge_dbg", tout << "mbp could not overapproximate cnx_cls\n";);
     return false;
 }
 
@@ -386,6 +413,35 @@ void lemma_merge_generalizer::var_to_const(expr *pattern,
                                  << rw_pattern << "\n";);
 }
 
+/* core lemma update function*/
+bool lemma_merge_generalizer::check_inductive_and_update(
+    lemma_ref &lemma, expr_ref_vector &conj) {
+    TRACE("merge_dbg", tout << "Attempt to update lemma with: " << conj << "\n"
+                            << "at level " << lemma->level() << "\n";);
+    pred_transformer &pt = lemma->get_pob()->pt();
+    pob_ref pob = lemma->get_pob();
+    unsigned uses_level = 0;
+    if (pt.check_inductive(infty_level(), conj, uses_level,
+                           lemma->weakness()) ||
+        pt.check_inductive(lemma->level(), conj, uses_level,
+                           lemma->weakness())) {
+        TRACE("merge_dbg", tout << "POB blocked using merge at level "
+                                << uses_level << "\n";);
+        lemma->update_cube(lemma->get_pob(), conj);
+        lemma->set_level(uses_level);
+        return true;
+    }
+
+    if (pob->get_merge_atmpts() > 1) {
+        pob->set_merge_conj(conj);
+        pob->set_refine();
+        TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(conj)
+                                << " set on pob " << pob->post() << "\n";);
+    }
+    // keep track of failed merge attempts
+    pob->bump_merge_atmpts();
+    return false;
+}
 void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.merge", m_st.watch.get_seconds());
     m_cvx_cls.collect_statistics(st);
