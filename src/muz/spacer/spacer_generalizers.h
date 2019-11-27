@@ -22,6 +22,7 @@ Revision History:
 
 #include "ast/arith_decl_plugin.h"
 #include "muz/spacer/spacer_context.h"
+#include "muz/spacer/spacer_convex_closure.h"
 
 namespace spacer {
 
@@ -182,6 +183,53 @@ class limit_num_generalizer : public lemma_generalizer {
     void collect_statistics(statistics &st) const override;
     void reset_statistics() override { m_st.reset(); }
 };
+
+class lemma_merge_generalizer : public lemma_generalizer {
+    struct stats {
+        // TODO add stats
+        stopwatch watch;
+        stats() { reset(); }
+        void reset() { watch.reset(); }
+    };
+
+    ast_manager &m;
+    arith_util m_arith;
+    stats m_st;
+    convex_closure m_cvx_cls;
+    // save fresh constants for mbp
+    app_ref_vector m_dim_frsh_cnsts;
+    expr_ref_vector m_dim_vars;
+    vector<rational> m_consts;
+    bool m_exact;
+    //solver to get model for computing mbp and to check whether cvx_cls ==> mbp
+    ref<solver> m_solver;
+
+  public:
+    lemma_merge_generalizer(context &ctx);
+    ~lemma_merge_generalizer() override {}
+    void operator()(lemma_ref &lemma) override;
+    void collect_statistics(statistics &st) const override;
+    void reset_statistics() override { m_st.reset(); }
+
+  private:
+    //TODO: define state independent functions somewhere else
+    bool core(lemma_ref &lemma);
+
+    // create new vars to compute convex cls
+    void add_dim_vars(const lemma_cluster &lc);
+
+    //mark frsh constants as to_real
+    void rewrite_frsh_cnsts();
+
+    // collect substituted numerals from cluster and add to m_cvx_cls
+    void add_points(const lemma_cluster &lc);
+
+    // reset state
+    void reset(unsigned n_vars);
+
+
+};
+
 } // namespace spacer
 
 #endif
