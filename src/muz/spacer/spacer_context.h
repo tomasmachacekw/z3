@@ -1214,6 +1214,7 @@ class context {
     bool                 m_use_bg_invs;
     bool m_adhoc_gen;
     bool m_abstract_pob;
+    bool m_use_sage;
     unsigned             m_push_pob_max_depth;
     unsigned             m_max_level;
     unsigned             m_restart_initial_threshold;
@@ -1366,6 +1367,7 @@ public:
 
     bool is_inductive();
 
+    bool use_sage() { return m_use_sage; }
 
     // three different solvers with three different sets of parameters
     // different solvers are used for different types of queries in spacer
