@@ -355,7 +355,52 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     }
 
     if (!m_exact) { normalize(cvx_pattern); }
-    // TODO check mbp over approximates cvx cls and update lemma
+    // check whether mbp over approximates cnx_cls
+    // If not, remove literals from mbp till mbp overapproximates cnx_cls
+    expr_ref_vector neg_mbp(m);
+    pat.reset();
+    flatten_and(cvx_pattern, pat);
+    for (expr *e : pat) { neg_mbp.push_back(mk_not(m, e)); }
+
+    expr_ref asmpt(m);
+    expr_ref_vector pat_nw(m), n_mbp_nw(m);
+
+    while (neg_mbp.size() > 0) {
+        asmpt = mk_or(neg_mbp);
+        TRACE("merge_dbg_verb", tout << "checking neg mbp: " << asmpt << "\n";);
+
+        m_solver->push();
+        m_solver->assert_expr(asmpt);
+        res = m_solver->check_sat(0, nullptr);
+        if (res == l_false) {
+            //one for getting model and one for checking cvx_cls ==> mbp
+            m_solver->pop(2);
+            return check_inductive_and_update(lemma, pat);
+        }
+
+        //remove satisfied literals
+        model_ref rslt;
+        m_solver->get_model(rslt);
+
+        for (unsigned i = 0; i < neg_mbp.size(); i++) {
+            if (!rslt->is_true(neg_mbp.get(i))) {
+                n_mbp_nw.push_back(neg_mbp.get(i));
+                pat_nw.push_back(pat.get(i));
+            }
+        }
+        neg_mbp.reset();
+        for(auto a : n_mbp_nw) neg_mbp.push_back(a);
+        pat.reset();
+        for(auto a : pat_nw) pat.push_back(a);
+        n_mbp_nw.reset();
+        pat_nw.reset();
+
+        //reset solver
+        m_solver->pop(1);
+    }
+    // could not find an over approximation
+    TRACE("merge_dbg", tout << "mbp could not overapproximate cnx_cls\n";);
+    m_solver->pop(1);
     return false;
 }
 
@@ -386,6 +431,35 @@ void lemma_merge_generalizer::rewrite_frsh_cnsts() {
     }
 }
 
+/* core lemma update function*/
+bool lemma_merge_generalizer::check_inductive_and_update(
+    lemma_ref &lemma, expr_ref_vector &conj) {
+    TRACE("merge_dbg", tout << "Attempt to update lemma with: " << conj << "\n"
+                            << "at level " << lemma->level() << "\n";);
+    pred_transformer &pt = lemma->get_pob()->pt();
+    pob_ref pob = lemma->get_pob();
+    unsigned uses_level = 0;
+    if (pt.check_inductive(infty_level(), conj, uses_level,
+                           lemma->weakness()) ||
+        pt.check_inductive(lemma->level(), conj, uses_level,
+                           lemma->weakness())) {
+        TRACE("merge_dbg", tout << "POB blocked using merge at level "
+                                << uses_level << "\n";);
+        lemma->update_cube(lemma->get_pob(), conj);
+        lemma->set_level(uses_level);
+        return true;
+    }
+
+    if (pob->get_merge_atmpts() > 1) {
+        pob->set_merge_conj(conj);
+        pob->set_refine();
+        TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(conj)
+                                << " set on pob " << pob->post() << "\n";);
+    }
+    // keep track of failed merge attempts
+    pob->bump_merge_atmpts();
+    return false;
+}
 void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.merge", m_st.watch.get_seconds());
     m_cvx_cls.collect_statistics(st);
