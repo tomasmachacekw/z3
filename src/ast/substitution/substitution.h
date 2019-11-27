@@ -153,9 +153,10 @@ public:
         return find(to_var(v.get_expr()), v.get_offset(), r);
     }
 
-    void get_binding(unsigned binding_num, var_offset& var, expr_offset& r) {
-        var = m_vars[binding_num];
-        VERIFY(m_subst.find(var.first, var.second, r));
+    void get_binding(unsigned binding_num, var_offset &var,
+                     expr_offset &r) const {
+      var = m_vars[binding_num];
+      VERIFY(m_subst.find(var.first, var.second, r));
     }
 
     bool contains(var * v, unsigned offset) { expr_offset r; return find(v, offset, r); }

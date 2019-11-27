@@ -230,7 +230,7 @@ class lemma_cluster {
         : m_ref_count(0), m_pattern(pattern), m(pattern.get_manager()),
           m_matcher(m) {}
 
-    const lemma_info_vector &get_lemmas() { return m_lemma_vec; }
+    const lemma_info_vector &get_lemmas() const { return m_lemma_vec; }
 
     lemma_cluster(lemma_cluster &lc)
         : m_ref_count(0), m_pattern(lc.get_pattern()),
