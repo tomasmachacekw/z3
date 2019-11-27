@@ -69,13 +69,16 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_open(true), m_use_farkas(true), m_in_queue(false), m_weakness(0),
       m_blocked_lvl(0), m_is_abs(false), m_can_abs(true),
       m_abs_pattern(m_pt.get_ast_manager()), m_refine(false),
-      m_concrete(nullptr) {
+      m_concrete(nullptr), m_merge_atmpts(0),
+      m_merge_conj(m_pt.get_ast_manager()), m_is_merge_gen(false),
+      m_widen_pob(true) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
     if (m_parent) {
         m_is_abs = m_parent->is_abs();
         m_can_abs = m_parent->can_abs();
+        m_is_merge_gen = m_parent->is_merge_gen();
     }
 }
 
@@ -3331,20 +3334,20 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 {
     SASSERT(out.empty());
     pob::on_expand_event _evt(n);
-    TRACE ("spacer",
-           tout << "expand-pob: " << n.pt().head()->get_name()
-           << (n.is_abs() ? " ABS" : "")
-           << " level: " << n.level()
-           << " depth: " << (n.depth () - m_pob_queue.min_depth ())
-           << " fvsz: " << n.get_free_vars_size() << "\n"
-           << mk_pp(n.post(), m) << "\n";);
+    TRACE("spacer", tout << "expand-pob: " << n.pt().head()->get_name()
+                         << (n.is_abs() ? " ABS" : "")
+                         << (n.is_merge_gen() ? " MRG" : "")
+                         << " level: " << n.level()
+                         << " depth: " << (n.depth() - m_pob_queue.min_depth())
+                         << " fvsz: " << n.get_free_vars_size() << "\n"
+                         << mk_pp(n.post(), m) << "\n";);
 
-    STRACE ("spacer_progress",
-            tout << "** expand-pob: " << n.pt().head()->get_name()
-            << (n.is_abs() ? " ABS" : "")
-            << " level: " << n.level()
-            << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
-            << mk_epp(n.post(), m) << "\n\n";);
+    STRACE("spacer_progress",
+           tout << "** expand-pob: " << n.pt().head()->get_name()
+                << (n.is_abs() ? " ABS" : "")
+                << (n.is_merge_gen() ? " MRG" : "") << " level: " << n.level()
+                << " depth: " << (n.depth() - m_pob_queue.min_depth()) << "\n"
+                << mk_epp(n.post(), m) << "\n\n";);
 
     TRACE ("core_array_eq",
            tout << "expand-pob: " << n.pt().head()->get_name()
@@ -3353,15 +3356,14 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
            << mk_pp(n.post(), m) << "\n";);
 
     stopwatch watch;
-    IF_VERBOSE (1, verbose_stream () << "expand: " << n.pt ().head ()->get_name ()
-                << " (" << n.level () << ", "
-                << (n.depth () - m_pob_queue.min_depth ()) << ") "
-                << (n.use_farkas_generalizer () ? "FAR " : "SUB ")
-                << (n.is_abs() ? "ABS " : "")
-                << " w(" << n.weakness() << ") "
-                << n.post ()->get_id ();
-                verbose_stream().flush ();
-                watch.start (););
+    IF_VERBOSE(
+        1, verbose_stream()
+               << "expand: " << n.pt().head()->get_name() << " (" << n.level()
+               << ", " << (n.depth() - m_pob_queue.min_depth()) << ") "
+               << (n.use_farkas_generalizer() ? "FAR " : "SUB ")
+               << (n.is_abs() ? "ABS " : "") << (n.is_merge_gen() ? " MRG" : "")
+               << " w(" << n.weakness() << ") " << n.post()->get_id();
+        verbose_stream().flush(); watch.start(););
 
     // used in case n is unreachable
     unsigned uses_level = infty_level ();
@@ -3440,6 +3442,10 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                    tout << "Failed to block abstraction "
                    << n.post()->get_id() << "\n";);
 
+            CTRACE("merge_dbg", n.is_merge_gen(),
+                   tout << "Failed to block merge generalization "
+                        << mk_pp(n.post(), m) << "\n";);
+
             IF_VERBOSE(1, verbose_stream () << (next ? " X " : " T ")
                        << std::fixed << std::setprecision(2)
                        << watch.get_seconds () << "\n";);
@@ -3501,6 +3507,13 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                     << " using lemma " << mk_pp(lemma_pob->get_expr(), m)
                     << " Level " << lemma_pob->level() << " id "
                     << n.post()->get_id() << "\n";);
+
+        CTRACE("merge_dbg", n.is_merge_gen(),
+               tout << " Blocked merge gen pob " << mk_pp(n.post(), m)
+                    << " using lemma " << mk_pp(lemma_pob->get_expr(), m)
+                    << " Level " << lemma_pob->level() << " id "
+                    << n.post()->get_id() << "\n";);
+
         DEBUG_CODE(lemma_sanity_checker sanity_checker(*this);
                    sanity_checker(lemma_pob););
 
@@ -3532,6 +3545,31 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                     out.push_back(f);
                 }
             }
+        }
+
+        // TODO : figure out when to give up on proving conjecture
+        if (n.get_merge_conj().size() > 0) {
+            expr_ref c(m);
+            c = mk_and(n.get_merge_conj());
+            pob *f = n.pt().find_pob(n.parent(), c);
+            // skip if a similar pob is already in the queue
+            if (f != &n && (!f || !f->is_in_queue())) {
+                // create merge conjecture at a higher level
+                pob *new_pob =
+                    n.pt().mk_pob(n.parent(), n.level(), n.depth(),
+                                  mk_and(n.get_merge_conj()), n.get_binding());
+                // since the level of pob is going to be incremented, new pob
+                // will have higher priority
+                new_pob->set_merge_gen();
+                TRACE("merge_dbg", tout << "Attempting to block pob "
+                                        << mk_pp(n.post(), m)
+                                        << " using generalization "
+                                        << mk_pp(new_pob->post(), m) << "\n";);
+                out.push_back(&(*new_pob));
+            } else
+                TRACE("merge_dbg",
+                      tout << "duplicate pob conjecture found. Did not "
+                              "add to pob_queue\n";);
         }
 
         expr_ref lit(m);
