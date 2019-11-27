@@ -227,7 +227,14 @@ class lemma_merge_generalizer : public lemma_generalizer {
     // reset state
     void reset(unsigned n_vars);
 
+    // replaces vars with uninterpreted constants in fml
+    void var_to_const(expr *fml, expr_ref &rw_fml);
 
+    // rewrite all uninterpreted constants in e to real
+    void to_real(const expr_ref_vector &e, expr_ref &rw_e);
+
+    // rewrite all uninterpreted constants in e to real
+    void to_real(expr_ref &fml);
 };
 
 } // namespace spacer
