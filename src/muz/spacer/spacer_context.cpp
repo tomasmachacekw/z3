@@ -2697,6 +2697,11 @@ void context::init_lemma_generalizers()
         m_lemma_generalizers.push_back(alloc(lemma_array_eq_generalizer, *this));
     }
 
+    if (m_adhoc_gen) {
+        m_merge_gen = alloc(lemma_merge_generalizer, *this);
+        m_lemma_generalizers.push_back(m_merge_gen);
+    }
+
     if (m_validate_lemmas) {
         m_lemma_generalizers.push_back(alloc(lemma_sanity_checker, *this));
     }
@@ -3501,6 +3506,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                                     << " id is " << n.post()->get_id()
                                     << "\n into pob "
                                     << mk_and(lemma_pob->get_cube()) << "\n";);
+            if (m_merge_gen != nullptr) (*m_merge_gen)(lemma_pob);
         }
 
         CTRACE("merge_dbg", n.is_abs(),
