@@ -69,7 +69,9 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_open(true), m_use_farkas(true), m_in_queue(false), m_weakness(0),
       m_blocked_lvl(0), m_is_abs(false), m_can_abs(true),
       m_abs_pattern(m_pt.get_ast_manager()), m_refine(false),
-      m_concrete(nullptr) {
+      m_concrete(nullptr), m_merge_atmpts(0),
+      m_merge_conj(m_pt.get_ast_manager()), m_gen_blk_atmpt(false),
+      m_widen_pob(true) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -3388,6 +3390,31 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     if (/* XXX noop */ n.pt().is_qblocked(n)) {
         STRACE("spacer_progress",
                tout << "This pob can be blocked by instantiation\n";);
+    }
+
+    // TODO : figure out when to give up on proving conjecture
+    // before blocking pob, try blocking the conjecture
+    if (n.get_merge_conj().size() > 0 && !n.gen_blk_atmpt()) {
+        expr_ref c(m);
+        c = mk_and(n.get_merge_conj());
+        pob *f = n.pt().find_pob(n.parent(), c);
+        // skip if a similar pob is already in the queue
+        if (f != &n && (!f || !f->is_in_queue())) {
+            pob *new_pob =
+                n.pt().mk_pob(n.parent(), n.level(), n.depth(),
+                              mk_and(n.get_merge_conj()), n.get_binding());
+            TRACE("merge_dbg", tout << "Attempting to block pob "
+                                    << mk_pp(n.post(), m)
+                                    << " using generalization "
+                                    << mk_pp(new_pob->post(), m) << "\n";);
+            out.push_back(&(*new_pob));
+            // mark as attempted
+            n.mark_gen_blk_atmpt();
+            out.push_back(&n);
+            return l_undef;
+        }
+        TRACE("merge_dbg", tout << "duplicate pob conjecture found. Did not "
+                                   "add to pob_queue\n";);
     }
 
     predecessor_eh();

@@ -813,6 +813,18 @@ class pob {
     // a counter example
     pob_ref m_concrete;
 
+    // number of times merge_generalizer has tried blocking this pob
+    unsigned m_merge_atmpts;
+
+    // conjecture to block this pob
+    expr_ref_vector m_merge_conj;
+
+    // has attempted to block a generalization of this pob
+    bool m_gen_blk_atmpt;
+
+    // should widen pob
+    bool m_widen_pob;
+
   public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
@@ -823,6 +835,14 @@ class pob {
     void set_post(expr *post, app_ref_vector const &binding);
     void set_post(expr *post);
 
+    void set_merge_conj(const expr_ref_vector &expr) {
+        m_merge_conj.append(expr);
+    }
+    void bump_merge_atmpts() { m_merge_atmpts++; }
+    unsigned get_merge_atmpts() { return m_merge_atmpts; }
+    expr_ref_vector const &get_merge_conj() const { return m_merge_conj; }
+    void mark_gen_blk_atmpt() { m_gen_blk_atmpt = true; }
+    bool gen_blk_atmpt() { return m_gen_blk_atmpt; }
     unsigned weakness() {return m_weakness;}
     void bump_weakness() {m_weakness++;}
     void reset_weakness() {m_weakness=0;}
@@ -854,6 +874,8 @@ class pob {
     bool is_abs() const { return m_is_abs; }
     void set_abs() { m_is_abs = true; }
 
+    void stop_widening() { m_widen_pob = false; }
+    bool widen() { return m_widen_pob; }
     const expr *get_abs_pattern() const { return m_abs_pattern.get(); }
     void set_abs_pattern(expr *pattern) {
         m_abs_pattern = expr_ref(pattern, get_ast_manager());
