@@ -20,7 +20,17 @@ class convex_closure {
     unsigned reduce_dim();
     void rewrite_lin_deps();
     var_ref_vector m_nw_vars;
-    void syn_cls(unsigned i, expr_ref_vector &res_vec);
+    // compute syntactic convex closure of m_data
+    // m_data is a vector of m points.
+    // m_nw_vars is a vector of m free vars.
+    // The syntactic convex closure is
+    // \Exists m_nw_vars s.t \Land_j Col_j \cdot m_nw_vars = m_dim_vars[j] \land
+    // \Sum j m_nw_vars[j] = 1 \land
+    // \forall j m_nw_vars[j] >= 0
+    void syn_cls(expr_ref_vector &res_vec);
+
+    // add Col_j \cdot m_nw_vars = m_dim_vars[j] to res_vec
+    void add_sum_cnstr(unsigned j, expr_ref_vector &res_vec);
     struct stats {
         stopwatch watch;
         stats() { reset(); }
