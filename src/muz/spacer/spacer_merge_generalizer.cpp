@@ -293,6 +293,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     expr_ref_vector conjuncts(m);
     expr_ref_vector non_var_or_bool_Literals(m);
 
+void lemma_merge_generalizer::add_dim_vars(const lemma_cluster& lc) {
     const expr_ref &pattern(lc.get_pattern());
     cube = mk_and(lemma->get_cube());
     normalize_order(cube, cube);
@@ -343,21 +344,36 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     expr* var = nullptr;
 
     // add dimension variable
+    unsigned n_vars = get_num_vars(pattern);
+    // temporary pointer to an existing expr
+    expr_ref var(m);
+    const lemma_info_vector& lemmas(lc.get_lemmas());
+    const substitution &t_sub(lemmas[0].get_sub());
     for (unsigned j = 0; j < n_vars; j++) {
         // long way to get variable
+        // get var id
         t_sub.get_binding(j, v, r);
         var = var_find(pattern, v.first);
         SASSERT(var != nullptr);
+        // get variable
+        var = m.mk_var(v.first, m_arith.mk_int());
         m_cvx_cls.set_dimension(j, var);
         m_dim_vars[j] = var;
         app_ref var_app(m);
         var_app = m.mk_fresh_const("mrg_cvx", m_arith.mk_int());
         // TODO: handle a <= x <= b
+        // TODO: do we need two variables for a <= x <= b ?
         m_dim_frsh_cnsts[j] = var_app;
     }
+}
 
     // add points
+void lemma_merge_generalizer::add_points(const lemma_cluster& lc) {
     vector<rational> point;
+    unsigned n_vars = get_num_vars(lc.get_pattern());
+    const lemma_info_vector& lemmas(lc.get_lemmas());
+    expr_offset r;
+    std::pair<unsigned, unsigned> v;
     for (const lemma_info &lemma : lemmas) {
         const substitution &sub(lemma.get_sub());
         point.reset();
@@ -367,12 +383,31 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
             sub.get_binding(j, v, r);
             rational coeff;
             bool is_int;
+            bool is_int = false;
             m_arith.is_numeral(r.get_expr(), coeff, is_int);
             SASSERT(is_int);
             point.push_back(coeff);
         }
         m_cvx_cls.push_back(point);
     }
+}
+void lemma_merge_generalizer::reset(unsigned n_vars) {
+        // start convex closure computation
+        m_cvx_cls.reset(n_vars);
+        m_dim_vars.reset();
+        m_dim_frsh_cnsts.reset();
+        m_dim_frsh_cnsts.reserve(n_vars);
+        m_dim_vars.reserve(n_vars);
+        m_exact = true;
+}
+    unsigned n_vars = get_num_vars(pattern);
+    SASSERT(n_vars > 0);
+    reset(n_vars);
+    //create and add dim vars
+    add_dim_vars(lc);
+    // add points
+    add_points(lc);
+
     expr_ref_vector cls(m);
     bool exact = m_cvx_cls.closure(cls);
     CTRACE("merge_dbg", !exact,

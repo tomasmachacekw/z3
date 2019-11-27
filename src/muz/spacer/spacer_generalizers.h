@@ -206,6 +206,15 @@ class lemma_merge_generalizer : public lemma_generalizer {
     bool core(lemma_ref &lemma);
     void rewrite_pattern(expr *pattern, expr_ref &rw_pattern);
     //rewrites a formula
+    // create new vars to compute convex cls
+    void add_dim_vars(const lemma_cluster& lc);
+
+    //collect substituted numerals from cluster and add to m_cvx_cls
+    void add_points(const lemma_cluster &lc);
+
+    //reset state
+    void reset(unsigned n_vars);
+
     void to_real(const expr_ref_vector& e, expr_ref& rw_e);
     //rewrites an arithmetic expression
     void to_real(expr_ref &fml);
