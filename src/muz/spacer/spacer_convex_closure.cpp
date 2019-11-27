@@ -17,6 +17,7 @@ void convex_closure::collect_statistics(statistics &st) const {
 unsigned convex_closure::reduce_dim() {
     scoped_watch _w_(m_st.watch);
     if(m_dim <= 1) return m_dim;
+    SASSERT(m_kernel != nullptr);
     bool non_null_ker = m_kernel->compute_kernel();
     if (!non_null_ker) {
         TRACE("cvx_dbg",
