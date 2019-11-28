@@ -30,6 +30,11 @@ class under_approx {
     void under_approx_cube(const expr_ref_vector &cube, model_ref &model,
                            expr_rat_map &lb, expr_rat_map &ub,
                            expr_expr_map *sub = nullptr);
+    // each var*u_c term in pattern is a single axis
+    // all the other terms together constitute a single axis
+    void grp_terms(expr_ref pattern, expr_ref formula, expr_ref_vector &out,
+                   expr_ref_vector &sub_term);
+
     bool is_constant(expr const *e) {
         return is_uninterp_const(e) || m_arith.is_numeral(e);
     }

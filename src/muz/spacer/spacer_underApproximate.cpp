@@ -14,6 +14,59 @@ bool is_bin_op(expr *f, expr *&lhs, expr *&rhs, ast_manager &m) {
 } // anonymous namespace
 
 namespace spacer {
+// If there are n non linear multiplications in pattern, there are n + 1 axis.
+void under_approx::grp_terms(expr_ref pattern, expr_ref formula,
+                             expr_ref_vector &out, expr_ref_vector &sub_term) {
+    expr *t, *c;
+    expr_ref_vector rw_formula(m);
+    if (!is_bin_op(formula, t, c, m)) return;
+    expr_ref_vector other_trms(m);
+    // If the literal cannot be split, just make it a whole group
+    if (is_constant(t) || m_arith.is_mul(t)) {
+        sub_term.push_back(formula);
+        out.push_back(t);
+        return;
+    }
+    SASSERT(is_app(t));
+    TRACE("under_approximate_verb",
+          tout << "computing groups in " << formula << "\n";);
+    for (auto term : *to_app(t)) {
+        if (should_grp(pattern, term)) {
+            if (!out.contains(term)) {
+                TRACE("under_approximate_verb",
+                      tout << "adding " << mk_pp(term, m) << " to groups\n";);
+                out.push_back(term);
+            }
+            rw_formula.push_back(term);
+        } else
+            other_trms.push_back(term);
+    }
+    if (other_trms.size() > 0) {
+        expr_ref sum_term(m);
+        sum_term = m_arith.mk_add(other_trms.size(), other_trms.c_ptr());
+        if (!out.contains(sum_term)) {
+            TRACE("under_approximate_verb",
+                  tout << "adding " << sum_term << " to groups\n";);
+            out.push_back(sum_term);
+        }
+        rw_formula.push_back(sum_term);
+    }
+    expr *e;
+    expr_ref t_sub(m);
+    // recontruct the formula with the same syntax structure as the substitution
+    if (m.is_not(formula, e))
+        t_sub = m.mk_not(
+            m.mk_app(to_app(e)->get_decl(),
+                     m_arith.mk_add(rw_formula.size(), rw_formula.c_ptr()), c));
+    else
+        t_sub =
+            m.mk_app(to_app(formula)->get_decl(),
+                     m_arith.mk_add(rw_formula.size(), rw_formula.c_ptr()), c);
+    TRACE("under_approximate_verb", tout << "re-wrote " << formula << " into "
+                                         << t_sub << " for substitution\n";);
+    sub_term.push_back(t_sub);
+}
+
 bool under_approx::is_sop(expr *e) {
     if (is_constant(e)) return true;
     if (!m_arith.is_arith_expr(e)) return false;
