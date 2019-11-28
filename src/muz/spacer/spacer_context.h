@@ -708,7 +708,7 @@ public:
     app* extend_initial (expr *e);
 
     /// \brief Returns true if the obligation is already blocked by current lemmas
-    bool is_blocked (pob &n, unsigned &uses_level);
+    bool is_blocked(pob &n, unsigned &uses_level, model_ref *model);
     /// \brief Returns true if the obligation is already blocked by current quantified lemmas
     bool is_qblocked (pob &n);
 
