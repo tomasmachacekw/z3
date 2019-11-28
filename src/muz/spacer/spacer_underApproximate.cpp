@@ -46,19 +46,9 @@ namespace spacer {
   return false;
 }
 
-bool under_approx::is_arith(expr *e)
-{
-    // XXX AG: not sure it returns true for arithmetic uninterpreted constants
-    expr *arg;
-    if (!is_app(e)) return false;
-    expr *e1, *e2;
-    if (m.is_eq(e, e1, e2)) return m_arith.is_arith_expr(e1);
-    return m.is_not(e, arg) ? is_arith(arg) : m_arith.is_arith_expr(e);
-}
-
 // under approximate proof obligation n using literals of dim 1
-// returns nullptr if pob is not in LA
-  bool under_approx::under_approximate(expr *f, model_ref &model, expr_ref_vector &under_approx_vec, expr *pattern) {
+// returns false if pob is not an arithmetic fml
+  bool under_approx::under_approximate(expr_ref f, model_ref &model, expr_ref_vector &under_approx_vec, expr_ref pattern) {
     SASSERT(is_app(f));
 
     expr_ref_vector u_consts(m);
@@ -68,52 +58,51 @@ bool under_approx::is_arith(expr *e)
     flatten_and(f, conj);
 
     expr * e_not;
-    for(auto *e : conj)
-      {
-        if(is_constant(e) || m.is_eq(e) || (m.is_not(e, e_not) && is_constant(e_not)))
-          under_approx_vec.push_back(e);
+    for(auto *e : conj) {
+        //separate out boolean u_c
+        if(is_constant(e) || (m.is_not(e, e_not) && is_constant(e_not)))
+            under_approx_vec.push_back(e);
         else
-          conj_la.push_back(e);
-      }
+            conj_la.push_back(e);
+    }
 
-    // if the literals are not in LA, return nullptr
-    for (auto *e : conj_la) {
-      if (!is_arith(e)) return false;
+    // if the literals are not in arithmetic, return false
+    for (auto e : conj_la) {
+        TRACE("under_approximate_verb", tout << "Literal is " << mk_pp(e, m););
+        if (! (m_arith.is_arith_expr(e) || (m.is_not(e, e_not) && m_arith.is_arith_expr(e_not)) )) return false;
     }
 
     // compute bounds
-    if(pattern)
-      grp_under_approx_cube(conj_la, pattern ,model, under_approx_vec);
-    else
-      {
-        expr_expr_map lb, ub;
+    if(pattern.get() != nullptr) {
+        TRACE("under_approximate", tout << "Going to split " << f << " using pattern " << pattern << "\n";);
+        grp_under_approx_cube(conj_la, pattern ,model, under_approx_vec);
+    } else {
+        TRACE("under_approximate", tout << "Going to split " << f << "\n";);
+        expr_expr_map lb(m), ub(m);
         under_approx_cube(conj_la, model, lb, ub);
 
         // create under approximation
         for (expr *u : u_consts) {
-          if (lb.contains(u)) under_approx_vec.push_back(m_arith.mk_ge(u, lb[u]));
-          if (ub.contains(u)) under_approx_vec.push_back(m_arith.mk_le(u, ub[u]));
+            if (lb.contains(u)) under_approx_vec.push_back(m_arith.mk_ge(u, lb[u]));
+            if (ub.contains(u)) under_approx_vec.push_back(m_arith.mk_le(u, ub[u]));
         }
 
         TRACE("under_approximate",
               tout << "produced an under approximation : " << mk_and(under_approx_vec) << "\n";);
-      }
-    m_refs.reset();
-    return ( !under_approx_vec.empty() );
+    }
+    SASSERT(!under_approx_vec.empty());
+    return true;
 }
 
-void under_approx::grp_under_approx_cube(const expr_ref_vector &cube, expr *pattern, model_ref &model, expr_ref_vector& ua_conj)
-{
+void under_approx::grp_under_approx_cube(const expr_ref_vector &cube, expr_ref pattern, model_ref &model, expr_ref_vector& ua_conj) {
   expr_ref_vector grps(m);
   expr_ref_vector sub_term(m);
   expr_ref_vector non_lit_cube(m);
   TRACE("under_approximate", tout << "grouping an arithmetic pob : ";
         tout << mk_and(cube) << " and pattern " << mk_pp(pattern, m) << " \n";);
-  for (expr *lit : cube)
-    {
-      SASSERT(is_arith(lit));
-      grp_terms(pattern, lit, grps, sub_term);
-    }
+  for (auto lit : cube) {
+      grp_terms(pattern, expr_ref(lit, m), grps, sub_term);
+  }
   TRACE("under_approximate", tout << "groups are : "; for (expr *e : grps)
                                                         tout << mk_pp(e, m) << " ";
           tout << "\n";);
@@ -122,7 +111,7 @@ void under_approx::grp_under_approx_cube(const expr_ref_vector &cube, expr *patt
   // TODO ensure union of groups has all the variables
   expr_safe_replace s(m);
   expr_ref_vector variables(m);
-  expr_expr_map sub;
+  expr_expr_map sub(m);
   expr_ref_vector fresh_consts(m);
   for (expr *grp : grps) {
     expr_ref eval_ref = (*model)(&(*grp));
@@ -135,7 +124,7 @@ void under_approx::grp_under_approx_cube(const expr_ref_vector &cube, expr *patt
   s(c , conj_sub);
   TRACE("under_approximate",
         tout << "substituted formula : " << mk_pp(conj_sub, m) << "\n";);
-  expr_expr_map lb, ub;
+  expr_expr_map lb(m), ub(m);
   expr_ref_vector conj_sub_vec(m), u_consts(m);
   flatten_and(conj_sub, conj_sub_vec);
 
@@ -156,82 +145,68 @@ void under_approx::grp_under_approx_cube(const expr_ref_vector &cube, expr *patt
 
 //segregates terms of formula into groups based on pattern
 //each uninterpreted constant having a var coefficient in formula is a differnt group
-//all uninterpreted constans without a var coefficient belong to the same group
-//formula should be in SOP. The sub_term is appended with a recontruction of formula such that it synactically mathces the groups pushed to out
-  void under_approx::grp_terms(expr* pattern, expr* formula, expr_ref_vector &out, expr_ref_vector& sub_term)
-{
+//all uninterpreted constants without a var coefficient belong to the same group
+//formula should be in SOP. The sub_term is appended with a reconstruction of formula such that it syntactically matches the groups pushed to out
+void under_approx::grp_terms(expr_ref pattern, expr_ref formula, expr_ref_vector &out, expr_ref_vector& sub_term) {
   expr * t, *c;
   expr_ref_vector rw_formula(m);
   if(!is_bin_op(formula, t, c, m)) return;
   SASSERT(is_sop(t));
-  expr_ref_vector t_ref(m);
-  if (is_constant(t) || (!m_arith.is_add(t))) {
-    //make additional reference
-    expr_ref t_sub(formula, m);
-    sub_term.push_back(t_sub);
+  expr_ref_vector other_trms(m);
+  //If the literal cannot be split, just make it a whole group
+  if (is_constant(t) || m_arith.is_mul(t)) {
+    sub_term.push_back(formula);
     out.push_back(t);
     return;
   }
   SASSERT(is_app(t));
-  for (expr *term : *to_app(t))
-    {
-      if ( should_grp(pattern, term) )
-        {
+  for (auto term : *to_app(t)) {
+      if(should_grp(pattern, term)) {
           if(!out.contains(term))
-            out.push_back(term);
+              out.push_back(term);
           rw_formula.push_back(term);
-        }
+      }
       else
-          t_ref.push_back(term);
-    }
-  if(t_ref.size() > 0)
-    {
-      //This will hold since it is SOP
-      SASSERT(m_arith.is_add(t));
+          other_trms.push_back(term);
+  }
+  if (other_trms.size() > 0) {
       expr_ref sum_term(m);
-      sum_term = m_arith.mk_add(t_ref.size(), t_ref.c_ptr());
+      sum_term = m_arith.mk_add(other_trms.size(), other_trms.c_ptr());
       if(!out.contains(sum_term))
         out.push_back(sum_term);
       rw_formula.push_back(sum_term);
-      expr* e;
-      expr_ref t_sub(m);
-      // recontruct the formula with the same syntax structure as the substitution
-      if(m.is_not(formula,e))
-        t_sub = m.mk_not(m.mk_app(to_app(e)->get_decl(),m_arith.mk_add(rw_formula.size(),rw_formula.c_ptr()), c));
-      else
-        t_sub = m.mk_app(to_app(formula)->get_decl(),m_arith.mk_add(rw_formula.size(),rw_formula.c_ptr()), c);
-      sub_term.push_back(t_sub);
-    }
+  }
+  expr* e;
+  expr_ref t_sub(m);
+  // recontruct the formula with the same syntax structure as the substitution
+  if(m.is_not(formula,e))
+      t_sub = m.mk_not(m.mk_app(to_app(e)->get_decl(),m_arith.mk_add(rw_formula.size(),rw_formula.c_ptr()), c));
+  else
+      t_sub = m.mk_app(to_app(formula)->get_decl(),m_arith.mk_add(rw_formula.size(),rw_formula.c_ptr()), c);
+  sub_term.push_back(t_sub);
 }
 
 bool under_approx::is_sop(expr *e) {
-    // constants are special cases since they don't have children
     if (is_constant(e)) return true;
     if (!m_arith.is_arith_expr(e)) return false;
 
+    expr *e1, *e2;
     // cannot have a top level operand other than plus
     if (!m_arith.is_add(e) && !is_constant(e)) {
-        if (!m_arith.is_mul(e)) return false;
         // all arguments for the product should be constants.
-        for (expr *term_child : *to_app(e))
-            if (!is_constant(term_child)) return false;
+        if (!(m_arith.is_mul(e, e1, e2) && is_constant(e1) && is_constant(e2))) return false;
     }
     // all terms inside have to be either a constant or a product of
     // constants
-    SASSERT(is_app(e));
     for (expr *term : *to_app(e)) {
-        if (m_arith.is_mul(term)) {
-            // all arguments for the product should be constants.
-            for (expr *term_child : *to_app(term)) {
-                if (!is_constant(term_child)) return false;
-            }
-        } else if (!is_constant(term))
+        // all arguments for the product should be constants.
+        if (!( (m_arith.is_mul(term, e1, e2) && is_constant(e1) && is_constant(e2)) || is_constant(term) ))
             return false;
     }
     return true;
 }
 
-bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
+bool under_approx::normalize_to_le(expr *lit, expr_ref &t, expr_ref &c) {
     expr *e0 = nullptr, *e1 = nullptr, *e2 = nullptr;
     rational n;
     bool is_int = true;
@@ -288,96 +263,104 @@ bool under_approx::is_le(expr *lit, expr_ref &t, expr_ref &c) {
     return false;
 }
 
-  //Expects t to be in sum of products form or -1*(sum of products) form
-bool under_approx::find_coeff(expr *t, expr *v, rational &k, bool negated) {
-    expr *e1 = nullptr, *e2 = nullptr;
-    rational n;
-
+void under_approx::find_coeff(expr_ref t, expr_ref v, rational &k) {
     if (t == v) {
-        k = rational(negated ? -1 : 1);
-        return true;
-    } else if (m_arith.is_add(t)) {
-        bool res = false;
-        for (expr *e : *to_app(t)) {
-            res = find_coeff(e, v, k, negated);
-            if (res) return true;
-        }
-    } else if (m_arith.is_mul(t, e1, e2)) {
-        if (m_arith.is_numeral(e2)) std::swap(e1, e2);
-        if (e2 == v) {
-            bool res = m_arith.is_numeral(e1, k);
-            if (res && negated) k = -1 * k;
-            return res;
-        } else if (m_arith.is_numeral(e1, n) && n == rational(-1)) {
-            return find_coeff(e2, v, k, true /*negated*/);
-        }
+        k = rational::one();
+        return ;
     }
-    return false;
+
+    expr *e1 = nullptr, *e2 = nullptr;
+    rational coeff;
+    if (m_arith.is_add(t)) {
+        for (expr *e : *to_app(t)) {
+            if(e == v) {
+                k = rational::one();
+                return;
+            }
+            else if (m_arith.is_mul(e, e1, e2) && e2 == v) {
+                bool is_num = m_arith.is_numeral(e1, coeff);
+                SASSERT(is_num);
+                k = coeff;
+                return;
+            }
+        }
+        k = rational::zero();
+        return;
+    }
+
+    if (m_arith.is_mul(t, e1, e2)) {
+            m_arith.is_numeral(e1, coeff);
+            SASSERT(coeff == rational::minus_one());
+            //Depth of recursion is atmost 1
+            SASSERT(m_arith.is_add(e2) || is_uninterp_const(e2));
+            find_coeff(expr_ref(e2, m), v, k);
+            k = k * rational::minus_one();
+            return;
+    }
+    UNREACHABLE();
 }
 
 // returns whether l increases(1), decreases(-1) or doesn't change(0) with
 // var
-int under_approx::under_approx_var(expr *t, expr *c, expr *d) {
+int under_approx::under_approx_var(expr_ref l, expr_ref var) {
     rational coeff;
     // lhs is in the sum of products form (ax + by)
-    VERIFY(find_coeff(t, d, coeff));
-    SASSERT(coeff.is_int());
+    find_coeff(l, var, coeff);
 
-    TRACE("under_approximate_verb", tout << "coefficient of " << mk_pp(d, m)
-                                         << " in term " << mk_pp(t, m) << " is "
+    TRACE("under_approximate_verb", tout << "coefficient of " << mk_pp(var, m)
+                                         << " in term " << mk_pp(l, m) << " is "
                                          << coeff << "\n";);
     if (coeff.is_pos())
         return 1;
     else if (coeff.is_neg())
         return -1;
-    else {
-        SASSERT(coeff.is_zero());
-        return 0;
-    }
+    else
+       return 0;
 }
-// computes bounds u_v on each variable v in l
 
-// does not use bg. bg is only required when (if) we need better bounds. In this
+// TODO  use bg if we need better bounds. In this
 // case, should update background as bounds are discovered!!!!
 
-// bg ==> ( &u_v ==> l)
-void under_approx::under_approx_lit(model_ref &model, expr *t, expr *c,
-                                    expr_ref_vector &bg, expr_expr_map &lb,
+// for each variable, var in l, compute bound b s.t (var le_or_ge b) ==> l
+void under_approx::under_approx_lit(model_ref &model, expr_ref lit, expr_expr_map &lb,
                                     expr_expr_map &ub, expr_expr_map *sub) {
     expr_ref val(m);
-    SASSERT(lb.size() == 0);
-    SASSERT(ub.size() == 0);
 
     expr_ref_vector dims(m);
-    get_uninterp_consts(t, dims);
+    get_uninterp_consts(lit, dims);
 
-    for (expr *d : dims) {
+    for (expr *var : dims) {
         // compute variation of l along dim d
-        int change = under_approx_var(t, c, d);
-        val = (*model)(sub ? (*sub)[d] : d);
+        int change = under_approx_var(lit, expr_ref(var, m));
+        val = (*model)(sub ? (*sub)[var] : var);
         SASSERT(m_arith.is_numeral(val));
 
-
-        // save reference since the map won't do it
-        m_refs.push_back(val);
-
+        // update bounds
+        rational bnd, nw_bnd;
+        m_arith.is_numeral(val, nw_bnd);
         if (change > 0) {
-            ub.insert(d, val.get());
+            auto &data = ub.insert_if_not_there(var, val.get());
+            m_arith.is_numeral(data.m_value, bnd);
+            if (nw_bnd < bnd)
+                ub[var] = val;
             TRACE("under_approximate_verb", tout << "upper bounds for "
-                                                 << mk_pp(d, m) << " is "
-                                                 << mk_pp(ub[d], m) << "\n";);
-        } else if (change < 0) {
-            lb.insert(d, val.get());
+                                                 << mk_pp(var, m) << " is "
+                                                 << mk_pp(ub[var], m) << "\n";);
+        }
+
+        if (change < 0) {
+            auto &data = lb.insert_if_not_there(var, val.get());
+            m_arith.is_numeral(data.m_value, bnd);
+            if (nw_bnd > bnd) lb[var] = val;
             TRACE("under_approximate_verb", tout << "lower bounds for "
-                                                 << mk_pp(d, m) << " is "
-                                                 << mk_pp(lb[d], m) << "\n";);
+                                                 << mk_pp(var, m) << " is "
+                                                 << mk_pp(ub[var], m) << "\n";);
         }
     }
 }
 
-// computes bounds on each uninterp_const in e_and. If the uninterp_const is
-// a an alias for a term, the bound on the uninterp_const is a bound on the
-// term.
+// computes bounds on each uninterp_const in conj. If the uninterp_const is
+// an alias for a term, the bound on the term is computed
 void under_approx::under_approx_cube(const expr_ref_vector &conj,
                                      model_ref &model, expr_expr_map &lb,
                                      expr_expr_map &ub, expr_expr_map *sub) {
@@ -385,36 +368,12 @@ void under_approx::under_approx_cube(const expr_ref_vector &conj,
     SASSERT(lb.size() == 0);
     expr_ref t(m), c(m);
     for (expr *lit : conj) {
-        if (is_le(lit, t, c)) {
+        if (normalize_to_le(lit, t, c)) {
             TRACE("under_approximate", tout << "literal is " << mk_pp(lit, m)
                                             << "normalized as: " << mk_pp(t, m)
                                             << " <= " << mk_pp(c, m) << "\n";);
 
-            // conj of all other literals
-            expr_ref_vector bg(m);
-            for (expr *t : conj) {
-                if (t != lit) bg.push_back(t);
-            }
-            if (bg.empty()) bg.push_back(m.mk_true());
-
-            // under approximate the literal
-            expr_expr_map t_lb, t_ub;
-            under_approx_lit(model, t, c, bg, t_lb, t_ub, sub);
-
-            // update global bounds
-            rational n1, n2;
-            for (auto &kv : t_lb) {
-                auto &data = lb.insert_if_not_there(kv.m_key, kv.m_value);
-                if (m_arith.is_numeral(kv.m_value, n1) &&
-                    m_arith.is_numeral(data.m_value, n2) && n2 < n1)
-                    lb[kv.m_key] = kv.m_value;
-            }
-            for (auto &kv : t_ub) {
-                auto &data = ub.insert_if_not_there(kv.m_key, kv.m_value);
-                if (m_arith.is_numeral(kv.m_value, n1) &&
-                    m_arith.is_numeral(data.m_value, n2) && n1 < n2)
-                    ub[kv.m_key] = kv.m_value;
-            }
+            under_approx_lit(model, t, lb, ub, sub);
         }
     }
 }

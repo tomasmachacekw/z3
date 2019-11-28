@@ -3443,7 +3443,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
       TRACE("under_approximate", tout<<"going to split " << n.get_no_ua()<<"\n";);
       spacer::under_approx ua(m);
       expr_ref_vector under_approx_vec(m);
-      bool success = ua.under_approximate(n.post(), model, under_approx_vec, n.get_pattern());
+      bool success = ua.under_approximate(expr_ref(n.post(), m), model, under_approx_vec, n.get_pattern());
 
       if(success) {
         pob *new_pob = n.pt().mk_pob(n.parent(), n.level(), n.depth(),

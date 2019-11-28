@@ -931,7 +931,7 @@ class pob {
     void set_pattern(expr *pattern) {
         m_pattern = expr_ref(pattern, get_ast_manager());
     }
-    expr *get_pattern() const { return m_pattern.get(); }
+    expr_ref get_pattern() const { return m_pattern; }
     const expr *get_abs_pattern() const { return m_abs_pattern.get(); }
     void set_abs_pattern(expr *pattern) {
         m_abs_pattern = expr_ref(pattern, get_ast_manager());
