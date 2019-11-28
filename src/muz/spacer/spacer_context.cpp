@@ -1288,14 +1288,13 @@ void pred_transformer::get_pred_bg_invs(expr_ref_vector& out) {
     }
 }
 
-
 /// \brief Returns true if the obligation is already blocked by current lemmas
-bool pred_transformer::is_blocked (pob &n, unsigned &uses_level)
+bool pred_transformer::is_blocked (pob &n, unsigned &uses_level, model_ref* model = nullptr)
 {
     ensure_level (n.level ());
     prop_solver::scoped_level _sl (*m_solver, n.level ());
-    m_solver->set_core (nullptr);
-    m_solver->set_model (nullptr);
+    m_solver->set_core(nullptr);
+    m_solver->set_model (model);
 
     expr_ref_vector post(m), _aux(m);
     post.push_back (n.post ());
@@ -3384,8 +3383,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     vector<bool> reach_pred_used;
     unsigned num_reuse_reach = 0;
 
-
-    if (m_push_pob && n.pt().is_blocked(n, uses_level)) {
+    bool is_blocked =n.pt().is_blocked(n, uses_level,&model);
+    if (m_push_pob && is_blocked ) {
         // if (!m_pob_queue.is_root (n)) n.close ();
         IF_VERBOSE (1, verbose_stream () << " K "
                     << std::fixed << std::setprecision(2)
