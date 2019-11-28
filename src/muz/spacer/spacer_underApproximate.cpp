@@ -44,6 +44,46 @@ bool under_approx::should_grp(expr *pattern, expr *term) {
     return false;
 }
 
+// under approximate proof obligation n using literals of dim 1
+// returns false if pob is not an arithmetic fml
+bool under_approx::under_approximate(expr_ref f, model_ref &model,
+                                     expr_ref_vector &under_approx_vec,
+                                     expr_ref pattern) {
+    SASSERT(is_app(f));
+
+    expr_ref_vector u_consts(m);
+    get_uninterp_consts(f, u_consts);
+
+    expr_ref_vector conj(m), conj_la(m);
+    flatten_and(f, conj);
+
+    expr *e_not;
+    for (auto *e : conj) {
+        // separate out boolean u_c
+        if (is_constant(e) || (m.is_not(e, e_not) && is_constant(e_not)))
+            under_approx_vec.push_back(e);
+        else
+            conj_la.push_back(e);
+    }
+
+    // if the literals are not in arithmetic, return false
+    for (auto e : conj_la) {
+        TRACE("under_approximate_verb", tout << "Literal is " << mk_pp(e, m););
+        if (!(m_arith.is_arith_expr(e) ||
+              (m.is_not(e, e_not) && m_arith.is_arith_expr(e_not))))
+            return false;
+    }
+
+    SASSERT(pattern.get() != nullptr);
+
+    grp_under_approx_cube(conj_la, pattern, model, under_approx_vec);
+
+    TRACE("under_approximate", tout << "produced an under approximation : "
+                                    << mk_and(under_approx_vec) << "\n";);
+    SASSERT(!under_approx_vec.empty());
+    return true;
+}
+
 void under_approx::grp_under_approx_cube(const expr_ref_vector &cube,
                                          expr_ref pattern, model_ref &model,
                                          expr_ref_vector &ua_conj) {
@@ -160,6 +200,7 @@ bool under_approx::is_sop(expr *e) {
     }
     return true;
 }
+
 bool under_approx::normalize_to_le(expr *lit, expr_ref &t, expr_ref &c) {
     expr *e0 = nullptr, *e1 = nullptr, *e2 = nullptr;
     rational n;
