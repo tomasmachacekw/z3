@@ -329,7 +329,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
 
     lc.add_lemma(lemma);
 
-    const expr_ref &pattern(lc.get_pattern());
+    const expr_ref &pattern = lc.get_pattern();
 
     TRACE("merge_dbg",
           tout << "Start merging with lemma cube: " << lemma->get_cube()
@@ -338,7 +338,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     if (has_nonlinear_var_mul(pattern, m)) {
         TRACE("merge_dbg",
               tout << "Found non linear pattern. Marked to split \n";);
-        lemma->get_pob()->set_pattern(pattern.get());
+        lemma->get_pob()->set_split_pat(pattern);
         lemma->get_pob()->set_split();
         return false;
     }

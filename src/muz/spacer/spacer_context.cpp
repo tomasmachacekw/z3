@@ -74,7 +74,7 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_level (level), m_depth (depth),
     m_open (true), m_use_farkas (true), m_in_queue(false),
     m_weakness(0), m_blocked_lvl(0), m_ua(0), m_is_abs(false), m_can_abs(true),
-    m_abs_pattern(m_pt.get_ast_manager()), m_refine(false), m_shd_split(false), m_pattern(m_pt.get_ast_manager()), m_concrete(nullptr), m_merge_atmpts(0), m_merge_conj(m_pt.get_ast_manager()), m_gen_blk_atmpt(false), m_widen_pob(true) {
+    m_abs_pattern(m_pt.get_ast_manager()), m_refine(false), m_shd_split(false), m_split_pat(m_pt.get_ast_manager()), m_concrete(nullptr), m_merge_atmpts(0), m_merge_conj(m_pt.get_ast_manager()), m_gen_blk_atmpt(false), m_widen_pob(true) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -3328,26 +3328,7 @@ void context::predecessor_eh()
             m_callbacks[i]->predecessor_eh();
     }
 }
-bool context::should_split(pob& n)
-{
-  return (n.get_no_ua() < 1 && n.should_split() );
-}
-unsigned context::max_dim_literals(pob& n)
-{
-  expr* exp = n.post();
-  if(! is_app(exp))
-    return 0;
-  app* a = to_app(exp);
-  unsigned max = 1;
-  unsigned noArgs = a->get_num_args();
-  for(unsigned i = 0 ; i < noArgs;i++)
-    {
-      expr* arg = a->get_arg(i);
-      //if(is_lia(arg))
-      max = std::max(get_num_uninterp_consts(arg), max);
-    }
-  return max;
-}
+
 /// Checks whether the given pob is reachable
 /// returns l_true if reachable, l_false if unreachable
 /// returns l_undef if reachability cannot be decided
@@ -3435,15 +3416,15 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
       TRACE("merge_dbg", tout << "duplicate pob conjecture found. Did not add to pob_queue\n";);
     }
 
-    if(!is_blocked && should_split(n) && m_split_pob) {
-      //Priority for pobs at the same level and depth are decided by the number of times a pob has been split.
-      //never split it more than 10 times
-      SASSERT(n.get_no_ua() < 10);
-      n.incr_no_ua();
+     if (m_split_pob && !is_blocked && n.should_split()) {
+        // Priority for pobs at the same level and depth are decided by the
+        // number of times a pob has been split. never split it more than 10
+        // times
+        n.incr_no_ua();
       TRACE("under_approximate", tout<<"going to split " << n.get_no_ua()<<"\n";);
       spacer::under_approx ua(m);
       expr_ref_vector under_approx_vec(m);
-      bool success = ua.under_approximate(expr_ref(n.post(), m), model, under_approx_vec, n.get_pattern());
+      bool success = ua.under_approximate(expr_ref(n.post(), m), model, under_approx_vec, n.get_split_pat());
 
       if(success) {
         pob *new_pob = n.pt().mk_pob(n.parent(), n.level(), n.depth(),

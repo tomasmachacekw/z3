@@ -853,7 +853,7 @@ class pob {
     bool m_shd_split;
 
     // pattern identified for one of its lemmas
-    expr_ref m_pattern;
+    expr_ref m_split_pat;
 
     // concrete pob associated with an abstract pob
     // very similar to a parent except this is not used in computing
@@ -928,10 +928,8 @@ class pob {
     void stop_widening() { m_widen_pob = false;}
     bool widen() { return m_widen_pob; }
 
-    void set_pattern(expr *pattern) {
-        m_pattern = expr_ref(pattern, get_ast_manager());
-    }
-    expr_ref get_pattern() const { return m_pattern; }
+    void set_split_pat(expr_ref pattern) { m_split_pat = pattern; }
+    expr_ref get_split_pat() const { return m_split_pat; }
     const expr *get_abs_pattern() const { return m_abs_pattern.get(); }
     void set_abs_pattern(expr *pattern) {
         m_abs_pattern = expr_ref(pattern, get_ast_manager());
@@ -942,7 +940,7 @@ class pob {
     bool should_refine() const { return m_refine; }
     void set_refine() { m_refine = true; }
 
-    bool should_split() const { return m_shd_split; }
+    bool should_split() const { return m_ua < 1 && m_shd_split; }
     void set_split() { m_shd_split = true; }
 
     pred_transformer &pt() const { return m_pt; }
@@ -1442,11 +1440,6 @@ class context {
     solver *mk_solver0() { return m_pool0->mk_solver(); }
     solver *mk_solver1() { return m_pool1->mk_solver(); }
     solver *mk_solver2() { return m_pool2->mk_solver(); }
-
-    // functions to count the number of variables in an app and decide to split
-    bool should_split(pob &n);
-    unsigned count_var(app *a);
-    unsigned max_dim_literals(pob &p);
 };
 
 inline bool pred_transformer::use_native_mbp() { return ctx.use_native_mbp(); }
