@@ -21,21 +21,24 @@ class under_approx {
                           expr_expr_map &lb, expr_expr_map &ub,
                           expr_expr_map *sub = nullptr);
 
-    //under approximate each lit in cube
+    // find bounds such that (\Land_{x \in u_c(lit)} (lb_x <= x <= ub_x)) ==> cube
     void under_approx_cube(const expr_ref_vector &cube, model_ref &model,
                            expr_expr_map &lb, expr_expr_map &ub,
                            expr_expr_map *sub = nullptr);
 
-    //group terms according to pattern and compute under approximation
+    //find axis of cube according to pattern
+    //find bounds such that (\Land_{x \in axis} (lb_x <= x <= ub_x)) ==> cube
     void grp_under_approx_cube(const expr_ref_vector &cube, expr_ref pattern, model_ref &model,
                            expr_ref_vector &ua);
 
 
-    //check whether term is to be grouped as a single entity
+    //check whether term is to be treated as a separate axis
     bool should_grp(expr *pattern, expr *term);
 
-    //separate terms in formula to separate groups. sub term is the formula re-written so that each literal in out belongs to sub_term
+    // each var*u_c term in pattern is a single axis
+    // all the other terms together constitute a single axis
     void grp_terms(expr_ref pattern, expr_ref formula, expr_ref_vector &out, expr_ref_vector &sub_term);
+
     bool is_constant(expr const *e) {
         return is_uninterp_const(e) || m_arith.is_numeral(e);
     }

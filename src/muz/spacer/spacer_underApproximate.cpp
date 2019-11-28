@@ -72,24 +72,12 @@ namespace spacer {
         if (! (m_arith.is_arith_expr(e) || (m.is_not(e, e_not) && m_arith.is_arith_expr(e_not)) )) return false;
     }
 
-    // compute bounds
-    if(pattern.get() != nullptr) {
-        TRACE("under_approximate", tout << "Going to split " << f << " using pattern " << pattern << "\n";);
-        grp_under_approx_cube(conj_la, pattern ,model, under_approx_vec);
-    } else {
-        TRACE("under_approximate", tout << "Going to split " << f << "\n";);
-        expr_expr_map lb(m), ub(m);
-        under_approx_cube(conj_la, model, lb, ub);
+    SASSERT(pattern.get() != nullptr);
 
-        // create under approximation
-        for (expr *u : u_consts) {
-            if (lb.contains(u)) under_approx_vec.push_back(m_arith.mk_ge(u, lb[u]));
-            if (ub.contains(u)) under_approx_vec.push_back(m_arith.mk_le(u, ub[u]));
-        }
+    grp_under_approx_cube(conj_la, pattern ,model, under_approx_vec);
 
-        TRACE("under_approximate",
-              tout << "produced an under approximation : " << mk_and(under_approx_vec) << "\n";);
-    }
+    TRACE("under_approximate",
+          tout << "produced an under approximation : " << mk_and(under_approx_vec) << "\n";);
     SASSERT(!under_approx_vec.empty());
     return true;
 }
@@ -143,10 +131,7 @@ void under_approx::grp_under_approx_cube(const expr_ref_vector &cube, expr_ref p
 
 }
 
-//segregates terms of formula into groups based on pattern
-//each uninterpreted constant having a var coefficient in formula is a differnt group
-//all uninterpreted constants without a var coefficient belong to the same group
-//formula should be in SOP. The sub_term is appended with a reconstruction of formula such that it syntactically matches the groups pushed to out
+// If there are n non linear multiplications in pattern, there are n + 1 axis.
 void under_approx::grp_terms(expr_ref pattern, expr_ref formula, expr_ref_vector &out, expr_ref_vector& sub_term) {
   expr * t, *c;
   expr_ref_vector rw_formula(m);
@@ -320,8 +305,6 @@ int under_approx::under_approx_var(expr_ref l, expr_ref var) {
 
 // TODO  use bg if we need better bounds. In this
 // case, should update background as bounds are discovered!!!!
-
-// for each variable, var in l, compute bound b s.t (var le_or_ge b) ==> l
 void under_approx::under_approx_lit(model_ref &model, expr_ref lit, expr_expr_map &lb,
                                     expr_expr_map &ub, expr_expr_map *sub) {
     expr_ref val(m);
