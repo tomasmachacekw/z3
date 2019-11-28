@@ -10,6 +10,24 @@ namespace spacer {
 class under_approx {
     ast_manager &m;
     arith_util m_arith;
+    // find the coeff of v in expr t
+    // t is to be in SOP or -1*SOP form
+    void find_coeff(expr_ref t, expr_ref v, rational &k);
+
+    // returns whether lit increases(1), decreases(-1) or doesn't change(0) with
+    // var
+    int change_with_var(expr_ref lit, expr_ref var);
+
+    // find bounds such that   (\Land_{x \in u_c(lit)} (lb_x <= x <= ub_x)) ==>
+    // lit
+    void under_approx_lit(model_ref &model, expr_ref lit, expr_expr_map &lb,
+                          expr_expr_map &ub, expr_expr_map *sub = nullptr);
+
+    // find bounds such that (\Land_{x \in u_c(lit)} (lb_x <= x <= ub_x)) ==>
+    // cube
+    void under_approx_cube(const expr_ref_vector &cube, model_ref &model,
+                           expr_expr_map &lb, expr_expr_map &ub,
+                           expr_expr_map *sub = nullptr);
     bool is_constant(expr const *e) {
         return is_uninterp_const(e) || m_arith.is_numeral(e);
     }

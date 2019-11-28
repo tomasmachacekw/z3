@@ -13,6 +13,7 @@ bool is_bin_op(expr *f, expr *&lhs, expr *&rhs, ast_manager &m) {
 }
 } // anonymous namespace
 
+namespace spacer {
 bool under_approx::is_sop(expr *e) {
     if (is_constant(e)) return true;
     if (!m_arith.is_arith_expr(e)) return false;
@@ -91,3 +92,113 @@ bool under_approx::normalize_to_le(expr *lit, expr_ref &t, expr_ref &c) {
 
     return false;
 }
+
+void under_approx::find_coeff(expr_ref t, expr_ref v, rational &k) {
+    if (t == v) {
+        k = rational::one();
+        return;
+    }
+
+    expr *e1 = nullptr, *e2 = nullptr;
+    rational coeff;
+    if (m_arith.is_add(t)) {
+        for (expr *e : *to_app(t)) {
+            if (e == v) {
+                k = rational::one();
+                return;
+            } else if (m_arith.is_mul(e, e1, e2) && e2 == v) {
+                bool is_num = m_arith.is_numeral(e1, coeff);
+                SASSERT(is_num);
+                k = coeff;
+                return;
+            }
+        }
+        k = rational::zero();
+        return;
+    }
+
+    if (m_arith.is_mul(t, e1, e2)) {
+        m_arith.is_numeral(e1, coeff);
+        SASSERT(coeff == rational::minus_one());
+        // Depth of recursion is atmost 1
+        SASSERT(m_arith.is_add(e2) || is_uninterp_const(e2));
+        find_coeff(expr_ref(e2, m), v, k);
+        k = k * rational::minus_one();
+        return;
+    }
+    UNREACHABLE();
+}
+
+int under_approx::change_with_var(expr_ref l, expr_ref var) {
+    rational coeff;
+    // lhs is in the sum of products form (ax + by)
+    find_coeff(l, var, coeff);
+
+    TRACE("under_approximate_verb", tout << "coefficient of " << mk_pp(var, m)
+                                         << " in term " << mk_pp(l, m) << " is "
+                                         << coeff << "\n";);
+    if (coeff.is_pos())
+        return 1;
+    else if (coeff.is_neg())
+        return -1;
+    else
+        return 0;
+}
+
+// TODO  use bg if we need better bounds. In this
+// case, should update background as bounds are discovered!!!!
+void under_approx::under_approx_lit(model_ref &model, expr_ref lit,
+                                    expr_expr_map &lb, expr_expr_map &ub,
+                                    expr_expr_map *sub) {
+    expr_ref val(m);
+
+    expr_ref_vector dims(m);
+    get_uninterp_consts(lit, dims);
+
+    for (expr *var : dims) {
+        // compute variation of l along dim d
+        int change = change_with_var(lit, expr_ref(var, m));
+        val = (*model)(sub ? (*sub)[var] : var);
+        SASSERT(m_arith.is_numeral(val));
+
+        // update bounds
+        rational bnd, nw_bnd;
+        m_arith.is_numeral(val, nw_bnd);
+        if (change > 0) {
+            auto &data = ub.insert_if_not_there(var, val.get());
+            m_arith.is_numeral(data.m_value, bnd);
+            if (nw_bnd < bnd) ub[var] = val;
+            TRACE("under_approximate_verb", tout << "upper bounds for "
+                                                 << mk_pp(var, m) << " is "
+                                                 << mk_pp(ub[var], m) << "\n";);
+        }
+
+        if (change < 0) {
+            auto &data = lb.insert_if_not_there(var, val.get());
+            m_arith.is_numeral(data.m_value, bnd);
+            if (nw_bnd > bnd) lb[var] = val;
+            TRACE("under_approximate_verb", tout << "lower bounds for "
+                                                 << mk_pp(var, m) << " is "
+                                                 << mk_pp(ub[var], m) << "\n";);
+        }
+    }
+}
+
+void under_approx::under_approx_cube(const expr_ref_vector &conj,
+                                     model_ref &model, expr_expr_map &lb,
+                                     expr_expr_map &ub, expr_expr_map *sub) {
+    SASSERT(ub.size() == 0);
+    SASSERT(lb.size() == 0);
+    expr_ref t(m), c(m);
+    for (expr *lit : conj) {
+        if (normalize_to_le(lit, t, c)) {
+            TRACE("under_approximate", tout << "literal is " << mk_pp(lit, m)
+                                            << "normalized as: " << mk_pp(t, m)
+                                            << " <= " << mk_pp(c, m) << "\n";);
+
+            under_approx_lit(model, t, lb, ub, sub);
+        }
+    }
+}
+
+} // namespace spacer
