@@ -285,9 +285,7 @@ void under_approx::find_coeff(expr_ref t, expr_ref v, rational &k) {
     UNREACHABLE();
 }
 
-// returns whether l increases(1), decreases(-1) or doesn't change(0) with
-// var
-int under_approx::under_approx_var(expr_ref l, expr_ref var) {
+int under_approx::change_with_var(expr_ref l, expr_ref var) {
     rational coeff;
     // lhs is in the sum of products form (ax + by)
     find_coeff(l, var, coeff);
@@ -314,7 +312,7 @@ void under_approx::under_approx_lit(model_ref &model, expr_ref lit, expr_expr_ma
 
     for (expr *var : dims) {
         // compute variation of l along dim d
-        int change = under_approx_var(lit, expr_ref(var, m));
+        int change = change_with_var(lit, expr_ref(var, m));
         val = (*model)(sub ? (*sub)[var] : var);
         SASSERT(m_arith.is_numeral(val));
 
@@ -342,8 +340,6 @@ void under_approx::under_approx_lit(model_ref &model, expr_ref lit, expr_expr_ma
     }
 }
 
-// computes bounds on each uninterp_const in conj. If the uninterp_const is
-// an alias for a term, the bound on the term is computed
 void under_approx::under_approx_cube(const expr_ref_vector &conj,
                                      model_ref &model, expr_expr_map &lb,
                                      expr_expr_map &ub, expr_expr_map *sub) {

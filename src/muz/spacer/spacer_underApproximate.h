@@ -14,7 +14,9 @@ class under_approx {
     //t is to be in SOP or -1*SOP form
     void find_coeff(expr_ref t, expr_ref v, rational &k);
 
-    int under_approx_var(expr_ref lit, expr_ref var);
+    // returns whether lit increases(1), decreases(-1) or doesn't change(0) with
+    // var
+    int change_with_var(expr_ref lit, expr_ref var);
 
     //find bounds such that   (\Land_{x \in u_c(lit)} (lb_x <= x <= ub_x)) ==> lit
     void under_approx_lit(model_ref &model, expr_ref lit,
