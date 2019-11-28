@@ -30,6 +30,7 @@ class under_approx {
     void under_approx_cube(const expr_ref_vector &cube, model_ref &model,
                            expr_rat_map &lb, expr_rat_map &ub,
                            expr_expr_map *sub = nullptr);
+
     // find axis of cube according to pattern
     // find bounds such that (\Land_{x \in axis} (lb_x <= x <= ub_x)) ==> cube
     void grp_under_approx_cube(const expr_ref_vector &cube, expr_ref pattern,
@@ -49,6 +50,12 @@ class under_approx {
 
     // convert an arith expression lit into t <= c
     bool normalize_to_le(expr *lit, expr_ref &t, expr_ref &c);
+    bool not_handled(expr *e) {
+        expr *not_chld;
+        return is_uninterp_const(e) || m_arith.is_numeral(e) || m.is_eq(e) ||
+               contains_mod(expr_ref(e, m)) ||
+               (m.is_not(e, not_chld) && not_handled(not_chld));
+    }
 
     // check Sum Of Products form
     bool is_sop(expr_ref_vector &e) {
@@ -58,5 +65,10 @@ class under_approx {
         return true;
     }
     bool is_sop(expr *e);
+
+  public:
+    under_approx(ast_manager &manager) : m(manager), m_arith(m) {}
+    bool under_approximate(expr_ref n, model_ref &model, expr_ref_vector &u_a,
+                           expr_ref pattern);
 };
 } // namespace spacer
