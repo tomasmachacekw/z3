@@ -30,6 +30,14 @@ class under_approx {
     void under_approx_cube(const expr_ref_vector &cube, model_ref &model,
                            expr_rat_map &lb, expr_rat_map &ub,
                            expr_expr_map *sub = nullptr);
+    // find axis of cube according to pattern
+    // find bounds such that (\Land_{x \in axis} (lb_x <= x <= ub_x)) ==> cube
+    void grp_under_approx_cube(const expr_ref_vector &cube, expr_ref pattern,
+                               model_ref &model, expr_ref_vector &ua);
+
+    // check whether term is to be treated as a separate axis
+    bool should_grp(expr *pattern, expr *term);
+
     // each var*u_c term in pattern is a single axis
     // all the other terms together constitute a single axis
     void grp_terms(expr_ref pattern, expr_ref formula, expr_ref_vector &out,
