@@ -4126,8 +4126,7 @@ void context::new_lemma_eh(pred_transformer &pt, lemma *lem) {
 }
 
 void context::new_pob_eh(pob *p) {
-    if (m_params.spacer_print_json().size())
-        m_json_marshaller.register_pob(p);
+    if (m_params.spacer_print_json().size()) m_json_marshaller.register_pob(p);
 }
 
 bool context::is_inductive() {
@@ -4149,6 +4148,13 @@ inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
 
     if (n1.depth() != n2.depth()) { return n1.depth() < n2.depth(); }
 
+    if (n1.get_no_ua() != n2.get_no_ua()) {
+        return n1.get_no_ua() < n2.get_no_ua();
+    }
+    //TODO: compare merge_conj sizes only if they have the same parent.
+    if (n1.get_merge_conj().size() != n2.get_merge_conj().size()) {
+      return n1.get_merge_conj().size() > n2.get_merge_conj().size();
+    }
     // -- a more deterministic order of proof obligations in a queue
     // if (!n1.get_context ().get_params ().spacer_nondet_tie_break ())
     {
