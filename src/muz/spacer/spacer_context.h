@@ -793,6 +793,8 @@ class pob {
     std::map<unsigned, stopwatch> m_expand_watches;
     unsigned m_blocked_lvl;
 
+    // the number of times it has been under approximated
+    unsigned m_ua;
     // true if this pob is an abstraction
     bool m_is_abs;
 
@@ -804,6 +806,11 @@ class pob {
 
     // should refine lemma abstractions
     bool m_refine;
+    // should split cube
+    bool m_shd_split;
+
+    // pattern identified for one of its lemmas
+    expr_ref m_split_pat;
 
     // concrete pob associated with an abstract pob
     // very similar to a parent except this is not used in computing
@@ -872,6 +879,8 @@ class pob {
 
     void stop_widening() { m_widen_pob = false; }
     bool widen() { return m_widen_pob; }
+    void set_split_pat(expr_ref pattern) { m_split_pat = pattern; }
+    expr_ref get_split_pat() const { return m_split_pat; }
     const expr *get_abs_pattern() const { return m_abs_pattern.get(); }
     void set_abs_pattern(expr *pattern) {
         m_abs_pattern = expr_ref(pattern, get_ast_manager());
@@ -883,6 +892,8 @@ class pob {
 
     bool get_refine() const { return m_refine; }
     void set_refine() { m_refine = true; }
+    bool should_split() const { return m_ua < 1 && m_shd_split; }
+    void set_split() { m_shd_split = true; }
 
     pred_transformer& pt () const { return m_pt; }
     ast_manager& get_ast_manager () const { return m_pt.get_ast_manager (); }
@@ -938,6 +949,8 @@ class pob {
         --m_ref_count;
         if (m_ref_count == 0) {dealloc(this);}
     }
+    unsigned get_no_ua() const { return m_ua; }
+    void incr_no_ua() { ++m_ua; }
 
     std::ostream &display(std::ostream &out, bool full = false) const;
     class on_expand_event
@@ -1214,6 +1227,7 @@ class context {
     bool m_adhoc_gen;
     bool m_abstract_pob;
     bool m_use_sage;
+    bool m_split_pob;
     unsigned             m_push_pob_max_depth;
     unsigned             m_max_level;
     unsigned             m_restart_initial_threshold;
