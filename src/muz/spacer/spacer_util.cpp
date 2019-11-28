@@ -986,6 +986,19 @@ namespace {
         return count;
 }
 
+struct collect_uninterp_consts {
+    expr_ref_vector &m_out;
+    collect_uninterp_consts(expr_ref_vector &out) : m_out(out) {}
+    void operator()(expr *n) const {}
+    void operator()(app *n) {
+        if (is_uninterp_const(n)) m_out.push_back(n);
+    }
+};
+
+void get_uninterp_consts(expr *e, expr_ref_vector &out) {
+    collect_uninterp_consts proc(out);
+    for_each_expr(proc, e);
+}
 // HG : checks whether n contains a non linear multiplication containing a
 // variable
 namespace has_nonlinear_var_mul_ns {
