@@ -13,7 +13,89 @@ bool is_bin_op(expr *f, expr *&lhs, expr *&rhs, ast_manager &m) {
 }
 } // anonymous namespace
 
+namespace should_grp {
+struct found {};
+struct proc {
+    arith_util m_arith;
+    expr *m_uc;
+    proc(ast_manager &m, expr *uc) : m_arith(m), m_uc(uc) {}
+    void operator()(var *n) const {}
+    void operator()(quantifier *q) const {}
+    void operator()(app const *n) const {
+        expr *e1, *e2;
+        if (m_arith.is_mul(n, e1, e2) &&
+            ((is_var(e1) && e2 == m_uc) || (is_var(e2) && e1 == m_uc)))
+            throw found();
+    }
+};
+} // namespace should_grp
+
 namespace spacer {
+
+// Checks whether the uninterp_const in term has a var coeff in pattern
+bool under_approx::should_grp(expr *pattern, expr *term) {
+    expr_ref_vector uc(m);
+    get_uninterp_consts(term, uc);
+    SASSERT(uc.size() == 1);
+    should_grp::proc proc(m, uc.get(0));
+    try {
+        for_each_expr(proc, pattern);
+    } catch (const should_grp::found &) { return true; }
+    return false;
+}
+
+void under_approx::grp_under_approx_cube(const expr_ref_vector &cube,
+                                         expr_ref pattern, model_ref &model,
+                                         expr_ref_vector &ua_conj) {
+    expr_ref_vector grps(m);
+    expr_ref_vector sub_term(m);
+    expr_ref_vector non_lit_cube(m);
+    TRACE("under_approximate", tout << "grouping an arithmetic pob : ";
+          tout << mk_and(cube) << " and pattern " << mk_pp(pattern, m)
+               << " \n";);
+    for (auto lit : cube) {
+        grp_terms(pattern, expr_ref(lit, m), grps, sub_term);
+    }
+    TRACE("under_approximate", tout << "groups are : "; for (expr *e
+                                                             : grps) tout
+                                                        << mk_pp(e, m) << " ";
+          tout << "\n";);
+
+    expr_ref conj_sub(m);
+    // TODO ensure union of groups has all the variables
+    expr_safe_replace s(m);
+    expr_ref_vector variables(m);
+    expr_expr_map sub(m);
+    expr_ref_vector fresh_consts(m);
+    for (expr *grp : grps) {
+        expr_ref eval_ref = (*model)(&(*grp));
+        SASSERT(m_arith.is_numeral(eval_ref));
+        fresh_consts.push_back(m.mk_fresh_const("sub_temp", m_arith.mk_int()));
+        s.insert(grp, fresh_consts.back());
+        sub.insert(fresh_consts.back(), grp);
+    }
+    expr_ref c = mk_and(sub_term);
+    s(c, conj_sub);
+    TRACE("under_approximate",
+          tout << "substituted formula : " << mk_pp(conj_sub, m) << "\n";);
+    expr_expr_map lb(m), ub(m);
+    expr_ref_vector conj_sub_vec(m), u_consts(m);
+    flatten_and(conj_sub, conj_sub_vec);
+
+    under_approx_cube(conj_sub_vec, model, lb, ub, &sub);
+
+    get_uninterp_consts(conj_sub, u_consts);
+    for (expr *u_const : u_consts) {
+        if (lb.contains(u_const))
+            ua_conj.push_back(m_arith.mk_ge(sub[u_const], lb[u_const]));
+        if (ub.contains(u_const))
+            ua_conj.push_back(m_arith.mk_le(sub[u_const], ub[u_const]));
+    }
+    fresh_consts.reset();
+    TRACE("under_approximate",
+          tout << "split pob : " << mk_pp(mk_and(ua_conj), m) << "\n";);
+}
+
 // If there are n non linear multiplications in pattern, there are n + 1 axis.
 void under_approx::grp_terms(expr_ref pattern, expr_ref formula,
                              expr_ref_vector &out, expr_ref_vector &sub_term) {
