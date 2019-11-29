@@ -192,8 +192,6 @@ class lemma_merge_generalizer : public lemma_generalizer {
         stopwatch watch;
         stats() {
             reset();
-            wide_atmpts = 0;
-            wide_sucess = 0;
         }
         void reset() {
             watch.reset();
