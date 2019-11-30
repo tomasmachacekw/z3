@@ -57,15 +57,15 @@ namespace spacer {
     expr_ref_vector conj(m), conj_la(m);
     flatten_and(f, conj);
 
-    expr * e_not;
     for(auto *e : conj) {
         //separate out boolean u_c
-        if(is_constant(e) || (m.is_not(e, e_not) && is_constant(e_not)))
+        if(not_handled(e))
             under_approx_vec.push_back(e);
         else
             conj_la.push_back(e);
     }
 
+    expr* e_not;
     // if the literals are not in arithmetic, return false
     for (auto e : conj_la) {
         TRACE("under_approximate_verb", tout << "Literal is " << mk_pp(e, m););
