@@ -158,6 +158,8 @@ namespace spacer {
 
     // drop all literals from n that match leq_lit
     void abstract_fml(expr_ref_vector &in, expr_ref &lit, expr_ref_vector &out);
+
+    bool has_mode(expr_ref e);
 }
 
 #endif
