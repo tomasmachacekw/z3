@@ -120,8 +120,8 @@ void under_approx::grp_under_approx_cube(const expr_ref_vector &cube,
     expr_ref c = mk_and(sub_term);
     s(c, conj_sub);
     TRACE("under_approximate",
-          tout << "substituted formula : " << mk_pp(conj_sub, m) << "\n";);
-    expr_expr_map lb(m), ub(m);
+          tout << "substituted formula : " << conj_sub << "\n";);
+    expr_rat_map lb(m), ub(m);
     expr_ref_vector conj_sub_vec(m), u_consts(m);
     flatten_and(conj_sub, conj_sub_vec);
 
@@ -130,9 +130,13 @@ void under_approx::grp_under_approx_cube(const expr_ref_vector &cube,
     get_uninterp_consts(conj_sub, u_consts);
     for (expr *u_const : u_consts) {
         if (lb.contains(u_const))
-            ua_conj.push_back(m_arith.mk_ge(sub[u_const], lb[u_const]));
+            ua_conj.push_back(m_arith.mk_ge(
+                sub[u_const],
+                m_arith.mk_numeral(lb[u_const], lb[u_const].is_int())));
         if (ub.contains(u_const))
-            ua_conj.push_back(m_arith.mk_le(sub[u_const], ub[u_const]));
+            ua_conj.push_back(m_arith.mk_le(
+                sub[u_const],
+                m_arith.mk_numeral(ub[u_const], ub[u_const].is_int())));
     }
     fresh_consts.reset();
     TRACE("under_approximate",
@@ -327,7 +331,7 @@ int under_approx::change_with_var(expr_ref l, expr_ref var) {
 // TODO  use bg if we need better bounds. In this
 // case, should update background as bounds are discovered!!!!
 void under_approx::under_approx_lit(model_ref &model, expr_ref lit,
-                                    expr_expr_map &lb, expr_expr_map &ub,
+                                    expr_rat_map &lb, expr_rat_map &ub,
                                     expr_expr_map *sub) {
     expr_ref val(m);
 
@@ -347,31 +351,29 @@ void under_approx::under_approx_lit(model_ref &model, expr_ref lit,
         SASSERT(m_arith.is_numeral(val));
 
         // update bounds
-        rational bnd, nw_bnd;
+        rational nw_bnd;
         m_arith.is_numeral(val, nw_bnd);
         if (change > 0) {
-            auto &data = ub.insert_if_not_there(var, val.get());
-            m_arith.is_numeral(data.m_value, bnd);
-            if (nw_bnd < bnd) ub[var] = val;
+            ub.insert_if_not_there(var, nw_bnd);
+            if (nw_bnd < ub[var]) ub[var] = nw_bnd;
             TRACE("under_approximate_verb", tout << "upper bounds for "
                                                  << mk_pp(var, m) << " is "
-                                                 << mk_pp(ub[var], m) << "\n";);
+                                                 << ub[var] << "\n";);
         }
 
         if (change < 0) {
-            auto &data = lb.insert_if_not_there(var, val.get());
-            m_arith.is_numeral(data.m_value, bnd);
-            if (nw_bnd > bnd) lb[var] = val;
+            lb.insert_if_not_there(var, nw_bnd);
+            if (nw_bnd > lb[var]) lb[var] = nw_bnd;
             TRACE("under_approximate_verb", tout << "lower bounds for "
                                                  << mk_pp(var, m) << " is "
-                                                 << mk_pp(lb[var], m) << "\n";);
+                                                 << lb[var] << "\n";);
         }
     }
 }
 
 void under_approx::under_approx_cube(const expr_ref_vector &conj,
-                                     model_ref &model, expr_expr_map &lb,
-                                     expr_expr_map &ub, expr_expr_map *sub) {
+                                     model_ref &model, expr_rat_map &lb,
+                                     expr_rat_map &ub, expr_expr_map *sub) {
     SASSERT(ub.size() == 0);
     SASSERT(lb.size() == 0);
     expr_ref t(m), c(m);

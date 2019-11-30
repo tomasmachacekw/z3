@@ -6,6 +6,7 @@
 #include "util/rational.h"
 
 typedef obj_ref_map<ast_manager, expr, expr *> expr_expr_map;
+typedef obj_ref_map<ast_manager, expr, rational> expr_rat_map;
 namespace spacer {
 class under_approx {
     ast_manager &m;
@@ -20,13 +21,13 @@ class under_approx {
 
     // find bounds such that   (\Land_{x \in u_c(lit)} (lb_x <= x <= ub_x)) ==>
     // lit
-    void under_approx_lit(model_ref &model, expr_ref lit, expr_expr_map &lb,
-                          expr_expr_map &ub, expr_expr_map *sub = nullptr);
+    void under_approx_lit(model_ref &model, expr_ref lit, expr_rat_map &lb,
+                          expr_rat_map &ub, expr_expr_map *sub = nullptr);
 
     // find bounds such that (\Land_{x \in u_c(lit)} (lb_x <= x <= ub_x)) ==>
     // cube
     void under_approx_cube(const expr_ref_vector &cube, model_ref &model,
-                           expr_expr_map &lb, expr_expr_map &ub,
+                           expr_rat_map &lb, expr_rat_map &ub,
                            expr_expr_map *sub = nullptr);
 
     // find axis of cube according to pattern
