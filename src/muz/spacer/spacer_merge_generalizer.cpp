@@ -15,27 +15,6 @@
 #include "smt/smt_solver.h"
 
 namespace {
-struct found {};
-struct mod_chld {
-    ast_manager &m;
-    arith_util m_arith;
-    mod_chld(ast_manager& a_m): m(a_m), m_arith(m) {}
-    void operator() (expr *n) const {}
-    void operator() (app *n) {
-        if(m_arith.is_mod(n))
-            throw found();
-    }
-};
-
-bool has_mod_chld(expr_ref e) {
-    mod_chld t(e.get_manager());
-    try {
-        for_each_expr(t, e);
-        return false;
-    } catch(const found &){
-        return true;
-    }
-}
 struct compute_lcm {
     ast_manager &m;
     arith_util m_arith;
@@ -231,8 +210,8 @@ void lemma_merge_generalizer::normalize(expr_ref &fml) {
             continue;
         }
         //make sure that no child is a mod expression
-        SASSERT(!has_mod_chld(lhs));
-        SASSERT(!has_mod_chld(rhs));
+        SASSERT(!has_mode(lhs));
+        SASSERT(!has_mode(rhs));
         rational lcm = get_lcm(e);
         SASSERT(lcm != rational::zero());
         if (lcm != 1) {

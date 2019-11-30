@@ -1281,7 +1281,27 @@ void abstract_fml(expr_ref_vector &fml_vec, expr_ref &leq_lit,
         if (sub1.get_num_bindings() != 0) abs_fml.push_back(c);
     }
 }
-} // namespace spacer
+
+namespace search_mode {
+struct found {};
+struct mode_finder {
+    ast_manager &m;
+    arith_util m_arith;
+    mode_finder(ast_manager &a_m) : m(a_m), m_arith(m) {}
+    void operator()(expr *n) const {}
+    void operator()(app *n) {
+        if (m_arith.is_mod(n)) throw found();
+    }
+};
+}
+bool has_mode(expr_ref e) {
+    search_mode::mode_finder t(e.get_manager());
+    try {
+        for_each_expr(t, e);
+        return false;
+    } catch (const search_mode::found &) { return true; }
+}
+} // namespace
 template class rewriter_tpl<spacer::adhoc_rewriter_cfg>;
 template class rewriter_tpl<spacer::adhoc_rewriter_rpp>;
 template class rewriter_tpl<spacer::term_ordered_rpp>;

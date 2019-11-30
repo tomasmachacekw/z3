@@ -170,6 +170,7 @@ namespace spacer {
 
     bool is_ge_or_gt(const expr *e, expr_ref &lhs, expr_ref &rhs);
     bool is_le_or_lt(const expr *e, expr_ref &lhs, expr_ref &rhs);
+    bool has_mode(expr_ref e);
 }
 
 #endif
