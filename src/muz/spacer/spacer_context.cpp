@@ -3400,30 +3400,6 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                tout << "This pob can be blocked by instantiation\n";);
     }
 
-    // TODO : figure out when to give up on proving conjecture
-    // before blocking pob, try blocking the conjecture
-    if (n.get_merge_conj().size() > 0) {
-        expr_ref c(m);
-        c = mk_and(n.get_merge_conj());
-        pob *f = n.pt().find_pob(n.parent(), c);
-        // skip if a similar pob is already in the queue
-        if (f != &n && (!f || !f->is_in_queue())) {
-            pob *new_pob =
-                n.pt().mk_pob(n.parent(), n.level(), n.depth(),
-                              mk_and(n.get_merge_conj()), n.get_binding());
-            new_pob->set_merge_gen();
-            TRACE("merge_dbg", tout << "Attempting to block pob "
-                                    << mk_pp(n.post(), m)
-                                    << " using generalization "
-                                    << mk_pp(new_pob->post(), m) << "\n";);
-            out.push_back(&(*new_pob));
-            out.push_back(&n);
-            return l_undef;
-        }
-        TRACE("merge_dbg", tout << "duplicate pob conjecture found. Did not "
-                                   "add to pob_queue\n";);
-    }
-
     if (m_split_pob && !is_blocked && n.should_split()) {
         // Priority for pobs at the same level and depth are decided by the
         // number of times a pob has been split. never split it more than 10
@@ -3608,6 +3584,31 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                     out.push_back(f);
                 }
             }
+        }
+
+        // TODO : figure out when to give up on proving conjecture
+        if (n.get_merge_conj().size() > 0) {
+            expr_ref c(m);
+            c = mk_and(n.get_merge_conj());
+            pob *f = n.pt().find_pob(n.parent(), c);
+            // skip if a similar pob is already in the queue
+            if (f != &n && (!f || !f->is_in_queue())) {
+                // create merge conjecture at a higher level
+                pob *new_pob =
+                    n.pt().mk_pob(n.parent(), n.level(), n.depth(),
+                                  mk_and(n.get_merge_conj()), n.get_binding());
+                // since the level of pob is going to be incremented, new pob
+                // will have higher priority
+                new_pob->set_merge_gen();
+                TRACE("merge_dbg", tout << "Attempting to block pob "
+                                        << mk_pp(n.post(), m)
+                                        << " using generalization "
+                                        << mk_pp(new_pob->post(), m) << "\n";);
+                out.push_back(&(*new_pob));
+            } else
+                TRACE("merge_dbg",
+                      tout << "duplicate pob conjecture found. Did not "
+                              "add to pob_queue\n";);
         }
 
         expr_ref lit(m);
