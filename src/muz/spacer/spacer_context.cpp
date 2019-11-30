@@ -3502,6 +3502,10 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                    tout << "Failed to block abstraction "
                    << n.post()->get_id() << "\n";);
 
+            CTRACE("merge_dbg", n.is_merge_gen(),
+                   tout << "Failed to block merge generalization "
+                        << mk_pp(n.post(), m) << "\n";);
+
             IF_VERBOSE(1, verbose_stream () << (next ? " X " : " T ")
                        << std::fixed << std::setprecision(2)
                        << watch.get_seconds () << "\n";);
