@@ -145,7 +145,6 @@ void under_approx::grp_terms(expr_ref pattern, expr_ref formula,
     expr *t, *c;
     expr_ref_vector rw_formula(m);
     if (!is_bin_op(formula, t, c, m)) return;
-    SASSERT(is_sop(t));
     expr_ref_vector other_trms(m);
     // If the literal cannot be split, just make it a whole group
     if (is_constant(t) || m_arith.is_mul(t)) {
@@ -365,7 +364,7 @@ void under_approx::under_approx_lit(model_ref &model, expr_ref lit,
             if (nw_bnd > bnd) lb[var] = val;
             TRACE("under_approximate_verb", tout << "lower bounds for "
                                                  << mk_pp(var, m) << " is "
-                                                 << mk_pp(ub[var], m) << "\n";);
+                                                 << mk_pp(lb[var], m) << "\n";);
         }
     }
 }
