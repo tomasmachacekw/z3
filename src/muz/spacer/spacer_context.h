@@ -829,6 +829,9 @@ class pob {
     // has attempted to block a generalization of this pob
     bool m_gen_blk_atmpt;
 
+    // is a merge conjecture
+    bool m_is_merge_gen;
+
     // should widen pob
     bool m_widen_pob;
 
@@ -889,6 +892,8 @@ class pob {
     void set_abs_pattern(expr *pattern) {
         m_abs_pattern = expr_ref(pattern, get_ast_manager());
     }
+    bool is_merge_gen() const { return m_is_merge_gen; }
+    void set_merge_gen() { m_is_merge_gen = true; }
     bool can_abs() const { return m_can_abs; }
     void set_nvr_abs() { m_can_abs = false; }
 
