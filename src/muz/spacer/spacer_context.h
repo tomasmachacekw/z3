@@ -826,9 +826,6 @@ class pob {
     // conjecture to block this pob
     expr_ref_vector m_merge_conj;
 
-    // has attempted to block a generalization of this pob
-    bool m_gen_blk_atmpt;
-
     // is a merge conjecture
     bool m_is_merge_gen;
 
@@ -852,8 +849,6 @@ class pob {
     void bump_merge_atmpts() { m_merge_atmpts++; }
     unsigned get_merge_atmpts() { return m_merge_atmpts; }
     expr_ref_vector const &get_merge_conj() const { return m_merge_conj; }
-    void mark_gen_blk_atmpt() { m_gen_blk_atmpt = true; }
-    bool gen_blk_atmpt() { return m_gen_blk_atmpt; }
     unsigned weakness() {return m_weakness;}
     void bump_weakness() {m_weakness++;}
     void reset_weakness() {m_weakness=0;}

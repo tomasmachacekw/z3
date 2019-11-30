@@ -72,8 +72,8 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_abs_pattern(m_pt.get_ast_manager()), m_refine(false),
       m_shd_split(false), m_split_pat(m_pt.get_ast_manager()),
       m_concrete(nullptr), m_merge_atmpts(0),
-      m_merge_conj(m_pt.get_ast_manager()), m_gen_blk_atmpt(false),
-      m_widen_pob(true), m_is_merge_gen(false) {
+      m_merge_conj(m_pt.get_ast_manager()), m_widen_pob(true),
+      m_is_merge_gen(false) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -3402,7 +3402,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
     // TODO : figure out when to give up on proving conjecture
     // before blocking pob, try blocking the conjecture
-    if (n.get_merge_conj().size() > 0 && !n.gen_blk_atmpt()) {
+    if (n.get_merge_conj().size() > 0) {
         expr_ref c(m);
         c = mk_and(n.get_merge_conj());
         pob *f = n.pt().find_pob(n.parent(), c);
@@ -3417,8 +3417,6 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                                     << " using generalization "
                                     << mk_pp(new_pob->post(), m) << "\n";);
             out.push_back(&(*new_pob));
-            // mark as attempted
-            n.mark_gen_blk_atmpt();
             out.push_back(&n);
             return l_undef;
         }
