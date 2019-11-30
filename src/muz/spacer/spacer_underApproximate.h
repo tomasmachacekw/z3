@@ -48,6 +48,12 @@ class under_approx {
 
     // convert an arith expression lit into t <= c
     bool normalize_to_le(expr *lit, expr_ref &t, expr_ref &c);
+    bool not_handled(expr *e) {
+        expr *not_chld;
+        return is_uninterp_const(e) || m_arith.is_numeral(e) || m.is_eq(e) ||
+               has_mode(expr_ref(e, m)) ||
+               (m.is_not(e, not_chld) && not_handled(not_chld));
+    }
 
     // check Sum Of Products form
     bool is_sop(expr_ref_vector &e) {
