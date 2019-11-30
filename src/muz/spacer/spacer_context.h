@@ -846,6 +846,7 @@ class pob {
     void set_post(expr *post);
 
     void set_merge_conj(const expr_ref_vector &expr) {
+        m_merge_conj.reset();
         m_merge_conj.append(expr);
     }
     void bump_merge_atmpts() { m_merge_atmpts++; }
