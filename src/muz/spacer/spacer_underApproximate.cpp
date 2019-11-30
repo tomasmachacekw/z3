@@ -38,6 +38,9 @@ namespace spacer {
   bool under_approx::should_grp(expr *pattern, expr *term) {
   expr_ref_vector uc(m);
   get_uninterp_consts(term, uc);
+  TRACE("under_approximate_verb", tout << "should group " << mk_pp(term, m)
+                                       << " according to pattern "
+                                       << mk_pp(pattern, m) << "\n";);
   SASSERT(uc.size() == 1);
   should_grp::proc proc(m, uc.get(0));
   try {
@@ -145,10 +148,13 @@ void under_approx::grp_terms(expr_ref pattern, expr_ref formula, expr_ref_vector
     return;
   }
   SASSERT(is_app(t));
+  TRACE("under_approximate_verb", tout << "computing groups in " << formula << "\n";);
   for (auto term : *to_app(t)) {
       if(should_grp(pattern, term)) {
-          if(!out.contains(term))
+          if(!out.contains(term)) {
+              TRACE("under_approximate_verb", tout << "adding " << mk_pp(term , m) << " to groups\n";);
               out.push_back(term);
+          }
           rw_formula.push_back(term);
       }
       else
@@ -157,8 +163,10 @@ void under_approx::grp_terms(expr_ref pattern, expr_ref formula, expr_ref_vector
   if (other_trms.size() > 0) {
       expr_ref sum_term(m);
       sum_term = m_arith.mk_add(other_trms.size(), other_trms.c_ptr());
-      if(!out.contains(sum_term))
-        out.push_back(sum_term);
+      if(!out.contains(sum_term)) {
+          TRACE("under_approximate_verb", tout << "adding " << sum_term << " to groups\n";);
+          out.push_back(sum_term);
+      }
       rw_formula.push_back(sum_term);
   }
   expr* e;
@@ -168,6 +176,7 @@ void under_approx::grp_terms(expr_ref pattern, expr_ref formula, expr_ref_vector
       t_sub = m.mk_not(m.mk_app(to_app(e)->get_decl(),m_arith.mk_add(rw_formula.size(),rw_formula.c_ptr()), c));
   else
       t_sub = m.mk_app(to_app(formula)->get_decl(),m_arith.mk_add(rw_formula.size(),rw_formula.c_ptr()), c);
+  TRACE("under_approximate_verb", tout << "re-wrote " << formula << " into " << t_sub << " for substitution\n";);
   sub_term.push_back(t_sub);
 }
 
@@ -313,7 +322,13 @@ void under_approx::under_approx_lit(model_ref &model, expr_ref lit, expr_expr_ma
     for (expr *var : dims) {
         // compute variation of l along dim d
         int change = change_with_var(lit, expr_ref(var, m));
+        SASSERT(!sub || sub->contains(var));
+        CTRACE("under_approximate_verb", sub, tout << "computing value of " << mk_pp(var, m) << "\n";);
         val = (*model)(sub ? (*sub)[var] : var);
+        CTRACE("under_approximate_verb", sub,
+              tout << " value of " << mk_pp(var, m) << " is "
+                   << val << "\n";);
+
         SASSERT(m_arith.is_numeral(val));
 
         // update bounds
