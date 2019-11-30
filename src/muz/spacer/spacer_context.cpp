@@ -72,8 +72,8 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_abs_pattern(m_pt.get_ast_manager()), m_refine(false),
       m_shd_split(false), m_split_pat(m_pt.get_ast_manager()),
       m_concrete(nullptr), m_merge_atmpts(0),
-      m_merge_conj(m_pt.get_ast_manager()), m_widen_pob(true),
-      m_is_merge_gen(false) {
+      m_merge_conj(m_pt.get_ast_manager()), m_is_merge_gen(false),
+      m_widen_pob(true) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }

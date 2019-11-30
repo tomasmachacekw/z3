@@ -286,8 +286,8 @@ void under_approx::find_coeff(expr_ref t, expr_ref v, rational &k) {
                 k = rational::one();
                 return;
             } else if (m_arith.is_mul(e, e1, e2) && e2 == v) {
-                bool is_num = m_arith.is_numeral(e1, coeff);
-                SASSERT(is_num);
+                m_arith.is_numeral(e1, coeff);
+                SASSERT(m_arith.is_numeral(e1, coeff));
                 k = coeff;
                 return;
             }
