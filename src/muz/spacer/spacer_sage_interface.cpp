@@ -149,6 +149,8 @@ std::string Sage_kernel::print_kernel() const {
 }
 
 bool Sage_kernel::compute_arith_kernel() {
+    scoped_watch _w_(m_st.watch);
+
     char temp_name[] = "/tmp/spacersage.XXXXXX";
     int tmp_fd = mkstemp(temp_name);
     if (tmp_fd == -1) {
@@ -156,6 +158,7 @@ bool Sage_kernel::compute_arith_kernel() {
         perror("temp file create");
         exit(1);
     }
+    m_st.m_sage_calls++;
     TRACE("sage-interface", tout << temp_name << "\n";);
     unsigned n_cols = m_matrix.num_cols();
     unsigned n_rows = m_matrix.num_rows();
