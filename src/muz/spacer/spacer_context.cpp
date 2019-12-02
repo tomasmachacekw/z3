@@ -3080,6 +3080,7 @@ lbool context::solve_core (unsigned from_lvl)
                    if (m_params.print_statistics ()) {
                        statistics st;
                        collect_statistics (st);
+                       st.display_smt2(verbose_stream());
                    };
             );
 
