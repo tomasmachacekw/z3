@@ -504,10 +504,9 @@ class pred_transformer {
 
         lemma_cluster *mk_cluster(const expr_ref &pattern,
                                   unsigned n_lemmas = 0) {
-            lemma_cluster *l_c = alloc(lemma_cluster, pattern);
-            m_clusters.push_back(l_c);
             m_max_cluster_size = std::max(m_max_cluster_size, n_lemmas);
-            return l_c;
+            m_clusters.push_back(alloc(lemma_cluster, pattern));
+            return m_clusters.back();
         }
 
         lemma_cluster *get_cluster(const lemma_ref &lemma) {
