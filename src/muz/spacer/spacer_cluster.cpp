@@ -168,7 +168,7 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
     // no general pattern
     if (!is_cluster || get_num_vars(pattern) == 0) return;
 
-    lemma_cluster *cluster = pt.mk_cluster(pattern, neighbours.size());
+    lemma_cluster *cluster = pt.mk_cluster(pattern);
 
     TRACE("cluster_stats",
           tout << "created new cluster with pattern: " << pattern << "\n"

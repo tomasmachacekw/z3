@@ -502,9 +502,7 @@ class pred_transformer {
             return nullptr;
         }
 
-        lemma_cluster *mk_cluster(const expr_ref &pattern,
-                                  unsigned n_lemmas = 0) {
-            m_max_cluster_size = std::max(m_max_cluster_size, n_lemmas);
+        lemma_cluster *mk_cluster(const expr_ref &pattern) {
             m_clusters.push_back(alloc(lemma_cluster, pattern));
             return m_clusters.back();
         }
@@ -729,8 +727,8 @@ public:
                               const pred_transformer &pt,
                               app *rule_tag, unsigned pos);
 
-    lemma_cluster *mk_cluster(const expr_ref &pattern, unsigned n_lemmas = 0) {
-        return m_cluster_db.mk_cluster(pattern, n_lemmas);
+    lemma_cluster *mk_cluster(const expr_ref &pattern) {
+        return m_cluster_db.mk_cluster(pattern);
     }
 
     bool add_to_cluster(const lemma_ref &lemma) {
