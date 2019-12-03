@@ -27,11 +27,12 @@ Notes:
 #undef min
 #undef max
 #endif
-#include <queue>
-#include "util/scoped_ptr_vector.h"
+#include "muz/spacer/spacer_json.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_prop_solver.h"
-#include "muz/spacer/spacer_json.h"
+#include "muz/spacer/spacer_sem_matcher.h"
+#include "util/scoped_ptr_vector.h"
+#include <queue>
 
 #include "muz/base/fp_params.hpp"
 
@@ -197,7 +198,83 @@ struct lemma_lt_proc : public std::binary_function<lemma*, lemma *, bool> {
     }
 };
 
+class lemma_info {
+    lemma_ref m_lemma;
+    substitution m_sub;
 
+  public:
+    lemma_info(const lemma_ref &l, const substitution &sub)
+        : m_lemma(l), m_sub(sub) {}
+    const lemma_ref &get_lemma() const { return m_lemma; }
+    const substitution &get_sub() const { return m_sub; }
+};
+typedef vector<lemma_info, true> lemma_info_vector;
+//
+// a cluster of lemmas
+// a pattern and lemmas that match the pattern
+class lemma_cluster {
+    unsigned m_ref_count;
+    expr_ref m_pattern;
+    lemma_info_vector m_lemma_vec;
+    ast_manager &m;
+    sem_matcher m_matcher;
+    // removes subsumptions and returns a list of removed lemmas
+    void rm_subsumed(lemma_info_vector &removed_lemmas);
+    // checks whether e matches pattern.
+    // If so, returns the substitution that gets e from pattern
+    bool match(const expr_ref &e, substitution &sub);
+
+  public:
+    lemma_cluster(const expr_ref &pattern)
+        : m_ref_count(0), m_pattern(pattern), m(pattern.get_manager()),
+          m_matcher(m) {}
+
+    const lemma_info_vector &get_lemmas() const { return m_lemma_vec; }
+
+    lemma_cluster(lemma_cluster &lc)
+        : m_ref_count(0), m_pattern(lc.get_pattern()),
+          m(m_pattern.get_manager()), m_matcher(m) {
+        for (const lemma_info &l : lc.get_lemmas()) {
+            m_lemma_vec.push_back(l);
+        }
+    }
+
+    // WARNING: Adding a lemma can reduce the size of the cluster due to
+    // subsumption check
+    bool add_lemma(const lemma_ref &lemma, bool subs_check = false);
+
+    bool contains(const lemma_ref &lemma) {
+        for (const lemma_info &l : m_lemma_vec) {
+            if (lemma == l.get_lemma()) return true;
+        }
+        return false;
+    }
+
+    bool can_contain(const lemma_ref &lemma) {
+        substitution sub(m);
+        sub.reserve(1, get_num_vars(m_pattern.get()));
+        expr_ref cube(m);
+        cube = mk_and(lemma->get_cube());
+        normalize_order(cube, cube);
+        return match(cube, sub);
+    }
+
+    lemma_info *get_lemma_info(const lemma_ref &lemma) {
+        SASSERT(contains(lemma));
+        for (lemma_info &l : m_lemma_vec) {
+            if (lemma == l.get_lemma()) { return &l; }
+        }
+        UNREACHABLE();
+        return nullptr;
+    }
+    unsigned get_size() const { return m_lemma_vec.size(); }
+    const expr_ref &get_pattern() const { return m_pattern; }
+    void inc_ref() { ++m_ref_count; }
+    void dec_ref() {
+        --m_ref_count;
+        if (m_ref_count == 0) { dealloc(this); }
+    }
+};
 
 //
 // Predicate transformer state.
@@ -381,7 +458,59 @@ class pred_transformer {
         bool empty() {return m_rules.empty();}
         iterator begin() {return m_rules.begin();}
         iterator end() {return m_rules.end();}
+    };
 
+    class cluster_db {
+        sref_vector<lemma_cluster> m_clusters;
+        unsigned m_max_cluster_size;
+
+      public:
+        cluster_db() : m_max_cluster_size(0) {}
+        unsigned get_max_cluster_size() const { return m_max_cluster_size; }
+
+        bool add_to_cluster(const lemma_ref &lemma) {
+            bool found = false;
+            for (auto *c : m_clusters) {
+                if (c->add_lemma(lemma, true)) {
+                    found = true;
+                    // exiting on the first cluster to which the lemma belongs
+                    // to.
+                    break;
+                }
+            }
+            // Due to subsumption check, cluster sizes could have decreased
+            for (auto *c : m_clusters) {
+                m_max_cluster_size =
+                    std::max(m_max_cluster_size, c->get_size());
+            }
+            return found;
+        }
+
+        lemma_cluster *can_contain(const lemma_ref &lemma) {
+            for (auto *c : m_clusters) {
+                if (c->can_contain(lemma)) { return c; }
+            }
+            return nullptr;
+        }
+
+        lemma_cluster *mk_cluster(const expr_ref &pattern) {
+            m_clusters.push_back(alloc(lemma_cluster, pattern));
+            return m_clusters.back();
+        }
+
+        lemma_cluster *get_cluster(const lemma_ref &lemma) {
+            for (lemma_cluster *lc : m_clusters) {
+                if (lc->contains(lemma)) return lc;
+            }
+            return nullptr;
+        }
+
+        lemma_cluster *get_cluster(const expr *pattern) {
+            for (lemma_cluster *lc : m_clusters) {
+                if (lc->get_pattern().get() == pattern) return lc;
+            }
+            return nullptr;
+        }
     };
 
     manager&                     pm;                // spacer::manager
@@ -411,6 +540,7 @@ class pred_transformer {
     stopwatch                    m_must_reachable_watch;
     stopwatch                    m_ctp_watch;
     stopwatch                    m_mbp_watch;
+    cluster_db m_cluster_db;
 
     void init_sig();
     app_ref mk_extend_lit();
@@ -583,6 +713,26 @@ public:
                               const pred_transformer &pt,
                               app *rule_tag, unsigned pos);
 
+    lemma_cluster *mk_cluster(const expr_ref &pattern) {
+        return m_cluster_db.mk_cluster(pattern);
+    }
+
+    bool add_to_cluster(const lemma_ref &lemma) {
+        return m_cluster_db.add_to_cluster(lemma);
+    }
+
+    // checks whether lemma CAN belong to any existing cluster
+    lemma_cluster *clstr_match(const lemma_ref &lemma) {
+        return m_cluster_db.can_contain(lemma);
+    }
+
+    lemma_cluster *get_cluster(const lemma_ref &lemma) {
+        return m_cluster_db.get_cluster(lemma);
+    }
+
+    lemma_cluster *get_cluster(const expr *pattern) {
+        return m_cluster_db.get_cluster(pattern);
+    }
 };
 
 

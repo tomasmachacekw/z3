@@ -142,6 +142,8 @@ namespace spacer {
     bool is_clause(ast_manager &m, expr *n); 
     bool is_literal(ast_manager &m, expr *n);
     bool is_atom(ast_manager &m, expr *n);
+    /// Returns number of free variables in a given expression
+    unsigned get_num_vars(expr *e);
 }
 
 #endif

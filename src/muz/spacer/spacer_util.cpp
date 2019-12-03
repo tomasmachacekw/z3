@@ -973,7 +973,16 @@ namespace {
         for_each_expr(cd, fml);
     }
 
+    /**
+       Auxiliary functions used in C(luster) S(plit) M(erge) project
+    */
+    unsigned get_num_vars(expr *e) {
+        expr_free_vars fv;
+        fv(e);
+        unsigned count = 0;
+        for (unsigned i = 0, sz = fv.size(); i < sz; ++i) {
+            if (fv[i]) { count++; }
+        }
+        return count;
 }
-
-template class rewriter_tpl<spacer::adhoc_rewriter_cfg>;
-template class rewriter_tpl<spacer::adhoc_rewriter_rpp>;
+} // namespace spacer

@@ -776,6 +776,8 @@ void pred_transformer::collect_statistics(statistics& st) const
                m_must_reachable_watch.get_seconds ());
     st.update("time.spacer.ctp", m_ctp_watch.get_seconds());
     st.update("time.spacer.mbp", m_mbp_watch.get_seconds());
+    // -- Max cluster size can decrease during run
+    st.update("SPACER max cluster size", m_cluster_db.get_max_cluster_size());
 }
 
 void pred_transformer::reset_statistics()
@@ -2317,6 +2319,7 @@ context::context(fp_params const& params, ast_manager& m) :
 context::~context()
 {
     reset_lemma_generalizers();
+    dealloc(m_lmma_cluster);
     reset();
 }
 
@@ -4054,7 +4057,4 @@ inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
     // else
     //   return &n1 < &n2;
 }
-
-
-
 }
