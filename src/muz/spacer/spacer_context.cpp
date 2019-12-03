@@ -55,6 +55,7 @@ Notes:
 
 #include "muz/spacer/spacer_cluster.h"
 #include "muz/spacer/spacer_sat_answer.h"
+#include "spacer_underApproximate.h"
 
 #define WEAKNESS_MAX 65535
 
@@ -2370,6 +2371,7 @@ void context::updt_params() {
     m_adhoc_gen = m_params.spacer_adhoc_gen();
     m_abstract_pob = m_params.spacer_abstract_pob();
     m_use_sage = m_params.spacer_use_sage();
+    m_split_pob = m_params.spacer_split_pob();
     if (m_use_gpdr) {
         // set options to be compatible with GPDR
         m_weak_abs = false;
@@ -3398,6 +3400,34 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         STRACE("spacer_progress",
                tout << "This pob can be blocked by instantiation\n";);
     }
+
+    if (m_split_pob && !is_blocked && n.should_split()) {
+        // Priority for pobs at the same level and depth are decided by the
+        // number of times a pob has been split. never split it more than 10
+        // times
+        n.incr_no_ua();
+        TRACE("under_approximate",
+              tout << "going to split pob " << mk_pp(n.post(), m)
+                   << ". This is attempt no " << n.get_no_ua() << "\n";);
+        spacer::under_approx ua(m);
+        expr_ref_vector under_approx_vec(m);
+        bool success = ua.under_approximate(
+            expr_ref(n.post(), m), model, under_approx_vec, n.get_split_pat());
+
+        if (success) {
+            pob *new_pob =
+                n.pt().mk_pob(n.parent(), n.level(), n.depth(),
+                              mk_and(under_approx_vec), n.get_binding());
+
+            TRACE("under_approximate",
+                  tout << "pob" << mk_pp(n.post(), m) << " is split into "
+                       << mk_pp(new_pob->post(), m) << "\n";);
+            out.push_back(&(*new_pob));
+            out.push_back(&n);
+            return l_undef;
+        }
+    }
+    model = nullptr;
 
     predecessor_eh();
 
