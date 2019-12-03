@@ -10,6 +10,7 @@ z3_add_component(spacer
   spacer_prop_solver.cpp
   spacer_sym_mux.cpp
   spacer_util.cpp
+  spacer_cluster_util.cpp
   spacer_iuc_solver.cpp
   spacer_legacy_mbp.cpp
   spacer_proof_utils.cpp
