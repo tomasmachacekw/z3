@@ -53,6 +53,7 @@ Notes:
 
 #include "smt/smt_solver.h"
 
+#include "muz/spacer/spacer_cluster.h"
 #include "muz/spacer/spacer_sat_answer.h"
 
 #define WEAKNESS_MAX 65535
@@ -2313,6 +2314,7 @@ context::context(fp_params const& params, ast_manager& m) :
     m_pool1 = alloc(solver_pool, pool1_base.get(), max_num_contexts);
     m_pool2 = alloc(solver_pool, pool2_base.get(), max_num_contexts);
 
+    m_lmma_cluster = alloc(lemma_cluster_finder, m);
     updt_params();
 }
 
@@ -2359,7 +2361,7 @@ void context::updt_params() {
     m_restart_initial_threshold = m_params.spacer_restart_initial_threshold();
     m_pdr_bfs = m_params.spacer_gpdr_bfs();
     m_use_bg_invs = m_params.spacer_use_bg_invs();
-
+    m_adhoc_gen = m_params.spacer_adhoc_gen();
     if (m_use_gpdr) {
         // set options to be compatible with GPDR
         m_weak_abs = false;
@@ -3460,7 +3462,10 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
               <<  mk_pp(lemma->get_expr(), m) << "\n";);
 
         bool v = n.pt().add_lemma (lemma.get());
-        if (v) { m_stats.m_num_lemmas++; }
+        if (v) {
+            if (m_adhoc_gen) m_lmma_cluster->cluster(lemma);
+            m_stats.m_num_lemmas++;
+        }
 
         // Optionally update the node to be the negation of the lemma
         if (v && m_use_lemma_as_pob) {
@@ -3856,6 +3861,7 @@ void context::collect_statistics(statistics& st) const
     for (unsigned i = 0; i < m_lemma_generalizers.size(); ++i) {
         m_lemma_generalizers[i]->collect_statistics(st);
     }
+    m_lmma_cluster->collect_statistics(st);
 }
 
 void context::reset_statistics()
@@ -3873,6 +3879,7 @@ void context::reset_statistics()
         m_lemma_generalizers[i]->reset_statistics();
     }
 
+    m_lmma_cluster->reset_statistics();
     m_init_rules_watch.reset ();
     m_solve_watch.reset ();
     m_propagate_watch.reset ();
