@@ -187,9 +187,17 @@ class limit_num_generalizer : public lemma_generalizer {
 class lemma_merge_generalizer : public lemma_generalizer {
     struct stats {
         // TODO add stats
+        unsigned wide_atmpts;
+        unsigned wide_sucess;
         stopwatch watch;
-        stats() { reset(); }
-        void reset() { watch.reset(); }
+        stats() {
+            reset();
+        }
+        void reset() {
+            watch.reset();
+            wide_atmpts = 0;
+            wide_sucess = 0;
+        }
     };
 
     ast_manager &m;
@@ -250,6 +258,10 @@ class lemma_merge_generalizer : public lemma_generalizer {
     // converts all numerals and uninterpreted constants in fml to int
     // assumes that fml is in sop
     void to_int(expr_ref &fml);
+    bool should_apply(const expr *lit, rational val, rational n);
+    bool apply_widen(lemma_ref &lemma, expr *lit, expr_ref_vector &res,
+                     expr_ref &nw_bnd);
+    void substitute(expr *var, rational n, expr *fml, expr_ref &sub);
 };
 
 } // namespace spacer
