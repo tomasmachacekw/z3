@@ -181,6 +181,31 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                                      << " into " << cvx_pattern << "\n";);
     }
 
+    model_ref mdl;
+
+    // get a model for the lemma
+    expr_ref_vector pat(m);
+    pat.push_back(cvx_pattern);
+
+    //call solver to get model for mbp
+    m_solver->push();
+    m_solver->assert_expr(pat);
+    lbool res = m_solver->check_sat(0, nullptr);
+    VERIFY(res == l_true);
+    m_solver->get_model(mdl);
+
+    SASSERT(mdl.get() != nullptr);
+    TRACE("merge_dbg_verb", expr_ref t(m); model2expr(mdl, t); tout
+                                           << "calling mbp with " << cvx_pattern
+                                           << " and " << t << "\n";);
+    qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true, true);
+    TRACE("merge_dbg", tout << "Pattern after mbp of computing cvx cls: "
+                            << cvx_pattern << "\n";);
+    if (m_dim_frsh_cnsts.size() > 0) {
+        TRACE("merge_dbg", tout << "could not eliminate all vars\n";);
+        return false;
+    }
+
     // TODO check mbp over approximates cvx cls and update lemma
     return false;
 }
