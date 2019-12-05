@@ -298,7 +298,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
 
     expr_ref_vector cls(m);
     m_exact = m_cvx_cls.closure(cls);
-    CTRACE("merge_dbg", !m_exact,
+    CTRACE("merge_dbg_verb", !m_exact,
            tout << "Convex closure introduced new variables. Closure is"
                 << mk_and(cls) << "\n";);
 
@@ -347,8 +347,8 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                                            << "calling mbp with " << cvx_pattern
                                            << " and " << t << "\n";);
     qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true, true);
-    TRACE("merge_dbg", tout << "Pattern after mbp of computing cvx cls: "
-                            << cvx_pattern << "\n";);
+    TRACE("merge_dbg_verb", tout << "Pattern after mbp of computing cvx cls: "
+                                 << cvx_pattern << "\n";);
     if (m_dim_frsh_cnsts.size() > 0) {
         TRACE("merge_dbg", tout << "could not eliminate all vars\n";);
         return false;
@@ -454,7 +454,8 @@ bool lemma_merge_generalizer::check_inductive_and_update(
         pob->set_merge_conj(conj);
         pob->set_refine();
         TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(conj)
-                                << " set on pob " << pob->post() << "\n";);
+                                << " set on pob " << mk_pp(pob->post(), m)
+                                << "\n";);
     }
     // keep track of failed merge attempts
     pob->bump_merge_atmpts();
