@@ -150,6 +150,13 @@ namespace spacer {
 
     //check whether lit is an instance of mono_var_pattern
     bool is_mono_var(expr *lit, ast_manager &m, arith_util &a_util);
+
+    // a mono_var_pattern has only one variable in the whole expression and is
+    // linear. lit is the literal with the variable
+    bool mono_var_pattern(const expr_ref &p, expr_ref &lit);
+
+    // drop all literals from n that match leq_lit
+    void abstract_fml(expr_ref_vector &in, expr_ref &lit, expr_ref_vector &out);
 }
 
 #endif
