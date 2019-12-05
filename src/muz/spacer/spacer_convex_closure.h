@@ -44,6 +44,9 @@ class convex_closure {
 
     //compute one dimensional convex closure
     void do_one_dim_cls(expr_ref var, expr_ref_vector& res);
+    bool compute_div_constraint(const vector<rational> &data, rational &m,
+                                rational &d);
+
   public:
     convex_closure(ast_manager &man, bool use_sage)
         : m(man), m_arith(m), m_dim(0), m_use_sage(use_sage), m_data(0, 0),

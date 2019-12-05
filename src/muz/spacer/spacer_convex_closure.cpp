@@ -162,6 +162,45 @@ void convex_closure::syn_cls(expr_ref_vector &res_vec) {
                               m_arith.mk_int(rational::one())));
 }
 
+namespace {
+bool is_sorted(const vector<rational> &data) {
+    for (unsigned i = 0; i < data.size() - 1; i++) {
+        if (data[i] < data[i + 1]) return false;
+    }
+    return true;
+}
+} // namespace
+// check whether \exists m, d s.t data[i] mod m = d. Returns the largest m and
+// corresponding d
+bool convex_closure::compute_div_constraint(const vector<rational> &data,
+                                            rational &m, rational &d) {
+    TRACE("cvx_dbg_verb", tout << "computing div constraints for ";
+          for (rational r
+               : data) tout
+          << r << " ";
+          tout << "\n";);
+    SASSERT(data.size() > 1);
+    SASSERT(is_sorted(data));
+    // find the least difference
+    m = data[0] - data[1];
+    for (unsigned i = 2; i < data.size(); i++) {
+        rational cd = data[i - 1] - data[i];
+        if ((cd < m || m == 0) && cd > 0) m = cd;
+    }
+    if (m <= 1) return false;
+    d = data[0] % m;
+    // work around for z3::rational::rem returning negative numbers.
+    d = (m + d) % m;
+    SASSERT(d >= rational::zero());
+
+    TRACE("cvx_dbg_verb",
+          tout << "The cd  is " << m << " and off is " << d << "\n";);
+    for (rational r : data) {
+        if (((r % m) + m) % m != d) { return false; }
+    }
+    TRACE("cvx_dbg_verb", tout << "div constraint generated\n";);
+    return true;
+}
 
 // returns whether the closure is exact or not (i.e syntactic)
 bool convex_closure::closure(expr_ref_vector &res_vec) {
@@ -204,6 +243,11 @@ void convex_closure::do_one_dim_cls(expr_ref var, expr_ref_vector& res_vec) {
     ub_expr = m_arith.mk_le(var, m_arith.mk_int(data[0]));
     lb_expr = m_arith.mk_ge(var, m_arith.mk_int(data[data.size() - 1]));
 
+    rational cr, off;
+    bool div_constr = compute_div_constraint(data, cr, off);
+    if (div_constr)
+        res_vec.push_back(m_arith.mk_eq(m_arith.mk_mod(var, m_arith.mk_int(cr)),
+                                        m_arith.mk_int(off)));
     res_vec.push_back(ub_expr);
     res_vec.push_back(lb_expr);
 }
