@@ -793,7 +793,24 @@ class pob {
     std::map<unsigned, stopwatch> m_expand_watches;
     unsigned m_blocked_lvl;
 
-public:
+    // true if this pob is an abstraction
+    bool m_is_abs;
+
+    // true if the pob can be abstracted
+    bool m_can_abs;
+
+    // pattern with which abstraction was created
+    expr_ref m_abs_pattern;
+
+    // should refine lemma abstractions
+    bool m_refine;
+
+    // concrete pob associated with an abstract pob
+    // very similar to a parent except this is not used in computing
+    // a counter example
+    pob_ref m_concrete;
+
+  public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
 
@@ -821,6 +838,28 @@ public:
     derivation* detach_derivation () {return m_derivation.detach ();}
 
     pob* parent () const { return m_parent.get (); }
+
+    pob *concrete() const {
+        SASSERT(m_is_abs);
+        return m_concrete.get();
+    }
+    void set_concrete(pob *pob) {
+        SASSERT(m_is_abs);
+        m_concrete = pob;
+    }
+
+    bool is_abs() const { return m_is_abs; }
+    void set_abs() { m_is_abs = true; }
+
+    const expr *get_abs_pattern() const { return m_abs_pattern.get(); }
+    void set_abs_pattern(expr *pattern) {
+        m_abs_pattern = expr_ref(pattern, get_ast_manager());
+    }
+    bool can_abs() const { return m_can_abs; }
+    void set_can_abs(bool v) { m_can_abs = v; }
+
+    bool get_refine() const { return m_refine; }
+    void set_refine() { m_refine = true; }
 
     pred_transformer& pt () const { return m_pt; }
     ast_manager& get_ast_manager () const { return m_pt.get_ast_manager (); }
@@ -1079,6 +1118,8 @@ class context {
         unsigned m_num_restarts;
         unsigned m_num_lemmas_imported;
         unsigned m_num_lemmas_discarded;
+        unsigned m_num_abstractions;
+        unsigned m_num_abstractions_failed;
         stats() { reset(); }
         void reset() { memset(this, 0, sizeof(*this)); }
     };
@@ -1147,6 +1188,7 @@ class context {
     bool                 m_pdr_bfs;
     bool                 m_use_bg_invs;
     bool m_adhoc_gen;
+    bool m_abstract_pob;
     unsigned             m_push_pob_max_depth;
     unsigned             m_max_level;
     unsigned             m_restart_initial_threshold;
