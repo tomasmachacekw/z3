@@ -2369,6 +2369,7 @@ void context::updt_params() {
     m_use_bg_invs = m_params.spacer_use_bg_invs();
     m_adhoc_gen = m_params.spacer_adhoc_gen();
     m_abstract_pob = m_params.spacer_abstract_pob();
+    m_use_sage = m_params.spacer_use_sage();
     if (m_use_gpdr) {
         // set options to be compatible with GPDR
         m_weak_abs = false;
