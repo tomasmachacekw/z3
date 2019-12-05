@@ -123,6 +123,45 @@ void convex_closure::add_lin_deps(expr_ref_vector& res_vec) {
           << mk_and(res_vec) << "\n";);
 }
 
+void convex_closure::add_sum_cnstr(unsigned i, expr_ref_vector &res_vec) {
+    expr_ref_vector add(m);
+    expr_ref mul(m);
+    expr_ref exp(m);
+    for (unsigned j = 0; j < m_nw_vars.size(); j++) {
+        exp = to_expr(m_nw_vars.get(j));
+        mul_if_not_one(m_data.get(j, i), exp.get(), mul);
+        add.push_back(mul);
+    }
+    res_vec.push_back(
+        m.mk_eq(m_arith.mk_add(add.size(), add.c_ptr()), m_dim_vars[i].get()));
+}
+
+void convex_closure::syn_cls(expr_ref_vector &res_vec) {
+    for (unsigned i = 0; i < m_data.num_rows(); i++) {
+        var_ref v(m.mk_var(i + dims(), m_arith.mk_real()), m);
+        m_nw_vars.push_back(v);
+    }
+
+    expr_ref_vector exprs(m);
+    expr_ref e(m);
+
+    //\forall j . m_nw_vars[j] >= 0
+    for (auto v : m_nw_vars) {
+        e = expr_ref(to_expr(v), m);
+        exprs.push_back(e);
+        res_vec.push_back(m_arith.mk_ge(e, m_arith.mk_int(rational::zero())));
+    }
+
+    for (unsigned i = 0; i < m_dim_vars.size(); i++) {
+        e = m_dim_vars[i].get();
+        if (is_var(e)) add_sum_cnstr(i, res_vec);
+    }
+
+    //(\Sum j . m_nw_vars[j]) = 1
+    res_vec.push_back(m.mk_eq(m_arith.mk_add(m_nw_vars.size(), exprs.c_ptr()),
+                              m_arith.mk_int(rational::one())));
+}
+
 
 // returns whether the closure is exact or not (i.e syntactic)
 bool convex_closure::closure(expr_ref_vector &res_vec) {
@@ -138,6 +177,9 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
     }
 
     if(red_dim > 1) {
+        SASSERT(m_nw_vars.size() == 0);
+        TRACE("merge_dbg", tout << "Computing syntactic convex closure\n";);
+        syn_cls(res_vec);
         return false;
     }
 
