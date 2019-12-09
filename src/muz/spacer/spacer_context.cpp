@@ -71,9 +71,8 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_blocked_lvl(0), m_is_abs(false), m_can_abs(true),
       m_abs_pattern(m_pt.get_ast_manager()), m_refine(false),
       m_shd_split(false), m_split_pat(m_pt.get_ast_manager()),
-      m_concrete(nullptr),
-      m_merge_conj(m_pt.get_ast_manager()), m_is_merge_gen(false),
-      m_widen_pob(true), m_gas(0) {
+      m_concrete(nullptr), m_merge_conj(m_pt.get_ast_manager()),
+      m_is_merge_gen(false), m_widen_pob(true), m_gas(0) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -3413,7 +3412,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     if (m_split_pob && !is_blocked && n.should_split()) {
         TRACE("under_approximate",
               tout << "going to split pob " << mk_pp(n.post(), m)
-                   << ". This is attempt no " << n.get_no_ua() << "\n";);
+                   << ". Will attempt " << n.get_gas() << " more times\n";);
         spacer::under_approx ua(m);
         expr_ref_vector under_approx_vec(m);
         bool success = ua.under_approximate(
@@ -3429,6 +3428,12 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                        << mk_pp(new_pob->post(), m) << "\n";);
             out.push_back(&(*new_pob));
             out.push_back(&n);
+            unsigned gas = n.get_gas();
+            SASSERT(gas > 0);
+            new_pob->set_gas(gas);
+            // decrease gas for n to limit the number of times it is going to be
+            // split
+            n.set_gas(gas - 1);
             return l_undef;
         }
     }
@@ -3612,7 +3617,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                       tout << "Attempting to block pob " << mk_pp(n.post(), m)
                            << " using generalization "
                            << mk_pp(new_pob->post(), m) << " with gas "
-                           << new_pob.get_gas() << "\n";);
+                           << new_pob->get_gas() << "\n";);
                 out.push_back(&(*new_pob));
             } else
                 TRACE("merge_dbg",
