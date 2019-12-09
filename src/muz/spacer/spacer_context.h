@@ -829,6 +829,9 @@ class pob {
     // should widen pob
     bool m_widen_pob;
 
+    // gas decides how much time is spent in blocking this (may) pob
+    unsigned m_gas;
+
   public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
@@ -889,6 +892,9 @@ class pob {
     void set_merge_gen() { m_is_merge_gen = true; }
     bool can_abs() const { return m_can_abs; }
     void set_nvr_abs() { m_can_abs = false; }
+
+    unsigned get_gas() { return m_gas; }
+    void set_gas(unsigned n) { m_gas = n; }
 
     bool should_refine() const { return m_refine; }
     void set_refine() { m_refine = true; }
