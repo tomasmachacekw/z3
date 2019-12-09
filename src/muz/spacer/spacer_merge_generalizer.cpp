@@ -392,7 +392,22 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         asmpts.push_back(asmpt);
         TRACE("merge_dbg_verb", tout << "checking neg mbp: " << asmpt << "\n";);
         res = sol->check_sat(1, asmpts.c_ptr());
-        if (res == l_false) { return check_inductive_and_update(lemma, pat); }
+        if (res == l_false) {
+            if (check_inductive_and_update(lemma, pat))
+                return true;
+            else {
+                pob_ref pob = lemma->get_pob();
+                if (pob->get_merge_atmpts() > 1) {
+                    pob->set_merge_conj(pat);
+                    pob->set_refine();
+                    TRACE("merge_dbg", tout << "merge conjecture  "
+                                            << mk_and(conj) << " set on pob "
+                                            << mk_pp(pob->post(), m) << "\n";);
+                }
+                // keep track of failed merge attempts
+                pob->bump_merge_atmpts();
+            }
+        }
         // remove all literals that are true in the model
         model_ref rslt;
         sol->get_model(rslt);
@@ -449,7 +464,6 @@ bool lemma_merge_generalizer::check_inductive_and_update(
     TRACE("merge_dbg", tout << "Attempt to update lemma with: " << conj << "\n"
                             << "at level " << lemma->level() << "\n";);
     pred_transformer &pt = lemma->get_pob()->pt();
-    pob_ref pob = lemma->get_pob();
     unsigned uses_level = 0;
     if (pt.check_inductive(infty_level(), conj, uses_level,
                            lemma->weakness()) ||
@@ -461,16 +475,6 @@ bool lemma_merge_generalizer::check_inductive_and_update(
         lemma->set_level(uses_level);
         return true;
     }
-
-    if (pob->get_merge_atmpts() > 1) {
-        pob->set_merge_conj(conj);
-        pob->set_refine();
-        TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(conj)
-                                << " set on pob " << mk_pp(pob->post(), m)
-                                << "\n";);
-    }
-    // keep track of failed merge attempts
-    pob->bump_merge_atmpts();
     return false;
 }
 void lemma_merge_generalizer::collect_statistics(statistics &st) const {
