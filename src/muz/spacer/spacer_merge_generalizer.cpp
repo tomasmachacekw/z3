@@ -313,7 +313,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     // added to spacer yet. So we create a new, local, cluster and add the lemma to it.
     lemma_cluster lc(*pt_cls);
 
-    lc.add_lemma(lemma);
+    lc.add_lemma(lemma, true);
 
     const expr_ref &pattern = lc.get_pattern();
 
@@ -328,6 +328,9 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         lemma->get_pob()->set_split();
         return false;
     }
+    // if subsumption removed all the other lemmas, there is nothing to
+    // generalize
+    if (lc.get_size() < 2) return false;
     unsigned n_vars = get_num_vars(pattern);
     SASSERT(n_vars > 0);
     reset(n_vars);
