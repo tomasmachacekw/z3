@@ -63,6 +63,8 @@ void context::set_nvr_abs(const pob_ref &pob_abs) {
     // to pob_abs
     if (!pob_abs->concrete()) return;
     pob_abs->concrete()->set_nvr_abs();
+    TRACE("merge_dbg_verb", tout << "Never going to abstract pob "
+                                 << mk_pp(pob_abs->post(), m) << "again \n";);
     // get pattern that was used to create reachable
     const expr *pob_pattern = pob_abs->concrete()->get_abs_pattern();
     SASSERT(pob_pattern != nullptr);
@@ -72,7 +74,12 @@ void context::set_nvr_abs(const pob_ref &pob_abs) {
     lemma_ref_vector all_lemmas;
     pob_abs->pt().get_all_lemmas(all_lemmas, false);
     for (auto *l : all_lemmas) {
-        if (lc->can_contain(l)) l->get_pob()->set_nvr_abs();
+        if (lc->can_contain(l)) {
+            TRACE("merge_dbg_verb", tout << "Never going to abstract pob "
+                                         << mk_pp(l->get_pob()->post(), m)
+                                         << "again \n";);
+            l->get_pob()->set_nvr_abs();
+        }
     }
 }
 
