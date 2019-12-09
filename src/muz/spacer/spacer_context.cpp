@@ -3425,6 +3425,9 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                        << mk_pp(new_pob->post(), m) << "\n";);
             out.push_back(&(*new_pob));
             out.push_back(&n);
+            IF_VERBOSE(1, verbose_stream()
+                              << " S " << std::fixed << std::setprecision(2)
+                              << watch.get_seconds() << "\n";);
             return l_undef;
         }
     }
