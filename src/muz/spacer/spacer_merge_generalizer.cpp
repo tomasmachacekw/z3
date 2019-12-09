@@ -407,6 +407,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                                         << mk_pp(pob->post(), m) << "\n";);
                 pt_cls->dec_gas();
             }
+            return false;
         }
         // remove all literals that are true in the model
         model_ref rslt;
