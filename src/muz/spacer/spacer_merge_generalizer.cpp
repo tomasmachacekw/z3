@@ -315,11 +315,13 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
           tout << "Start merging with lemma cube: " << lemma->get_cube()
                << "\n Discovered pattern: " << pattern << "\n";);
 
-    if (has_nonlinear_var_mul(pattern, m)) {
+    if (has_nonlinear_var_mul(pattern, m) && pt_cls->get_gas() > 0) {
         TRACE("merge_dbg",
               tout << "Found non linear pattern. Marked to split \n";);
         lemma->get_pob()->set_split_pat(pattern);
         lemma->get_pob()->set_split();
+        lemma->get_pob()->set_gas(lc.get_size());
+        pt_cls->dec_gas();
         return false;
     }
 
@@ -393,15 +395,17 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         TRACE("merge_dbg_verb", tout << "checking neg mbp: " << asmpt << "\n";);
         res = sol->check_sat(1, asmpts.c_ptr());
         if (res == l_false) {
-            if (check_inductive_and_update(lemma, pat))
-                return true;
-            else {
+            if (check_inductive_and_update(lemma, pat)) return true;
+            // create merge_gen_pob only if there is enough gas left
+            else if (pt_cls->get_gas() > 0) {
                 pob_ref pob = lemma->get_pob();
                 pob->set_merge_conj(pat);
                 pob->set_refine();
+                pob->set_gas(lc.get_size());
                 TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(pat)
                                         << " set on pob "
                                         << mk_pp(pob->post(), m) << "\n";);
+                pt_cls->dec_gas();
             }
         }
         // remove all literals that are true in the model

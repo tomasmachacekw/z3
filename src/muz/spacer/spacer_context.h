@@ -36,6 +36,8 @@ Notes:
 
 #include "muz/base/fp_params.hpp"
 
+#define GAS_INIT 10
+
 namespace datalog {
     class rule_set;
     class context;
@@ -224,17 +226,19 @@ class lemma_cluster {
     // checks whether e matches pattern.
     // If so, returns the substitution that gets e from pattern
     bool match(const expr_ref &e, substitution &sub);
+    // The number of times CSM has to be tried using this cluster
+    unsigned m_gas;
 
   public:
     lemma_cluster(const expr_ref &pattern)
         : m_ref_count(0), m_pattern(pattern), m(pattern.get_manager()),
-          m_matcher(m) {}
+          m_matcher(m), m_gas(GAS_INIT) {}
 
     const lemma_info_vector &get_lemmas() const { return m_lemma_vec; }
 
     lemma_cluster(lemma_cluster &lc)
         : m_ref_count(0), m_pattern(lc.get_pattern()),
-          m(m_pattern.get_manager()), m_matcher(m) {
+          m(m_pattern.get_manager()), m_matcher(m), m_gas(lc.get_gas()) {
         for (const lemma_info &l : lc.get_lemmas()) {
             m_lemma_vec.push_back(l);
         }
@@ -251,6 +255,8 @@ class lemma_cluster {
         return false;
     }
 
+    void dec_gas() { m_gas--; }
+    unsigned get_gas() const { return m_gas; }
     bool can_contain(const lemma_ref &lemma) {
         substitution sub(m);
         sub.reserve(1, get_num_vars(m_pattern.get()));
