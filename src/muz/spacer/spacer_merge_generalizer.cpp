@@ -397,15 +397,11 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                 return true;
             else {
                 pob_ref pob = lemma->get_pob();
-                if (pob->get_merge_atmpts() > 1) {
-                    pob->set_merge_conj(pat);
-                    pob->set_refine();
-                    TRACE("merge_dbg", tout << "merge conjecture  "
-                                            << mk_and(conj) << " set on pob "
-                                            << mk_pp(pob->post(), m) << "\n";);
-                }
-                // keep track of failed merge attempts
-                pob->bump_merge_atmpts();
+                pob->set_merge_conj(pat);
+                pob->set_refine();
+                TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(pat)
+                                        << " set on pob "
+                                        << mk_pp(pob->post(), m) << "\n";);
             }
         }
         // remove all literals that are true in the model
