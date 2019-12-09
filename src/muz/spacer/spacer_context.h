@@ -793,8 +793,6 @@ class pob {
     std::map<unsigned, stopwatch> m_expand_watches;
     unsigned m_blocked_lvl;
 
-    // the number of times it has been under approximated
-    unsigned m_ua;
     // true if this pob is an abstraction
     bool m_is_abs;
 
@@ -951,8 +949,6 @@ class pob {
         --m_ref_count;
         if (m_ref_count == 0) {dealloc(this);}
     }
-    unsigned get_no_ua() const { return m_ua; }
-    void incr_no_ua() { ++m_ua; }
 
     std::ostream &display(std::ostream &out, bool full = false) const;
     class on_expand_event
