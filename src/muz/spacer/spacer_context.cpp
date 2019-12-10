@@ -68,7 +68,7 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_post(m_pt.get_ast_manager()), m_binding(m_pt.get_ast_manager()),
       m_new_post(m_pt.get_ast_manager()), m_level(level), m_depth(depth),
       m_open(true), m_use_farkas(true), m_in_queue(false), m_weakness(0),
-      m_blocked_lvl(0), m_ua(0), m_is_abs(false), m_can_abs(true),
+      m_blocked_lvl(0), m_is_abs(false), m_can_abs(true),
       m_abs_pattern(m_pt.get_ast_manager()), m_refine(false),
       m_shd_split(false), m_split_pat(m_pt.get_ast_manager()),
       m_concrete(nullptr), m_merge_atmpts(0),
@@ -3411,10 +3411,6 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         return l_undef;
     }
     if (m_split_pob && !is_blocked && n.should_split()) {
-        // Priority for pobs at the same level and depth are decided by the
-        // number of times a pob has been split. never split it more than 10
-        // times
-        n.incr_no_ua();
         TRACE("under_approximate",
               tout << "going to split pob " << mk_pp(n.post(), m)
                    << ". Will attempt " << n.get_gas() << " more times\n";);
