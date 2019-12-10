@@ -81,7 +81,7 @@ void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
 }
 
 void lemma_merge_generalizer::to_real(expr_ref &fml) {
-    if (m_arith.is_numeral(fml)) return;
+    if (m_arith.is_numeral(fml) || m_arith.is_to_real(fml)) return;
     if (is_uninterp_const(fml) && m_arith.is_int(fml)) {
         fml = m_arith.mk_to_real(fml);
         return;
