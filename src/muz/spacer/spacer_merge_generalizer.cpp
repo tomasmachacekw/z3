@@ -418,7 +418,17 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         if (res == l_false) {
             //one for getting model and one for checking cvx_cls ==> mbp
             m_solver->pop(2);
-            return check_inductive_and_update(lemma, pat);
+            if (check_inductive_and_update(lemma, pat)) return true;
+            // create merge_gen_pob only if there is enough gas left
+            else {
+                pob_ref pob = lemma->get_pob();
+                pob->set_merge_conj(pat);
+                pob->set_refine();
+                TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(pat)
+                                        << " set on pob "
+                                        << mk_pp(pob->post(), m) << "\n";);
+            }
+            return false;
         }
 
         //remove satisfied literals
@@ -480,7 +490,6 @@ bool lemma_merge_generalizer::check_inductive_and_update(
     TRACE("merge_dbg", tout << "Attempt to update lemma with: " << conj << "\n"
                             << "at level " << lemma->level() << "\n";);
     pred_transformer &pt = lemma->get_pob()->pt();
-    pob_ref pob = lemma->get_pob();
     unsigned uses_level = 0;
     if (pt.check_inductive(infty_level(), conj, uses_level,
                            lemma->weakness()) ||
@@ -493,15 +502,6 @@ bool lemma_merge_generalizer::check_inductive_and_update(
         return true;
     }
 
-    if (pob->get_merge_atmpts() > 1) {
-        pob->set_merge_conj(conj);
-        pob->set_refine();
-        TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(conj)
-                                << " set on pob " << mk_pp(pob->post(), m)
-                                << "\n";);
-    }
-    // keep track of failed merge attempts
-    pob->bump_merge_atmpts();
     return false;
 }
 void lemma_merge_generalizer::collect_statistics(statistics &st) const {
