@@ -1296,7 +1296,8 @@ bool pred_transformer::is_blocked (pob &n, unsigned &uses_level, model_ref* mode
     ensure_level (n.level ());
     prop_solver::scoped_level _sl (*m_solver, n.level ());
     m_solver->set_core(nullptr);
-    m_solver->set_model (model);
+    if (model != nullptr)
+        m_solver->set_model(model);
 
     expr_ref_vector post(m), _aux(m);
     post.push_back (n.post ());
@@ -3389,8 +3390,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     vector<bool> reach_pred_used;
     unsigned num_reuse_reach = 0;
 
-    bool is_blocked =n.pt().is_blocked(n, uses_level,&model);
-    if (m_push_pob && is_blocked ) {
+    if (m_push_pob && n.pt().is_blocked(n, uses_level)) {
         // if (!m_pob_queue.is_root (n)) n.close ();
         IF_VERBOSE (1, verbose_stream () << " K "
                     << std::fixed << std::setprecision(2)
@@ -3410,7 +3410,12 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
               << mk_pp(n.post(), m) << "\n";);
         return l_undef;
     }
-    if (m_split_pob && !is_blocked && n.should_split()) {
+
+    // Decide whether to split on pob
+    // get a model that satisfies the pob and the current set of lemmas
+    // TODO: if push_pob is enabled, avoid calling is_blocked twice
+    if (m_split_pob && n.should_split() &&
+        !n.pt().is_blocked(n, uses_level, &model)) {
         TRACE("under_approximate",
               tout << "going to split pob " << mk_pp(n.post(), m)
                    << ". Will attempt " << n.get_gas() << " more times\n";);
