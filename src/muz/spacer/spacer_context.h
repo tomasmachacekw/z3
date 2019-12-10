@@ -256,6 +256,7 @@ class lemma_cluster {
 
     void dec_gas() { m_gas--; }
     unsigned get_gas() const { return m_gas; }
+    unsigned get_pob_gas() const { return m_lemma_vec.size() + 5; }
     bool can_contain(const lemma_ref &lemma) {
         substitution sub(m);
         sub.reserve(1, get_num_vars(m_pattern.get()));
@@ -834,6 +835,8 @@ class pob {
     // should widen pob
     bool m_widen_pob;
 
+    // gas decides how much time is spent in blocking this (may) pob
+    unsigned m_gas;
   public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
@@ -894,6 +897,9 @@ class pob {
     void set_merge_gen() { m_is_merge_gen = true; }
     bool can_abs() const { return m_can_abs; }
     void set_can_abs(bool v) { m_can_abs = v; }
+
+    unsigned get_gas() const { return m_gas; }
+    void set_gas(unsigned n) { m_gas = n; }
 
     bool get_refine() const { return m_refine; }
     void set_refine() { m_refine = true; }

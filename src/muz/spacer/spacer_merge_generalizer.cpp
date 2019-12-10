@@ -326,6 +326,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
               tout << "Found non linear pattern. Marked to split \n";);
         lemma->get_pob()->set_split_pat(pattern);
         lemma->get_pob()->set_split();
+        lemma->get_pob()->set_gas(lc.get_pob_gas());
         pt_cls->dec_gas();
         return false;
     }
@@ -425,6 +426,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                 pob_ref pob = lemma->get_pob();
                 pob->set_merge_conj(pat);
                 pob->set_refine();
+                pob->set_gas(lc.get_pob_gas());
                 TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(pat)
                                         << " set on pob "
                                         << mk_pp(pob->post(), m) << "\n";);

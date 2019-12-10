@@ -73,7 +73,7 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_shd_split(false), m_split_pat(m_pt.get_ast_manager()),
       m_concrete(nullptr), m_merge_atmpts(0),
       m_merge_conj(m_pt.get_ast_manager()), m_is_merge_gen(false),
-      m_widen_pob(true) {
+      m_widen_pob(true), m_gas(0) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -81,6 +81,7 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
         m_is_abs = m_parent->is_abs();
         m_can_abs = m_parent->can_abs();
         m_is_merge_gen = m_parent->is_merge_gen();
+        m_gas = m_parent->get_gas();
     }
 }
 
@@ -3402,6 +3403,11 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                tout << "This pob can be blocked by instantiation\n";);
     }
 
+    if ((n.is_merge_gen() || n.is_abs()) && n.get_gas() == 0) {
+        TRACE("merge_dbg", tout << "Cant prove merge. Collapsing "
+              << mk_pp(n.post(), m) << "\n";);
+        return l_undef;
+    }
     if (m_split_pob && !is_blocked && n.should_split()) {
         // Priority for pobs at the same level and depth are decided by the
         // number of times a pob has been split. never split it more than 10
@@ -3428,6 +3434,12 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             IF_VERBOSE(1, verbose_stream()
                               << " S " << std::fixed << std::setprecision(2)
                               << watch.get_seconds() << "\n";);
+            unsigned gas = n.get_gas();
+            SASSERT(gas > 0);
+            new_pob->set_gas(gas);
+            // decrease gas for n to limit the number of times it is going to be
+            // split
+            n.set_gas(gas - 1);
             return l_undef;
         }
     }
@@ -3602,10 +3614,14 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                 // since the level of pob is going to be incremented, new pob
                 // will have higher priority
                 new_pob->set_merge_gen();
-                TRACE("merge_dbg", tout << "Attempting to block pob "
-                                        << mk_pp(n.post(), m)
-                                        << " using generalization "
-                                        << mk_pp(new_pob->post(), m) << "\n";);
+                unsigned gas = n.get_gas();
+                SASSERT(gas > 0);
+                new_pob->set_gas(gas - 1);
+                n.set_gas(gas - 1);
+                TRACE("merge_dbg", tout << "Attempting to block pob " << mk_pp(n.post(), m)
+                      << " using generalization "
+                      << mk_pp(new_pob->post(), m) << " with gas "
+                      << new_pob->get_gas() << "\n";);
                 out.push_back(&(*new_pob));
             } else
                 TRACE("merge_dbg",
@@ -3643,6 +3659,10 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                                           n.get_binding());
                         f->set_abs();
                         f->set_concrete(&n);
+                        unsigned gas = n.get_gas();
+                        SASSERT(gas > 0);
+                        f->set_gas(gas - 1);
+                        n.set_gas(gas - 1);
                         out.push_back(f);
                         TRACE("merge_dbg",
                               tout << " abstracting " << mk_pp(n.post(), m)
@@ -3978,6 +3998,10 @@ bool context::create_children(pob& n, datalog::rule const& r,
                        !mdl.is_true(n.post())))
     { kid->reset_derivation(); }
 
+    if (kid->is_abs() || kid->is_merge_gen()) {
+        SASSERT(n.get_gas() > 0);
+        kid->set_gas(n.get_gas() - 1);
+    }
     out.push_back(kid);
     m_stats.m_num_queries++;
     return true;

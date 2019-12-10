@@ -46,6 +46,7 @@ bool context::mono_coeff_lm(pob &n, expr_ref &lit) {
             TRACE("merge_dbg",
                   tout << "Found a pattern " << mk_pp(pattern, m) << "\n";);
             n.set_abs_pattern(pattern);
+            n.set_gas(lc->get_pob_gas());
             lc->dec_gas();
             return true;
         }
