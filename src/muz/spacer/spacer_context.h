@@ -903,7 +903,7 @@ class pob {
 
     bool get_refine() const { return m_refine; }
     void set_refine() { m_refine = true; }
-    bool should_split() const { return m_ua < 1 && m_shd_split; }
+    bool should_split() const { return m_shd_split && m_gas > 0; }
     void set_split() { m_shd_split = true; }
 
     pred_transformer& pt () const { return m_pt; }

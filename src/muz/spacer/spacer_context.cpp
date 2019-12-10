@@ -3415,7 +3415,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         n.incr_no_ua();
         TRACE("under_approximate",
               tout << "going to split pob " << mk_pp(n.post(), m)
-                   << ". This is attempt no " << n.get_no_ua() << "\n";);
+                   << ". Will attempt " << n.get_gas() << " more times\n";);
         spacer::under_approx ua(m);
         expr_ref_vector under_approx_vec(m);
         bool success = ua.under_approximate(
@@ -4214,9 +4214,7 @@ inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
 
     if (n1.depth() != n2.depth()) { return n1.depth() < n2.depth(); }
 
-    if (n1.get_no_ua() != n2.get_no_ua()) {
-        return n1.get_no_ua() < n2.get_no_ua();
-    }
+    if (n1.get_gas() != n2.get_gas()) { return n1.get_gas() > n2.get_gas(); }
     //TODO: compare merge_conj sizes only if they have the same parent.
     if (n1.get_merge_conj().size() != n2.get_merge_conj().size()) {
       return n1.get_merge_conj().size() > n2.get_merge_conj().size();
