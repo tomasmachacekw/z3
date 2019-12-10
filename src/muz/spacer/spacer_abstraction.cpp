@@ -34,8 +34,9 @@ bool context::mono_coeff_lm(pob &n, expr_ref &lit) {
     for (auto &l : lemmas) {
         // find a group containing lemma l
         lemma_cluster *lc = n.pt().clstr_match(l);
-        // skip lemma if no group is found
-        if (lc == nullptr) continue;
+        // skip lemma if no group is found or if abstraction has been done too
+        // many times
+        if (lc == nullptr || lc->get_gas() == 0) continue;
 
         const expr_ref &pattern = lc->get_pattern();
 
@@ -45,6 +46,7 @@ bool context::mono_coeff_lm(pob &n, expr_ref &lit) {
             TRACE("merge_dbg",
                   tout << "Found a pattern " << mk_pp(pattern, m) << "\n";);
             n.set_abs_pattern(pattern);
+            lc->dec_gas();
             return true;
         }
     }

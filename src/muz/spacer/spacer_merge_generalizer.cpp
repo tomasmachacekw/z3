@@ -321,11 +321,12 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
           tout << "Start merging with lemma cube: " << lemma->get_cube()
                << "\n Discovered pattern: " << pattern << "\n";);
 
-    if (has_nonlinear_var_mul(pattern, m)) {
+    if (has_nonlinear_var_mul(pattern, m) && pt_cls->get_gas() > 0) {
         TRACE("merge_dbg",
               tout << "Found non linear pattern. Marked to split \n";);
         lemma->get_pob()->set_split_pat(pattern);
         lemma->get_pob()->set_split();
+        pt_cls->dec_gas();
         return false;
     }
     // if subsumption removed all the other lemmas, there is nothing to
@@ -420,13 +421,14 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
             m_solver->pop(2);
             if (check_inductive_and_update(lemma, pat)) return true;
             // create merge_gen_pob only if there is enough gas left
-            else {
+            else if (pt_cls->get_gas() > 0) {
                 pob_ref pob = lemma->get_pob();
                 pob->set_merge_conj(pat);
                 pob->set_refine();
                 TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(pat)
                                         << " set on pob "
                                         << mk_pp(pob->post(), m) << "\n";);
+                pt_cls->dec_gas();
             }
             return false;
         }
