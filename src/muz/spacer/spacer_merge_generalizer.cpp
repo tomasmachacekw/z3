@@ -321,9 +321,10 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
           tout << "Start merging with lemma cube: " << lemma->get_cube()
                << "\n Discovered pattern: " << pattern << "\n";);
 
-    if (has_nonlinear_var_mul(pattern, m) && pt_cls->get_gas() > 0) {
+    if (has_nonlinear_var_mul(pattern, m)) {
+        if (pt_cls->get_gas() == 0) return false;
         TRACE("merge_dbg",
-              tout << "Found non linear pattern. Marked to split \n";);
+                  tout << "Found non linear pattern. Marked to split \n";);
         lemma->get_pob()->set_split_pat(pattern);
         lemma->get_pob()->set_split();
         lemma->get_pob()->set_gas(lc.get_pob_gas());
