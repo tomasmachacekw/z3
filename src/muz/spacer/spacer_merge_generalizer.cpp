@@ -395,6 +395,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     TRACE("merge_dbg_verb", tout << "Pattern after mbp of computing cvx cls: "
                                  << cvx_pattern << "\n";);
     if (m_dim_frsh_cnsts.size() > 0) {
+        m_solver->pop(1);
         TRACE("merge_dbg", tout << "could not eliminate all vars\n";);
         return false;
     }
