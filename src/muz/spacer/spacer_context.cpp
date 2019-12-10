@@ -3406,7 +3406,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     }
 
     if ((n.is_merge_gen() || n.is_abs()) && n.get_gas() == 0) {
-        TRACE("merge_dbg", tout << "Cant prove merge. Collapsing "
+        TRACE("merge_dbg", tout << "Cant prove may pob. Collapsing "
               << mk_pp(n.post(), m) << "\n";);
         return l_undef;
     }
