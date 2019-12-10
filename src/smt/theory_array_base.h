@@ -28,7 +28,11 @@ namespace smt {
     class theory_array_base : public theory {
     protected:
         bool m_found_unsupported_op;
-
+        unsigned m_array_weak_head;
+        svector<theory_var> m_array_weak_trail;
+        bool has_propagate_up_trail() const { return m_array_weak_head < m_array_weak_trail.size(); }
+        void add_weak_var(theory_var v);
+        virtual void set_prop_upward(theory_var v) {}
         void found_unsupported_op(expr * n);
         void found_unsupported_op(enode* n) { found_unsupported_op(n->get_owner()); }
         void found_unsupported_op(theory_var v) { found_unsupported_op(get_enode(v)->get_owner()); }
@@ -62,6 +66,7 @@ namespace smt {
         ptr_vector<enode>                   m_axiom1_todo;
         enode_pair_vector                   m_axiom2_todo;
         enode_pair_vector                   m_extensionality_todo;
+        enode_pair_vector                   m_congruent_todo;
 
         void assert_axiom(unsigned num_lits, literal * lits);
         void assert_axiom(literal l1, literal l2);
@@ -73,6 +78,8 @@ namespace smt {
 
         void assert_extensionality_core(enode * a1, enode * a2);
         bool assert_extensionality(enode * a1, enode * a2);
+
+        void assert_congruent(enode * a1, enode * a2);
 
         // --------------------------------------------------
         // Array sort -> extensionality skolems
@@ -189,7 +196,7 @@ namespace smt {
         select_set * get_select_set(enode * n);
         void finalize_model(model_generator & m) override;
         model_value_proc * mk_value(enode * n, model_generator & m) override;
-        
+        bool include_func_interp(func_decl* f) override;
     public:
         theory_array_base(ast_manager & m);
         ~theory_array_base() override { restore_sorts(0); }

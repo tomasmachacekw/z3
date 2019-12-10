@@ -95,7 +95,7 @@ namespace smt {
         v                = find(v);
         var_data * d     = m_var_data[v];
         d->m_parent_selects.push_back(s);
-        TRACE("array", tout << mk_pp(s->get_owner(), get_manager()) << " " << mk_pp(get_enode(v)->get_owner(), get_manager()) << "\n";);
+        TRACE("array", tout << v << " " << mk_pp(s->get_owner(), get_manager()) << " " << mk_pp(get_enode(v)->get_owner(), get_manager()) << "\n";);
         m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d->m_parent_selects));
         for (enode* n : d->m_stores) {
             instantiate_axiom2a(s, n);
@@ -104,11 +104,7 @@ namespace smt {
             for (enode* store : d->m_parent_stores) {
                 SASSERT(is_store(store));
                 if (!m_params.m_array_cg || store->is_cgr()) {
-                    if (m_params.m_array_weak) {
-                        found_unsupported_op(store->get_owner());
-                        break;
-                    }
-                    instantiate_axiom2b(s, store);
+                      instantiate_axiom2b(s, store);
                 }
             }
         }
@@ -125,11 +121,7 @@ namespace smt {
         if (d->m_prop_upward && !m_params.m_array_delay_exp_axiom) {
             for (enode* n : d->m_parent_selects) {
                 if (!m_params.m_array_cg || n->is_cgr()) {
-                    if (m_params.m_array_weak) {
-                        found_unsupported_op(s);
-                        break;
-                    }
-                    instantiate_axiom2b(n, s);
+                          instantiate_axiom2b(n, s);
                 }
             }
         }
@@ -152,13 +144,13 @@ namespace smt {
         v = find(v);
         var_data * d = m_var_data[v];
         if (!d->m_prop_upward) {
+            if (m_params.m_array_weak) {
+                add_weak_var(v);
+                return;
+            }
             TRACE("array", tout << "#" << v << "\n";);
             m_trail_stack.push(reset_flag_trail<theory_array>(d->m_prop_upward));
             d->m_prop_upward = true;
-            if (m_params.m_array_weak) {
-                found_unsupported_op(v);
-                return;
-            }
             if (!m_params.m_array_delay_exp_axiom)
                 instantiate_axiom2b_for(v);
             for (enode * n : d->m_stores) 
@@ -396,7 +388,8 @@ namespace smt {
                     r = assert_delayed_axioms();
             }
         }
-        if (r == FC_DONE && m_found_unsupported_op && !get_context().get_fparams().m_array_fake_support) 
+        bool should_giveup = m_found_unsupported_op || has_propagate_up_trail();
+        if (r == FC_DONE && should_giveup && !get_context().get_fparams().m_array_fake_support) 
             r = FC_GIVEUP;
         CTRACE("array", r != FC_DONE || m_found_unsupported_op, tout << r << "\n";);
         return r;
