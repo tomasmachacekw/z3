@@ -821,8 +821,6 @@ class pob {
     // a counter example
     pob_ref m_concrete;
 
-    // number of times merge_generalizer has tried blocking this pob
-    unsigned m_merge_atmpts;
 
     // conjecture to block this pob
     expr_ref_vector m_merge_conj;
@@ -849,8 +847,7 @@ class pob {
         m_merge_conj.reset();
         m_merge_conj.append(expr);
     }
-    void bump_merge_atmpts() { m_merge_atmpts++; }
-    unsigned get_merge_atmpts() { return m_merge_atmpts; }
+
     expr_ref_vector const &get_merge_conj() const { return m_merge_conj; }
     unsigned weakness() {return m_weakness;}
     void bump_weakness() {m_weakness++;}

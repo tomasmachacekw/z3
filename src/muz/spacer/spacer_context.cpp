@@ -71,7 +71,7 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_blocked_lvl(0), m_is_abs(false), m_can_abs(true),
       m_abs_pattern(m_pt.get_ast_manager()), m_refine(false),
       m_shd_split(false), m_split_pat(m_pt.get_ast_manager()),
-      m_concrete(nullptr), m_merge_atmpts(0),
+      m_concrete(nullptr),
       m_merge_conj(m_pt.get_ast_manager()), m_is_merge_gen(false),
       m_widen_pob(true), m_gas(0) {
     if (add_to_parent && m_parent) {
@@ -3599,7 +3599,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         }
 
         // TODO : figure out when to give up on proving conjecture
-        if (n.get_merge_conj().size() > 0) {
+        if (n.get_merge_conj().size() > 0 && n.get_gas() > 0) {
             expr_ref c(m);
             c = mk_and(n.get_merge_conj());
             pob *f = n.pt().find_pob(n.parent(), c);
