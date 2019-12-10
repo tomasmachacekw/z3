@@ -3200,10 +3200,12 @@ bool context::check_reachability ()
             SASSERT(m_pob_queue.size() == old_sz);
             // collapse abstractions if the reachability of one of them cannot
             // be estimated
-            if (node->is_abs() && new_pobs.size() == 0) {
+            if ((node->is_abs() || node->is_merge_gen()) &&
+                new_pobs.size() == 0) {
                 last_reachable = node;
                 last_reachable->close();
-                while (last_reachable->parent()->is_abs()) {
+                while (last_reachable->parent()->is_abs() ||
+                       last_reachable->parent()->is_merge_gen()) {
                     last_reachable = last_reachable->parent();
                     last_reachable->close();
                 }
