@@ -3689,7 +3689,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     case l_undef:
         // something went wrong
         // if the pob is an abstraction, bail out
-        if (n.is_abs()) {
+        if (n.is_abs() || n.is_merge_gen()) {
             n.close();
             m_stats.m_expand_pob_undef++;
             return l_undef;
