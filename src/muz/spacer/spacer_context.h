@@ -36,7 +36,7 @@ Notes:
 
 #include "muz/base/fp_params.hpp"
 
-#define GAS_INIT 10
+#define GAS_INIT 42
 namespace datalog {
     class rule_set;
     class context;
@@ -256,7 +256,7 @@ class lemma_cluster {
 
     void dec_gas() { m_gas--; }
     unsigned get_gas() const { return m_gas; }
-    unsigned get_pob_gas() const { return m_lemma_vec.size() + 5; }
+    unsigned get_pob_gas() const { return 5*m_lemma_vec.size(); }
     bool can_contain(const lemma_ref &lemma) {
         substitution sub(m);
         sub.reserve(1, get_num_vars(m_pattern.get()));
