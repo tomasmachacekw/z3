@@ -44,7 +44,7 @@ bool context::mono_coeff_lm(pob &n, expr_ref &lit) {
             // HG : store the pattern in the pob. Required because there could
             // be multile patterns among lemmas
             TRACE("merge_dbg",
-                  tout << "Found a pattern " << mk_pp(pattern, m) << "\n";);
+                  tout << "Found a pattern " << mk_pp(pattern, m) << " with gas " << lc->get_size() << "\n";);
             n.set_abs_pattern(pattern);
             n.set_gas(lc->get_pob_gas());
             lc->dec_gas();
