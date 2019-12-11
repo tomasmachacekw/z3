@@ -34,9 +34,15 @@ class convex_closure {
     void add_sum_cnstr(unsigned j, expr_ref_vector &res_vec);
 
     struct stats {
+        unsigned m_num_reductions;
+        unsigned m_max_dim;
         stopwatch watch;
         stats() { reset(); }
-        void reset() { watch.reset(); }
+        void reset() {
+            m_num_reductions = 0;
+            m_max_dim = 0;
+            watch.reset();
+        }
     };
     void mul_if_not_one(rational coeff, expr *e, expr_ref &res);
     stats m_st;
