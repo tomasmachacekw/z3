@@ -322,7 +322,11 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                << "\n Discovered pattern: " << pattern << "\n";);
 
     if (has_nonlinear_var_mul(pattern, m)) {
-        if (pt_cls->get_gas() == 0) return false;
+        m_st.m_num_non_lin++;
+        if (pt_cls->get_gas() == 0) {
+            m_st.m_num_cls_ofg++;
+            return false;
+        }
         TRACE("merge_dbg",
                   tout << "Found non linear pattern. Marked to split \n";);
         lemma->get_pob()->set_split_pat(pattern);
@@ -515,6 +519,7 @@ void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.wide", m_st.watch.get_seconds());
     st.update("SPACER wide attmpts", m_st.wide_atmpts);
     st.update("SPACER wide success", m_st.wide_sucess);
+    st.update("SPACER num non lin", m_st.m_num_non_lin);
     m_cvx_cls.collect_statistics(st);
 }
 
