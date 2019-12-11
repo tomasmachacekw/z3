@@ -186,9 +186,14 @@ class limit_num_generalizer : public lemma_generalizer {
 
 class lemma_merge_generalizer : public lemma_generalizer {
     struct stats {
-        // TODO add stats
         unsigned wide_atmpts;
         unsigned wide_sucess;
+        unsigned m_num_cls_ofg;
+        unsigned m_num_syn_cls;
+        unsigned m_num_mbp_failed;
+        unsigned m_num_non_lin;
+        unsigned m_num_no_ovr_approx;
+
         stopwatch watch;
         stats() {
             reset();
@@ -197,6 +202,11 @@ class lemma_merge_generalizer : public lemma_generalizer {
             watch.reset();
             wide_atmpts = 0;
             wide_sucess = 0;
+            m_num_cls_ofg = 0;
+            m_num_non_lin = 0;
+            m_num_syn_cls = 0;
+            m_num_mbp_failed = 0;
+            m_num_no_ovr_approx = 0;
         }
     };
 
