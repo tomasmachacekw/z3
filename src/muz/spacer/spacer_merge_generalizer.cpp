@@ -465,6 +465,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     // could not find an over approximation
     TRACE("merge_dbg", tout << "mbp could not overapproximate cnx_cls\n";);
     m_solver->pop(1);
+    m_st.m_num_no_ovr_approx++;
     return false;
 }
 
