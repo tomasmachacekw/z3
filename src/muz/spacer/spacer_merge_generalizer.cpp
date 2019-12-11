@@ -353,6 +353,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                 << mk_and(cls) << "\n";);
 
     if (!m_exact) {
+        m_st.m_num_syn_cls++;
         // Add the new variables to the list of variables to be eliminated
         const var_ref_vector &vars = m_cvx_cls.get_nw_vars();
         app_ref var_app(m);
