@@ -521,7 +521,10 @@ void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     st.update("SPACER wide attmpts", m_st.wide_atmpts);
     st.update("SPACER wide success", m_st.wide_sucess);
     st.update("SPACER cluster out of gas", m_st.m_num_cls_ofg);
+    st.update("SPACER num sync cvx cls", m_st.m_num_syn_cls);
+    st.update("SPACER num mbp failed", m_st.m_num_mbp_failed);
     st.update("SPACER num non lin", m_st.m_num_non_lin);
+    st.update("SPACER num no over approximate", m_st.m_num_no_ovr_approx);
     m_cvx_cls.collect_statistics(st);
 }
 
