@@ -438,6 +438,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
                                         << mk_pp(pob->post(), m) << "\n";);
                 pt_cls->dec_gas();
             }
+            else m_st.m_num_cls_ofg++;
             return false;
         }
 
@@ -519,6 +520,7 @@ void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.wide", m_st.watch.get_seconds());
     st.update("SPACER wide attmpts", m_st.wide_atmpts);
     st.update("SPACER wide success", m_st.wide_sucess);
+    st.update("SPACER cluster out of gas", m_st.m_num_cls_ofg);
     st.update("SPACER num non lin", m_st.m_num_non_lin);
     m_cvx_cls.collect_statistics(st);
 }

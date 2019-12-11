@@ -1160,6 +1160,7 @@ class context {
         unsigned m_num_lemmas_discarded;
         unsigned m_num_abstractions;
         unsigned m_num_abstractions_failed;
+        unsigned m_num_pob_ofg;
         stats() { reset(); }
         void reset() { memset(this, 0, sizeof(*this)); }
     };

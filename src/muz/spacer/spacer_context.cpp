@@ -3408,6 +3408,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     if ((n.is_merge_gen() || n.is_abs()) && n.get_gas() == 0) {
         TRACE("merge_dbg", tout << "Cant prove may pob. Collapsing "
               << mk_pp(n.post(), m) << "\n";);
+        m_stats.m_num_pob_ofg++;
         return l_undef;
     }
 
@@ -4046,6 +4047,7 @@ void context::collect_statistics(statistics& st) const
     st.update("SPACER num abstractions", m_stats.m_num_abstractions);
     st.update("SPACER num abstractions failed",
               m_stats.m_num_abstractions_failed);
+    st.update("SPACER pob out of gas", m_stats.m_num_pob_ofg);
 
     // -- time to initialize the rules
     st.update ("time.spacer.init_rules", m_init_rules_watch.get_seconds ());
