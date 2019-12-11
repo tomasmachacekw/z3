@@ -213,10 +213,12 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
     var = m_dim_vars[0].get();
 
     if (red_dim < dims()) {
+        m_st.m_num_reductions++;
         rewrite_lin_deps();
         add_lin_deps(res_vec);
     }
 
+    if(red_dim > m_st.m_max_dim) m_st.m_max_dim = red_dim;
     if(red_dim > 1) {
         SASSERT(m_nw_vars.size() == 0);
         TRACE("merge_dbg", tout << "Computing syntactic convex closure\n";);
