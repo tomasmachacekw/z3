@@ -3444,6 +3444,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             // decrease gas for n to limit the number of times it is going to be
             // split
             n.set_gas(gas - 1);
+            m_stats.m_num_ua++;
             return l_undef;
         }
     }
