@@ -1159,12 +1159,14 @@ class context {
         unsigned m_num_lemmas_imported;
         unsigned m_num_lemmas_discarded;
         unsigned m_num_abstractions;
+        unsigned m_num_abstractions_success;
         unsigned m_num_abstractions_failed;
         unsigned m_num_mrg_conjs;
         unsigned m_num_mrg_conj_failed;
         unsigned m_num_mrg_conj_success;
         unsigned m_num_ua;
         unsigned m_num_pob_ofg;
+        unsigned m_num_refine;
         stats() { reset(); }
         void reset() { memset(this, 0, sizeof(*this)); }
     };

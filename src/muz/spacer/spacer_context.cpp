@@ -3534,7 +3534,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
               for (unsigned j = 0; j < cube.size(); ++j)
                   tout << mk_pp(cube[j].get(), m) << "\n";);
 
-
+        if(n.is_abs() && n.concrete() != nullptr) m_stats.m_num_abstractions_success++;
         if(n.is_merge_gen()) m_stats.m_num_mrg_conj_success++;
         pob_ref nref(&n);
         // -- create lemma from a pob and last unsat core
@@ -3554,6 +3554,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         } else {
             expr_ref_vector pob_cube(m);
             refine_pob(n, pob_cube);
+            m_stats.m_num_refine++;
             lemma_pob = alloc(class lemma, pob_ref(&n), pob_cube, n.level());
             TRACE("merge_dbg", tout << " refining " << mk_pp(n.post(), m)
                                     << " id is " << n.post()->get_id()
@@ -4049,12 +4050,15 @@ void context::collect_statistics(statistics& st) const
     st.update("SPACER restarts", m_stats.m_num_restarts);
     // -- number of time pob abstraction was invoked
     st.update("SPACER num abstractions", m_stats.m_num_abstractions);
+    st.update("SPACER num abstractions success", m_stats.m_num_abstractions_success);
     st.update("SPACER num abstractions failed",
               m_stats.m_num_abstractions_failed);
     st.update("SPACER pob out of gas", m_stats.m_num_pob_ofg);
     st.update("SPACER num merge gen", m_stats.m_num_mrg_conjs);
     st.update("SPACER num merge gen success", m_stats.m_num_mrg_conj_failed);
     st.update("SPACER num merge gen failed", m_stats.m_num_mrg_conj_success);
+    st.update("SPACER num under approximations", m_stats.m_num_ua);
+    st.update("SPACER num refinements", m_stats.m_num_refine);
 
     // -- time to initialize the rules
     st.update ("time.spacer.init_rules", m_init_rules_watch.get_seconds ());
