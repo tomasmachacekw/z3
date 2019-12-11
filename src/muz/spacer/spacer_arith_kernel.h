@@ -14,6 +14,14 @@ class arith_kernel {
     const spacer_matrix &m_matrix;
     spacer_matrix m_kernel;
     bool m_use_sage;
+    struct stats {
+        unsigned m_failed;
+        stats() { reset(); }
+        void reset() {
+            m_failed = 0;
+        }
+    };
+    stats m_st;
     virtual bool compute_arith_kernel() { return false; };
 
   public:
@@ -29,12 +37,15 @@ class arith_kernel {
             SASSERT(m_matrix.num_cols() > 2);
         }
         TRACE("cvx_dbg_verb", tout << "Calling sage \n";);
+        if(m_matrix.num_cols() > 2) m_st.m_failed++;
         return (m_matrix.num_cols() > 2) && m_use_sage && compute_arith_kernel();
     }
     void reset() { m_kernel = spacer_matrix(0, 0); }
     const spacer_matrix &get_kernel() const { return m_kernel; }
     virtual ~arith_kernel(){};
-    virtual void collect_statistics(statistics &st) const {}
+    virtual void collect_statistics(statistics &st) const {
+        st.update("SPACER need sage", m_st.m_failed);
+    }
     virtual void reset_statistics() {}
 };
 
