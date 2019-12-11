@@ -12,7 +12,6 @@ class convex_closure {
     ast_manager &m;
     arith_util m_arith;
     unsigned m_dim;
-    bool m_use_sage;
     spacer_matrix m_data;
     bool is_int_points() const;
     expr_ref_vector m_dim_vars;
@@ -49,12 +48,15 @@ class convex_closure {
 
   public:
     convex_closure(ast_manager &man, bool use_sage)
-        : m(man), m_arith(m), m_dim(0), m_use_sage(use_sage), m_data(0, 0),
+        : m(man), m_arith(m), m_dim(0), m_data(0, 0),
           m_dim_vars(m), m_nw_vars(m) {
-        if (m_use_sage) m_kernel = new Sage_kernel(m_data);
+        if(use_sage)
+            m_kernel = new Sage_kernel(m_data);
+        else
+            m_kernel = new arith_kernel(m_data, false);
     }
     ~convex_closure() {
-        if (m_use_sage) delete m_kernel;
+        delete m_kernel;
     }
     void reset(unsigned n_cols) {
         m_kernel->reset();
