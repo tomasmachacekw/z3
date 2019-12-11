@@ -53,7 +53,7 @@ class Sage_kernel : public arith_kernel {
     stats m_st;
 
   public:
-    Sage_kernel(spacer_matrix &matrix) : arith_kernel(matrix), m_sage() {}
+    Sage_kernel(spacer_matrix &matrix) : arith_kernel(matrix, true), m_sage() {}
     ~Sage_kernel() override {}
 
     virtual void collect_statistics(statistics &st) const override {
