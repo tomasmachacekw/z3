@@ -3494,7 +3494,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                     out.push_back (next);
                 }
             }
-
+            if(n.is_merge_gen())
+                m_stats.m_num_mrg_conj_failed++;
             CTRACE("merge_dbg", n.is_abs(),
                    tout << "Failed to block abstraction "
                    << n.post()->get_id() << "\n";);
@@ -3534,6 +3535,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                   tout << mk_pp(cube[j].get(), m) << "\n";);
 
 
+        if(n.is_merge_gen()) m_stats.m_num_mrg_conj_success++;
         pob_ref nref(&n);
         // -- create lemma from a pob and last unsat core
         lemma_ref lemma_pob;
@@ -3628,6 +3630,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                       << mk_pp(new_pob->post(), m) << " with gas "
                       << new_pob->get_gas() << "\n";);
                 out.push_back(&(*new_pob));
+                m_stats.m_num_mrg_conjs++;
             } else
                 TRACE("merge_dbg",
                       tout << "duplicate pob conjecture found. Did not "
@@ -4049,6 +4052,9 @@ void context::collect_statistics(statistics& st) const
     st.update("SPACER num abstractions failed",
               m_stats.m_num_abstractions_failed);
     st.update("SPACER pob out of gas", m_stats.m_num_pob_ofg);
+    st.update("SPACER num merge gen", m_stats.m_num_mrg_conjs);
+    st.update("SPACER num merge gen success", m_stats.m_num_mrg_conj_failed);
+    st.update("SPACER num merge gen failed", m_stats.m_num_mrg_conj_success);
 
     // -- time to initialize the rules
     st.update ("time.spacer.init_rules", m_init_rules_watch.get_seconds ());
