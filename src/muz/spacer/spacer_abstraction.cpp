@@ -26,30 +26,6 @@
 
 namespace spacer {
 
-// Finds a lemma matching the mono_var_pattern
-// stores the pattern in n
-bool context::mono_coeff_lm(pob &n, expr_ref &lit) {
-    const ptr_vector<lemma> &lemmas = n.lemmas();
-    // for every lemma l of n
-    for (auto &l : lemmas) {
-        // find a group containing lemma l
-        lemma_cluster *lc = n.pt().clstr_match(l);
-        // skip lemma if no group is found or if abstraction has been done too
-        // many times
-        if (lc == nullptr || lc->get_gas() == 0) continue;
-
-        const expr_ref &pattern = lc->get_pattern();
-
-        if (mono_var_pattern(pattern, lit)) {
-            // HG : store the pattern in the pob. Required because there could
-            // be multile patterns among lemmas
-            TRACE("merge_dbg",
-                  tout << "Found a pattern " << mk_pp(pattern, m) << " with gas " << lc->get_size() << "\n";);
-            n.set_abs_pattern(pattern);
-            n.set_gas(lc->get_pob_gas());
-            lc->dec_gas();
-            return true;
-        }
 bool is_mono_var(expr *pattern, ast_manager &m, arith_util &a_util) {
     expr *e;
     if (m.is_not(pattern, e)) return is_mono_var(e, m, a_util);
