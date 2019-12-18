@@ -1029,41 +1029,6 @@ bool has_nonlinear_var_mul(expr *e, ast_manager &m) {
     return false;
 }
 
-
-void abstract_fml(expr_ref_vector &fml_vec, expr_ref &leq_lit,
-                  expr_ref_vector &abs_fml) {
-    abs_fml.reset();
-    expr *lhs;
-    ast_manager &m = leq_lit.get_manager();
-    expr_ref cube(m);
-
-    // assume that lhs is a term
-    lhs = (to_app(leq_lit))->get_arg(0);
-
-    // long way to check two expressions are the same. normalize and then
-    // antiunify
-    anti_unifier anti(m);
-    expr_ref pat(m);
-    substitution sub1(m), sub2(m);
-    app *c_app;
-    expr *neg_chld;
-    for (auto &c : fml_vec) {
-        c_app = to_app(c);
-        if (m.is_not(c_app, neg_chld)) c_app = to_app(neg_chld);
-        if (c_app->get_num_args() != 2) {
-            abs_fml.push_back(c);
-            continue;
-        }
-        anti.reset();
-        sub1.reset();
-        sub2.reset();
-        cube = expr_ref(c_app->get_arg(0), m);
-        normalize_order(cube, cube);
-        anti(cube, lhs, pat, sub1, sub2);
-        if (sub1.get_num_bindings() != 0) abs_fml.push_back(c);
-    }
-}
-
 namespace contains_mod_ns {
 struct found {};
 struct contains_mod_proc {
