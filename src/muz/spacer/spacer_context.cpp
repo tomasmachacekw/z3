@@ -3603,7 +3603,6 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             }
         }
 
-        // TODO : figure out when to give up on proving conjecture
         if (n.get_merge_conj().size() > 0 && n.get_gas() > 0) {
             expr_ref c(m);
             c = mk_and(n.get_merge_conj());
