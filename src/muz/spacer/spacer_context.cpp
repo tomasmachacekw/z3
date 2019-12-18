@@ -1368,7 +1368,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
                                      model_ref* model, unsigned& uses_level,
                                      bool& is_concrete, datalog::rule const*& r,
                                      vector<bool>& reach_pred_used,
-                                     unsigned& num_reuse_reach)
+                                     unsigned& num_reuse_reach, bool use_iuc)
 {
     TRACE("spacer",
           tout << "is-reachable: " << head()->get_name() << " level: "
@@ -1382,7 +1382,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
 
     // prepare the solver
     prop_solver::scoped_level _sl(*m_solver, n.level());
-    prop_solver::scoped_subset_core _sc (*m_solver, !n.use_farkas_generalizer ());
+    prop_solver::scoped_subset_core _sc (*m_solver, !(use_iuc && n.use_farkas_generalizer ()));
     prop_solver::scoped_weakness _sw(*m_solver, 0,
                                      ctx.weak_abs() ? n.weakness() : UINT_MAX);
     m_solver->set_core(core);
@@ -2374,6 +2374,7 @@ void context::updt_params() {
     m_abstract_pob = m_params.spacer_abstract_pob();
     m_use_sage = m_params.spacer_use_sage();
     m_split_pob = m_params.spacer_split_pob();
+    m_no_iuc = m_params.spacer_no_iuc();
     if (m_use_gpdr) {
         // set options to be compatible with GPDR
         m_weak_abs = false;
@@ -3267,7 +3268,7 @@ bool context::is_reachable(pob &n)
     n.m_level = infty_level ();
     lbool res = n.pt().is_reachable(n, nullptr, &mdl,
                                     uses_level, is_concrete, r,
-                                    reach_pred_used, num_reuse_reach);
+                                    reach_pred_used, num_reuse_reach, !m_no_iuc);
     n.m_level = saved;
 
     if (res != l_true || !is_concrete) {
@@ -3453,7 +3454,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     predecessor_eh();
 
     lbool res = n.pt ().is_reachable (n, &cube, &model, uses_level, is_concrete, r,
-                                      reach_pred_used, num_reuse_reach);
+                                      reach_pred_used, num_reuse_reach, !m_no_iuc);
     if (model) model->set_model_completion(false);
     checkpoint ();
     IF_VERBOSE (1, verbose_stream () << "." << std::flush;);

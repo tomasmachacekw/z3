@@ -678,7 +678,7 @@ public:
                        unsigned& uses_level, bool& is_concrete,
                        datalog::rule const*& r,
                        vector<bool>& reach_pred_used,
-                       unsigned& num_reuse_reach);
+                       unsigned& num_reuse_reach, bool use_iuc = true);
     bool is_invariant(unsigned level, lemma* lem,
                       unsigned& solver_level,
                       expr_ref_vector* core = nullptr);
@@ -1239,6 +1239,7 @@ class context {
     bool m_abstract_pob;
     bool m_use_sage;
     bool m_split_pob;
+    bool                 m_no_iuc;
     unsigned             m_push_pob_max_depth;
     unsigned             m_max_level;
     unsigned             m_restart_initial_threshold;
