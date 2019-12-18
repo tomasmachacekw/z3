@@ -36,7 +36,7 @@ Notes:
 
 #include "muz/base/fp_params.hpp"
 
-#define GAS_INIT 42
+#define GAS_INIT 10
 namespace datalog {
     class rule_set;
     class context;
