@@ -193,6 +193,7 @@ class lemma_merge_generalizer : public lemma_generalizer {
         unsigned m_num_mbp_failed;
         unsigned m_num_non_lin;
         unsigned m_num_no_ovr_approx;
+        unsigned m_num_cant_abs;
 
         stopwatch watch;
         stats() {
@@ -207,6 +208,7 @@ class lemma_merge_generalizer : public lemma_generalizer {
             m_num_syn_cls = 0;
             m_num_mbp_failed = 0;
             m_num_no_ovr_approx = 0;
+            m_num_cant_abs = 0;
         }
     };
 
