@@ -1239,7 +1239,7 @@ class context {
     bool m_abstract_pob;
     bool m_use_sage;
     bool m_split_pob;
-    bool                 m_no_iuc;
+    bool                 m_use_iuc;
     unsigned             m_push_pob_max_depth;
     unsigned             m_max_level;
     unsigned             m_restart_initial_threshold;
