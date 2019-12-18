@@ -802,9 +802,6 @@ class pob {
     // true if this pob is an abstraction
     bool m_is_abs;
 
-    // true if the pob can be abstracted
-    bool m_can_abs;
-
     // pattern with which abstraction was created
     expr_ref m_abs_pattern;
 
@@ -815,12 +812,6 @@ class pob {
 
     // pattern identified for one of its lemmas
     expr_ref m_split_pat;
-
-    // concrete pob associated with an abstract pob
-    // very similar to a parent except this is not used in computing
-    // a counter example
-    pob_ref m_concrete;
-
 
     // conjecture to block this pob
     expr_ref_vector m_merge_conj;
@@ -868,14 +859,6 @@ class pob {
 
     pob* parent () const { return m_parent.get (); }
 
-    pob *concrete() const {
-        SASSERT(m_is_abs);
-        return m_concrete.get();
-    }
-    void set_concrete(pob *pob) {
-        SASSERT(m_is_abs);
-        m_concrete = pob;
-    }
 
     bool is_abs() const { return m_is_abs; }
     void set_abs() { m_is_abs = true; }
@@ -890,8 +873,6 @@ class pob {
     }
     bool is_merge_gen() const { return m_is_merge_gen; }
     void set_merge_gen() { m_is_merge_gen = true; }
-    bool can_abs() const { return m_can_abs; }
-    void set_can_abs(bool v) { m_can_abs = v; }
 
     unsigned get_gas() const { return m_gas; }
     void set_gas(unsigned n) { m_gas = n; }

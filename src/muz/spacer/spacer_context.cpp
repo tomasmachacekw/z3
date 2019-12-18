@@ -68,10 +68,9 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_post(m_pt.get_ast_manager()), m_binding(m_pt.get_ast_manager()),
       m_new_post(m_pt.get_ast_manager()), m_level(level), m_depth(depth),
       m_open(true), m_use_farkas(true), m_in_queue(false), m_weakness(0),
-      m_blocked_lvl(0), m_is_abs(false), m_can_abs(true),
+      m_blocked_lvl(0), m_is_abs(false),
       m_abs_pattern(m_pt.get_ast_manager()), m_refine(false),
       m_shd_split(false), m_split_pat(m_pt.get_ast_manager()),
-      m_concrete(nullptr),
       m_merge_conj(m_pt.get_ast_manager()), m_is_merge_gen(false),
       m_widen_pob(true), m_gas(0) {
     if (add_to_parent && m_parent) {
@@ -79,7 +78,6 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
     }
     if (m_parent) {
         m_is_abs = m_parent->is_abs();
-        m_can_abs = m_parent->can_abs();
         m_is_merge_gen = m_parent->is_merge_gen();
         m_gas = m_parent->get_gas();
     }
@@ -3123,18 +3121,11 @@ bool context::check_reachability ()
             node = last_reachable;
             last_reachable = nullptr;
             if (m_pob_queue.is_root(*node)) { return true; }
-            // HG : if an abstraction is reachable, never abstracted related
-            // pobs in future
-            if (node->is_abs()) {
-                if (node->concrete() != nullptr)
-                    m_stats.m_num_abstractions_failed++;
-                set_nvr_abs(node);
-            }
             if (is_reachable (*node->parent())) {
                 last_reachable = node->parent ();
                 SASSERT(last_reachable->is_closed());
                 last_reachable->close ();
-            } else if (!node->is_abs() && !node->parent()->is_closed()) {
+            } else if (!node->parent()->is_closed()) {
                 /* bump node->parent */
                 node->parent ()->bump_weakness();
             }
@@ -3497,6 +3488,9 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             }
             if(n.is_merge_gen())
                 m_stats.m_num_mrg_conj_failed++;
+            if(n.is_abs())
+                m_stats.m_num_abstractions_failed++;
+
             CTRACE("merge_dbg", n.is_abs(),
                    tout << "Failed to block abstraction "
                    << n.post()->get_id() << "\n";);
@@ -3535,7 +3529,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
               for (unsigned j = 0; j < cube.size(); ++j)
                   tout << mk_pp(cube[j].get(), m) << "\n";);
 
-        if(n.is_abs() && n.concrete() != nullptr) m_stats.m_num_abstractions_success++;
+        if(n.is_abs()) m_stats.m_num_abstractions_success++;
         if(n.is_merge_gen()) m_stats.m_num_mrg_conj_success++;
         pob_ref nref(&n);
         // -- create lemma from a pob and last unsat core
