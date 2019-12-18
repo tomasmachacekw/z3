@@ -335,6 +335,48 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         pt_cls->dec_gas();
         return false;
     }
+
+    expr_ref lit(m);
+    if(mono_var_pattern(pattern, lit)) {
+        //Do abstraction on the lemma.
+        pob_ref n = lemma->get_pob();
+        TRACE("merge_dbg", tout << "Found a pattern " << mk_pp(pattern, m)
+              << " with gas " << pt_cls->get_gas() << "\n";);
+
+        expr_ref_vector abs_fml(m);
+        expr_ref n_pob = expr_ref(n->post(), m);
+        expr_ref_vector fml_vec(m);
+        fml_vec.push_back(n_pob);
+        flatten_and(fml_vec);
+        //TODO: make sure that lit is in the same form as literals in fml_vec
+        abstract_fml(fml_vec, lit, abs_fml);
+
+        if (pt_cls->get_gas() == 0) m_st.m_num_cls_ofg++;
+
+        if(abs_fml.size() == 0 || pt_cls->get_gas() == 0) {
+            // If the pob cannot be abstracte, stop using generalization on
+            // it
+            TRACE("merge_dbg", tout << "marked to refine pob "
+                                    << n_pob << " id is "
+                                    << n_pob->get_id() << "\n";);
+
+            n->set_refine();
+        }
+        else if(abs_fml.size() == fml_vec.size()) {
+            //The literal to be abstracted is not in the pob
+            TRACE("merge_dbg", tout << "cannot abstract " << n_pob
+                                    << " with lit " << lit << "\n";);
+            //TODO: Should we refine here ?
+            m_st.m_num_cant_abs++;
+        }
+        else {
+            //There is enough gas to block an abs pob
+            n->set_abs_pattern(abs_fml);
+            n->set_gas(pt_cls->get_pob_gas());
+            pt_cls->dec_gas();
+        }
+    }
+
     // if subsumption removed all the other lemmas, there is nothing to
     // generalize
     if (lc.get_size() < 2) return false;
