@@ -3633,50 +3633,31 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                               "add to pob_queue\n";);
         }
 
-        expr_ref lit(m);
-        // HG : compute abstraction of the pob
-        if (m_abstract_pob && m_adhoc_gen && mono_coeff_lm(n, lit)) {
-            expr_ref n_pob = expr_ref(n.post(), m);
-            expr_ref_vector fml_vec(m);
-            fml_vec.push_back(n_pob);
-            flatten_and(fml_vec);
-            if (!n.can_abs() || fml_vec.size() == 1) {
-                // If the pob cannot be abstracted, stop using generalization on
-                // it.
-                TRACE("merge_dbg", tout << "marked to refine pob "
-                                        << mk_pp(n.post(), m) << " id is "
-                                        << n.post()->get_id() << "\n";);
-                n.set_refine();
-            } else {
-                // try abstracting the pob
-                expr_ref_vector abs_pob(m);
-                abstract_fml(fml_vec, lit, abs_pob);
-                SASSERT(abs_pob.size() > 0);
-                // If the lit does not appear in pob, don't abstract
-                if (fml_vec.size() > abs_pob.size()) {
-                    expr_ref c = mk_and(abs_pob);
-                    pob *f = n.pt().find_pob(&n, c);
-                    // skip if new pob is already in the queue
-                    if (!f || !f->is_in_queue()) {
-                        // create abstract pob
-                        f = n.pt().mk_pob(n.parent(), n.level(), n.depth(), c,
-                                          n.get_binding());
-                        f->set_abs();
-                        f->set_concrete(&n);
-                        unsigned gas = n.get_gas();
-                        SASSERT(gas > 0);
-                        f->set_gas(gas - 1);
-                        n.set_gas(gas - 1);
-                        out.push_back(f);
-                        TRACE("merge_dbg",
-                              tout << " abstracting " << mk_pp(n.post(), m)
-                                   << " id is " << n.post()->get_id()
-                                   << "\n into pob " << c << " id is "
-                                   << f->post()->get_id() << "\n";);
-                        m_stats.m_num_abstractions++;
-                    }
-                }
-            }
+        //abstract pob
+        if (m_abstract_pob && n.get_abs_pattern().size() > 0) {
+            expr_ref c(m);
+            c = mk_and(n.get_abs_pattern());
+            pob *f = n.pt().find_pob(&n, c);
+            // skip if new pob is already in the queue
+            if (!f || !f->is_in_queue()) {
+                // create abstract pob
+                f = n.pt().mk_pob(n.parent(), n.level(), n.depth(), c,
+                                  n.get_binding());
+                f->set_abs();
+                unsigned gas = n.get_gas();
+                SASSERT(gas > 0);
+                f->set_gas(gas - 1);
+                n.set_gas(gas - 1);
+                out.push_back(f);
+                TRACE("merge_dbg", tout << " abstracting " << mk_pp(n.post(), m)
+                                        << " id is " << n.post()->get_id()
+                                        << "\n into pob " << c << " id is "
+                                        << f->post()->get_id() << "\n";);
+                m_stats.m_num_abstractions++;
+            } else
+                TRACE("merge_dbg",
+                      tout << "duplicate abstraction found. Did not "
+                              "add to pob_queue\n";);
         }
 
         // schedule the node to be placed back in the queue
