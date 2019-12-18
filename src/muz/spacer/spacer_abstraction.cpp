@@ -35,27 +35,6 @@ bool is_mono_var(expr *pattern, ast_manager &m, arith_util &a_util) {
     return false;
 }
 
-void context::set_nvr_abs(const pob_ref &pob_abs) {
-    if (!pob_abs) return;
-    // HG : this pob should be an abstraction. The neighbours are selected later
-    SASSERT(pob_abs->is_abs());
-    // do not compute abstractions of abstractions
-    pob_abs->set_can_abs(false);
-
-    // if pob_abs is a predecessor of another abs_pob, there are no pob related
-    // to pob_abs
-    if (!pob_abs->concrete()) return;
-    pob_abs->concrete()->set_can_abs(false);
-    // get pattern that was used to create reachable
-    const expr *pob_pattern = pob_abs->concrete()->get_abs_pattern();
-    SASSERT(pob_pattern != nullptr);
-
-    lemma_cluster *lc = pob_abs->pt().get_cluster(pob_pattern);
-    SASSERT(lc != nullptr);
-    lemma_ref_vector all_lemmas;
-    pob_abs->pt().get_all_lemmas(all_lemmas, false);
-    for (auto *l : all_lemmas) {
-        if (lc->can_contain(l)) l->get_pob()->set_can_abs(false);
 bool mono_var_pattern(const expr_ref &pattern, expr_ref &leq_lit) {
     if (get_num_vars(pattern) != 1) return false;
     ast_manager &m = leq_lit.m();
