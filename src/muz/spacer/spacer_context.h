@@ -803,7 +803,7 @@ class pob {
     bool m_is_abs;
 
     // pattern with which abstraction was created
-    expr_ref m_abs_pattern;
+    expr_ref_vector m_abs_pattern;
 
     // should refine lemma abstractions
     bool m_refine;
@@ -867,9 +867,10 @@ class pob {
     bool widen() { return m_widen_pob; }
     void set_split_pat(expr_ref pattern) { m_split_pat = pattern; }
     expr_ref get_split_pat() const { return m_split_pat; }
-    const expr *get_abs_pattern() const { return m_abs_pattern.get(); }
-    void set_abs_pattern(expr *pattern) {
-        m_abs_pattern = expr_ref(pattern, get_ast_manager());
+    expr_ref_vector const & get_abs_pattern() const { return m_abs_pattern; }
+    void set_abs_pattern(expr_ref_vector& pattern) {
+        m_abs_pattern.reset();
+        m_abs_pattern.append(pattern);
     }
     bool is_merge_gen() const { return m_is_merge_gen; }
     void set_merge_gen() { m_is_merge_gen = true; }
