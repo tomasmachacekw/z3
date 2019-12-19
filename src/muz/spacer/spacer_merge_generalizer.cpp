@@ -109,47 +109,6 @@ rational lemma_merge_generalizer::get_lcm(expr *e) {
     return g.m_val;
 }
 
-void lemma_merge_generalizer::mul_and_simp(expr_ref &fml, rational num) {
-    SASSERT(m_arith.is_arith_expr(fml));
-    SASSERT(num.is_pos());
-    if (num.is_one()) return;
-
-    TRACE("merge_dbg_verb",
-          tout << "mul and simp called with " << mk_pp(fml, m) << "\n";);
-    if (is_uninterp_const(fml)) {
-        fml = m_arith.mk_mul(m_arith.mk_int(num), fml);
-        TRACE("merge_dbg_verb",
-              tout << "simplified to " << mk_pp(fml, m) << "\n";);
-        return;
-    }
-    rational val;
-    if (m_arith.is_numeral(fml, val)) {
-        val = val * num;
-        fml = m_arith.mk_int(val);
-        return;
-    }
-    app *fml_app = to_app(fml);
-    unsigned N = fml_app->get_num_args();
-    expr_ref_vector nw_args(m);
-    for (unsigned i = 0; i < N; i++) {
-        expr *chld = fml_app->get_arg(i);
-        if (m_arith.is_mul(chld)) {
-            expr_ref numeral(to_app(chld)->get_arg(0), m);
-            rational val;
-            SASSERT(m_arith.is_numeral(numeral));
-            m_arith.is_numeral(numeral, val);
-            rational nw_coeff = val * num;
-            numeral = m_arith.mk_int(nw_coeff);
-            nw_args.push_back(
-                m_arith.mk_mul(numeral, to_app(chld)->get_arg(1)));
-        } else {
-            nw_args.push_back(m_arith.mk_mul(m_arith.mk_int(num), chld));
-        }
-    }
-    fml = m.mk_app(fml_app->get_family_id(), fml_app->get_decl_kind(),
-                   nw_args.size(), nw_args.c_ptr());
-    TRACE("merge_dbg_verb", tout << "simplified to " << mk_pp(fml, m) << "\n";);
-}
 
 void lemma_merge_generalizer::to_int(expr_ref &fml) {
     TRACE("merge_dbg_verb", tout << "to int " << mk_pp(fml, m) << "\n";);

@@ -263,10 +263,6 @@ class lemma_merge_generalizer : public lemma_generalizer {
     // get lcm of all the denominators of all the rational values in e
     rational get_lcm(expr *e);
 
-    // multiply fml with num and simplify rationals to ints
-    // assumes that fml is in sop form and is linear
-    void mul_and_simp(expr_ref &fml, rational num);
-
     // converts all numerals and uninterpreted constants in fml to int
     // assumes that fml is in sop
     void to_int(expr_ref &fml);
