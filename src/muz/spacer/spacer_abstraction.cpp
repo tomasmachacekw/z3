@@ -54,37 +54,36 @@ bool mono_var_pattern(const expr_ref &pattern, expr_ref &leq_lit) {
     return count == 1;
 }
 
-void abstract_fml(expr_ref_vector &fml_vec, expr_ref &leq_lit,
+void abstract_fml(expr_ref_vector &fml_vec, expr_ref &lit,
                   expr_ref_vector &abs_fml) {
+    SASSERT(to_app(lit)->get_num_args() == 2);
     abs_fml.reset();
-    expr *lhs;
-    ast_manager &m = leq_lit.get_manager();
-    expr_ref cube(m);
+    ast_manager& m = fml_vec.get_manager();
+    expr_ref cube(m), lhs(m), rhs(m), lit_lhs(m), lit_rhs(m);
+    normalize_to_le(lit.get(), lit_lhs, lit_rhs);
+    bool rhs_var = get_num_vars(lit_rhs) > 0;
 
-    // assume that lhs is a term
-    lhs = (to_app(leq_lit))->get_arg(0);
-
-    // long way to check two expressions are the same. normalize and then
-    // antiunify
-    anti_unifier anti(m);
-    expr_ref pat(m);
-    substitution sub1(m), sub2(m);
-    app *c_app;
-    expr *neg_chld;
+    //TODO: handle vars in normalize order
+    // normalize_order(lhs, lhs);
+    // normalize_order(rhs, rhs);
     for (auto &c : fml_vec) {
-        c_app = to_app(c);
-        if (m.is_not(c_app, neg_chld)) c_app = to_app(neg_chld);
-        if (c_app->get_num_args() != 2) {
+        bool norm = normalize_to_le(c, lhs, rhs);
+        if(!norm) {
             abs_fml.push_back(c);
             continue;
         }
-        anti.reset();
-        sub1.reset();
-        sub2.reset();
-        cube = expr_ref(c_app->get_arg(0), m);
-        normalize_order(cube, cube);
-        anti(cube, lhs, pat, sub1, sub2);
-        if (sub1.get_num_bindings() != 0) abs_fml.push_back(c);
+
+        // TODO: normalize the literal so that it is exactly as in the lemma
+        // normalize_order(lit_lhs, lit_lhs);
+        // normalize_order(lit_rhs, lit_rhs);
+
+        TRACE("merge_dbg_verb",
+              tout << " comparing " << lhs << " <= " << rhs << " with " << lit_lhs << " <= " << lit_rhs << "\n";);
+
+        if( (rhs_var && lit_lhs != lhs) || (!rhs_var && lit_rhs != rhs)) {
+            abs_fml.push_back(c);
+            continue;
+        }
     }
 }
 
