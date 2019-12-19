@@ -44,7 +44,6 @@ class convex_closure {
             watch.reset();
         }
     };
-    void mul_if_not_one(rational coeff, expr *e, expr_ref &res);
     stats m_st;
 
     //compute one dimensional convex closure

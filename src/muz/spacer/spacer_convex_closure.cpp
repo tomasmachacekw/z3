@@ -36,13 +36,6 @@ unsigned convex_closure::reduce_dim() {
     return m_dim - ker.num_rows();
 }
 
-void convex_closure::mul_if_not_one(rational coeff, expr *e, expr_ref &res) {
-    if (coeff == rational::one())
-        res = expr_ref(e, m);
-    else
-        res = m_arith.mk_mul(m_arith.mk_numeral(coeff, coeff.is_int()), e);
-}
-
 // for each row [0, 1, 0, 1 , 1], rewrite v1 = -1*v3 + -1*1
 void convex_closure::rewrite_lin_deps() {
     const spacer_matrix &ker = m_kernel->get_kernel();
