@@ -308,11 +308,13 @@ struct extract_nums_proc {
     void operator()(expr *n) const {}
     void operator()(app *n) {
         rational val;
-        if (m_arith.is_numeral(n, val)) m_res.push_back(val);
+        if (m_arith.is_numeral(n, val) && !m_res.contains(val)) m_res.push_back(val);
     }
 };
 } // namespace get_num_ns
 
+//WARNING: run time is number of nodes in e * res.size !!!
+//TODO: use sets to speed things up ?
 void extract_nums(expr_ref e, vector<rational> &res) {
     extract_nums_ns::extract_nums_proc t(e.get_manager(), res);
     for_each_expr(t, e);
