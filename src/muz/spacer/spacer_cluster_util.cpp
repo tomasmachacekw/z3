@@ -220,33 +220,37 @@ bool normalize_to_le(expr *lit, expr_ref &t, expr_ref &c) {
     } else if (m_arith.is_gt(lit, e1, e2) ||
                (m.is_not(lit, e0) && m_arith.is_le(e0, e1, e2))) {
         // x > k ==> -x < -k ==> -x <= -k - 1
-        expr_ref minus_one(m);
-        minus_one = m_arith.mk_numeral(rational(-1), is_int);
-        t = m_arith.mk_mul(minus_one, e1);
+        t = e1;
+        mul_and_simp(t, rational::minus_one());
         if (m_arith.is_numeral(e2, n, is_int)) {
             c = m_arith.mk_numeral(-n - 1, is_int);
             return true;
         } else {
-            expr* temp = m_arith.mk_mul(minus_one, e2);
+            expr_ref temp(m);
+            temp = e2;
+            mul_and_simp(temp, rational::minus_one());
+            expr_ref minus_one(m);
+            minus_one = m_arith.mk_numeral(rational(-1), is_int);
             c = m_arith.mk_add(temp, minus_one);
             return false;
         }
     } else if (m_arith.is_ge(lit, e1, e2) ||
                (m.is_not(lit, e0) && m_arith.is_lt(e0, e1, e2))) {
         // x >= k ==> -x <= -k
-        expr_ref minus_one(m);
-        minus_one = m_arith.mk_numeral(rational(-1), is_int);
-        t = m_arith.mk_mul(minus_one, e1);
+        t = e1;
+        mul_and_simp(t, rational::minus_one());
         if (m_arith.is_numeral(e2, n, is_int)) {
             c = m_arith.mk_numeral(-n, is_int);
             return true;
         } else {
-            c = m_arith.mk_mul(minus_one, e2);
+            c = e2;
+            mul_and_simp(c, rational::minus_one());
             return false;
         }
     }
     return false;
 }
+
 void mul_and_simp(expr_ref &fml, rational num) {
     ast_manager& m = fml.get_manager();
     arith_util m_arith(m);
