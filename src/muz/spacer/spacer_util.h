@@ -161,6 +161,9 @@ namespace spacer {
     void abstract_fml(expr_ref_vector &in, expr_ref &lit, expr_ref_vector &out);
 
     bool contains_mod(expr_ref e);
+
+    // convert an arith expression lit into t <= c. returns true if such a normal form exists and c is numeral
+    bool normalize_to_le(expr *lit, expr_ref &t, expr_ref &c);
 }
 
 #endif
