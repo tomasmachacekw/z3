@@ -60,7 +60,9 @@ void abstract_fml(expr_ref_vector &fml_vec, expr_ref &lit,
     abs_fml.reset();
     ast_manager& m = fml_vec.get_manager();
     expr_ref cube(m), lhs(m), rhs(m), lit_lhs(m), lit_rhs(m);
-    normalize_to_le(lit.get(), lit_lhs, lit_rhs);
+    expr* e1, *e2;
+    if(m.is_eq(lit, e1, e2)) { lit_lhs = e1; lit_rhs = e2; }
+    else normalize_to_le(lit.get(), lit_lhs, lit_rhs);
     bool rhs_var = get_num_vars(lit_rhs) > 0;
 
     //TODO: handle vars in normalize order
