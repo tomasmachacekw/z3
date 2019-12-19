@@ -1246,13 +1246,6 @@ class context {
     bool is_reachable(pob &n);
     lbool expand_pob(pob &n, pob_ref_buffer &out);
 
-    bool mono_coeff_lm(pob &n, expr_ref &lit);
-    // given an abstract reachable pob, mark all related pobs to never abstract
-    // again. A pob p is related to an abstract pob pob_abs if lemmas that block
-    // p are in the same cluster as the lemma that was used to create pob_abs
-    void set_nvr_abs(const pob_ref &pob_abs);
-
-
     void refine_pob(pob& n, expr_ref_vector& res);
     bool create_children(pob& n, const datalog::rule &r,
                          model &mdl,
