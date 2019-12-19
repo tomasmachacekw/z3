@@ -880,6 +880,7 @@ class pob {
 
     bool get_refine() const { return m_refine; }
     void set_refine() { m_refine = true; }
+    void mk_refine(expr_ref_vector& res);
     bool should_split() const { return m_shd_split && m_gas > 0; }
     void set_split() { m_shd_split = true; }
 
@@ -1246,7 +1247,6 @@ class context {
     bool is_reachable(pob &n);
     lbool expand_pob(pob &n, pob_ref_buffer &out);
 
-    void refine_pob(pob& n, expr_ref_vector& res);
     bool create_children(pob& n, const datalog::rule &r,
                          model &mdl,
                          const vector<bool>& reach_pred_used,

@@ -3548,7 +3548,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             }
         } else {
             expr_ref_vector pob_cube(m);
-            refine_pob(n, pob_cube);
+            n.mk_refine(pob_cube);
             m_stats.m_num_refine++;
             lemma_pob = alloc(class lemma, pob_ref(&n), pob_cube, n.level());
             TRACE("merge_dbg", tout << " refining " << mk_pp(n.post(), m)
