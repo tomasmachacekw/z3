@@ -36,17 +36,9 @@ lemma_merge_generalizer::lemma_merge_generalizer(context &ctx)
     : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m),
       m_cvx_cls(m, ctx.use_sage()), m_dim_frsh_cnsts(m), m_dim_vars(m) {
     m_solver = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
-    m_consts.push_back(rational::one());
-    m_consts.push_back(rational::zero());
-    m_consts.push_back(rational::minus_one());
-    m_consts.push_back(rational(100));
-    m_consts.push_back(rational(49));
-    m_consts.push_back(rational(102));
-    m_consts.push_back(rational(103));
-    m_consts.push_back(rational(104));
-    m_consts.push_back(rational(51));
-    m_consts.push_back(rational(52));
-    m_consts.push_back(rational(53));
+    for(auto& kv : ctx.get_pred_transformers()) {
+        kv.m_value->extract_nums(m_consts);
+    }
 }
 
 void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
