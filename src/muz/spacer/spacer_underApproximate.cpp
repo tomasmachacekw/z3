@@ -219,63 +219,6 @@ bool under_approx::is_sop(expr *e) {
     return true;
 }
 
-bool under_approx::normalize_to_le(expr *lit, expr_ref &t, expr_ref &c) {
-    expr *e0 = nullptr, *e1 = nullptr, *e2 = nullptr;
-    rational n;
-    bool is_int = true;
-    if (m_arith.is_le(lit, e1, e2) ||
-        (m.is_not(lit, e0) && m_arith.is_gt(e0, e1, e2))) {
-        if (m_arith.is_numeral(e2, n)) {
-            t = e1;
-            c = e2;
-            return true;
-        } else {
-            // XXX handle if needed
-            UNREACHABLE();
-            return false;
-        }
-    } else if (m_arith.is_lt(lit, e1, e2) ||
-               (m.is_not(lit, e0) && m_arith.is_ge(e0, e1, e2))) {
-        if (m_arith.is_numeral(e2, n, is_int)) {
-            // x < k  ==> x <= (k-1)
-            t = e1;
-            c = m_arith.mk_numeral(n - 1, is_int);
-            return true;
-        } else {
-            UNREACHABLE();
-            return false;
-        }
-    } else if (m_arith.is_gt(lit, e1, e2) ||
-               (m.is_not(lit, e0) && m_arith.is_le(e0, e1, e2))) {
-        if (m_arith.is_numeral(e2, n, is_int)) {
-            // x > k ==> -x < -k ==> -x <= -k - 1
-            expr_ref minus_one(m);
-            minus_one = m_arith.mk_numeral(rational(-1), is_int);
-            t = m_arith.mk_mul(minus_one, e1);
-            c = m_arith.mk_numeral(-n - 1, is_int);
-            return true;
-        } else {
-            UNREACHABLE();
-            return false;
-        }
-    } else if (m_arith.is_ge(lit, e1, e2) ||
-               (m.is_not(lit, e0) && m_arith.is_lt(e0, e1, e2))) {
-        if (m_arith.is_numeral(e2, n, is_int)) {
-            // x >= k ==> -x <= -k
-            expr_ref minus_one(m);
-            minus_one = m_arith.mk_numeral(rational(-1), is_int);
-            t = m_arith.mk_mul(minus_one, e1);
-            c = m_arith.mk_numeral(-n, is_int);
-            return true;
-        } else {
-            UNREACHABLE();
-            return false;
-        }
-    }
-
-    return false;
-}
-
 void under_approx::find_coeff(expr_ref t, expr_ref v, rational &k) {
     if (t == v) {
         k = rational::one();

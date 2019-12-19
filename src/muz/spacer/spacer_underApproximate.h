@@ -48,8 +48,6 @@ class under_approx {
         return is_uninterp_const(e) || m_arith.is_numeral(e);
     }
 
-    // convert an arith expression lit into t <= c
-    bool normalize_to_le(expr *lit, expr_ref &t, expr_ref &c);
     bool not_handled(expr *e) {
         expr *not_chld;
         return is_uninterp_const(e) || m_arith.is_numeral(e) || m.is_eq(e) ||
