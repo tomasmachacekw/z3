@@ -1,6 +1,7 @@
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -296,6 +297,25 @@ void mul_if_not_one(rational coeff, expr *e, expr_ref &res) {
         res = expr_ref(e, m);
     else
         res = m_arith.mk_mul(m_arith.mk_numeral(coeff, coeff.is_int()), e);
+}
+
+namespace extract_nums_ns {
+struct extract_nums_proc {
+    ast_manager &m;
+    arith_util m_arith;
+    vector<rational>& m_res;
+    extract_nums_proc(ast_manager &a_m, vector<rational>& res) : m(a_m), m_arith(m), m_res(res) {}
+    void operator()(expr *n) const {}
+    void operator()(app *n) {
+        rational val;
+        if (m_arith.is_numeral(n, val)) m_res.push_back(val);
+    }
+};
+} // namespace get_num_ns
+
+void extract_nums(expr_ref e, vector<rational> &res) {
+    extract_nums_ns::extract_nums_proc t(e.get_manager(), res);
+    for_each_expr(t, e);
 }
 }
 template class rewriter_tpl<spacer::term_ordered_rpp>;
