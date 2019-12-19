@@ -164,6 +164,7 @@ namespace spacer {
 
     // convert an arith expression lit into t <= c. returns true if such a normal form exists and c is numeral
     bool normalize_to_le(expr *lit, expr_ref &t, expr_ref &c);
+    void mul_if_not_one(rational coeff, expr *e, expr_ref &res);
 }
 
 #endif

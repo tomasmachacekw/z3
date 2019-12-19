@@ -247,5 +247,13 @@ bool normalize_to_le(expr *lit, expr_ref &t, expr_ref &c) {
     }
     return false;
 }
+void mul_if_not_one(rational coeff, expr *e, expr_ref &res) {
+    ast_manager& m = res.get_manager();
+    arith_util m_arith(m);
+    if (coeff == rational::one())
+        res = expr_ref(e, m);
+    else
+        res = m_arith.mk_mul(m_arith.mk_numeral(coeff, coeff.is_int()), e);
+}
 }
 template class rewriter_tpl<spacer::term_ordered_rpp>;
