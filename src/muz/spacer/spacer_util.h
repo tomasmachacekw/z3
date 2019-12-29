@@ -157,8 +157,8 @@ namespace spacer {
     // linear. lit is the literal with the variable
     bool mono_var_pattern(const expr_ref &p, expr_ref &lit);
 
-    // drop all literals from n that match leq_lit
-    void abstract_fml(expr_ref_vector &in, expr_ref &lit, expr_ref_vector &out);
+    // drop all literals from n that match leq_lit. Returns whether some have been dropped or not
+    bool abstract_fml(expr_ref_vector &in, expr_ref &lit, expr_ref_vector &out);
 
     bool contains_mod(expr_ref e);
 

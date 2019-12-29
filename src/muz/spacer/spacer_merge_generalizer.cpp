@@ -299,12 +299,12 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         expr_ref_vector fml_vec(m);
         fml_vec.push_back(n_pob);
         flatten_and(fml_vec);
-        abstract_fml(fml_vec, lit, abs_fml);
+        bool is_smaller = abstract_fml(fml_vec, lit, abs_fml);
 
         if (pt_cls->get_gas() == 0) m_st.m_num_cls_ofg++;
 
         if(abs_fml.size() == 0 || pt_cls->get_gas() == 0) {
-            // If the pob cannot be abstracte, stop using generalization on
+            // If the pob cannot be abstracted, stop using generalization on
             // it
             TRACE("merge_dbg", tout << "marked to refine pob "
                                     << n_pob << " id is "
@@ -312,7 +312,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
 
             n->set_refine();
         }
-        else if(abs_fml.size() == fml_vec.size()) {
+        else if(!is_smaller) {
             //The literal to be abstracted is not in the pob
             TRACE("merge_dbg", tout << "cannot abstract " << n_pob
                                     << " with lit " << lit << "\n";);
