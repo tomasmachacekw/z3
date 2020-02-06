@@ -1221,10 +1221,10 @@ class context {
     bool                 m_simplify_formulas_post;
     bool                 m_pdr_bfs;
     bool                 m_use_bg_invs;
-    bool m_adhoc_gen;
-    bool m_abstract_pob;
-    bool m_use_sage;
-    bool m_split_pob;
+    bool                 m_global;
+    bool                 m_conjecture;
+    bool                 m_use_sage;
+    bool                 m_concretize;
     bool                 m_use_iuc;
     unsigned             m_push_pob_max_depth;
     unsigned             m_max_level;

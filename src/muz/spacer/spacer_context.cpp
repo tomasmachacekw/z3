@@ -2368,10 +2368,10 @@ void context::updt_params() {
     m_restart_initial_threshold = m_params.spacer_restart_initial_threshold();
     m_pdr_bfs = m_params.spacer_gpdr_bfs();
     m_use_bg_invs = m_params.spacer_use_bg_invs();
-    m_adhoc_gen = m_params.spacer_adhoc_gen();
-    m_abstract_pob = m_params.spacer_abstract_pob();
+    m_global = m_params.spacer_global();
+    m_conjecture = m_params.spacer_conjecture();
     m_use_sage = m_params.spacer_use_sage();
-    m_split_pob = m_params.spacer_split_pob();
+    m_concretize = m_params.spacer_concretize();
     m_use_iuc = m_params.spacer_use_iuc();
     if (m_use_gpdr) {
         // set options to be compatible with GPDR
@@ -2700,7 +2700,7 @@ void context::init_lemma_generalizers()
         m_lemma_generalizers.push_back(alloc(lemma_array_eq_generalizer, *this));
     }
 
-    if (m_adhoc_gen) {
+    if (m_global) {
         m_merge_gen = alloc(lemma_merge_generalizer, *this);
         m_lemma_generalizers.push_back(m_merge_gen);
     }
@@ -3407,7 +3407,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     // Decide whether to split on pob
     // get a model that satisfies the pob and the current set of lemmas
     // TODO: if push_pob is enabled, avoid calling is_blocked twice
-    if (m_split_pob && n.should_split() &&
+    if (m_concretize && n.should_split() &&
         !n.pt().is_blocked(n, uses_level, &model)) {
         TRACE("under_approximate",
               tout << "going to split pob " << mk_pp(n.post(), m)
@@ -3580,7 +3580,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
         bool v = n.pt().add_lemma(lemma_pob.get());
         if (v) {
-            if (m_adhoc_gen) m_lmma_cluster->cluster(lemma_pob);
+            if (m_global) m_lmma_cluster->cluster(lemma_pob);
             m_stats.m_num_lemmas++;
         }
 
@@ -3633,7 +3633,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         }
 
         //abstract pob
-        if (m_abstract_pob && n.get_abs_pattern().size() > 0) {
+        if (m_conjecture && n.get_abs_pattern().size() > 0) {
             expr_ref c(m);
             c = mk_and(n.get_abs_pattern());
             pob *f = n.pt().find_pob(&n, c);
