@@ -249,7 +249,7 @@ class lemma_cluster {
 
     bool contains(const lemma_ref &lemma) {
         for (const lemma_info &l : m_lemma_vec) {
-            if (lemma == l.get_lemma()) return true;
+            if (lemma->get_expr() == l.get_lemma()->get_expr()) return true;
         }
         return false;
     }
