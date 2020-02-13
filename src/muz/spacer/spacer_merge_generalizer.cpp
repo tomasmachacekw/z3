@@ -270,7 +270,12 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
 
     TRACE("merge_dbg",
           tout << "Start merging with lemma cube: " << lemma->get_cube()
-               << "\n Discovered pattern: " << pattern << "\n";);
+          << "\n Discovered pattern: " << pattern
+          << "\n and lemmas ";
+          for(const lemma_info &lemma : lc.get_lemmas()) {
+              tout << "\n \t" << lemma.get_lemma()->get_cube();
+          }
+        );
 
     if (has_nonlinear_var_mul(pattern, m)) {
         m_st.m_num_non_lin++;
