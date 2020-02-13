@@ -255,7 +255,8 @@ bool normalize_to_le(expr *lit, expr_ref &t, expr_ref &c) {
 void mul_and_simp(expr_ref &fml, rational num) {
     ast_manager& m = fml.get_manager();
     arith_util m_arith(m);
-    SASSERT(m_arith.is_arith_expr(fml) || is_var(fml));
+    SASSERT(m_arith.is_arith_expr(fml) || is_var(fml) ||
+            is_uninterp_const(fml));
     if (num.is_one()) return;
 
     if (is_uninterp_const(fml) || is_var(fml)) {
