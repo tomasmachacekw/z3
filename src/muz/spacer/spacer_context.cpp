@@ -3633,7 +3633,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         }
 
         //abstract pob
-        if (m_conjecture && n.get_abs_pattern().size() > 0) {
+        if (m_conjecture && n.get_abs_pattern().size() > 0 && n.get_gas() > 0) {
             expr_ref c(m);
             c = mk_and(n.get_abs_pattern());
             pob *f = n.pt().find_pob(&n, c);
