@@ -247,6 +247,7 @@ bool lemma_cluster ::match(const expr_ref &e, substitution &sub) {
     return true;
 }
 
+//Repetition of lemmas is avoided by doing a linear scan over the lemmas in the cluster.
 bool lemma_cluster ::add_lemma(const lemma_ref &lemma, bool subs_check) {
     substitution sub(m);
     sub.reserve(1, get_num_vars(m_pattern.get()));
@@ -254,6 +255,8 @@ bool lemma_cluster ::add_lemma(const lemma_ref &lemma, bool subs_check) {
     cube = mk_and(lemma->get_cube());
     normalize_order(cube, cube);
     if (!match(cube, sub)) return false;
+    //cluster already contains the lemma
+    if (contains(lemma)) return false;
     TRACE("cluster_stats_verb",
           tout << "Trying to add lemma " << lemma->get_cube() << "\n";);
     lemma_info l_i(lemma, sub);
