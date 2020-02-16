@@ -490,26 +490,6 @@ void lemma_merge_generalizer::rewrite_frsh_cnsts() {
     }
 }
 
-/* core lemma update function*/
-bool lemma_merge_generalizer::check_inductive_and_update(
-    lemma_ref &lemma, expr_ref_vector &conj) {
-    TRACE("merge_dbg", tout << "Attempt to update lemma with: " << conj << "\n"
-                            << "at level " << lemma->level() << "\n";);
-    pred_transformer &pt = lemma->get_pob()->pt();
-    unsigned uses_level = 0;
-    if (pt.check_inductive(infty_level(), conj, uses_level,
-                           lemma->weakness()) ||
-        pt.check_inductive(lemma->level(), conj, uses_level,
-                           lemma->weakness())) {
-        TRACE("merge_dbg", tout << "POB blocked using merge at level "
-                                << uses_level << "\n";);
-        lemma->update_cube(lemma->get_pob(), conj);
-        lemma->set_level(uses_level);
-        return true;
-    }
-
-    return false;
-}
 void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.merge", m_st.watch.get_seconds());
     st.update("time.spacer.solve.reach.gen.wide", m_st.watch.get_seconds());
