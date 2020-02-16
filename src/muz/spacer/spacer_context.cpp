@@ -3195,13 +3195,7 @@ bool context::check_reachability ()
             // be estimated
             if ((node->is_abs() || node->is_merge_gen()) &&
                 new_pobs.size() == 0) {
-                last_reachable = node;
-                last_reachable->close();
-                while (last_reachable->parent()->is_abs() ||
-                       last_reachable->parent()->is_merge_gen()) {
-                    last_reachable = last_reachable->parent();
-                    last_reachable->close();
-                }
+                close_all_may_children(node);
             }
             for (auto pob : new_pobs) {m_pob_queue.push(*pob);}
             break;
@@ -4261,6 +4255,23 @@ inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
     }
     // else
     //   return &n1 < &n2;
+}
+
+// set gas of each may parent to 0
+// TODO: close siblings as well. kids of a pob are not stored in the pob
+void context::close_all_may_children(pob_ref node) {
+    pob_ref_vector to_do;
+    to_do.push_back(node.get());
+    while (to_do.size() != 0) {
+        pob_ref t = to_do.back();
+        t->set_gas(0);
+        if (t->is_abs() || t->is_merge_gen()) {
+            t->close();
+        }
+        else break;
+        to_do.pop_back();
+        to_do.push_back(t->parent());
+    }
 }
 
 void pred_transformer::extract_nums(vector<rational> &res) const {
