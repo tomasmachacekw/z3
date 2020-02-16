@@ -3600,13 +3600,18 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         if (n.get_merge_conj().size() > 0 && n.get_gas() > 0) {
             expr_ref c(m);
             c = mk_and(n.get_merge_conj());
+            unsigned level = n.get_merge_conj_lvl();
             pob *f = n.pt().find_pob(n.parent(), c);
             // skip if a similar pob is already in the queue
             if (f != &n && (!f || !f->is_in_queue())) {
-                // create merge conjecture at a higher level
+                // create merge conjecture as a sibling at the desired depth
+                // TODO: As level can be less than m_pob_queue.min_depth, this
+                // will cause overflow when printing.
+                // might also cause Spacer to terminate prematurely because of
+                // the pob_queue.top() method
                 pob *new_pob =
-                    n.pt().mk_pob(n.parent(), n.level(), n.depth(),
-                                  mk_and(n.get_merge_conj()), n.get_binding());
+                    n.pt().mk_pob(n.parent(), prev_level(n.parent()->level()),
+                                  level, c, n.get_binding());
                 // since the level of pob is going to be incremented, new pob
                 // will have higher priority
                 new_pob->set_merge_gen();
@@ -3630,11 +3635,16 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         if (m_conjecture && n.get_abs_pattern().size() > 0 && n.get_gas() > 0) {
             expr_ref c(m);
             c = mk_and(n.get_abs_pattern());
+            unsigned level = n.get_merge_conj_lvl();
             pob *f = n.pt().find_pob(&n, c);
             // skip if new pob is already in the queue
             if (!f || !f->is_in_queue()) {
                 // create abstract pob
-                f = n.pt().mk_pob(n.parent(), n.level(), n.depth(), c,
+                //TODO: As level can be less than
+                //m_pob_queue.min_depth, this will cause overflow when printing.
+                //might also cause Spacer to terminate prematurely because of
+                //the pob_queue.top() method
+                f = n.pt().mk_pob(n.parent(), prev_level(n.parent()->level()), level, c,
                                   n.get_binding());
                 f->set_abs();
                 unsigned gas = n.get_gas();

@@ -43,11 +43,8 @@ lemma_merge_generalizer::lemma_merge_generalizer(context &ctx)
 
 void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
-
-    if (core(lemma)) {
-        TRACE("merge_dbg", tout << "Lemma cube after merge generalization: "
-                                << lemma->get_cube() << "\n";);
-        if (!lemma->get_pob()->widen()) return;
+    core(lemma);
+    if (lemma->get_pob()->is_merge_gen() && lemma->get_pob()->widen()) {
         // try expanding cvx bounds
         expr_ref_vector conj = lemma->get_cube();
         expr_ref_vector expand_expr(m), updt_conj(conj);
@@ -327,6 +324,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         else {
             //There is enough gas to block an abs pob
             n->set_abs_pattern(abs_fml);
+            n->set_merge_conj_lvl(pt_cls->get_min_lvl());
             n->set_gas(pt_cls->get_pob_gas());
             pt_cls->dec_gas();
         }
@@ -425,19 +423,16 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         if (res == l_false) {
             //one for getting model and one for checking cvx_cls ==> mbp
             m_solver->pop(2);
-            if (check_inductive_and_update(lemma, pat)) return true;
-            // create merge_gen_pob only if there is enough gas left
-            else if (pt_cls->get_gas() > 0) {
-                pob_ref pob = lemma->get_pob();
-                pob->set_merge_conj(pat);
-                pob->set_refine();
-                pob->set_gas(lc.get_pob_gas());
-                TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(pat)
-                                        << " set on pob "
-                                        << mk_pp(pob->post(), m) << "\n";);
-                pt_cls->dec_gas();
-            }
-            else m_st.m_num_cls_ofg++;
+            pob_ref pob = lemma->get_pob();
+            pob->set_merge_conj(pat);
+            pob->set_merge_conj_lvl(pt_cls->get_min_lvl());
+            pob->set_refine();
+            pob->set_gas(pt_cls->get_pob_gas() + 1);
+            TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(pat)
+                  << " set on pob "
+                  << mk_pp(pob->post(), m) << "\n";);
+            pt_cls->dec_gas();
+            if (pt_cls->get_gas() == 0) { m_st.m_num_cls_ofg++; }
             return false;
         }
 

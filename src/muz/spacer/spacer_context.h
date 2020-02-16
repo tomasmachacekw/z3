@@ -254,9 +254,17 @@ class lemma_cluster {
         return false;
     }
 
-    void dec_gas() { m_gas--; }
+    void dec_gas() { if(m_gas > 0) m_gas--; }
     unsigned get_gas() const { return m_gas; }
     unsigned get_pob_gas() const { return 5*m_lemma_vec.size(); }
+    unsigned get_min_lvl() {
+        //not really the lowest. In case of duplicate lemmas, we remove one arbitrarily.
+        unsigned min_lvl = m_lemma_vec[0].get_lemma()->level();
+        for (auto l : m_lemma_vec) {
+            min_lvl = std::min(min_lvl, l.get_lemma()->level());
+        }
+        return min_lvl;
+    }
     bool can_contain(const lemma_ref &lemma) {
         substitution sub(m);
         sub.reserve(1, get_num_vars(m_pattern.get()));
@@ -819,6 +827,9 @@ class pob {
     // conjecture to block this pob
     expr_ref_vector m_merge_conj;
 
+    // level at which m_merge_conj is to be added
+    unsigned m_merge_conj_lvl;
+
     // is a merge conjecture
     bool m_is_merge_gen;
 
@@ -838,9 +849,12 @@ class pob {
     void set_post(expr *post);
 
     void set_merge_conj(const expr_ref_vector &expr) {
+        m_merge_conj_lvl = 0;
         m_merge_conj.reset();
         m_merge_conj.append(expr);
     }
+    void set_merge_conj_lvl(unsigned l) { m_merge_conj_lvl = l; }
+    unsigned get_merge_conj_lvl() { return m_merge_conj_lvl;}
 
     expr_ref_vector const &get_merge_conj() const { return m_merge_conj; }
     unsigned weakness() {return m_weakness;}
