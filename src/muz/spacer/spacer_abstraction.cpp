@@ -56,12 +56,12 @@ bool mono_var_pattern(const expr_ref &pattern, expr_ref &leq_lit) {
 
 bool abstract_fml(expr_ref_vector &fml_vec, expr_ref &lit,
                   expr_ref_vector &abs_fml) {
-    SASSERT(to_app(lit)->get_num_args() == 2);
     abs_fml.reset();
     bool is_smaller = false;
     ast_manager& m = fml_vec.get_manager();
     expr_ref cube(m), lhs(m), rhs(m), lit_lhs(m), lit_rhs(m);
     expr* e1, *e2;
+    SASSERT(!m.is_not(lit, e1)  || !m.is_eq(e1));
     if(m.is_eq(lit, e1, e2)) { lit_lhs = e1; lit_rhs = e2; }
     else normalize_to_le(lit.get(), lit_lhs, lit_rhs);
     bool rhs_var = get_num_vars(lit_rhs) > 0;
