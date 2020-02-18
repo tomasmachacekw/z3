@@ -260,11 +260,38 @@ class lemma_global_generalizer : public lemma_generalizer {
     // converts all numerals and uninterpreted constants in fml to int
     // assumes that fml is in sop
     void to_int(expr_ref &fml);
+};
+
+class lemma_expand_bnd_generalizer : public lemma_generalizer {
+    struct stats {
+        unsigned atmpts;
+        unsigned success;
+        stopwatch watch;
+        stats() { reset(); }
+        void reset() {
+            watch.reset();
+            atmpts = 0;
+            success = 0;
+        }
+    };
+    stats m_st;
+    ast_manager &m;
+    arith_util m_arith;
+    vector<rational> m_consts;
+
+  public:
+    lemma_expand_bnd_generalizer(context &ctx);
+    ~lemma_expand_bnd_generalizer() override {}
+    void operator()(lemma_ref &lemma) override;
+    void collect_statistics(statistics &st) const override;
+    void reset_statistics() override { m_st.reset(); }
+
+  private:
     bool apply_widen(lemma_ref &lemma, expr *lit, expr_ref_vector &res,
                      expr_ref &nw_bnd);
     void substitute(expr *var, rational n, expr *fml, expr_ref &sub);
+    bool should_apply(const expr *lit, rational val, rational n);
 };
-
 } // namespace spacer
 
 #endif
