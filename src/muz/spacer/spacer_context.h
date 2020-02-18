@@ -1236,6 +1236,7 @@ class context {
     bool                 m_pdr_bfs;
     bool                 m_use_bg_invs;
     bool                 m_global;
+    bool                 m_expand_bnd_gen;
     bool                 m_conjecture;
     bool                 m_use_sage;
     bool                 m_concretize;

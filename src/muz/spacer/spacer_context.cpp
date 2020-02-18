@@ -2369,6 +2369,7 @@ void context::updt_params() {
     m_pdr_bfs = m_params.spacer_gpdr_bfs();
     m_use_bg_invs = m_params.spacer_use_bg_invs();
     m_global = m_params.spacer_global();
+    m_expand_bnd_gen = m_params.spacer_expand_bnd();
     m_conjecture = m_params.spacer_conjecture();
     m_use_sage = m_params.spacer_use_sage();
     m_concretize = m_params.spacer_concretize();
@@ -2703,6 +2704,10 @@ void context::init_lemma_generalizers()
     if (m_global) {
         m_global_gen = alloc(lemma_global_generalizer, *this);
         m_lemma_generalizers.push_back(m_global_gen);
+    }
+
+    if(m_expand_bnd_gen) {
+        m_lemma_generalizers.push_back(alloc(lemma_expand_bnd_generalizer, *this));
     }
 
     if (m_validate_lemmas) {
