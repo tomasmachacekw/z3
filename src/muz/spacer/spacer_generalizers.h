@@ -186,8 +186,6 @@ class limit_num_generalizer : public lemma_generalizer {
 
 class lemma_global_generalizer : public lemma_generalizer {
     struct stats {
-        unsigned wide_atmpts;
-        unsigned wide_sucess;
         unsigned m_num_cls_ofg;
         unsigned m_num_syn_cls;
         unsigned m_num_mbp_failed;
@@ -201,8 +199,6 @@ class lemma_global_generalizer : public lemma_generalizer {
         }
         void reset() {
             watch.reset();
-            wide_atmpts = 0;
-            wide_sucess = 0;
             m_num_cls_ofg = 0;
             m_num_non_lin = 0;
             m_num_syn_cls = 0;
@@ -219,7 +215,6 @@ class lemma_global_generalizer : public lemma_generalizer {
     // save fresh constants for mbp
     app_ref_vector m_dim_frsh_cnsts;
     expr_ref_vector m_dim_vars;
-    vector<rational> m_consts;
     bool m_exact;
     //solver to get model for computing mbp and to check whether cvx_cls ==> mbp
     ref<solver> m_solver;
@@ -265,7 +260,6 @@ class lemma_global_generalizer : public lemma_generalizer {
     // converts all numerals and uninterpreted constants in fml to int
     // assumes that fml is in sop
     void to_int(expr_ref &fml);
-    bool should_apply(const expr *lit, rational val, rational n);
     bool apply_widen(lemma_ref &lemma, expr *lit, expr_ref_vector &res,
                      expr_ref &nw_bnd);
     void substitute(expr *var, rational n, expr *fml, expr_ref &sub);
