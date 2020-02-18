@@ -324,9 +324,11 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
         else {
             //There is enough gas to block an abs pob
             n->set_abs_pattern(abs_fml);
-            n->set_merge_conj_lvl(pt_cls->get_min_lvl());
+            n->set_merge_conj_lvl(pt_cls->get_min_lvl() + 1);
             n->set_gas(pt_cls->get_pob_gas());
             pt_cls->dec_gas();
+            TRACE("merge_dbg", tout << "set abstraction " << abs_fml
+                  << " at level " << pt_cls->get_min_lvl() + 1 << "\n";);
         }
     }
 
@@ -425,11 +427,11 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
             m_solver->pop(2);
             pob_ref pob = lemma->get_pob();
             pob->set_merge_conj(pat);
-            pob->set_merge_conj_lvl(pt_cls->get_min_lvl());
+            pob->set_merge_conj_lvl(pt_cls->get_min_lvl() + 1);
             pob->set_refine();
             pob->set_gas(pt_cls->get_pob_gas() + 1);
             TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(pat)
-                  << " set on pob "
+                  << " at level " << pt_cls->get_min_lvl() + 1 << " set on pob "
                   << mk_pp(pob->post(), m) << "\n";);
             pt_cls->dec_gas();
             if (pt_cls->get_gas() == 0) { m_st.m_num_cls_ofg++; }

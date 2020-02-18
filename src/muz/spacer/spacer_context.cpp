@@ -3605,13 +3605,9 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             // skip if a similar pob is already in the queue
             if (f != &n && (!f || !f->is_in_queue())) {
                 // create merge conjecture as a sibling at the desired depth
-                // TODO: As level can be less than m_pob_queue.min_depth, this
-                // will cause overflow when printing.
-                // might also cause Spacer to terminate prematurely because of
-                // the pob_queue.top() method
                 pob *new_pob =
-                    n.pt().mk_pob(n.parent(), prev_level(n.parent()->level()),
-                                  level, c, n.get_binding());
+                    n.pt().mk_pob(n.parent(), level,
+                                  n.depth(), c, n.get_binding());
                 // since the level of pob is going to be incremented, new pob
                 // will have higher priority
                 new_pob->set_merge_gen();
@@ -3640,11 +3636,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             // skip if new pob is already in the queue
             if (!f || !f->is_in_queue()) {
                 // create abstract pob
-                //TODO: As level can be less than
-                //m_pob_queue.min_depth, this will cause overflow when printing.
-                //might also cause Spacer to terminate prematurely because of
-                //the pob_queue.top() method
-                f = n.pt().mk_pob(n.parent(), prev_level(n.parent()->level()), level, c,
+                f = n.pt().mk_pob(n.parent(), level, n.depth(), c,
                                   n.get_binding());
                 f->set_abs();
                 unsigned gas = n.get_gas();
