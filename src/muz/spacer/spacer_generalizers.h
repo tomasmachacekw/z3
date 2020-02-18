@@ -184,7 +184,7 @@ class limit_num_generalizer : public lemma_generalizer {
     void reset_statistics() override { m_st.reset(); }
 };
 
-class lemma_merge_generalizer : public lemma_generalizer {
+class lemma_global_generalizer : public lemma_generalizer {
     struct stats {
         unsigned wide_atmpts;
         unsigned wide_sucess;
@@ -225,8 +225,8 @@ class lemma_merge_generalizer : public lemma_generalizer {
     ref<solver> m_solver;
 
   public:
-    lemma_merge_generalizer(context &ctx);
-    ~lemma_merge_generalizer() override {}
+    lemma_global_generalizer(context &ctx);
+    ~lemma_global_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
     void collect_statistics(statistics &st) const override;
     void reset_statistics() override { m_st.reset(); }

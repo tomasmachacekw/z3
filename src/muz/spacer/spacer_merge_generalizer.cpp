@@ -32,7 +32,7 @@ struct compute_lcm {
 
 } // namespace
 namespace spacer {
-lemma_merge_generalizer::lemma_merge_generalizer(context &ctx)
+lemma_global_generalizer::lemma_global_generalizer(context &ctx)
     : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m),
       m_cvx_cls(m, ctx.use_sage()), m_dim_frsh_cnsts(m), m_dim_vars(m) {
     m_solver = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
@@ -41,7 +41,7 @@ lemma_merge_generalizer::lemma_merge_generalizer(context &ctx)
     }
 }
 
-void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
+void lemma_global_generalizer::operator()(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
     core(lemma);
     if (lemma->get_pob()->is_merge_gen() && lemma->get_pob()->widen()) {
@@ -69,7 +69,7 @@ void lemma_merge_generalizer::operator()(lemma_ref &lemma) {
     }
 }
 
-void lemma_merge_generalizer::to_real(expr_ref &fml) {
+void lemma_global_generalizer::to_real(expr_ref &fml) {
     if (m_arith.is_numeral(fml) || m_arith.is_to_real(fml)) return;
     if (is_uninterp_const(fml) && m_arith.is_int(fml)) {
         fml = m_arith.mk_to_real(fml);
@@ -90,7 +90,7 @@ void lemma_merge_generalizer::to_real(expr_ref &fml) {
     }
 }
 
-rational lemma_merge_generalizer::get_lcm(expr *e) {
+rational lemma_global_generalizer::get_lcm(expr *e) {
     compute_lcm g(m);
     for_each_expr(g, e);
     TRACE("merge_dbg_verb",
@@ -99,7 +99,7 @@ rational lemma_merge_generalizer::get_lcm(expr *e) {
 }
 
 
-void lemma_merge_generalizer::to_int(expr_ref &fml) {
+void lemma_global_generalizer::to_int(expr_ref &fml) {
     TRACE("merge_dbg_verb", tout << "to int " << mk_pp(fml, m) << "\n";);
     if (m_arith.is_to_real(fml)) {
         fml = to_app(fml)->get_arg(0);
@@ -135,7 +135,7 @@ void lemma_merge_generalizer::to_int(expr_ref &fml) {
           tout << "to int finished " << mk_pp(fml, m) << "\n";);
 }
 
-void lemma_merge_generalizer::normalize(expr_ref &fml) {
+void lemma_global_generalizer::normalize(expr_ref &fml) {
     expr_ref_vector fml_vec(m), rw_fml(m);
     flatten_and(fml.get(), fml_vec);
     expr *s, *t;
@@ -181,7 +181,7 @@ void lemma_merge_generalizer::normalize(expr_ref &fml) {
     }
     fml = mk_and(rw_fml);
 }
-void lemma_merge_generalizer::to_real(const expr_ref_vector &fml,
+void lemma_global_generalizer::to_real(const expr_ref_vector &fml,
                                       expr_ref &nw_fml) {
     expr_ref lhs(m), rhs(m);
     expr_ref_vector rw_fml(m);
@@ -199,7 +199,7 @@ void lemma_merge_generalizer::to_real(const expr_ref_vector &fml,
     nw_fml = mk_and(rw_fml);
 }
 
-void lemma_merge_generalizer::add_dim_vars(const lemma_cluster &lc) {
+void lemma_global_generalizer::add_dim_vars(const lemma_cluster &lc) {
     const expr_ref &pattern = lc.get_pattern();
     expr_offset r;
     std::pair<unsigned, unsigned> v;
@@ -223,7 +223,7 @@ void lemma_merge_generalizer::add_dim_vars(const lemma_cluster &lc) {
     }
 }
 
-void lemma_merge_generalizer::add_points(const lemma_cluster &lc) {
+void lemma_global_generalizer::add_points(const lemma_cluster &lc) {
     vector<rational> point;
     unsigned n_vars = get_num_vars(lc.get_pattern());
     const lemma_info_vector &lemmas(lc.get_lemmas());
@@ -243,7 +243,7 @@ void lemma_merge_generalizer::add_points(const lemma_cluster &lc) {
         m_cvx_cls.push_back(point);
     }
 }
-void lemma_merge_generalizer::reset(unsigned n_vars) {
+void lemma_global_generalizer::reset(unsigned n_vars) {
     // start convex closure computation
     m_cvx_cls.reset(n_vars);
     m_dim_vars.reset();
@@ -253,7 +253,7 @@ void lemma_merge_generalizer::reset(unsigned n_vars) {
     m_exact = true;
 }
 
-bool lemma_merge_generalizer::core(lemma_ref &lemma) {
+bool lemma_global_generalizer::core(lemma_ref &lemma) {
     lemma_cluster *pt_cls = (&*lemma->get_pob())->pt().clstr_match(lemma);
     if (pt_cls == nullptr) return false;
 
@@ -465,7 +465,7 @@ bool lemma_merge_generalizer::core(lemma_ref &lemma) {
     return false;
 }
 
-void lemma_merge_generalizer::var_to_const(expr *pattern,
+void lemma_global_generalizer::var_to_const(expr *pattern,
                                            expr_ref &rw_pattern) {
     expr_safe_replace s(m);
     obj_map<expr, expr *> sub;
@@ -483,7 +483,7 @@ void lemma_merge_generalizer::var_to_const(expr *pattern,
     return;
 }
 
-void lemma_merge_generalizer::rewrite_frsh_cnsts() {
+void lemma_global_generalizer::rewrite_frsh_cnsts() {
     app_ref var_app(m);
     for (unsigned i = 0; i < m_dim_vars.size(); i++) {
         if (m_arith.is_real(m_dim_frsh_cnsts[i].get())) continue;
@@ -492,7 +492,7 @@ void lemma_merge_generalizer::rewrite_frsh_cnsts() {
     }
 }
 
-void lemma_merge_generalizer::collect_statistics(statistics &st) const {
+void lemma_global_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.merge", m_st.watch.get_seconds());
     st.update("time.spacer.solve.reach.gen.wide", m_st.watch.get_seconds());
     st.update("SPACER wide attmpts", m_st.wide_atmpts);
@@ -506,7 +506,7 @@ void lemma_merge_generalizer::collect_statistics(statistics &st) const {
     m_cvx_cls.collect_statistics(st);
 }
 
-bool lemma_merge_generalizer::should_apply(const expr *lit, rational val,
+bool lemma_global_generalizer::should_apply(const expr *lit, rational val,
                                            rational n) {
     // the only case in which negation and non negation agree
     if (val == n) return false;
@@ -531,7 +531,7 @@ bool lemma_merge_generalizer::should_apply(const expr *lit, rational val,
     }
 }
 
-void lemma_merge_generalizer::substitute(expr *var, rational n, expr *fml,
+void lemma_global_generalizer::substitute(expr *var, rational n, expr *fml,
                                          expr_ref &sub) {
     expr_safe_replace s(m);
     sub.reset();
@@ -540,7 +540,7 @@ void lemma_merge_generalizer::substitute(expr *var, rational n, expr *fml,
     s(f, sub);
 }
 
-bool lemma_merge_generalizer::apply_widen(lemma_ref &lemma, expr *lit,
+bool lemma_global_generalizer::apply_widen(lemma_ref &lemma, expr *lit,
                                           expr_ref_vector &conj,
                                           expr_ref &nw_bnd) {
     SASSERT(!conj.contains(lit));

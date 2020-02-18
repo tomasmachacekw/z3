@@ -2701,8 +2701,8 @@ void context::init_lemma_generalizers()
     }
 
     if (m_global) {
-        m_merge_gen = alloc(lemma_merge_generalizer, *this);
-        m_lemma_generalizers.push_back(m_merge_gen);
+        m_global_gen = alloc(lemma_global_generalizer, *this);
+        m_lemma_generalizers.push_back(m_global_gen);
     }
 
     if (m_validate_lemmas) {
@@ -3549,7 +3549,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                                     << " id is " << n.post()->get_id()
                                     << "\n into pob "
                                     << mk_and(lemma_pob->get_cube()) << "\n";);
-            if (m_merge_gen != nullptr) (*m_merge_gen)(lemma_pob);
+            if (m_global_gen != nullptr) (*m_global_gen)(lemma_pob);
         }
 
         CTRACE("merge_dbg", n.is_abs(),
