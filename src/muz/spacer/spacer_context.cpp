@@ -4205,6 +4205,8 @@ inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
     const pob& n1 = *pn1;
     const pob& n2 = *pn2;
 
+    if (n1.is_merge_gen() != n2.is_merge_gen()) {return n1.is_merge_gen();}
+    if (n1.is_abs() != n2.is_abs()) { return n1.is_abs(); }
     if (n1.level() != n2.level()) { return n1.level() < n2.level(); }
 
     if (n1.depth() != n2.depth()) { return n1.depth() < n2.depth(); }
