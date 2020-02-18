@@ -1,6 +1,6 @@
 /*
 
-  Suite of merging strategies.
+  Suite of global guidance strategies.
 
 */
 #include "ast/arith_decl_plugin.h"
