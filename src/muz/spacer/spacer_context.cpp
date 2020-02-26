@@ -3198,7 +3198,7 @@ bool context::check_reachability ()
             SASSERT(m_pob_queue.size() == old_sz);
             // collapse abstractions if the reachability of one of them cannot
             // be estimated
-            if ((node->is_abs() || node->is_merge_gen()) &&
+            if ((node->is_merge_gen()) &&
                 new_pobs.size() == 0) {
                 close_all_may_children(node);
             }
@@ -3396,7 +3396,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                tout << "This pob can be blocked by instantiation\n";);
     }
 
-    if ((n.is_merge_gen() || n.is_abs()) && n.get_gas() == 0) {
+    if ((n.is_may_pob()) && n.get_gas() == 0) {
         TRACE("merge_dbg", tout << "Cant prove may pob. Collapsing "
               << mk_pp(n.post(), m) << "\n";);
         m_stats.m_num_pob_ofg++;
@@ -3675,8 +3675,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     }
     case l_undef:
         // something went wrong
-        // if the pob is an abstraction, bail out
-        if (n.is_abs() || n.is_merge_gen()) {
+        // if the pob is a may pob, bail out
+        if (n.is_may_pob()) {
             n.close();
             m_stats.m_expand_pob_undef++;
             return l_undef;
@@ -3983,7 +3983,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
                        !mdl.is_true(n.post())))
     { kid->reset_derivation(); }
 
-    if (kid->is_abs() || kid->is_merge_gen()) {
+    if (kid->is_may_pob()) {
         SASSERT(n.get_gas() > 0);
         kid->set_gas(n.get_gas() - 1);
     }
@@ -4274,7 +4274,7 @@ void context::close_all_may_children(pob_ref node) {
     while (to_do.size() != 0) {
         pob_ref t = to_do.back();
         t->set_gas(0);
-        if (t->is_abs() || t->is_merge_gen()) {
+        if (t->is_merge_gen()) {
             t->close();
         }
         else break;

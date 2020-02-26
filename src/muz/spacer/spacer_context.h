@@ -892,6 +892,7 @@ class pob {
     bool is_merge_gen() const { return m_is_merge_gen; }
     void set_merge_gen() { m_is_merge_gen = true; }
 
+    bool is_may_pob() const {return is_merge_gen() || is_abs();}
     unsigned get_gas() const { return m_gas; }
     void set_gas(unsigned n) { m_gas = n; }
 
