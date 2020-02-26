@@ -162,7 +162,7 @@ std::ostream &json_marshaller::marshal(std::ostream &out) const {
 
                 nodes << ((unsigned)nodes.tellp() == 0 ? "" : ",\n")
                       << "{\"id\":\"" << depth << n << "\",\"abs\":\""
-                      << n->is_abs() << "\",\"mrg\":\"" << n->is_merge_gen()
+                      << n->is_conj() << "\",\"mrg\":\"" << n->is_merge_gen()
                       << "\",\"relative_time\":\""
                       << expand_time / root_expand_time
                       << "\",\"absolute_time\":\"" << std::setprecision(2)

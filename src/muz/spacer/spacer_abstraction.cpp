@@ -100,12 +100,4 @@ bool abstract_fml(expr_ref_vector &fml_vec, expr_ref &lit,
     }
     return is_smaller;
 }
-
-//construct the refinement for the pob. Right now the refinement is the negation of pob
-void pob::mk_refine(expr_ref_vector &pob_cube) {
-    pob_cube.reset();
-    pob_cube.push_back(m_post);
-    flatten_and(pob_cube);
-    simplify_bounds(pob_cube);
-}
 } // namespace spacer

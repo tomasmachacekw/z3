@@ -68,8 +68,8 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_post(m_pt.get_ast_manager()), m_binding(m_pt.get_ast_manager()),
       m_new_post(m_pt.get_ast_manager()), m_level(level), m_depth(depth),
       m_open(true), m_use_farkas(true), m_in_queue(false), m_weakness(0),
-      m_blocked_lvl(0), m_is_abs(false),
-      m_abs_pattern(m_pt.get_ast_manager()), m_refine(false),
+      m_blocked_lvl(0), m_is_conj(false),
+      m_conj_pattern(m_pt.get_ast_manager()), m_local_gen(true),
       m_shd_split(false), m_split_pat(m_pt.get_ast_manager()),
       m_merge_conj(m_pt.get_ast_manager()), m_is_merge_gen(false),
       m_widen_pob(true), m_gas(0) {
@@ -77,7 +77,7 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
         m_parent->add_child(*this);
     }
     if (m_parent) {
-        m_is_abs = m_parent->is_abs();
+        m_is_conj = m_parent->is_conj();
         m_is_merge_gen = m_parent->is_merge_gen();
         m_gas = m_parent->get_gas();
     }
@@ -3339,7 +3339,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     SASSERT(out.empty());
     pob::on_expand_event _evt(n);
     TRACE("spacer", tout << "expand-pob: " << n.pt().head()->get_name()
-                         << (n.is_abs() ? " ABS" : "")
+                         << (n.is_conj() ? "CONJ" : "")
                          << (n.is_merge_gen() ? " MRG" : "")
                          << " level: " << n.level()
                          << " depth: " << (n.depth() - m_pob_queue.min_depth())
@@ -3348,7 +3348,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
     STRACE("spacer_progress",
            tout << "** expand-pob: " << n.pt().head()->get_name()
-                << (n.is_abs() ? " ABS" : "")
+                << (n.is_conj() ?  "CONJ" : "")
                 << (n.is_merge_gen() ? " MRG" : "") << " level: " << n.level()
                 << " depth: " << (n.depth() - m_pob_queue.min_depth()) << "\n"
                 << mk_epp(n.post(), m) << "\n\n";);
@@ -3365,7 +3365,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                << "expand: " << n.pt().head()->get_name() << " (" << n.level()
                << ", " << (n.depth() - m_pob_queue.min_depth()) << ") "
                << (n.use_farkas_generalizer() ? "FAR " : "SUB ")
-               << (n.is_abs() ? "ABS " : "") << (n.is_merge_gen() ? " MRG" : "")
+               << (n.is_conj() ? "ABS " : "") << (n.is_merge_gen() ? " MRG" : "")
                << " w(" << n.weakness() << ") " << n.post()->get_id();
         verbose_stream().flush(); watch.start(););
 
@@ -3487,10 +3487,10 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             }
             if(n.is_merge_gen())
                 m_stats.m_num_mrg_conj_failed++;
-            if(n.is_abs())
-                m_stats.m_num_abstractions_failed++;
+            if(n.is_conj())
+                m_stats.m_num_conj_failed++;
 
-            CTRACE("merge_dbg", n.is_abs(),
+            CTRACE("merge_dbg", n.is_conj(),
                    tout << "Failed to block abstraction "
                    << n.post()->get_id() << "\n";);
 
@@ -3528,12 +3528,12 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
               for (unsigned j = 0; j < cube.size(); ++j)
                   tout << mk_pp(cube[j].get(), m) << "\n";);
 
-        if(n.is_abs()) m_stats.m_num_abstractions_success++;
+        if(n.is_conj()) m_stats.m_num_conj_success++;
         if(n.is_merge_gen()) m_stats.m_num_mrg_conj_success++;
         pob_ref nref(&n);
         // -- create lemma from a pob and last unsat core
         lemma_ref lemma_pob;
-        if (!n.get_refine()) {
+        if (n.do_local_gen()) {
             lemma_pob = alloc(class lemma, pob_ref(&n), cube, uses_level);
 
             // -- run all lemma generalizers
@@ -3547,17 +3547,17 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             }
         } else {
             expr_ref_vector pob_cube(m);
-            n.mk_refine(pob_cube);
-            m_stats.m_num_refine++;
+            n.get_simp_post(pob_cube);
+            m_stats.m_non_local_gen++;
             lemma_pob = alloc(class lemma, pob_ref(&n), pob_cube, n.level());
-            TRACE("merge_dbg", tout << " refining " << mk_pp(n.post(), m)
-                                    << " id is " << n.post()->get_id()
-                                    << "\n into pob "
+            TRACE("merge_dbg", tout << " stopped local gen on pob " << mk_pp(n.post(), m)
+                                    << " with id " << n.post()->get_id()
+                                    << "\n lemma learned "
                                     << mk_and(lemma_pob->get_cube()) << "\n";);
             if (m_global_gen != nullptr) (*m_global_gen)(lemma_pob);
         }
 
-        CTRACE("merge_dbg", n.is_abs(),
+        CTRACE("merge_dbg", n.is_conj(),
                tout << " Blocked abs pob " << mk_pp(n.post(), m)
                     << " using lemma " << mk_pp(lemma_pob->get_expr(), m)
                     << " Level " << lemma_pob->level() << " id "
@@ -3633,9 +3633,9 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         }
 
         //abstract pob
-        if (m_conjecture && n.get_abs_pattern().size() > 0 && n.get_gas() > 0) {
+        if (m_conjecture && n.get_conj_pattern().size() > 0 && n.get_gas() > 0) {
             expr_ref c(m);
-            c = mk_and(n.get_abs_pattern());
+            c = mk_and(n.get_conj_pattern());
             unsigned level = n.get_merge_conj_lvl();
             pob *f = n.pt().find_pob(&n, c);
             // skip if new pob is already in the queue
@@ -3643,7 +3643,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                 // create abstract pob
                 f = n.pt().mk_pob(n.parent(), level, n.depth(), c,
                                   n.get_binding());
-                f->set_abs();
+                f->set_conj();
                 unsigned gas = n.get_gas();
                 SASSERT(gas > 0);
                 f->set_gas(gas - 1);
@@ -3653,7 +3653,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                                         << " id is " << n.post()->get_id()
                                         << "\n into pob " << c << " id is "
                                         << f->post()->get_id() << "\n";);
-                m_stats.m_num_abstractions++;
+                m_stats.m_num_conj++;
             } else
                 TRACE("merge_dbg",
                       tout << "duplicate abstraction found. Did not "
@@ -4025,16 +4025,16 @@ void context::collect_statistics(statistics& st) const
     // -- number of restarts taken
     st.update("SPACER restarts", m_stats.m_num_restarts);
     // -- number of time pob abstraction was invoked
-    st.update("SPACER num abstractions", m_stats.m_num_abstractions);
-    st.update("SPACER num abstractions success", m_stats.m_num_abstractions_success);
+    st.update("SPACER num abstractions", m_stats.m_num_conj);
+    st.update("SPACER num abstractions success", m_stats.m_num_conj_success);
     st.update("SPACER num abstractions failed",
-              m_stats.m_num_abstractions_failed);
+              m_stats.m_num_conj_failed);
     st.update("SPACER pob out of gas", m_stats.m_num_pob_ofg);
     st.update("SPACER num merge gen", m_stats.m_num_mrg_conjs);
     st.update("SPACER num merge gen success", m_stats.m_num_mrg_conj_failed);
     st.update("SPACER num merge gen failed", m_stats.m_num_mrg_conj_success);
     st.update("SPACER num under approximations", m_stats.m_num_ua);
-    st.update("SPACER num refinements", m_stats.m_num_refine);
+    st.update("SPACER non local gen", m_stats.m_non_local_gen);
 
     // -- time to initialize the rules
     st.update ("time.spacer.init_rules", m_init_rules_watch.get_seconds ());
@@ -4203,7 +4203,7 @@ inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
     const pob& n2 = *pn2;
 
     if (n1.is_merge_gen() != n2.is_merge_gen()) {return n1.is_merge_gen();}
-    if (n1.is_abs() != n2.is_abs()) { return n1.is_abs(); }
+    if (n1.is_conj() != n2.is_conj()) { return n1.is_conj(); }
     if (n1.level() != n2.level()) { return n1.level() < n2.level(); }
 
     if (n1.depth() != n2.depth()) { return n1.depth() < n2.depth(); }
@@ -4286,5 +4286,13 @@ void context::close_all_may_children(pob_ref node) {
 void pred_transformer::extract_nums(vector<rational> &res) const {
     spacer::extract_nums(m_init, res);
     spacer::extract_nums(m_transition, res);
+}
+
+// construct a simplified version of the post
+void pob::get_simp_post(expr_ref_vector &pob_cube) {
+    pob_cube.reset();
+    pob_cube.push_back(m_post);
+    flatten_and(pob_cube);
+    simplify_bounds(pob_cube);
 }
 }

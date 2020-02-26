@@ -810,14 +810,14 @@ class pob {
     std::map<unsigned, stopwatch> m_expand_watches;
     unsigned m_blocked_lvl;
 
-    // true if this pob is an abstraction
-    bool m_is_abs;
+    // true if this pob is a conjecture
+    bool m_is_conj;
 
-    // pattern with which abstraction was created
-    expr_ref_vector m_abs_pattern;
+    // pattern with which conjecture was created
+    expr_ref_vector m_conj_pattern;
 
-    // should refine lemma abstractions
-    bool m_refine;
+    // should do local generalizations on pob
+    bool m_local_gen;
     // should split cube
     bool m_shd_split;
 
@@ -877,28 +877,28 @@ class pob {
     pob* parent () const { return m_parent.get (); }
 
 
-    bool is_abs() const { return m_is_abs; }
-    void set_abs() { m_is_abs = true; }
+    bool is_conj() const { return m_is_conj; }
+    void set_conj() { m_is_conj = true; }
 
     void stop_widening() { m_widen_pob = false; }
     bool widen() { return m_widen_pob; }
     void set_split_pat(expr_ref pattern) { m_split_pat = pattern; }
     expr_ref get_split_pat() const { return m_split_pat; }
-    expr_ref_vector const & get_abs_pattern() const { return m_abs_pattern; }
-    void set_abs_pattern(expr_ref_vector& pattern) {
-        m_abs_pattern.reset();
-        m_abs_pattern.append(pattern);
+    expr_ref_vector const & get_conj_pattern() const { return m_conj_pattern; }
+    void set_conj_pattern(expr_ref_vector& pattern) {
+        m_conj_pattern.reset();
+        m_conj_pattern.append(pattern);
     }
     bool is_merge_gen() const { return m_is_merge_gen; }
     void set_merge_gen() { m_is_merge_gen = true; }
 
-    bool is_may_pob() const {return is_merge_gen() || is_abs();}
+    bool is_may_pob() const {return is_merge_gen() || is_conj();}
     unsigned get_gas() const { return m_gas; }
     void set_gas(unsigned n) { m_gas = n; }
 
-    bool get_refine() const { return m_refine; }
-    void set_refine() { m_refine = true; }
-    void mk_refine(expr_ref_vector& res);
+    bool do_local_gen() const { return m_local_gen; }
+    void stop_local_gen() { m_local_gen = false; }
+    void get_simp_post(expr_ref_vector& res);
     bool should_split() const { return m_shd_split && m_gas > 0; }
     void set_split() { m_shd_split = true; }
 
@@ -1159,15 +1159,15 @@ class context {
         unsigned m_num_restarts;
         unsigned m_num_lemmas_imported;
         unsigned m_num_lemmas_discarded;
-        unsigned m_num_abstractions;
-        unsigned m_num_abstractions_success;
-        unsigned m_num_abstractions_failed;
+        unsigned m_num_conj;
+        unsigned m_num_conj_success;
+        unsigned m_num_conj_failed;
         unsigned m_num_mrg_conjs;
         unsigned m_num_mrg_conj_failed;
         unsigned m_num_mrg_conj_success;
         unsigned m_num_ua;
         unsigned m_num_pob_ofg;
-        unsigned m_num_refine;
+        unsigned m_non_local_gen;
         stats() { reset(); }
         void reset() { memset(this, 0, sizeof(*this)); }
     };

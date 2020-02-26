@@ -282,22 +282,22 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
         if(abs_fml.size() == 0 || pt_cls->get_gas() == 0) {
             // If the pob cannot be abstracted, stop using generalization on
             // it
-            TRACE("merge_dbg", tout << "marked to refine pob "
+            TRACE("merge_dbg", tout << "stop local generalization on pob "
                                     << n_pob << " id is "
                                     << n_pob->get_id() << "\n";);
 
-            n->set_refine();
+            n->stop_local_gen();
         }
         else if(!is_smaller) {
             //The literal to be abstracted is not in the pob
             TRACE("merge_dbg", tout << "cannot abstract " << n_pob
                                     << " with lit " << lit << "\n";);
-            //TODO: Should we refine here ?
+            //TODO: Should we stop local generalization at this point ?
             m_st.m_num_cant_abs++;
         }
         else {
             //There is enough gas to block an abs pob
-            n->set_abs_pattern(abs_fml);
+            n->set_conj_pattern(abs_fml);
             n->set_merge_conj_lvl(pt_cls->get_min_lvl() + 1);
             n->set_gas(pt_cls->get_pob_gas());
             pt_cls->dec_gas();
@@ -402,7 +402,7 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
             pob_ref pob = lemma->get_pob();
             pob->set_merge_conj(pat);
             pob->set_merge_conj_lvl(pt_cls->get_min_lvl() + 1);
-            pob->set_refine();
+            pob->stop_local_gen();
             pob->set_gas(pt_cls->get_pob_gas() + 1);
             TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(pat)
                   << " at level " << pt_cls->get_min_lvl() + 1 << " set on pob "
