@@ -226,7 +226,127 @@ void lemma_global_generalizer::reset(unsigned n_vars) {
     m_dim_vars.reserve(n_vars);
     m_exact = true;
 }
+bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref& lemma, expr_ref_vector& subs_gen) {
+    const expr_ref &pattern = lc.get_pattern();
+    unsigned n_vars = get_num_vars(pattern);
+    SASSERT(n_vars > 0);
+    reset(n_vars);
+    // create and add dim vars
+    add_dim_vars(lc);
+    // add points
+    add_points(lc);
 
+    expr_ref_vector cls(m);
+    m_exact = m_cvx_cls.closure(cls);
+    CTRACE("subsume_verb", !m_exact,
+           tout << "Convex closure introduced new variables. Closure is"
+                << mk_and(cls) << "\n";);
+
+    if (!m_exact) {
+        m_st.m_num_syn_cls++;
+        // Add the new variables to the list of variables to be eliminated
+        const var_ref_vector &vars = m_cvx_cls.get_nw_vars();
+        app_ref var_app(m);
+        for (auto v : vars) {
+            m_dim_vars.push_back(to_expr(v));
+            var_app = m.mk_fresh_const("mrg_syn_cvx", m_arith.mk_real());
+            m_dim_frsh_cnsts.push_back(var_app);
+        }
+    }
+
+    cls.push_back(pattern.get());
+    expr_ref cvx_pattern(m);
+    var_to_const(mk_and(cls), cvx_pattern);
+
+    if (!m_exact) {
+        expr_ref_vector temp(m);
+        flatten_and(cvx_pattern, temp);
+        cvx_pattern.reset();
+        to_real(temp, cvx_pattern);
+        TRACE("subsume_verb",
+              tout << "To real produced " << cvx_pattern << "\n";);
+        rewrite_frsh_cnsts();
+        TRACE("subsume_verb", tout << "Rewrote " << mk_pp(mk_and(temp), m)
+                                     << " into " << cvx_pattern << "\n";);
+    }
+
+    model_ref mdl;
+
+    // get a model for the lemma
+    expr_ref_vector pat(m);
+    pat.push_back(cvx_pattern);
+
+    //call solver to get model for mbp
+    m_solver->push();
+    m_solver->assert_expr(pat);
+    lbool res = m_solver->check_sat(0, nullptr);
+    VERIFY(res == l_true);
+    m_solver->get_model(mdl);
+
+    SASSERT(mdl.get() != nullptr);
+    TRACE("subsume", expr_ref t(m); model2expr(mdl, t); tout
+                                           << "calling mbp with " << cvx_pattern
+                                           << " and " << t << "\n";);
+    qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true, true);
+    TRACE("subsume_verb", tout << "Pattern after mbp of computing cvx cls: "
+                                 << cvx_pattern << "\n";);
+    if (m_dim_frsh_cnsts.size() > 0) {
+        m_st.m_num_mbp_failed++;
+        m_solver->pop(1);
+        TRACE("subume", tout << "could not eliminate all vars\n";);
+        return false;
+    }
+
+    if (!m_exact) { normalize(cvx_pattern); }
+    // check whether mbp over approximates cnx_cls
+    // If not, remove literals from mbp till mbp overapproximates cnx_cls
+    expr_ref_vector neg_mbp(m);
+    //subs_gen stores the generalization
+    flatten_and(cvx_pattern, subs_gen);
+    for (expr *e : subs_gen) { neg_mbp.push_back(mk_not(m, e)); }
+
+    expr_ref asmpt(m);
+    expr_ref_vector pat_nw(m), n_mbp_nw(m);
+
+    while (neg_mbp.size() > 0) {
+        asmpt = mk_or(neg_mbp);
+        TRACE("subsume_verb", tout << "checking neg mbp: " << asmpt << "\n";);
+
+        m_solver->push();
+        m_solver->assert_expr(asmpt);
+        res = m_solver->check_sat(0, nullptr);
+        if (res == l_false) {
+            //one for getting model and one for checking cvx_cls ==> mbp
+            m_solver->pop(2);
+            return true;
+        }
+
+        //remove satisfied literals
+        model_ref rslt;
+        m_solver->get_model(rslt);
+
+        for (unsigned i = 0; i < neg_mbp.size(); i++) {
+            if (!rslt->is_true(neg_mbp.get(i))) {
+                n_mbp_nw.push_back(neg_mbp.get(i));
+                pat_nw.push_back(subs_gen.get(i));
+            }
+        }
+        neg_mbp.reset();
+        for(auto a : n_mbp_nw) neg_mbp.push_back(a);
+        subs_gen.reset();
+        for(auto a : pat_nw) subs_gen.push_back(a);
+        n_mbp_nw.reset();
+        pat_nw.reset();
+
+        //reset solver
+        m_solver->pop(1);
+    }
+    // could not find an over approximation
+    TRACE("global", tout << "mbp could not overapproximate cnx_cls\n";);
+    m_solver->pop(1);
+    m_st.m_num_no_ovr_approx++;
+    return false;
+}
 bool lemma_global_generalizer::core(lemma_ref &lemma) {
     lemma_cluster *pt_cls = (&*lemma->get_pob())->pt().clstr_match(lemma);
     if (pt_cls == nullptr) return false;
@@ -309,133 +429,21 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
     // if subsumption removed all the other lemmas, there is nothing to
     // generalize
     if (lc.get_size() < 2) return false;
-    unsigned n_vars = get_num_vars(pattern);
-    SASSERT(n_vars > 0);
-    reset(n_vars);
-    // create and add dim vars
-    add_dim_vars(lc);
-    // add points
-    add_points(lc);
-
-    expr_ref_vector cls(m);
-    m_exact = m_cvx_cls.closure(cls);
-    CTRACE("subsume_verb", !m_exact,
-           tout << "Convex closure introduced new variables. Closure is"
-                << mk_and(cls) << "\n";);
-
-    if (!m_exact) {
-        m_st.m_num_syn_cls++;
-        // Add the new variables to the list of variables to be eliminated
-        const var_ref_vector &vars = m_cvx_cls.get_nw_vars();
-        app_ref var_app(m);
-        for (auto v : vars) {
-            m_dim_vars.push_back(to_expr(v));
-            var_app = m.mk_fresh_const("mrg_syn_cvx", m_arith.mk_real());
-            m_dim_frsh_cnsts.push_back(var_app);
-        }
+    // in all other cases subsume
+    expr_ref_vector subsume_gen(m);
+    if(subsume(lc, lemma, subsume_gen)) {
+        pob_ref pob = lemma->get_pob();
+        pob->set_merge_conj(subsume_gen);
+        pob->set_merge_conj_lvl(pt_cls->get_min_lvl() + 1);
+        pob->stop_local_gen();
+        pob->set_gas(pt_cls->get_pob_gas() + 1);
+        TRACE("global", tout << "merge conjecture  " << mk_and(subsume_gen)
+                             << " at level " << pt_cls->get_min_lvl() + 1
+                             << " set on pob " << mk_pp(pob->post(), m)
+                             << "\n";);
+        pt_cls->dec_gas();
+        if (pt_cls->get_gas() == 0) { m_st.m_num_cls_ofg++; }
     }
-
-    cls.push_back(pattern.get());
-    expr_ref cvx_pattern(m);
-    var_to_const(mk_and(cls), cvx_pattern);
-
-    if (!m_exact) {
-        expr_ref_vector temp(m);
-        flatten_and(cvx_pattern, temp);
-        cvx_pattern.reset();
-        to_real(temp, cvx_pattern);
-        TRACE("subsume_verb",
-              tout << "To real produced " << cvx_pattern << "\n";);
-        rewrite_frsh_cnsts();
-        TRACE("subsume_verb", tout << "Rewrote " << mk_pp(mk_and(temp), m)
-                                     << " into " << cvx_pattern << "\n";);
-    }
-
-    model_ref mdl;
-
-    // get a model for the lemma
-    expr_ref_vector pat(m);
-    pat.push_back(cvx_pattern);
-
-    //call solver to get model for mbp
-    m_solver->push();
-    m_solver->assert_expr(pat);
-    lbool res = m_solver->check_sat(0, nullptr);
-    VERIFY(res == l_true);
-    m_solver->get_model(mdl);
-
-    SASSERT(mdl.get() != nullptr);
-    TRACE("subsume", expr_ref t(m); model2expr(mdl, t); tout
-                                           << "calling mbp with " << cvx_pattern
-                                           << " and " << t << "\n";);
-    qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true, true);
-    TRACE("subsume_verb", tout << "Pattern after mbp of computing cvx cls: "
-                                 << cvx_pattern << "\n";);
-    if (m_dim_frsh_cnsts.size() > 0) {
-        m_st.m_num_mbp_failed++;
-        m_solver->pop(1);
-        TRACE("subume", tout << "could not eliminate all vars\n";);
-        return false;
-    }
-
-    if (!m_exact) { normalize(cvx_pattern); }
-    // check whether mbp over approximates cnx_cls
-    // If not, remove literals from mbp till mbp overapproximates cnx_cls
-    expr_ref_vector neg_mbp(m);
-    pat.reset();
-    flatten_and(cvx_pattern, pat);
-    for (expr *e : pat) { neg_mbp.push_back(mk_not(m, e)); }
-
-    expr_ref asmpt(m);
-    expr_ref_vector pat_nw(m), n_mbp_nw(m);
-
-    while (neg_mbp.size() > 0) {
-        asmpt = mk_or(neg_mbp);
-        TRACE("subsume_verb", tout << "checking neg mbp: " << asmpt << "\n";);
-
-        m_solver->push();
-        m_solver->assert_expr(asmpt);
-        res = m_solver->check_sat(0, nullptr);
-        if (res == l_false) {
-            //one for getting model and one for checking cvx_cls ==> mbp
-            m_solver->pop(2);
-            pob_ref pob = lemma->get_pob();
-            pob->set_merge_conj(pat);
-            pob->set_merge_conj_lvl(pt_cls->get_min_lvl() + 1);
-            pob->stop_local_gen();
-            pob->set_gas(pt_cls->get_pob_gas() + 1);
-            TRACE("global", tout << "merge conjecture  " << mk_and(pat)
-                  << " at level " << pt_cls->get_min_lvl() + 1 << " set on pob "
-                  << mk_pp(pob->post(), m) << "\n";);
-            pt_cls->dec_gas();
-            if (pt_cls->get_gas() == 0) { m_st.m_num_cls_ofg++; }
-            return false;
-        }
-
-        //remove satisfied literals
-        model_ref rslt;
-        m_solver->get_model(rslt);
-
-        for (unsigned i = 0; i < neg_mbp.size(); i++) {
-            if (!rslt->is_true(neg_mbp.get(i))) {
-                n_mbp_nw.push_back(neg_mbp.get(i));
-                pat_nw.push_back(pat.get(i));
-            }
-        }
-        neg_mbp.reset();
-        for(auto a : n_mbp_nw) neg_mbp.push_back(a);
-        pat.reset();
-        for(auto a : pat_nw) pat.push_back(a);
-        n_mbp_nw.reset();
-        pat_nw.reset();
-
-        //reset solver
-        m_solver->pop(1);
-    }
-    // could not find an over approximation
-    TRACE("global", tout << "mbp could not overapproximate cnx_cls\n";);
-    m_solver->pop(1);
-    m_st.m_num_no_ovr_approx++;
     return false;
 }
 
