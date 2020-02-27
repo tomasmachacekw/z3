@@ -155,10 +155,10 @@ namespace spacer {
 
     // a mono_var_pattern has only one variable in the whole expression and is
     // linear. lit is the literal with the variable
-    bool mono_var_pattern(const expr_ref &p, expr_ref &lit);
+    bool should_conjecture(const expr_ref &p, expr_ref &lit);
 
     // drop all literals from n that match leq_lit. Returns whether some have been dropped or not
-    bool abstract_fml(expr_ref_vector &in, expr_ref &lit, expr_ref_vector &out);
+    bool drop_lit(expr_ref_vector &in, expr_ref &lit, expr_ref_vector &out);
 
     bool contains_mod(expr_ref e);
 

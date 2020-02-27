@@ -7,7 +7,7 @@
 
    Abstract:
 
-   Abstraction of Proof Obligations
+   Methods to implement conjecture rule in gspacer
 
    Author:
 
@@ -35,7 +35,7 @@ bool is_mono_var(expr *pattern, ast_manager &m, arith_util &a_util) {
     return false;
 }
 
-bool mono_var_pattern(const expr_ref &pattern, expr_ref &leq_lit) {
+bool should_conjecture(const expr_ref &pattern, expr_ref &leq_lit) {
     if (get_num_vars(pattern) != 1) return false;
     ast_manager &m = leq_lit.m();
     arith_util a_util(m);
@@ -54,7 +54,7 @@ bool mono_var_pattern(const expr_ref &pattern, expr_ref &leq_lit) {
     return count == 1;
 }
 
-bool abstract_fml(expr_ref_vector &fml_vec, expr_ref &lit,
+bool drop_lit(expr_ref_vector &fml_vec, expr_ref &lit,
                   expr_ref_vector &abs_fml) {
     abs_fml.reset();
     bool is_smaller = false;

@@ -264,22 +264,22 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
     }
 
     expr_ref lit(m);
-    if(mono_var_pattern(pattern, lit)) {
-        //Do abstraction on the lemma.
+    if(should_conjecture(pattern, lit)) {
+        //Create a conjecture by dropping literal from pob.
         pob_ref n = lemma->get_pob();
-        TRACE("merge_dbg", tout << "Found a pattern " << mk_pp(pattern, m)
+        TRACE("merge_dbg", tout << "Conjecture with pattern " << mk_pp(pattern, m)
               << " with gas " << pt_cls->get_gas() << "\n";);
 
-        expr_ref_vector abs_fml(m);
+        expr_ref_vector conj(m);
         expr_ref n_pob = expr_ref(n->post(), m);
         expr_ref_vector fml_vec(m);
         fml_vec.push_back(n_pob);
         flatten_and(fml_vec);
-        bool is_smaller = abstract_fml(fml_vec, lit, abs_fml);
+        bool is_smaller = drop_lit(fml_vec, lit, conj);
 
         if (pt_cls->get_gas() == 0) m_st.m_num_cls_ofg++;
 
-        if(abs_fml.size() == 0 || pt_cls->get_gas() == 0) {
+        if(conj.size() == 0 || pt_cls->get_gas() == 0) {
             // If the pob cannot be abstracted, stop using generalization on
             // it
             TRACE("merge_dbg", tout << "stop local generalization on pob "
@@ -290,19 +290,19 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
         }
         else if(!is_smaller) {
             //The literal to be abstracted is not in the pob
-            TRACE("merge_dbg", tout << "cannot abstract " << n_pob
+            TRACE("merge_dbg", tout << "cannot conjecture on " << n_pob
                                     << " with lit " << lit << "\n";);
             //TODO: Should we stop local generalization at this point ?
             m_st.m_num_cant_abs++;
         }
         else {
-            //There is enough gas to block an abs pob
-            n->set_conj_pattern(abs_fml);
+            //There is enough gas to conjecture on pob
+            n->set_conj_pattern(conj);
             n->set_merge_conj_lvl(pt_cls->get_min_lvl() + 1);
             n->set_gas(pt_cls->get_pob_gas());
             pt_cls->dec_gas();
-            TRACE("merge_dbg", tout << "set abstraction " << abs_fml
-                  << " at level " << pt_cls->get_min_lvl() + 1 << "\n";);
+            TRACE("merge_dbg", tout << "set conjecture " << conj
+                  << " at level " << n->get_merge_conj_lvl() << "\n";);
         }
     }
 
