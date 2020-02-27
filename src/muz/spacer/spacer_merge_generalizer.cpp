@@ -254,10 +254,10 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
             m_st.m_num_cls_ofg++;
             return false;
         }
-        TRACE("merge_dbg",
-                  tout << "Found non linear pattern. Marked to split \n";);
-        lemma->get_pob()->set_split_pat(pattern);
-        lemma->get_pob()->set_split();
+        TRACE("global",
+                  tout << "Found non linear pattern. Marked to concretize \n";);
+        lemma->get_pob()->set_concr_pat(pattern);
+        lemma->get_pob()->set_concretize();
         lemma->get_pob()->set_gas(lc.get_pob_gas());
         pt_cls->dec_gas();
         return false;

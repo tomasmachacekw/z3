@@ -9,7 +9,7 @@
 typedef obj_ref_map<ast_manager, expr, expr *> expr_expr_map;
 typedef obj_ref_map<ast_manager, expr, rational> expr_rat_map;
 namespace spacer {
-class under_approx {
+class concretize {
     ast_manager &m;
     arith_util m_arith;
     // find the coeff of v in expr t
@@ -22,18 +22,18 @@ class under_approx {
 
     // find bounds such that   (\Land_{x \in u_c(lit)} (lb_x <= x <= ub_x)) ==>
     // lit
-    void under_approx_lit(model_ref &model, expr_ref lit, expr_rat_map &lb,
+    void concretize_lit(model_ref &model, expr_ref lit, expr_rat_map &lb,
                           expr_rat_map &ub, expr_expr_map *sub = nullptr);
 
     // find bounds such that (\Land_{x \in u_c(lit)} (lb_x <= x <= ub_x)) ==>
     // cube
-    void under_approx_cube(const expr_ref_vector &cube, model_ref &model,
+    void concretize_cube(const expr_ref_vector &cube, model_ref &model,
                            expr_rat_map &lb, expr_rat_map &ub,
                            expr_expr_map *sub = nullptr);
 
     // find axis of cube according to pattern
     // find bounds such that (\Land_{x \in axis} (lb_x <= x <= ub_x)) ==> cube
-    void grp_under_approx_cube(const expr_ref_vector &cube, expr_ref pattern,
+    void grp_concretize(const expr_ref_vector &cube, expr_ref pattern,
                                model_ref &model, expr_ref_vector &ua);
 
     // check whether term is to be treated as a separate axis
@@ -65,8 +65,8 @@ class under_approx {
     bool is_sop(expr *e);
 
   public:
-    under_approx(ast_manager &manager) : m(manager), m_arith(m) {}
-    bool under_approximate(expr_ref n, model_ref &model, expr_ref_vector &u_a,
+    concretize(ast_manager &manager) : m(manager), m_arith(m) {}
+    bool mk_concr(expr_ref n, model_ref &model, expr_ref_vector &u_a,
                            expr_ref pattern);
 };
 } // namespace spacer

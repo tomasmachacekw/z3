@@ -819,10 +819,10 @@ class pob {
     // should do local generalizations on pob
     bool m_local_gen;
     // should split cube
-    bool m_shd_split;
+    bool m_shd_concr;
 
     // pattern identified for one of its lemmas
-    expr_ref m_split_pat;
+    expr_ref m_concr_pat;
 
     // conjecture to block this pob
     expr_ref_vector m_merge_conj;
@@ -882,8 +882,8 @@ class pob {
 
     void stop_widening() { m_widen_pob = false; }
     bool widen() { return m_widen_pob; }
-    void set_split_pat(expr_ref pattern) { m_split_pat = pattern; }
-    expr_ref get_split_pat() const { return m_split_pat; }
+    void set_concr_pat(expr_ref pattern) { m_concr_pat = pattern; }
+    expr_ref get_concr_pat() const { return m_concr_pat; }
     expr_ref_vector const & get_conj_pattern() const { return m_conj_pattern; }
     void set_conj_pattern(expr_ref_vector& pattern) {
         m_conj_pattern.reset();
@@ -899,8 +899,8 @@ class pob {
     bool do_local_gen() const { return m_local_gen; }
     void stop_local_gen() { m_local_gen = false; }
     void get_simp_post(expr_ref_vector& res);
-    bool should_split() const { return m_shd_split && m_gas > 0; }
-    void set_split() { m_shd_split = true; }
+    bool should_concretize() const { return m_shd_concr && m_gas > 0; }
+    void set_concretize() { m_shd_concr = true; }
 
     pred_transformer& pt () const { return m_pt; }
     ast_manager& get_ast_manager () const { return m_pt.get_ast_manager (); }

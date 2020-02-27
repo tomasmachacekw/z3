@@ -70,7 +70,7 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_open(true), m_use_farkas(true), m_in_queue(false), m_weakness(0),
       m_blocked_lvl(0), m_is_conj(false),
       m_conj_pattern(m_pt.get_ast_manager()), m_local_gen(true),
-      m_shd_split(false), m_split_pat(m_pt.get_ast_manager()),
+      m_shd_concr(false), m_concr_pat(m_pt.get_ast_manager()),
       m_merge_conj(m_pt.get_ast_manager()), m_is_merge_gen(false),
       m_widen_pob(true), m_gas(0) {
     if (add_to_parent && m_parent) {
@@ -3403,31 +3403,30 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         return l_undef;
     }
 
-    // Decide whether to split on pob
+    // Decide whether to concretize pob
     // get a model that satisfies the pob and the current set of lemmas
     // TODO: if push_pob is enabled, avoid calling is_blocked twice
-    if (m_concretize && n.should_split() &&
+    if (m_concretize && n.should_concretize() &&
         !n.pt().is_blocked(n, uses_level, &model)) {
-        TRACE("under_approximate",
-              tout << "going to split pob " << mk_pp(n.post(), m)
+        TRACE("global",
+              tout << "going to concretize pob " << mk_pp(n.post(), m)
                    << ". Will attempt " << n.get_gas() << " more times\n";);
-        spacer::under_approx ua(m);
-        expr_ref_vector under_approx_vec(m);
-        bool success = ua.under_approximate(
-            expr_ref(n.post(), m), model, under_approx_vec, n.get_split_pat());
+        spacer::concretize concr(m);
+        expr_ref_vector conc_fml(m);
+        bool success = concr.mk_concr(expr_ref(n.post(), m), model, conc_fml, n.get_concr_pat());
 
         if (success) {
             pob *new_pob =
                 n.pt().mk_pob(n.parent(), n.level(), n.depth(),
-                              mk_and(under_approx_vec), n.get_binding());
+                              mk_and(conc_fml), n.get_binding());
 
-            TRACE("under_approximate",
-                  tout << "pob" << mk_pp(n.post(), m) << " is split into "
+            TRACE("concretize",
+                  tout << "pob" << mk_pp(n.post(), m) << " is concretized into "
                        << mk_pp(new_pob->post(), m) << "\n";);
             out.push_back(&(*new_pob));
             out.push_back(&n);
             IF_VERBOSE(1, verbose_stream()
-                              << " S " << std::fixed << std::setprecision(2)
+                              << " C " << std::fixed << std::setprecision(2)
                               << watch.get_seconds() << "\n";);
             unsigned gas = n.get_gas();
             SASSERT(gas > 0);

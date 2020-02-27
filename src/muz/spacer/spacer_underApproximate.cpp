@@ -33,10 +33,10 @@ struct proc {
 namespace spacer {
 
 // Checks whether the uninterp_const in term has a var coeff in pattern
-bool under_approx::should_grp(expr *pattern, expr *term) {
+bool concretize::should_grp(expr *pattern, expr *term) {
     expr_ref_vector uc(m);
     get_uninterp_consts(term, uc);
-    TRACE("under_approximate_verb", tout << "should group " << mk_pp(term, m)
+    TRACE("concretize_verb", tout << "should group " << mk_pp(term, m)
                                          << " according to pattern "
                                          << mk_pp(pattern, m) << "\n";);
     SASSERT(uc.size() == 1);
@@ -47,10 +47,10 @@ bool under_approx::should_grp(expr *pattern, expr *term) {
     return false;
 }
 
-// under approximate proof obligation n using literals of dim 1
+// concretize proof obligation n using literals of dim 1
 // returns false if pob is not an arithmetic fml
-bool under_approx::under_approximate(expr_ref f, model_ref &model,
-                                     expr_ref_vector &under_approx_vec,
+bool concretize::mk_concr(expr_ref f, model_ref &model,
+                                     expr_ref_vector &concr_vec,
                                      expr_ref pattern) {
     SASSERT(is_app(f));
 
@@ -63,7 +63,7 @@ bool under_approx::under_approximate(expr_ref f, model_ref &model,
     for (auto *e : conj) {
         // separate out boolean u_c
         if (not_handled(e))
-            under_approx_vec.push_back(e);
+            concr_vec.push_back(e);
         else
             conj_la.push_back(e);
     }
@@ -71,7 +71,7 @@ bool under_approx::under_approximate(expr_ref f, model_ref &model,
     expr *e_not;
     // if the literals are not in arithmetic, return false
     for (auto e : conj_la) {
-        TRACE("under_approximate_verb", tout << "Literal is " << mk_pp(e, m););
+        TRACE("concretize_verb", tout << "Literal is " << mk_pp(e, m););
         if (!(m_arith.is_arith_expr(e) ||
               (m.is_not(e, e_not) && m_arith.is_arith_expr(e_not))))
             return false;
@@ -79,32 +79,32 @@ bool under_approx::under_approximate(expr_ref f, model_ref &model,
 
     SASSERT(pattern.get() != nullptr);
 
-    grp_under_approx_cube(conj_la, pattern, model, under_approx_vec);
+    grp_concretize(conj_la, pattern, model, concr_vec);
 
-    TRACE("under_approximate", tout << "produced an under approximation : "
-                                    << mk_and(under_approx_vec) << "\n";);
-    SASSERT(!under_approx_vec.empty());
+    TRACE("concretize", tout << "produced a concretization : "
+                                    << mk_and(concr_vec) << "\n";);
+    SASSERT(!concr_vec.empty());
     return true;
 }
 
-void under_approx::grp_under_approx_cube(const expr_ref_vector &cube,
+void concretize::grp_concretize(const expr_ref_vector &cube,
                                          expr_ref pattern, model_ref &model,
                                          expr_ref_vector &ua_conj) {
     expr_ref_vector grps(m);
     expr_ref_vector sub_term(m);
     expr_ref_vector non_lit_cube(m);
-    TRACE("under_approximate", tout << "grouping an arithmetic pob : ";
+    TRACE("concretize", tout << "grouping an arithmetic pob : ";
           tout << mk_and(cube) << " and pattern " << mk_pp(pattern, m)
                << " \n";);
     for (auto lit : cube) {
         grp_terms(pattern, expr_ref(lit, m), grps, sub_term);
     }
-    TRACE("under_approximate", tout << "groups are : "; for (expr *e
+    TRACE("concretize", tout << "groups are : "; for (expr *e
                                                              : grps) tout
                                                         << mk_pp(e, m) << " ";
           tout << "\n";);
 
-    expr_ref conj_sub(m);
+    expr_ref sub_fml(m);
     // TODO ensure union of groups has all the variables
     expr_safe_replace s(m);
     expr_ref_vector variables(m);
@@ -118,16 +118,16 @@ void under_approx::grp_under_approx_cube(const expr_ref_vector &cube,
         sub.insert(fresh_consts.back(), grp);
     }
     expr_ref c = mk_and(sub_term);
-    s(c, conj_sub);
-    TRACE("under_approximate",
-          tout << "substituted formula : " << conj_sub << "\n";);
+    s(c, sub_fml);
+    TRACE("concretize",
+          tout << "substituted formula : " << sub_fml << "\n";);
     expr_rat_map lb(m), ub(m);
-    expr_ref_vector conj_sub_vec(m), u_consts(m);
-    flatten_and(conj_sub, conj_sub_vec);
+    expr_ref_vector sub_fml_vec(m), u_consts(m);
+    flatten_and(sub_fml, sub_fml_vec);
 
-    under_approx_cube(conj_sub_vec, model, lb, ub, &sub);
+    concretize_cube(sub_fml_vec, model, lb, ub, &sub);
 
-    get_uninterp_consts(conj_sub, u_consts);
+    get_uninterp_consts(sub_fml, u_consts);
     for (expr *u_const : u_consts) {
         if (lb.contains(u_const))
             ua_conj.push_back(m_arith.mk_ge(
@@ -139,12 +139,12 @@ void under_approx::grp_under_approx_cube(const expr_ref_vector &cube,
                 m_arith.mk_numeral(ub[u_const], ub[u_const].is_int())));
     }
     fresh_consts.reset();
-    TRACE("under_approximate",
-          tout << "split pob : " << mk_pp(mk_and(ua_conj), m) << "\n";);
+    TRACE("concretize",
+          tout << "concrete pob : " << mk_pp(mk_and(ua_conj), m) << "\n";);
 }
 
 // If there are n non linear multiplications in pattern, there are n + 1 axis.
-void under_approx::grp_terms(expr_ref pattern, expr_ref formula,
+void concretize::grp_terms(expr_ref pattern, expr_ref formula,
                              expr_ref_vector &out, expr_ref_vector &sub_term) {
     expr *t, *c;
     expr_ref_vector rw_formula(m);
@@ -157,12 +157,12 @@ void under_approx::grp_terms(expr_ref pattern, expr_ref formula,
         return;
     }
     SASSERT(is_app(t));
-    TRACE("under_approximate_verb",
+    TRACE("concretize_verb",
           tout << "computing groups in " << formula << "\n";);
     for (auto term : *to_app(t)) {
         if (should_grp(pattern, term)) {
             if (!out.contains(term)) {
-                TRACE("under_approximate_verb",
+                TRACE("concretize_verb",
                       tout << "adding " << mk_pp(term, m) << " to groups\n";);
                 out.push_back(term);
             }
@@ -174,7 +174,7 @@ void under_approx::grp_terms(expr_ref pattern, expr_ref formula,
         expr_ref sum_term(m);
         sum_term = m_arith.mk_add(other_trms.size(), other_trms.c_ptr());
         if (!out.contains(sum_term)) {
-            TRACE("under_approximate_verb",
+            TRACE("concretize_verb",
                   tout << "adding " << sum_term << " to groups\n";);
             out.push_back(sum_term);
         }
@@ -191,12 +191,12 @@ void under_approx::grp_terms(expr_ref pattern, expr_ref formula,
         t_sub =
             m.mk_app(to_app(formula)->get_decl(),
                      m_arith.mk_add(rw_formula.size(), rw_formula.c_ptr()), c);
-    TRACE("under_approximate_verb", tout << "re-wrote " << formula << " into "
+    TRACE("concretize_verb", tout << "re-wrote " << formula << " into "
                                          << t_sub << " for substitution\n";);
     sub_term.push_back(t_sub);
 }
 
-bool under_approx::is_sop(expr *e) {
+bool concretize::is_sop(expr *e) {
     if (is_constant(e)) return true;
     if (!m_arith.is_arith_expr(e)) return false;
 
@@ -219,7 +219,7 @@ bool under_approx::is_sop(expr *e) {
     return true;
 }
 
-void under_approx::find_coeff(expr_ref t, expr_ref v, rational &k) {
+void concretize::find_coeff(expr_ref t, expr_ref v, rational &k) {
     if (t == v) {
         k = rational::one();
         return;
@@ -255,12 +255,12 @@ void under_approx::find_coeff(expr_ref t, expr_ref v, rational &k) {
     UNREACHABLE();
 }
 
-int under_approx::change_with_var(expr_ref l, expr_ref var) {
+int concretize::change_with_var(expr_ref l, expr_ref var) {
     rational coeff;
     // lhs is in the sum of products form (ax + by)
     find_coeff(l, var, coeff);
 
-    TRACE("under_approximate_verb", tout << "coefficient of " << mk_pp(var, m)
+    TRACE("concretize_verb", tout << "coefficient of " << mk_pp(var, m)
                                          << " in term " << mk_pp(l, m) << " is "
                                          << coeff << "\n";);
     if (coeff.is_pos())
@@ -273,7 +273,7 @@ int under_approx::change_with_var(expr_ref l, expr_ref var) {
 
 // TODO  use bg if we need better bounds. In this
 // case, should update background as bounds are discovered!!!!
-void under_approx::under_approx_lit(model_ref &model, expr_ref lit,
+void concretize::concretize_lit(model_ref &model, expr_ref lit,
                                     expr_rat_map &lb, expr_rat_map &ub,
                                     expr_expr_map *sub) {
     expr_ref val(m);
@@ -285,10 +285,10 @@ void under_approx::under_approx_lit(model_ref &model, expr_ref lit,
         // compute variation of l along dim d
         int change = change_with_var(lit, expr_ref(var, m));
         SASSERT(!sub || sub->contains(var));
-        CTRACE("under_approximate_verb", sub,
+        CTRACE("concretize_verb", sub,
                tout << "computing value of " << mk_pp(var, m) << "\n";);
         val = (*model)(sub ? (*sub)[var] : var);
-        CTRACE("under_approximate_verb", sub,
+        CTRACE("concretize_verb", sub,
                tout << " value of " << mk_pp(var, m) << " is " << val << "\n";);
 
         SASSERT(m_arith.is_numeral(val));
@@ -299,7 +299,7 @@ void under_approx::under_approx_lit(model_ref &model, expr_ref lit,
         if (change > 0) {
             ub.insert_if_not_there(var, nw_bnd);
             if (nw_bnd < ub[var]) ub[var] = nw_bnd;
-            TRACE("under_approximate_verb", tout << "upper bounds for "
+            TRACE("concretize_verb", tout << "upper bounds for "
                                                  << mk_pp(var, m) << " is "
                                                  << ub[var] << "\n";);
         }
@@ -307,14 +307,14 @@ void under_approx::under_approx_lit(model_ref &model, expr_ref lit,
         if (change < 0) {
             lb.insert_if_not_there(var, nw_bnd);
             if (nw_bnd > lb[var]) lb[var] = nw_bnd;
-            TRACE("under_approximate_verb", tout << "lower bounds for "
+            TRACE("concretize_verb", tout << "lower bounds for "
                                                  << mk_pp(var, m) << " is "
                                                  << lb[var] << "\n";);
         }
     }
 }
 
-void under_approx::under_approx_cube(const expr_ref_vector &conj,
+void concretize::concretize_cube(const expr_ref_vector &conj,
                                      model_ref &model, expr_rat_map &lb,
                                      expr_rat_map &ub, expr_expr_map *sub) {
     SASSERT(ub.size() == 0);
@@ -322,11 +322,11 @@ void under_approx::under_approx_cube(const expr_ref_vector &conj,
     expr_ref t(m), c(m);
     for (expr *lit : conj) {
         if (normalize_to_le(lit, t, c)) {
-            TRACE("under_approximate", tout << "literal is " << mk_pp(lit, m)
+            TRACE("concretize", tout << "literal is " << mk_pp(lit, m)
                                             << "normalized as: " << mk_pp(t, m)
                                             << " <= " << mk_pp(c, m) << "\n";);
 
-            under_approx_lit(model, t, lb, ub, sub);
+            concretize_lit(model, t, lb, ub, sub);
         }
     }
 }
