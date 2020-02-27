@@ -51,10 +51,12 @@ bool lemma_cluster_finder::are_neighbours(const expr_ref &cube,
     return is_intrp_diff(pat, sub1, sub2);
 }
 
-// Compute antiunification of cube with all formulas in fmls.
-// should return \exist res (\forall f \in fmls (\exist i_sub res[i_sub] == f))
-// however, the algorithm is incomplete: it returns such a res iff the res \in
-// {antiU(cube, e) | e \in fmls}
+// Compute antiunification of cube with all formulas in fmls. should return
+// \exist res (\forall f \in fmls (\exist i_sub res[i_sub] == f)) however, the
+// algorithm is incomplete: it returns such a res iff the res \in {antiU(cube,
+// e) | e \in fmls}
+//TODO: do complete n-ary anti-unification. Not done now
+// because anti_unifier does not support free variables
 bool lemma_cluster_finder::anti_unify_n_intrp(expr_ref &cube,
                                               expr_ref_vector &fmls,
                                               expr_ref &res) {
