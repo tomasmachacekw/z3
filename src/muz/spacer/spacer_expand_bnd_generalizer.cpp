@@ -20,7 +20,7 @@ void lemma_expand_bnd_generalizer::operator()(lemma_ref &lemma) {
             if ((m_arith.is_le(bnd, term, num) ||
                  m_arith.is_ge(bnd, term, num)) &&
                 m_arith.is_numeral(num) && is_uninterp(term)) {
-                TRACE("merge_dbg_verb",
+                TRACE("widen_verb",
                       tout << "bnd is " << mk_pp(bnd, m) << "\n";);
                 expand_expr.reset();
                 for (expr *t : updt_conj)
@@ -47,7 +47,7 @@ bool lemma_expand_bnd_generalizer::apply_widen(lemma_ref &lemma, expr *lit,
                                           expr_ref_vector &conj,
                                           expr_ref &nw_bnd) {
     SASSERT(!conj.contains(lit));
-    TRACE("merge_dbg", tout << "Applying widening on " << conj
+    TRACE("widen", tout << "Applying widening on " << conj
                             << " with literal " << mk_pp(lit, m) << "\n";);
     SASSERT(to_app(lit)->get_num_args() == 2);
     expr *num = to_app(lit)->get_arg(1);
@@ -64,7 +64,7 @@ bool lemma_expand_bnd_generalizer::apply_widen(lemma_ref &lemma, expr *lit,
             substitute(num, n, lit, n_lit);
             conj.push_back(n_lit);
             unsigned uses_level = 0;
-            TRACE("merge_dbg_verb",
+            TRACE("widen_verb",
                   tout << "Attempting to update lemma with " << conj << "\n";);
             bool is_ind = (lemma->get_pob())
                               ->pt()
@@ -75,7 +75,7 @@ bool lemma_expand_bnd_generalizer::apply_widen(lemma_ref &lemma, expr *lit,
                 lemma->update_cube(lemma->get_pob(), conj);
                 lemma->set_level(uses_level);
                 val = n;
-                TRACE("merge_dbg",
+                TRACE("widen",
                       tout << "widening succeeded with " << n << "\n";);
                 success = true;
                 nw_bnd = n_lit;

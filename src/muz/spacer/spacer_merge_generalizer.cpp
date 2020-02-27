@@ -67,17 +67,17 @@ void lemma_global_generalizer::to_real(expr_ref &fml) {
 rational lemma_global_generalizer::get_lcm(expr *e) {
     compute_lcm g(m);
     for_each_expr(g, e);
-    TRACE("merge_dbg_verb",
+    TRACE("subsume_verb",
           tout << "lcm of " << mk_pp(e, m) << " is " << g.m_val << "\n";);
     return g.m_val;
 }
 
 
 void lemma_global_generalizer::to_int(expr_ref &fml) {
-    TRACE("merge_dbg_verb", tout << "to int " << mk_pp(fml, m) << "\n";);
+    TRACE("subsume_verb", tout << "to int " << mk_pp(fml, m) << "\n";);
     if (m_arith.is_to_real(fml)) {
         fml = to_app(fml)->get_arg(0);
-        TRACE("merge_dbg_verb",
+        TRACE("subsume_dbg_verb",
               tout << "to int finished " << mk_pp(fml, m) << "\n";);
         return;
     }
@@ -89,7 +89,7 @@ void lemma_global_generalizer::to_int(expr_ref &fml) {
         // If its not an integer, try constructing int from it
         fml = m_arith.mk_int(val);
 
-        TRACE("merge_dbg_verb",
+        TRACE("subsume_verb",
               tout << "to int finished " << mk_pp(fml, m) << "\n";);
         return;
     }
@@ -105,7 +105,7 @@ void lemma_global_generalizer::to_int(expr_ref &fml) {
     fml = m.mk_app(fml_app->get_family_id(), fml_app->get_decl_kind(),
                    nw_args.size(), nw_args.c_ptr());
 
-    TRACE("merge_dbg_verb",
+    TRACE("subsume_verb",
           tout << "to int finished " << mk_pp(fml, m) << "\n";);
 }
 
@@ -143,7 +143,7 @@ void lemma_global_generalizer::normalize(expr_ref &fml) {
         if (lcm != 1) {
             mul_and_simp(lhs, lcm);
             mul_and_simp(rhs, lcm);
-            TRACE("merge_dbg_verb", tout << "mul and simp reduced lhs to "
+            TRACE("subsume_verb", tout << "mul and simp reduced lhs to "
                                          << mk_pp(lhs, m) << " and rhs to "
                                          << mk_pp(rhs, m) << "\n";);
         }
@@ -239,9 +239,9 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
 
     const expr_ref &pattern = lc.get_pattern();
 
-    TRACE("merge_dbg",
-          tout << "Start merging with lemma cube: " << lemma->get_cube()
-          << "\n Discovered pattern: " << pattern
+    TRACE("global",
+          tout << "Start global generalization of lemma : " << lemma->get_cube()
+          << "\n Discovered cluster: " << pattern
           << "\n and lemmas ";
           for(const lemma_info &lemma : lc.get_lemmas()) {
               tout << "\n \t" << lemma.get_lemma()->get_cube();
@@ -267,7 +267,7 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
     if(should_conjecture(pattern, lit)) {
         //Create a conjecture by dropping literal from pob.
         pob_ref n = lemma->get_pob();
-        TRACE("merge_dbg", tout << "Conjecture with pattern " << mk_pp(pattern, m)
+        TRACE("global", tout << "Conjecture with pattern " << mk_pp(pattern, m)
               << " with gas " << pt_cls->get_gas() << "\n";);
 
         expr_ref_vector conj(m);
@@ -282,7 +282,7 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
         if(conj.size() == 0 || pt_cls->get_gas() == 0) {
             // If the pob cannot be abstracted, stop using generalization on
             // it
-            TRACE("merge_dbg", tout << "stop local generalization on pob "
+            TRACE("global", tout << "stop local generalization on pob "
                                     << n_pob << " id is "
                                     << n_pob->get_id() << "\n";);
 
@@ -290,7 +290,7 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
         }
         else if(!is_smaller) {
             //The literal to be abstracted is not in the pob
-            TRACE("merge_dbg", tout << "cannot conjecture on " << n_pob
+            TRACE("global", tout << "cannot conjecture on " << n_pob
                                     << " with lit " << lit << "\n";);
             //TODO: Should we stop local generalization at this point ?
             m_st.m_num_cant_abs++;
@@ -301,7 +301,7 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
             n->set_merge_conj_lvl(pt_cls->get_min_lvl() + 1);
             n->set_gas(pt_cls->get_pob_gas());
             pt_cls->dec_gas();
-            TRACE("merge_dbg", tout << "set conjecture " << conj
+            TRACE("global", tout << "set conjecture " << conj
                   << " at level " << n->get_merge_conj_lvl() << "\n";);
         }
     }
@@ -319,7 +319,7 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
 
     expr_ref_vector cls(m);
     m_exact = m_cvx_cls.closure(cls);
-    CTRACE("merge_dbg_verb", !m_exact,
+    CTRACE("subsume_verb", !m_exact,
            tout << "Convex closure introduced new variables. Closure is"
                 << mk_and(cls) << "\n";);
 
@@ -344,10 +344,10 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
         flatten_and(cvx_pattern, temp);
         cvx_pattern.reset();
         to_real(temp, cvx_pattern);
-        TRACE("merge_dbg_verb",
+        TRACE("subsume_verb",
               tout << "To real produced " << cvx_pattern << "\n";);
         rewrite_frsh_cnsts();
-        TRACE("merge_dbg_verb", tout << "Rewrote " << mk_pp(mk_and(temp), m)
+        TRACE("subsume_verb", tout << "Rewrote " << mk_pp(mk_and(temp), m)
                                      << " into " << cvx_pattern << "\n";);
     }
 
@@ -365,16 +365,16 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
     m_solver->get_model(mdl);
 
     SASSERT(mdl.get() != nullptr);
-    TRACE("merge_dbg_verb", expr_ref t(m); model2expr(mdl, t); tout
+    TRACE("subsume", expr_ref t(m); model2expr(mdl, t); tout
                                            << "calling mbp with " << cvx_pattern
                                            << " and " << t << "\n";);
     qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true, true);
-    TRACE("merge_dbg_verb", tout << "Pattern after mbp of computing cvx cls: "
+    TRACE("subsume_verb", tout << "Pattern after mbp of computing cvx cls: "
                                  << cvx_pattern << "\n";);
     if (m_dim_frsh_cnsts.size() > 0) {
         m_st.m_num_mbp_failed++;
         m_solver->pop(1);
-        TRACE("merge_dbg", tout << "could not eliminate all vars\n";);
+        TRACE("subume", tout << "could not eliminate all vars\n";);
         return false;
     }
 
@@ -391,7 +391,7 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
 
     while (neg_mbp.size() > 0) {
         asmpt = mk_or(neg_mbp);
-        TRACE("merge_dbg_verb", tout << "checking neg mbp: " << asmpt << "\n";);
+        TRACE("subsume_verb", tout << "checking neg mbp: " << asmpt << "\n";);
 
         m_solver->push();
         m_solver->assert_expr(asmpt);
@@ -404,7 +404,7 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
             pob->set_merge_conj_lvl(pt_cls->get_min_lvl() + 1);
             pob->stop_local_gen();
             pob->set_gas(pt_cls->get_pob_gas() + 1);
-            TRACE("merge_dbg", tout << "merge conjecture  " << mk_and(pat)
+            TRACE("global", tout << "merge conjecture  " << mk_and(pat)
                   << " at level " << pt_cls->get_min_lvl() + 1 << " set on pob "
                   << mk_pp(pob->post(), m) << "\n";);
             pt_cls->dec_gas();
@@ -433,7 +433,7 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
         m_solver->pop(1);
     }
     // could not find an over approximation
-    TRACE("merge_dbg", tout << "mbp could not overapproximate cnx_cls\n";);
+    TRACE("global", tout << "mbp could not overapproximate cnx_cls\n";);
     m_solver->pop(1);
     m_st.m_num_no_ovr_approx++;
     return false;
@@ -447,12 +447,12 @@ void lemma_global_generalizer::var_to_const(expr *pattern,
         s.insert(m_dim_vars[i].get(), to_expr(m_dim_frsh_cnsts[i].get()));
     }
     s(pattern, rw_pattern);
-    TRACE("merge_dbg_verb", tout << "Rewrote all vars into u_consts "
+    TRACE("subsume_verb", tout << "Rewrote all vars into u_consts "
                                  << mk_pp(pattern, m) << " into " << rw_pattern
                                  << "\n";);
 
 
-    TRACE("merge_dbg_verb", tout << "Rewrote " << mk_pp(pattern, m)
+    TRACE("subsume_verb", tout << "Rewrote " << mk_pp(pattern, m)
           << " into " << rw_pattern << "\n";);
     return;
 }

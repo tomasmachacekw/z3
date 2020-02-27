@@ -89,7 +89,7 @@ bool drop_lit(expr_ref_vector &fml_vec, expr_ref &lit,
         // normalize_order(lit_lhs, lit_lhs);
         // normalize_order(lit_rhs, lit_rhs);
 
-        TRACE("merge_dbg_verb",
+        TRACE("conjecture_verb",
               tout << " comparing " << lhs << " <= " << rhs << " with " << lit_lhs << " <= " << lit_rhs << "\n";);
 
         if( (rhs_var && lit_lhs != lhs) || (!rhs_var && lit_rhs != rhs)) {

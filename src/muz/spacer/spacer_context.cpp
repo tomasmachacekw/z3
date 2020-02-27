@@ -3397,7 +3397,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     }
 
     if ((n.is_may_pob()) && n.get_gas() == 0) {
-        TRACE("merge_dbg", tout << "Cant prove may pob. Collapsing "
+        TRACE("global", tout << "Cant prove may pob. Collapsing "
               << mk_pp(n.post(), m) << "\n";);
         m_stats.m_num_pob_ofg++;
         return l_undef;
@@ -3489,12 +3489,12 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             if(n.is_conj())
                 m_stats.m_num_conj_failed++;
 
-            CTRACE("merge_dbg", n.is_conj(),
-                   tout << "Failed to block abstraction "
+            CTRACE("global", n.is_conj(),
+                   tout << "Failed to block conjecture "
                    << n.post()->get_id() << "\n";);
 
-            CTRACE("merge_dbg", n.is_merge_gen(),
-                   tout << "Failed to block merge generalization "
+            CTRACE("global", n.is_merge_gen(),
+                   tout << "Failed to block subsume generalization "
                         << mk_pp(n.post(), m) << "\n";);
 
             IF_VERBOSE(1, verbose_stream () << (next ? " X " : " T ")
@@ -3549,21 +3549,21 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             n.get_simp_post(pob_cube);
             m_stats.m_non_local_gen++;
             lemma_pob = alloc(class lemma, pob_ref(&n), pob_cube, n.level());
-            TRACE("merge_dbg", tout << " stopped local gen on pob " << mk_pp(n.post(), m)
+            TRACE("global", tout << " stopped local gen on pob " << mk_pp(n.post(), m)
                                     << " with id " << n.post()->get_id()
                                     << "\n lemma learned "
                                     << mk_and(lemma_pob->get_cube()) << "\n";);
             if (m_global_gen != nullptr) (*m_global_gen)(lemma_pob);
         }
 
-        CTRACE("merge_dbg", n.is_conj(),
-               tout << " Blocked abs pob " << mk_pp(n.post(), m)
+        CTRACE("global", n.is_conj(),
+               tout << " Blocked conjecture pob " << mk_pp(n.post(), m)
                     << " using lemma " << mk_pp(lemma_pob->get_expr(), m)
                     << " Level " << lemma_pob->level() << " id "
                     << n.post()->get_id() << "\n";);
 
-        CTRACE("merge_dbg", n.is_merge_gen(),
-               tout << " Blocked merge gen pob " << mk_pp(n.post(), m)
+        CTRACE("global", n.is_merge_gen(),
+               tout << " Blocked subsume pob " << mk_pp(n.post(), m)
                     << " using lemma " << mk_pp(lemma_pob->get_expr(), m)
                     << " Level " << lemma_pob->level() << " id "
                     << n.post()->get_id() << "\n";);
@@ -3619,14 +3619,14 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                 SASSERT(gas > 0);
                 new_pob->set_gas(gas - 1);
                 n.set_gas(gas - 1);
-                TRACE("merge_dbg", tout << "Attempting to block pob " << mk_pp(n.post(), m)
+                TRACE("global", tout << "Attempting to block pob " << mk_pp(n.post(), m)
                       << " using generalization "
                       << mk_pp(new_pob->post(), m) << " with gas "
                       << new_pob->get_gas() << "\n";);
                 out.push_back(&(*new_pob));
                 m_stats.m_num_mrg_conjs++;
             } else
-                TRACE("merge_dbg",
+                TRACE("global",
                       tout << "duplicate pob conjecture found. Did not "
                               "add to pob_queue\n";);
         }
@@ -3648,14 +3648,14 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                 f->set_gas(gas - 1);
                 n.set_gas(gas - 1);
                 out.push_back(f);
-                TRACE("merge_dbg", tout << " abstracting " << mk_pp(n.post(), m)
+                TRACE("global", tout << " conjecture " << mk_pp(n.post(), m)
                                         << " id is " << n.post()->get_id()
                                         << "\n into pob " << c << " id is "
                                         << f->post()->get_id() << "\n";);
                 m_stats.m_num_conj++;
             } else
-                TRACE("merge_dbg",
-                      tout << "duplicate abstraction found. Did not "
+                TRACE("global",
+                      tout << "duplicate conjecture found. Did not "
                               "add to pob_queue\n";);
         }
 
