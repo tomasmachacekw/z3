@@ -167,6 +167,7 @@ bool is_sorted(const vector<rational> &data) {
 } // namespace
 // check whether \exists m, d s.t data[i] mod m = d. Returns the largest m and
 // corresponding d
+//TODO: compute div constraints even if the elements are not continuous
 bool convex_closure::compute_div_constraint(const vector<rational> &data,
                                             rational &m, rational &d) {
     TRACE("cvx_dbg_verb", tout << "computing div constraints for ";
@@ -241,10 +242,22 @@ void convex_closure::do_one_dim_cls(expr_ref var, expr_ref_vector& res_vec) {
     lb_expr = m_arith.mk_ge(var, m_arith.mk_int(data[data.size() - 1]));
 
     rational cr, off;
-    bool div_constr = compute_div_constraint(data, cr, off);
-    if (div_constr)
-        res_vec.push_back(m_arith.mk_eq(m_arith.mk_mod(var, m_arith.mk_int(cr)),
-                                        m_arith.mk_int(off)));
+    expr_ref v(m);
+    //add dim constraints for all variables.
+    for(unsigned j = 0; j < m_data.num_cols(); j++) {
+        v = m_dim_vars.get(j);
+        if(is_var(v) && m_arith.is_int(v) && compute_div_constraint(data, cr, off)) {
+            data.reset();
+            m_data.get_col(j, data);
+            std::sort(data.begin(), data.end(),
+                      [](rational const &x, rational const &y) -> bool {
+                          return x > y;
+                      });
+            mul_if_not_one(m_lcm, v, result_var);
+            res_vec.push_back(m_arith.mk_eq(m_arith.mk_mod(result_var, m_arith.mk_int(cr)),
+                                            m_arith.mk_int(off)));
+        }
+    }
     res_vec.push_back(ub_expr);
     res_vec.push_back(lb_expr);
 }
