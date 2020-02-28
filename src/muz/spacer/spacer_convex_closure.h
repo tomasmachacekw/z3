@@ -50,7 +50,8 @@ class convex_closure {
     void do_one_dim_cls(expr_ref var, expr_ref_vector& res);
     bool compute_div_constraint(const vector<rational> &data, rational &m,
                                 rational &d);
-
+    //lowest value such that m_lcm*m_data is an integer matrix
+    rational m_lcm;
   public:
     convex_closure(ast_manager &man, bool use_sage)
         : m(man), m_arith(m), m_dim(0), m_data(0, 0),
@@ -111,5 +112,6 @@ class convex_closure {
     bool closure(expr_ref_vector &res);
     void collect_statistics(statistics &st) const;
     void reset_statistics() { m_st.reset(); }
+    void set_lcm(rational l) { m_lcm = l; }
 };
 } // namespace spacer

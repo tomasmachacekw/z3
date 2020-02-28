@@ -82,7 +82,8 @@ void lemma_global_generalizer::to_int(expr_ref &fml) {
         return;
     }
 
-    SASSERT((!is_uninterp_const(fml)) || m_arith.is_int(fml));
+    //Don't normalize constants.
+    if(is_uninterp_const(fml)) return;
 
     rational val;
     if (m_arith.is_numeral(fml, val)) {
@@ -185,34 +186,45 @@ void lemma_global_generalizer::add_dim_vars(const lemma_cluster &lc) {
     for (unsigned j = 0; j < n_vars; j++) {
         // get var id
         t_sub.get_binding(j, v, r);
-        // get variable
-        var = m.mk_var(v.first, m_arith.mk_int());
+        // always compute convex closure over integers.
+        var = m.mk_var(v.first, m.get_sort(r.get_expr()));
         m_cvx_cls.set_dimension(j, var);
         m_dim_vars[j] = var;
         app_ref var_app(m);
-        //TODO: use sort of r to make fresh constant
-        var_app = m.mk_fresh_const("mrg_cvx", m_arith.mk_int());
+        var_app = m.mk_fresh_const("mrg_cvx", m.get_sort(r.get_expr()));
         // TODO: do we need two variables for a <= x <= b ?
         m_dim_frsh_cnsts[j] = var_app;
     }
 }
 
-void lemma_global_generalizer::add_points(const lemma_cluster &lc) {
+void lemma_global_generalizer::add_int_points(const lemma_cluster &lc) {
     vector<rational> point;
     unsigned n_vars = get_num_vars(lc.get_pattern());
     const lemma_info_vector &lemmas(lc.get_lemmas());
     expr_offset r;
     std::pair<unsigned, unsigned> v;
+    //compute lcm
+    rational m_lcm = rational::one();
     for (const lemma_info &lemma : lemmas) {
         const substitution &sub(lemma.get_sub());
         point.reset();
         for (unsigned j = 0; j < n_vars; j++) {
             sub.get_binding(j, v, r);
-            rational coeff;
-            bool is_int = false;
-            m_arith.is_numeral(r.get_expr(), coeff, is_int);
-            SASSERT(is_int);
-            point.push_back(coeff);
+            rational offset;
+            m_arith.is_numeral(r.get_expr(), offset);
+            m_lcm = lcm(m_lcm, denominator(abs(offset)));
+        }
+    }
+    m_cvx_cls.set_lcm(m_lcm);
+    // compute m_lcm and multiply m_data to make everything in integer.
+    for (const lemma_info &lemma : lemmas) {
+        const substitution &sub(lemma.get_sub());
+        point.reset();
+        for (unsigned j = 0; j < n_vars; j++) {
+            sub.get_binding(j, v, r);
+            rational offset;
+            m_arith.is_numeral(r.get_expr(), offset);
+            point.push_back(m_lcm*offset);
         }
         m_cvx_cls.push_back(point);
     }
@@ -234,7 +246,7 @@ bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref& lemma, expr_
     // create and add dim vars
     add_dim_vars(lc);
     // add points
-    add_points(lc);
+    add_int_points(lc);
 
     expr_ref_vector cls(m);
     m_exact = m_cvx_cls.closure(cls);
@@ -293,7 +305,7 @@ bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref& lemma, expr_
     if (m_dim_frsh_cnsts.size() > 0) {
         m_st.m_num_mbp_failed++;
         m_solver->pop(1);
-        TRACE("subume", tout << "could not eliminate all vars\n";);
+        TRACE("subsume", tout << "could not eliminate all vars\n";);
         return false;
     }
 
@@ -458,10 +470,6 @@ void lemma_global_generalizer::var_to_const(expr *pattern,
     TRACE("subsume_verb", tout << "Rewrote all vars into u_consts "
                                  << mk_pp(pattern, m) << " into " << rw_pattern
                                  << "\n";);
-
-
-    TRACE("subsume_verb", tout << "Rewrote " << mk_pp(pattern, m)
-          << " into " << rw_pattern << "\n";);
     return;
 }
 

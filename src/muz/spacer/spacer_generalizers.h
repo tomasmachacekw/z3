@@ -237,7 +237,7 @@ class lemma_global_generalizer : public lemma_generalizer {
     void rewrite_frsh_cnsts();
 
     // collect substituted numerals from cluster and add to m_cvx_cls
-    void add_points(const lemma_cluster &lc);
+    void add_int_points(const lemma_cluster &lc);
 
     // reset state
     void reset(unsigned n_vars);
