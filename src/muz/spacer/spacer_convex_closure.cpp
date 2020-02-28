@@ -36,7 +36,7 @@ unsigned convex_closure::reduce_dim() {
     return m_dim - ker.num_rows();
 }
 
-// for each row [0, 1, 0, 1 , 1], rewrite v1 = -1*v3 + -1*1
+// for each row [0, 1, 0, 1 , 1], rewrite m_lcm*v1 = -1*m_lcm*v3 + -1*1
 void convex_closure::rewrite_lin_deps() {
     const spacer_matrix &ker = m_kernel->get_kernel();
     unsigned n_rows = ker.num_rows();
@@ -73,7 +73,7 @@ void convex_closure::rewrite_lin_deps() {
                 } else {
                     expr_ref prod(m);
                     if (j != row.size() - 1)
-                        mul_if_not_one(-1 * val, m_dim_vars[j].get(), prod);
+                        mul_if_not_one(-1 * val * m_lcm, m_dim_vars[j].get(), prod);
                     else
                         prod = m_arith.mk_int(-1 * val);
                     rw.push_back(prod);
@@ -93,7 +93,7 @@ void convex_closure::rewrite_lin_deps() {
         expr_ref rw_term(m);
         rw_term = m_arith.mk_add(rw.size(), rw.c_ptr());
         expr_ref pv_var(m);
-        mul_if_not_one(coeff, m_dim_vars[pv].get(), pv_var);
+        mul_if_not_one(coeff * m_lcm, m_dim_vars[pv].get(), pv_var);
 
         rw_term = m.mk_eq(pv_var, rw_term);
         TRACE("cvx_dbg", tout << "rewrote " << mk_pp(m_dim_vars[pv].get(), m)
@@ -120,15 +120,15 @@ void convex_closure::add_lin_deps(expr_ref_vector& res_vec) {
 
 void convex_closure::add_sum_cnstr(unsigned i, expr_ref_vector &res_vec) {
     expr_ref_vector add(m);
-    expr_ref mul(m);
-    expr_ref exp(m);
+    expr_ref mul(m), result_var(m), exp(m);
     for (unsigned j = 0; j < m_nw_vars.size(); j++) {
         exp = to_expr(m_nw_vars.get(j));
         mul_if_not_one(m_data.get(j, i), exp.get(), mul);
         add.push_back(mul);
     }
+    mul_if_not_one(m_lcm, m_dim_vars[i].get(), result_var);
     res_vec.push_back(
-        m.mk_eq(m_arith.mk_add(add.size(), add.c_ptr()), m_dim_vars[i].get()));
+        m.mk_eq(m_arith.mk_add(add.size(), add.c_ptr()), result_var));
 }
 
 void convex_closure::syn_cls(expr_ref_vector &res_vec) {
@@ -200,12 +200,11 @@ bool convex_closure::compute_div_constraint(const vector<rational> &data,
 
 // returns whether the closure is exact or not (i.e syntactic)
 bool convex_closure::closure(expr_ref_vector &res_vec) {
-
+    SASSERT(is_int_points());
     unsigned red_dim = reduce_dim();
     // store dim var before rewrite
     expr_ref var(m);
     var = m_dim_vars[0].get();
-
     if (red_dim < dims()) {
         m_st.m_num_reductions++;
         rewrite_lin_deps();
@@ -232,14 +231,14 @@ void convex_closure::do_one_dim_cls(expr_ref var, expr_ref_vector& res_vec) {
     // The convex closure over one dimension is just a bound
     vector<rational> data;
     m_data.get_col(0, data);
-    SASSERT(is_int_points());
     std::sort(
         data.begin(), data.end(),
         [](rational const &x, rational const &y) -> bool { return x > y; });
 
-    expr_ref ub_expr(m), lb_expr(m);
-    ub_expr = m_arith.mk_le(var, m_arith.mk_int(data[0]));
-    lb_expr = m_arith.mk_ge(var, m_arith.mk_int(data[data.size() - 1]));
+    expr_ref ub_expr(m), lb_expr(m), result_var(m);
+    mul_if_not_one(m_lcm, var, result_var);
+    ub_expr = m_arith.mk_le(result_var, m_arith.mk_int(data[0]));
+    lb_expr = m_arith.mk_ge(result_var, m_arith.mk_int(data[data.size() - 1]));
 
     rational cr, off;
     expr_ref v(m);
