@@ -245,16 +245,19 @@ void convex_closure::do_one_dim_cls(expr_ref var, expr_ref_vector& res_vec) {
     //add dim constraints for all variables.
     for(unsigned j = 0; j < m_data.num_cols(); j++) {
         v = m_dim_vars.get(j);
-        if(is_var(v) && m_arith.is_int(v) && compute_div_constraint(data, cr, off)) {
+        if(is_var(v) && m_arith.is_int(v)) {
             data.reset();
             m_data.get_col(j, data);
             std::sort(data.begin(), data.end(),
                       [](rational const &x, rational const &y) -> bool {
                           return x > y;
                       });
-            mul_if_not_one(m_lcm, v, result_var);
-            res_vec.push_back(m_arith.mk_eq(m_arith.mk_mod(result_var, m_arith.mk_int(cr)),
-                                            m_arith.mk_int(off)));
+            if (compute_div_constraint(data, cr, off)) {
+                mul_if_not_one(m_lcm, v, result_var);
+                res_vec.push_back(m_arith.mk_eq(
+                                      m_arith.mk_mod(result_var, m_arith.mk_int(cr)),
+                                      m_arith.mk_int(off)));
+            }
         }
     }
     res_vec.push_back(ub_expr);
