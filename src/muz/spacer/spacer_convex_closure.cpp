@@ -10,7 +10,7 @@ bool convex_closure::is_int_points() const {
     return true;
 }
 void convex_closure::collect_statistics(statistics &st) const {
-    st.update("time.spacer.solve.reach.gen.merge.cvx_cls",
+    st.update("time.spacer.solve.reach.gen.global.cvx_cls",
               m_st.watch.get_seconds());
     st.update("SPACER num dim reduction success", m_st.m_num_reductions);
     st.update("SPACER max cvx reduced dim", m_st.m_max_dim);

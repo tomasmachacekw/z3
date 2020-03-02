@@ -430,11 +430,11 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
         else {
             //There is enough gas to conjecture on pob
             n->set_conj_pattern(conj);
-            n->set_merge_conj_lvl(pt_cls->get_min_lvl() + 1);
+            n->set_may_pob_lvl(pt_cls->get_min_lvl() + 1);
             n->set_gas(pt_cls->get_pob_gas());
             pt_cls->dec_gas();
             TRACE("global", tout << "set conjecture " << conj
-                  << " at level " << n->get_merge_conj_lvl() << "\n";);
+                  << " at level " << n->get_may_pob_lvl() << "\n";);
         }
     }
 
@@ -445,11 +445,11 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
     expr_ref_vector subsume_gen(m);
     if(subsume(lc, lemma, subsume_gen)) {
         pob_ref pob = lemma->get_pob();
-        pob->set_merge_conj(subsume_gen);
-        pob->set_merge_conj_lvl(pt_cls->get_min_lvl() + 1);
+        pob->set_subsume_pob(subsume_gen);
+        pob->set_may_pob_lvl(pt_cls->get_min_lvl() + 1);
         pob->stop_local_gen();
         pob->set_gas(pt_cls->get_pob_gas() + 1);
-        TRACE("global", tout << "merge conjecture  " << mk_and(subsume_gen)
+        TRACE("global", tout << "subsume pob " << mk_and(subsume_gen)
                              << " at level " << pt_cls->get_min_lvl() + 1
                              << " set on pob " << mk_pp(pob->post(), m)
                              << "\n";);
@@ -483,8 +483,7 @@ void lemma_global_generalizer::rewrite_frsh_cnsts() {
 }
 
 void lemma_global_generalizer::collect_statistics(statistics &st) const {
-    st.update("time.spacer.solve.reach.gen.merge", m_st.watch.get_seconds());
-    st.update("time.spacer.solve.reach.gen.wide", m_st.watch.get_seconds());
+    st.update("time.spacer.solve.reach.gen.global", m_st.watch.get_seconds());
     st.update("SPACER cluster out of gas", m_st.m_num_cls_ofg);
     st.update("SPACER num sync cvx cls", m_st.m_num_syn_cls);
     st.update("SPACER num mbp failed", m_st.m_num_mbp_failed);

@@ -824,14 +824,14 @@ class pob {
     // pattern identified for one of its lemmas
     expr_ref m_concr_pat;
 
-    // conjecture to block this pob
-    expr_ref_vector m_merge_conj;
+    // a pob that subsumes all lemmas that block this pob
+    expr_ref_vector m_subsume_pob;
 
-    // level at which m_merge_conj is to be added
-    unsigned m_merge_conj_lvl;
+    // level at which may pob is to be added
+    unsigned m_may_lvl;
 
-    // is a merge conjecture
-    bool m_is_merge_gen;
+    // is a subsume pob
+    bool m_is_subsume_pob;
 
     // should widen pob
     bool m_widen_pob;
@@ -848,15 +848,15 @@ class pob {
     void set_post(expr *post, app_ref_vector const &binding);
     void set_post(expr *post);
 
-    void set_merge_conj(const expr_ref_vector &expr) {
-        m_merge_conj_lvl = 0;
-        m_merge_conj.reset();
-        m_merge_conj.append(expr);
+    void set_subsume_pob(const expr_ref_vector &expr) {
+        m_may_lvl = 0;
+        m_subsume_pob.reset();
+        m_subsume_pob.append(expr);
     }
-    void set_merge_conj_lvl(unsigned l) { m_merge_conj_lvl = l; }
-    unsigned get_merge_conj_lvl() { return m_merge_conj_lvl;}
+    void set_may_pob_lvl(unsigned l) { m_may_lvl = l; }
+    unsigned get_may_pob_lvl() { return m_may_lvl;}
 
-    expr_ref_vector const &get_merge_conj() const { return m_merge_conj; }
+    expr_ref_vector const &get_subsume_pob() const { return m_subsume_pob; }
     unsigned weakness() {return m_weakness;}
     void bump_weakness() {m_weakness++;}
     void reset_weakness() {m_weakness=0;}
@@ -889,10 +889,10 @@ class pob {
         m_conj_pattern.reset();
         m_conj_pattern.append(pattern);
     }
-    bool is_merge_gen() const { return m_is_merge_gen; }
-    void set_merge_gen() { m_is_merge_gen = true; }
+    bool is_subsume_pob() const { return m_is_subsume_pob; }
+    void set_subsume_pob() { m_is_subsume_pob = true; }
 
-    bool is_may_pob() const {return is_merge_gen() || is_conj();}
+    bool is_may_pob() const {return is_subsume_pob() || is_conj();}
     unsigned get_gas() const { return m_gas; }
     void set_gas(unsigned n) { m_gas = n; }
 
@@ -1162,9 +1162,9 @@ class context {
         unsigned m_num_conj;
         unsigned m_num_conj_success;
         unsigned m_num_conj_failed;
-        unsigned m_num_mrg_conjs;
-        unsigned m_num_mrg_conj_failed;
-        unsigned m_num_mrg_conj_success;
+        unsigned m_num_subsume_pobs;
+        unsigned m_num_subsume_pob_reachable;
+        unsigned m_num_subsume_pob_blckd;
         unsigned m_num_ua;
         unsigned m_num_pob_ofg;
         unsigned m_non_local_gen;

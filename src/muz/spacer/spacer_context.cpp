@@ -71,14 +71,14 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_blocked_lvl(0), m_is_conj(false),
       m_conj_pattern(m_pt.get_ast_manager()), m_local_gen(true),
       m_shd_concr(false), m_concr_pat(m_pt.get_ast_manager()),
-      m_merge_conj(m_pt.get_ast_manager()), m_is_merge_gen(false),
+      m_subsume_pob(m_pt.get_ast_manager()), m_is_subsume_pob(false),
       m_widen_pob(true), m_gas(0) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
     if (m_parent) {
         m_is_conj = m_parent->is_conj();
-        m_is_merge_gen = m_parent->is_merge_gen();
+        m_is_subsume_pob = m_parent->is_subsume_pob();
         m_gas = m_parent->get_gas();
     }
 }
@@ -3340,7 +3340,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     pob::on_expand_event _evt(n);
     TRACE("spacer", tout << "expand-pob: " << n.pt().head()->get_name()
                          << (n.is_conj() ? "CONJ" : "")
-                         << (n.is_merge_gen() ? " MRG" : "")
+                         << (n.is_subsume_pob() ? " SUBS" : "")
                          << " level: " << n.level()
                          << " depth: " << (n.depth() - m_pob_queue.min_depth())
                          << " fvsz: " << n.get_free_vars_size() << "\n"
@@ -3349,7 +3349,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     STRACE("spacer_progress",
            tout << "** expand-pob: " << n.pt().head()->get_name()
                 << (n.is_conj() ?  "CONJ" : "")
-                << (n.is_merge_gen() ? " MRG" : "") << " level: " << n.level()
+                << (n.is_subsume_pob() ? " SUBS" : "") << " level: " << n.level()
                 << " depth: " << (n.depth() - m_pob_queue.min_depth()) << "\n"
                 << mk_epp(n.post(), m) << "\n\n";);
 
@@ -3365,7 +3365,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                << "expand: " << n.pt().head()->get_name() << " (" << n.level()
                << ", " << (n.depth() - m_pob_queue.min_depth()) << ") "
                << (n.use_farkas_generalizer() ? "FAR " : "SUB ")
-               << (n.is_conj() ? "ABS " : "") << (n.is_merge_gen() ? " MRG" : "")
+               << (n.is_conj() ? "ABS " : "") << (n.is_subsume_pob() ? " SUBS" : "")
                << " w(" << n.weakness() << ") " << n.post()->get_id();
         verbose_stream().flush(); watch.start(););
 
@@ -3484,8 +3484,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                     out.push_back (next);
                 }
             }
-            if(n.is_merge_gen())
-                m_stats.m_num_mrg_conj_failed++;
+            if(n.is_subsume_pob())
+                m_stats.m_num_subsume_pob_reachable++;
             if(n.is_conj())
                 m_stats.m_num_conj_failed++;
 
@@ -3493,7 +3493,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                    tout << "Failed to block conjecture "
                    << n.post()->get_id() << "\n";);
 
-            CTRACE("global", n.is_merge_gen(),
+            CTRACE("global", n.is_subsume_pob(),
                    tout << "Failed to block subsume generalization "
                         << mk_pp(n.post(), m) << "\n";);
 
@@ -3528,7 +3528,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                   tout << mk_pp(cube[j].get(), m) << "\n";);
 
         if(n.is_conj()) m_stats.m_num_conj_success++;
-        if(n.is_merge_gen()) m_stats.m_num_mrg_conj_success++;
+        if(n.is_subsume_pob()) m_stats.m_num_subsume_pob_blckd++;
         pob_ref nref(&n);
         // -- create lemma from a pob and last unsat core
         lemma_ref lemma_pob;
@@ -3562,7 +3562,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                     << " Level " << lemma_pob->level() << " id "
                     << n.post()->get_id() << "\n";);
 
-        CTRACE("global", n.is_merge_gen(),
+        CTRACE("global", n.is_subsume_pob(),
                tout << " Blocked subsume pob " << mk_pp(n.post(), m)
                     << " using lemma " << mk_pp(lemma_pob->get_expr(), m)
                     << " Level " << lemma_pob->level() << " id "
@@ -3601,20 +3601,19 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             }
         }
 
-        if (n.get_merge_conj().size() > 0 && n.get_gas() > 0) {
+        if (n.get_subsume_pob().size() > 0 && n.get_gas() > 0) {
             expr_ref c(m);
-            c = mk_and(n.get_merge_conj());
-            unsigned level = n.get_merge_conj_lvl();
+            c = mk_and(n.get_subsume_pob());
+            unsigned level = n.get_may_pob_lvl();
             pob *f = n.pt().find_pob(n.parent(), c);
             // skip if a similar pob is already in the queue
             if (f != &n && (!f || !f->is_in_queue())) {
-                // create merge conjecture as a sibling at the desired depth
-                pob *new_pob =
-                    n.pt().mk_pob(n.parent(), level,
+                // create pob conjecture as a sibling at the desired depth
+                pob *new_pob = n.pt().mk_pob(n.parent(), level,
                                   n.depth(), c, n.get_binding());
                 // since the level of pob is going to be incremented, new pob
                 // will have higher priority
-                new_pob->set_merge_gen();
+                new_pob->set_subsume_pob();
                 unsigned gas = n.get_gas();
                 SASSERT(gas > 0);
                 new_pob->set_gas(gas - 1);
@@ -3624,7 +3623,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                       << mk_pp(new_pob->post(), m) << " with gas "
                       << new_pob->get_gas() << "\n";);
                 out.push_back(&(*new_pob));
-                m_stats.m_num_mrg_conjs++;
+                m_stats.m_num_subsume_pobs++;
             } else
                 TRACE("global",
                       tout << "duplicate pob conjecture found. Did not "
@@ -3635,7 +3634,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         if (m_conjecture && n.get_conj_pattern().size() > 0 && n.get_gas() > 0) {
             expr_ref c(m);
             c = mk_and(n.get_conj_pattern());
-            unsigned level = n.get_merge_conj_lvl();
+            unsigned level = n.get_may_pob_lvl();
             pob *f = n.pt().find_pob(&n, c);
             // skip if new pob is already in the queue
             if (!f || !f->is_in_queue()) {
@@ -4029,9 +4028,9 @@ void context::collect_statistics(statistics& st) const
     st.update("SPACER num abstractions failed",
               m_stats.m_num_conj_failed);
     st.update("SPACER pob out of gas", m_stats.m_num_pob_ofg);
-    st.update("SPACER num merge gen", m_stats.m_num_mrg_conjs);
-    st.update("SPACER num merge gen success", m_stats.m_num_mrg_conj_failed);
-    st.update("SPACER num merge gen failed", m_stats.m_num_mrg_conj_success);
+    st.update("SPACER num subsume pob", m_stats.m_num_subsume_pobs);
+    st.update("SPACER num subsume success", m_stats.m_num_subsume_pob_reachable);
+    st.update("SPACER num subsume failed", m_stats.m_num_subsume_pob_blckd);
     st.update("SPACER num under approximations", m_stats.m_num_ua);
     st.update("SPACER non local gen", m_stats.m_non_local_gen);
 
@@ -4201,7 +4200,7 @@ inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
     const pob& n1 = *pn1;
     const pob& n2 = *pn2;
 
-    if (n1.is_merge_gen() != n2.is_merge_gen()) {return n1.is_merge_gen();}
+    if (n1.is_subsume_pob() != n2.is_subsume_pob()) {return n1.is_subsume_pob();}
     if (n1.is_conj() != n2.is_conj()) { return n1.is_conj(); }
     if (n1.level() != n2.level()) { return n1.level() < n2.level(); }
 

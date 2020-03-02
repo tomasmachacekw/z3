@@ -10,7 +10,7 @@ lemma_expand_bnd_generalizer::lemma_expand_bnd_generalizer(context &ctx)
 
 void lemma_expand_bnd_generalizer::operator()(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
-    if (lemma->get_pob()->is_merge_gen() && lemma->get_pob()->widen()) {
+    if (lemma->get_pob()->is_subsume_pob() && lemma->get_pob()->widen()) {
         // try expanding cvx bounds
         expr_ref_vector conj = lemma->get_cube();
         expr_ref_vector expand_expr(m), updt_conj(conj);
@@ -111,6 +111,7 @@ bool lemma_expand_bnd_generalizer::should_apply(const expr *lit, rational val,
     }
 }
 void lemma_expand_bnd_generalizer::collect_statistics(statistics &st) const {
+    st.update("time.spacer.solve.reach.gen.expand", m_st.watch.get_seconds());
     st.update("SPACER wide attmpts", m_st.atmpts);
     st.update("SPACER wide success", m_st.success);
 }
