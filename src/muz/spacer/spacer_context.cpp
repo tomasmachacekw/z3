@@ -4207,10 +4207,7 @@ inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
     if (n1.depth() != n2.depth()) { return n1.depth() < n2.depth(); }
 
     if (n1.get_gas() != n2.get_gas()) { return n1.get_gas() > n2.get_gas(); }
-    //TODO: compare merge_conj sizes only if they have the same parent.
-    if (n1.get_merge_conj().size() != n2.get_merge_conj().size()) {
-      return n1.get_merge_conj().size() > n2.get_merge_conj().size();
-    }
+
     // -- a more deterministic order of proof obligations in a queue
     // if (!n1.get_context ().get_params ().spacer_nondet_tie_break ())
     {
