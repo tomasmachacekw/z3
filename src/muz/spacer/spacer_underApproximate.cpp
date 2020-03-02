@@ -113,7 +113,7 @@ void concretize::grp_concretize(const expr_ref_vector &cube,
     for (expr *grp : grps) {
         expr_ref eval_ref = (*model)(&(*grp));
         SASSERT(m_arith.is_numeral(eval_ref));
-        fresh_consts.push_back(m.mk_fresh_const("sub_temp", m_arith.mk_int()));
+        fresh_consts.push_back(m.mk_fresh_const("sub_temp",m.get_sort(grp)));
         s.insert(grp, fresh_consts.back());
         sub.insert(fresh_consts.back(), grp);
     }
