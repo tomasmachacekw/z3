@@ -71,7 +71,7 @@ bool drop_lit(expr_ref_vector &fml_vec, expr_ref &lit,
     // normalize_order(rhs, rhs);
     expr_ref_vector exp_fml(m);
     for(auto &c : fml_vec) {
-        if (m.is_eq(c, e1, e2)) {
+        if (m.is_eq(c, e1, e2) && m_arith.is_arith_expr(e1)) {
             exp_fml.push_back(m_arith.mk_le(e1, e2));
             exp_fml.push_back(m_arith.mk_ge(e1, e2));
         }
