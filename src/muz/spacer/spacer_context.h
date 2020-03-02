@@ -1391,7 +1391,7 @@ public:
     bool use_sage() { return m_use_sage; }
 
     // close all parents of may pob when gas runs out
-    void close_all_may_children(pob_ref node);
+    void close_all_may_parents(pob_ref node);
 
     // three different solvers with three different sets of parameters
     // different solvers are used for different types of queries in spacer
