@@ -195,6 +195,7 @@ namespace spacer {
                tout << "OUT After :" << mk_pp(out, out.m()) << "\n";);
     }
 
+//TODO: this is broken for real expressions. Fix it as needed.
 bool normalize_to_le(expr *lit, expr_ref &t, expr_ref &c) {
     expr *e0 = nullptr, *e1 = nullptr, *e2 = nullptr;
     rational n;
