@@ -3434,7 +3434,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             // decrease gas for n to limit the number of times it is going to be
             // split
             n.set_gas(gas - 1);
-            m_stats.m_num_ua++;
+            m_stats.m_num_concretize++;
             return l_undef;
         }
     }
@@ -4005,9 +4005,9 @@ void context::collect_statistics(statistics& st) const
 
     // -- number of times a pob for some predicate transformer has
     // -- been created
-    st.update("SPACER num queries", m_stats.m_num_queries);
+    st.update("SPACER queries", m_stats.m_num_queries);
     // -- number of times a reach fact was true in some model
-    st.update("SPACER num reuse reach facts", m_stats.m_num_reuse_reach);
+    st.update("SPACER reuse reach facts", m_stats.m_num_reuse_reach);
     // -- maximum level at which any query was asked
     st.update("SPACER max query lvl", m_stats.m_max_query_lvl);
     // -- maximum depth
@@ -4023,15 +4023,15 @@ void context::collect_statistics(statistics& st) const
     // -- number of restarts taken
     st.update("SPACER restarts", m_stats.m_num_restarts);
     // -- number of time pob abstraction was invoked
-    st.update("SPACER num abstractions", m_stats.m_num_conj);
-    st.update("SPACER num abstractions success", m_stats.m_num_conj_success);
-    st.update("SPACER num abstractions failed",
+    st.update("SPACER conj", m_stats.m_num_conj);
+    st.update("SPACER conj success", m_stats.m_num_conj_success);
+    st.update("SPACER conj failed",
               m_stats.m_num_conj_failed);
     st.update("SPACER pob out of gas", m_stats.m_num_pob_ofg);
-    st.update("SPACER num subsume pob", m_stats.m_num_subsume_pobs);
-    st.update("SPACER num subsume success", m_stats.m_num_subsume_pob_reachable);
-    st.update("SPACER num subsume failed", m_stats.m_num_subsume_pob_blckd);
-    st.update("SPACER num under approximations", m_stats.m_num_ua);
+    st.update("SPACER subsume pob", m_stats.m_num_subsume_pobs);
+    st.update("SPACER subsume success", m_stats.m_num_subsume_pob_reachable);
+    st.update("SPACER subsume failed", m_stats.m_num_subsume_pob_blckd);
+    st.update("SPACER concretize", m_stats.m_num_concretize);
     st.update("SPACER non local gen", m_stats.m_non_local_gen);
 
     // -- time to initialize the rules

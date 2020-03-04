@@ -89,7 +89,7 @@ bool concretize::mk_concr(expr_ref f, model_ref &model,
 
 void concretize::grp_concretize(const expr_ref_vector &cube,
                                          expr_ref pattern, model_ref &model,
-                                         expr_ref_vector &ua_conj) {
+                                         expr_ref_vector &concr_cube) {
     expr_ref_vector grps(m);
     expr_ref_vector sub_term(m);
     expr_ref_vector non_lit_cube(m);
@@ -130,17 +130,17 @@ void concretize::grp_concretize(const expr_ref_vector &cube,
     get_uninterp_consts(sub_fml, u_consts);
     for (expr *u_const : u_consts) {
         if (lb.contains(u_const))
-            ua_conj.push_back(m_arith.mk_ge(
+            concr_cube.push_back(m_arith.mk_ge(
                 sub[u_const],
                 m_arith.mk_numeral(lb[u_const], lb[u_const].is_int())));
         if (ub.contains(u_const))
-            ua_conj.push_back(m_arith.mk_le(
+            concr_cube.push_back(m_arith.mk_le(
                 sub[u_const],
                 m_arith.mk_numeral(ub[u_const], ub[u_const].is_int())));
     }
     fresh_consts.reset();
     TRACE("concretize",
-          tout << "concrete pob : " << mk_pp(mk_and(ua_conj), m) << "\n";);
+          tout << "concrete pob : " << mk_pp(mk_and(concr_cube), m) << "\n";);
 }
 
 // If there are n non linear multiplications in pattern, there are n + 1 axis.

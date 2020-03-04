@@ -1165,7 +1165,7 @@ class context {
         unsigned m_num_subsume_pobs;
         unsigned m_num_subsume_pob_reachable;
         unsigned m_num_subsume_pob_blckd;
-        unsigned m_num_ua;
+        unsigned m_num_concretize;
         unsigned m_num_pob_ofg;
         unsigned m_non_local_gen;
         stats() { reset(); }
