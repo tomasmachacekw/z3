@@ -28,6 +28,8 @@ void lemma_expand_bnd_generalizer::operator()(lemma_ref &lemma) {
                     if (t != bnd.get()) expand_expr.push_back(t);
                 if (expand_bnd(lemma, bnd, expand_expr, nw_bnd)) {
                     updt_conj.erase(bnd.get());
+                    //It is possible that the bnd was not required at all
+                    if(nw_bnd.get() != nullptr)
                         updt_conj.push_back(nw_bnd);
                 }
             }
@@ -79,6 +81,11 @@ bool lemma_expand_bnd_generalizer::expand_bnd(lemma_ref &lemma, expr_ref lit,
                       tout << "expand_bnd succeeded with " << n << " at level " << uses_level << "\n";);
                 success = true;
                 nw_bnd = n_lit;
+                if(!conj.contains(n_lit.get())) {
+                    //The bnd was dropped entirely
+                    nw_bnd.reset();
+                    return true;
+                }
             }
             conj.pop_back();
         }
