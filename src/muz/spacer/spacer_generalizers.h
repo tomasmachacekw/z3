@@ -287,9 +287,9 @@ class lemma_expand_bnd_generalizer : public lemma_generalizer {
     void reset_statistics() override { m_st.reset(); }
 
   private:
-    bool apply_widen(lemma_ref &lemma, expr *lit, expr_ref_vector &res,
+    bool expand_bnd(lemma_ref &lemma, expr_ref lit, expr_ref_vector &res,
                      expr_ref &nw_bnd);
-    void substitute(expr *var, rational n, expr *fml, expr_ref &sub);
+    void substitute(expr_ref var, rational n, expr_ref fml, expr_ref &sub);
     bool should_apply(const expr *lit, rational val, rational n);
 };
 } // namespace spacer

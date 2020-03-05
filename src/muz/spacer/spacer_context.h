@@ -833,8 +833,8 @@ class pob {
     // is a subsume pob
     bool m_is_subsume_pob;
 
-    // should widen pob
-    bool m_widen_pob;
+    // should apply expand bnd generalization on pob
+    bool m_expand_bnd;
 
     // gas decides how much time is spent in blocking this (may) pob
     unsigned m_gas;
@@ -880,8 +880,8 @@ class pob {
     bool is_conj() const { return m_is_conj; }
     void set_conj() { m_is_conj = true; }
 
-    void stop_widening() { m_widen_pob = false; }
-    bool widen() { return m_widen_pob; }
+    void stop_expand_bnd() { m_expand_bnd = false; }
+    bool expand_bnd() { return m_expand_bnd; }
     void set_concr_pat(expr_ref pattern) { m_concr_pat = pattern; }
     expr_ref get_concr_pat() const { return m_concr_pat; }
     expr_ref_vector const & get_conj_pattern() const { return m_conj_pattern; }

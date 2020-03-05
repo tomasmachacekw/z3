@@ -10,47 +10,47 @@ lemma_expand_bnd_generalizer::lemma_expand_bnd_generalizer(context &ctx)
 
 void lemma_expand_bnd_generalizer::operator()(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
-    if (lemma->get_pob()->is_subsume_pob() && lemma->get_pob()->widen()) {
+    if (lemma->get_pob()->is_subsume_pob() && lemma->get_pob()->expand_bnd()) {
         // try expanding cvx bounds
         expr_ref_vector conj = lemma->get_cube();
         expr_ref_vector expand_expr(m), updt_conj(conj);
         expr *num, *term;
         expr_ref nw_bnd(m);
-        for (auto *bnd : conj) {
+        for (unsigned i = 0; i < conj.size(); i ++) {
+            expr_ref bnd(conj.get(i), m);
             if ((m_arith.is_le(bnd, term, num) ||
                  m_arith.is_ge(bnd, term, num)) &&
                 m_arith.is_numeral(num) && is_uninterp(term)) {
-                TRACE("widen_verb",
+                TRACE("expand_bnd_verb",
                       tout << "bnd is " << mk_pp(bnd, m) << "\n";);
                 expand_expr.reset();
                 for (expr *t : updt_conj)
-                    if (t != bnd) expand_expr.push_back(t);
-                if (apply_widen(lemma, bnd, expand_expr, nw_bnd)) {
-                    updt_conj.erase(bnd);
-                    updt_conj.push_back(nw_bnd);
+                    if (t != bnd.get()) expand_expr.push_back(t);
+                if (expand_bnd(lemma, bnd, expand_expr, nw_bnd)) {
+                    updt_conj.erase(bnd.get());
+                        updt_conj.push_back(nw_bnd);
                 }
             }
         }
-        lemma->get_pob()->stop_widening();
+        lemma->get_pob()->stop_expand_bnd();
     }
 }
-void lemma_expand_bnd_generalizer::substitute(expr *var, rational n, expr *fml,
+void lemma_expand_bnd_generalizer::substitute(expr_ref var, rational n, expr_ref fml,
                                          expr_ref &sub) {
     expr_safe_replace s(m);
     sub.reset();
-    s.insert(var, m_arith.mk_int(n));
-    expr_ref f(fml, m);
-    s(f, sub);
+    s.insert(var, m_arith.mk_numeral(n, n.is_int()));
+    s(fml, sub);
 }
 
-bool lemma_expand_bnd_generalizer::apply_widen(lemma_ref &lemma, expr *lit,
+bool lemma_expand_bnd_generalizer::expand_bnd(lemma_ref &lemma, expr_ref lit,
                                           expr_ref_vector &conj,
                                           expr_ref &nw_bnd) {
     SASSERT(!conj.contains(lit));
-    TRACE("widen", tout << "Applying widening on " << conj
+    TRACE("expand_bnd", tout << "Expanding bounds of " << conj
                             << " with literal " << mk_pp(lit, m) << "\n";);
     SASSERT(to_app(lit)->get_num_args() == 2);
-    expr *num = to_app(lit)->get_arg(1);
+    expr_ref num = expr_ref(to_app(lit)->get_arg(1), m);
     rational val;
     bool is_int = false;
     SASSERT(m_arith.is_numeral(num));
@@ -64,7 +64,7 @@ bool lemma_expand_bnd_generalizer::apply_widen(lemma_ref &lemma, expr *lit,
             substitute(num, n, lit, n_lit);
             conj.push_back(n_lit);
             unsigned uses_level = 0;
-            TRACE("widen_verb",
+            TRACE("expand_bnd_verb",
                   tout << "Attempting to update lemma with " << conj << "\n";);
             bool is_ind = (lemma->get_pob())
                               ->pt()
@@ -75,8 +75,8 @@ bool lemma_expand_bnd_generalizer::apply_widen(lemma_ref &lemma, expr *lit,
                 lemma->update_cube(lemma->get_pob(), conj);
                 lemma->set_level(uses_level);
                 val = n;
-                TRACE("widen",
-                      tout << "widening succeeded with " << n << "\n";);
+                TRACE("expand_bnd",
+                      tout << "expand_bnd succeeded with " << n << " at level " << uses_level << "\n";);
                 success = true;
                 nw_bnd = n_lit;
             }
@@ -112,7 +112,7 @@ bool lemma_expand_bnd_generalizer::should_apply(const expr *lit, rational val,
 }
 void lemma_expand_bnd_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.expand", m_st.watch.get_seconds());
-    st.update("SPACER wide attmpts", m_st.atmpts);
-    st.update("SPACER wide success", m_st.success);
+    st.update("SPACER expand_bnd attmpts", m_st.atmpts);
+    st.update("SPACER expand_bnd success", m_st.success);
 }
 } // namespace spacer
