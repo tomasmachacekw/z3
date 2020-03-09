@@ -1202,6 +1202,7 @@ class context {
     unsigned             m_expanded_lvl;
     ptr_buffer<lemma_generalizer>  m_lemma_generalizers;
     lemma_generalizer *  m_global_gen;
+    lemma_generalizer *  m_expand_bnd_gen;
 
     lemma_cluster_finder *m_lmma_cluster;
     stats                m_stats;
@@ -1237,7 +1238,7 @@ class context {
     bool                 m_pdr_bfs;
     bool                 m_use_bg_invs;
     bool                 m_global;
-    bool                 m_expand_bnd_gen;
+    bool                 m_expand_bnd;
     bool                 m_conjecture;
     bool                 m_use_sage;
     bool                 m_concretize;

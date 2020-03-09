@@ -2308,6 +2308,8 @@ context::context(fp_params const& params, ast_manager& m) :
     m_last_result(l_undef),
     m_inductive_lvl(0),
     m_expanded_lvl(0),
+    m_global_gen(nullptr),
+    m_expand_bnd_gen(nullptr),
     m_json_marshaller(this) {
     ref<solver> pool0_base =
         mk_smt_solver(m, params_ref::get_empty(), symbol::null);
@@ -2369,7 +2371,7 @@ void context::updt_params() {
     m_pdr_bfs = m_params.spacer_gpdr_bfs();
     m_use_bg_invs = m_params.spacer_use_bg_invs();
     m_global = m_params.spacer_global();
-    m_expand_bnd_gen = m_params.spacer_expand_bnd();
+    m_expand_bnd = m_params.spacer_expand_bnd();
     m_conjecture = m_params.spacer_conjecture();
     m_use_sage = m_params.spacer_use_sage();
     m_concretize = m_params.spacer_concretize();
@@ -2706,8 +2708,9 @@ void context::init_lemma_generalizers()
         m_lemma_generalizers.push_back(m_global_gen);
     }
 
-    if(m_expand_bnd_gen) {
-        m_lemma_generalizers.push_back(alloc(lemma_expand_bnd_generalizer, *this));
+    if(m_expand_bnd) {
+        m_expand_bnd_gen = alloc(lemma_expand_bnd_generalizer, *this);
+        m_lemma_generalizers.push_back(m_expand_bnd_gen);
     }
 
     if (m_validate_lemmas) {
@@ -3554,6 +3557,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                                     << "\n lemma learned "
                                     << mk_and(lemma_pob->get_cube()) << "\n";);
             if (m_global_gen != nullptr) (*m_global_gen)(lemma_pob);
+            if (m_expand_bnd_gen != nullptr) (*m_expand_bnd_gen)(lemma_pob);
         }
 
         CTRACE("global", n.is_conj(),
