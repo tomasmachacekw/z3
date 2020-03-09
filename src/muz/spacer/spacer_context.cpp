@@ -3609,12 +3609,13 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             expr_ref c(m);
             c = mk_and(n.get_subsume_pob());
             unsigned level = n.get_may_pob_lvl();
-            pob *f = n.pt().find_pob(n.parent(), c);
+            pob *f = n.pt().find_pob(&get_root(), c);
             // skip if a similar pob is already in the queue
-            if (f != &n && (!f || !f->is_in_queue())) {
-                // create pob conjecture as a sibling at the desired depth
-                pob *new_pob = n.pt().mk_pob(n.parent(), level,
-                                  n.depth(), c, n.get_binding());
+            if (!f || !f->is_in_queue()) {
+                // create pob conjecture at the desired depth
+                app_ref_vector empty_binding(m);
+                pob *new_pob = n.pt().mk_pob(&get_root(), level,
+                                  n.depth(), c, empty_binding);
                 // since the level of pob is going to be incremented, new pob
                 // will have higher priority
                 new_pob->set_subsume_pob();
@@ -3639,12 +3640,13 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             expr_ref c(m);
             c = mk_and(n.get_conj_pattern());
             unsigned level = n.get_may_pob_lvl();
-            pob *f = n.pt().find_pob(&n, c);
+            pob *f = n.pt().find_pob(&get_root(), c);
             // skip if new pob is already in the queue
             if (!f || !f->is_in_queue()) {
                 // create abstract pob
-                f = n.pt().mk_pob(n.parent(), level, n.depth(), c,
-                                  n.get_binding());
+                app_ref_vector empty_binding(m);
+                f = n.pt().mk_pob(&get_root(), level, n.depth(), c,
+                                  empty_binding);
                 f->set_conj();
                 unsigned gas = n.get_gas();
                 SASSERT(gas > 0);
