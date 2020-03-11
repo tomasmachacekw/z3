@@ -112,6 +112,7 @@ namespace spacer {
     void simplify_bounds (expr_ref_vector &lemmas);
     void normalize(expr *e, expr_ref &out, bool use_simplify_bounds = true, bool factor_eqs = false);
 
+    void normalize_order(expr *e, expr_ref &out);
     /**
      * Ground expression by replacing all free variables by skolem
      * constants. On return, out is the resulting expression, and vars is
@@ -137,6 +138,10 @@ namespace spacer {
     mk_epp(ast *t, ast_manager &m, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = nullptr);
         void rw(expr *e, expr_ref &out);
     };
+
+    /// Returns number of free variables in a given expression
+    unsigned get_num_vars(expr *e);
+    void get_uninterp_consts(expr *a, expr_ref_vector &out);
 }
 
 #endif
