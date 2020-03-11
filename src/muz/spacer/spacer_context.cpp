@@ -55,6 +55,7 @@ Notes:
 
 #include "muz/spacer/spacer_cluster.h"
 #include "muz/spacer/spacer_sat_answer.h"
+#include "spacer_concretize.h"
 
 #define WEAKNESS_MAX 65535
 
@@ -2361,6 +2362,7 @@ void context::updt_params() {
     m_use_bg_invs = m_params.spacer_use_bg_invs();
     m_global = m_params.spacer_global();
     m_use_sage = m_params.spacer_use_sage();
+    m_concretize = m_params.spacer_concretize();
 
     if (m_use_gpdr) {
         // set options to be compatible with GPDR
