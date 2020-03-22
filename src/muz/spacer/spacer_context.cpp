@@ -3176,7 +3176,6 @@ bool context::check_reachability ()
         size_t old_sz = m_pob_queue.size();
         (void)old_sz;
         SASSERT (node->level () <= m_pob_queue.max_level ());
-        unsigned saved_level = node->level();
         switch (expand_pob(*node, new_pobs)) {
         case l_true:
             SASSERT(m_pob_queue.size() == old_sz);
@@ -3187,10 +3186,9 @@ bool context::check_reachability ()
             break;
         case l_false:
             SASSERT(m_pob_queue.size() == old_sz);
-            // re-queue all pobs at the current level (introduced by
-            // abstraction) and any pobs that can be blocked at a higher level
+            // re-queue all pobs introduced by global gen and any pobs that can be blocked at a higher level
             for (auto pob : new_pobs) {
-                if (pob->level() <= saved_level || is_requeue(*pob)) {
+                if ((pob->is_may_pob() && pob->post() != node->post()) || is_requeue(*pob)) {
                     m_pob_queue.push(*pob);
                 }
             }
