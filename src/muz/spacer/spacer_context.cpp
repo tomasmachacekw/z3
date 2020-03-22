@@ -4204,11 +4204,12 @@ inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
     const pob& n1 = *pn1;
     const pob& n2 = *pn2;
 
-    if (n1.is_subsume_pob() != n2.is_subsume_pob()) {return n1.is_subsume_pob();}
-    if (n1.is_conj() != n2.is_conj()) { return n1.is_conj(); }
     if (n1.level() != n2.level()) { return n1.level() < n2.level(); }
 
     if (n1.depth() != n2.depth()) { return n1.depth() < n2.depth(); }
+
+    if (n1.is_subsume_pob() != n2.is_subsume_pob()) { return n1.is_subsume_pob(); }
+    if (n1.is_conj() != n2.is_conj()) { return n1.is_conj(); }
 
     if (n1.get_gas() != n2.get_gas()) { return n1.get_gas() > n2.get_gas(); }
 
