@@ -699,13 +699,16 @@ namespace {
     struct adhoc_rewriter_rpp : public default_rewriter_cfg {
         ast_manager &m;
         arith_util m_arith;
+        bv_util m_bv_util;
 
-        adhoc_rewriter_rpp(ast_manager &manager) : m(manager), m_arith(m) {}
+        adhoc_rewriter_rpp(ast_manager &manager) : m(manager), m_arith(m), m_bv_util(m) {}
 
         bool is_le(func_decl const * n) const { return m_arith.is_le(n); }
         bool is_ge(func_decl const * n) const { return m_arith.is_ge(n); }
         bool is_lt(func_decl const * n) const { return m_arith.is_lt(n); }
         bool is_gt(func_decl const * n) const { return m_arith.is_gt(n); }
+        bool is_bit2bool(func_decl const * n) const {return is_decl_of(n, m_bv_util.get_fid(), OP_BIT2BOOL);}
+        bool is_bv_const(expr * e) const { return is_uninterp_const(e) && m_bv_util.is_bv(e);}
         bool is_zero(expr const * n) const {rational val; return m_arith.is_numeral(n, val) && val.is_zero();}
 
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args,
@@ -714,6 +717,20 @@ namespace {
             br_status st = BR_FAILED;
             expr *e1, *e2, *e3, *e4;
 
+            if(is_bit2bool(f)) {
+              unsigned bit = f->get_parameter(0).get_int();
+              result = m_bv_util.mk_extract(bit, bit, args[0]);
+              result = m.mk_eq(result.get(), m_bv_util.mk_numeral(1, 1));
+              return BR_DONE;
+            }
+            if(m.is_eq(f) && is_bv_const(to_expr(args[0]))) {
+              e1 = to_expr(args[0]);
+              e2 = to_expr(args[1]);
+              unsigned sz = m_bv_util.get_bv_size(e1);
+              expr* lhs = m_bv_util.mk_extract(sz - 1, 0, e1);
+              result = m.mk_eq(lhs, e2);
+              return BR_DONE;
+            }
             // rewrites(=(+ A(* -1 B)) 0) into(= A B)
             if (m.is_eq(f) && is_zero(args [1]) &&
                 m_arith.is_add(args[0], e1, e2) &&
