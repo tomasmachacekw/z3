@@ -158,7 +158,9 @@ std::ostream &json_marshaller::marshal(std::ostream &out) const {
             if (expand_time > 0) {
                 a = true;
                 std::ostringstream pob_expr;
-                json_marshal(pob_expr, n->post(), n->get_ast_manager());
+                expr_ref t(n->get_ast_manager());
+                normalize(n->post(), t, true, false);
+                json_marshal(pob_expr, t.get(), n->get_ast_manager());
 
                 nodes << ((unsigned)nodes.tellp() == 0 ? "" : ",\n") <<
                     "{\"id\":\"" << depth << n <<
