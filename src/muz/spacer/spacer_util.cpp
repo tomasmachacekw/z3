@@ -727,7 +727,8 @@ namespace {
               e1 = to_expr(args[0]);
               e2 = to_expr(args[1]);
               unsigned sz = m_bv_util.get_bv_size(e1);
-              expr* lhs = m_bv_util.mk_extract(sz - 1, 0, e1);
+              expr_ref lhs(m);
+              lhs = m_bv_util.mk_extract(sz - 1, 0, e1);
               result = m.mk_eq(lhs, e2);
               return BR_DONE;
             }
