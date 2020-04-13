@@ -33,7 +33,7 @@ struct compute_lcm {
 } // namespace
 namespace spacer {
 lemma_global_generalizer::lemma_global_generalizer(context &ctx)
-    : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m),
+    : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m), m_array(m),
       m_cvx_cls(m, ctx.use_sage()), m_dim_frsh_cnsts(m), m_dim_vars(m) {
     m_solver = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
 }
@@ -62,6 +62,15 @@ void lemma_global_generalizer::to_real(expr_ref &fml) {
         fml = m.mk_app(fml_app->get_family_id(), fml_app->get_decl_kind(),
                        nw_args.size(), nw_args.c_ptr());
     }
+    if (m_array.is_select(fml)) {
+        app *fml_app = to_app(fml);
+        expr_ref_vector nw_args(m);
+        expr_ref ind(m);
+        ind = m_arith.mk_to_real(fml_app->get_arg(1));
+        nw_args.push_back(fml_app->get_arg(0));
+        nw_args.push_back(m_arith.mk_to_int(ind));
+        fml = m_array.mk_select(nw_args.size(), nw_args.c_ptr());
+    }
 }
 
 rational lemma_global_generalizer::get_lcm(expr *e) {
@@ -80,7 +89,12 @@ void lemma_global_generalizer::to_int(expr_ref &fml) {
               tout << "to int finished " << mk_pp(fml, m) << "\n";);
         return;
     }
-
+    if (m_arith.is_to_int(fml)) {
+        expr_ref res(m);
+        fml = to_app(fml)->get_arg(0);
+        to_int(fml);
+        return;
+    }
     // Don't normalize constants.
     if (is_uninterp_const(fml)) return;
 

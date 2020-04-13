@@ -207,6 +207,7 @@ class lemma_global_generalizer : public lemma_generalizer {
 
     ast_manager &m;
     arith_util m_arith;
+    array_util m_array;
     stats m_st;
     convex_closure m_cvx_cls;
     // save fresh constants for mbp
