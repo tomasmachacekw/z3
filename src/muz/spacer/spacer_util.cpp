@@ -90,7 +90,15 @@ namespace spacer {
             << "(assert mbp_benchmark_fml)\n"
             << "(check-sat)\n"
             << "(mbp mbp_benchmark_fml (";
-        for (auto v : vars) {out << mk_pp(v, m) << " ";}
+        for (auto v : vars) {
+          for (auto f : pp.coll.get_func_decls()) {
+            if (to_app(v)->get_decl() == f)
+            {
+              out << mk_pp(v, m) << " ";
+              break;
+            }
+          }
+        }
         out << "))\n"
             << "(pop)\n"
             << "(exit)\n";
@@ -103,6 +111,7 @@ namespace spacer {
         p.set_bool("reduce_all_selects", reduce_all_selects);
         p.set_bool("dont_sub", dont_sub);
 
+//        to_mbp_benchmark(verbose_stream(), fml, vars);
         qe::mbp mbp(m, p);
         mbp.spacer(vars, mdl, fml);
     }
