@@ -142,6 +142,9 @@ namespace spacer {
     /// Returns number of free variables in a given expression
     unsigned get_num_vars(expr *e);
     void get_uninterp_consts(expr *a, expr_ref_vector &out);
+    bool is_clause(ast_manager &m, expr *n); 
+    bool is_literal(ast_manager &m, expr *n);
+    bool is_atom(ast_manager &m, expr *n);
 }
 
 #endif
