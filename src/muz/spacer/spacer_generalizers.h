@@ -217,7 +217,8 @@ class lemma_global_generalizer : public lemma_generalizer {
     // solver to get model for computing mbp and to check whether cvx_cls ==>
     // mbp
     ref<solver> m_solver;
-    bool subsume(lemma_cluster lc, lemma_ref &l, expr_ref_vector &res);
+    bool subsume(lemma_cluster lc, lemma_ref &l, expr_ref_vector &res, app_ref_vector& vars);
+    bool skolemize_sel_vars(expr_ref& f, app_ref_vector& vars);
 
   public:
     lemma_global_generalizer(context &ctx);
