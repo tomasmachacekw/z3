@@ -35,7 +35,7 @@ namespace qe {
 
 struct bv_project_plugin::imp {
 ast_manager &m;
-arith_util u;
+bv_util u;
 
 imp(ast_manager &_m) : m(_m), u(m) {}
 ~imp() {}
@@ -74,7 +74,6 @@ vector<def> project(model& model, app_ref_vector &vars, expr_ref_vector &fmls,
                     bool compute_def) {
     expr_ref_vector res(m);
     res.append(fmls);
-
     for (unsigned var_num = 0; var_num < vars.size(); var_num++) {
         expr_ref v(vars.get(var_num), m);
         TRACE("qe", tout << "eliminate " << mk_pp(v, m) << "\n";);
@@ -95,7 +94,7 @@ vector<def> project(model& model, app_ref_vector &vars, expr_ref_vector &fmls,
             if (normalize(v, f, model, norm)) {
                 norm_fmls.push_back(mk_and(norm));
                 // sanity check. normalization should be an under approximation
-                SASSERT(is_sat((m.mk_and(norm, m.mk_not(f)))));
+                SASSERT(is_sat((mk_and(norm), m.mk_not(f))));
                 // sanity check. model satisfies normalized formula
                 SASSERT(m.is_true(mk_and(norm)));
                 pi.push_back(f);
@@ -120,7 +119,7 @@ vector<def> project(model& model, app_ref_vector &vars, expr_ref_vector &fmls,
     expr_ref orig_fla(m);
     mk_exists(mk_and(fmls), vars, orig_fla);
     expr_ref mbp(mk_and(res), m);
-    SASSERT(!model->is_true(mbp) || is_sat(mbp, m.mk_not(orig_fla)));
+    SASSERT(!model.is_true(mbp) || is_sat(mbp, m.mk_not(orig_fla)));
     fmls.reset();
     fmls.append(res);
     return vector<def>();
@@ -212,7 +211,7 @@ bool operator()(model &model, app *v, app_ref_vector &vars,
 }
 
 bool solve(model &model, app_ref_vector &vars, expr_ref_vector &lits) {
-    NOT_IMPLEMENTED_YET();
+    // no pre-processing
     return false;
 }
 
