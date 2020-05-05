@@ -119,7 +119,8 @@ vector<def> project(model& model, app_ref_vector &vars, expr_ref_vector &fmls,
     expr_ref orig_fla(m);
     mk_exists(mk_and(fmls), vars, orig_fla);
     expr_ref mbp(mk_and(res), m);
-    SASSERT(!model.is_true(mbp) || is_sat(mbp, m.mk_not(orig_fla)));
+    SASSERT(model.is_true(mbp));
+    SASSERT(!is_sat(mbp, m.mk_not(orig_fla)));
     fmls.reset();
     fmls.append(res);
     return vector<def>();
