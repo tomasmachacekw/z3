@@ -29,6 +29,7 @@ Revision History:
 #include "qe/qe_mbp.h"
 #include "qe/qe_arith.h"
 #include "qe/qe_lia_arith.h"
+#include "qe/qe_bv_arith.h"
 #include "qe/qe_arrays.h"
 #include "qe/qe_datatypes.h"
 #include "qe/qe_lite.h"
@@ -485,10 +486,8 @@ public:
     }
 
     impl(ast_manager& m, params_ref const& p):m(m), m_params(p), m_rw(m) {
-        if (true)
-          add_plugin(alloc(arith_project_plugin, m));
-        else
-          add_plugin(alloc(lia_project_plugin, m));
+        add_plugin(alloc(arith_project_plugin, m));
+        add_plugin(alloc(bv_project_plugin, m));
         add_plugin(alloc(datatype_project_plugin, m));
         add_plugin(alloc(array_project_plugin, m));
         updt_params(p);

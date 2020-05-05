@@ -4,6 +4,7 @@ z3_add_component(qe
     nlqsat.cpp
     qe_arith.cpp
     qe_lia_arith.cpp
+    qe_bv_arith.cpp
     qe_arith_plugin.cpp
     qe_array_plugin.cpp
     qe_arrays.cpp
