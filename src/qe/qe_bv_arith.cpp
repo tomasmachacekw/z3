@@ -40,19 +40,22 @@ bv_util u;
 imp(ast_manager &_m) : m(_m), u(m) {}
 ~imp() {}
 
-bool contains(expr* e, expr* v) {
-    if (e == v) return true;
+bool contains(expr *e, expr *v) {
+    if (e == v)
+        return true;
     else {
         bool found = false;
-        for (expr* arg : *to_app(e)) {
+        for (expr *arg : *to_app(e)) {
             found |= contains(arg, v);
-            if (found) break;
+            if (found)
+                break;
         }
         return found;
     }
 }
 
-void mk_exists(expr* f, app_ref_vector& vars, expr_ref& res) {
+
+void mk_exists(expr *f, app_ref_vector &vars, expr_ref &res) {
     svector<symbol> names;
     expr_ref_vector fv(m);
     ptr_vector<sort> sorts;
@@ -70,7 +73,7 @@ void mk_exists(expr* f, app_ref_vector& vars, expr_ref& res) {
 
 // MAIN PROJECTION FUNCTION
 // compute_def is unused
-vector<def> project(model& model, app_ref_vector &vars, expr_ref_vector &fmls,
+vector<def> project(model &model, app_ref_vector &vars, expr_ref_vector &fmls,
                     bool compute_def) {
     expr_ref_vector res(m);
     res.append(fmls);
@@ -90,23 +93,24 @@ vector<def> project(model& model, app_ref_vector &vars, expr_ref_vector &fmls,
                 continue;
             }
 
-            //normalize and add to pi
+            // normalize and add to pi
             if (normalize(v, f, model, norm)) {
-                norm_fmls.push_back(mk_and(norm));
+                TRACE("qe", tout << "normalized from " << mk_pp(f, m) << " to "
+                      << mk_pp(mk_and(norm), m) << "\n";);
+                // norm_fmls.push_back(mk_and(norm));
                 // sanity check. normalization should be an under approximation
                 SASSERT(is_sat((mk_and(norm), m.mk_not(f))));
                 // sanity check. model satisfies normalized formula
                 SASSERT(m.is_true(mk_and(norm)));
                 pi.push_back(f);
-            }
-            else {
+            } else {
                 sig.push_back(f);
             }
         }
         resolve(v, norm_fmls, model, new_fmls);
 
-        //TODO maybe do this after projecting all the vars ?
-        if (!sig.empty()){
+        // TODO maybe do this after projecting all the vars ?
+        if (!sig.empty()) {
             lazy_mbp(pi, sig, v, new_fmls, model);
         }
 
@@ -126,10 +130,11 @@ vector<def> project(model& model, app_ref_vector &vars, expr_ref_vector &fmls,
     return vector<def>();
 }
 
-//computes mbp(pi && sig, model, v)
-//input: new_fmls ==> \exist v pi
-//output: new_fmls ==> \exists v pi && sig
-void lazy_mbp(expr_ref_vector& pi, expr_ref_vector& sig, expr_ref v, expr_ref_vector& new_fmls, model& model) {
+// computes mbp(pi && sig, model, v)
+// input: new_fmls ==> \exist v pi
+// output: new_fmls ==> \exists v pi && sig
+void lazy_mbp(expr_ref_vector &pi, expr_ref_vector &sig, expr_ref v,
+              expr_ref_vector &new_fmls, model &model) {
     expr_ref negged_quant_conj(m);
     negged_quant_conj = m.mk_and(mk_and(pi), mk_and(sig));
     if (contains(negged_quant_conj, v)) {
@@ -150,7 +155,7 @@ void lazy_mbp(expr_ref_vector& pi, expr_ref_vector& sig, expr_ref v, expr_ref_ve
     unsigned stren_sz = init_sz;
 
     if (is_sat(new_fmls_conj, mk_and(substs), negged_quant_conj)) {
-        for (auto & f : pi)  {
+        for (auto &f : pi) {
             // too weak; add missing substs
             expr_ref new_subst = get_subst(model, v, f);
             substs.push_back(new_subst);
@@ -162,27 +167,31 @@ void lazy_mbp(expr_ref_vector& pi, expr_ref_vector& sig, expr_ref v, expr_ref_ve
     substs_tmp.append(substs);
 
     // todo: possibly, optimize with incremental SMT
-    for (unsigned k = 0; k < substs.size(); ) {
+    for (unsigned k = 0; k < substs.size();) {
         expr_ref_vector tmp(m);
         for (unsigned l = 0; l < substs.size(); l++)
-            if (k != l) tmp.push_back(substs.get(l));
+            if (k != l)
+                tmp.push_back(substs.get(l));
 
         expr_ref tmp_conj(m);
         tmp_conj = mk_and(tmp);
 
-        if (is_sat(new_fmls_conj, tmp_conj, negged_quant_conj)) k++;
+        if (is_sat(new_fmls_conj, tmp_conj, negged_quant_conj))
+            k++;
         else {
             // erase k:
-            for (unsigned m = k; m < substs.size() - 1; m++) substs.set(m, substs.get(m+1));
+            for (unsigned m = k; m < substs.size() - 1; m++)
+                substs.set(m, substs.get(m + 1));
             substs.pop_back();
         }
     }
 
-    TRACE("qe", tout << "Lazy MBP completed: " << init_sz << " -> " << stren_sz << " -> " << substs.size() << " conjuncts\n";);
+    verbose_stream() << "\nLazy MBP completed: " << init_sz << " -> "
+                     << stren_sz << " -> " << substs.size() << " conjuncts\n";
     new_fmls.append(substs);
 }
 
-expr_ref get_subst(model &model, expr* v, expr* f) {
+expr_ref get_subst(model &model, expr *v, expr *f) {
     expr_ref subst(m);
     expr_safe_replace sub(m);
     sub.insert(v, model(v));
@@ -192,19 +201,22 @@ expr_ref get_subst(model &model, expr* v, expr* f) {
     return subst;
 }
 
+
 bool normalize(expr_ref var, expr_ref f, model& mdl, expr_ref_vector &res) {
   return false;
 }
 
-void resolve(expr_ref var, expr_ref_vector& f, model& mdl, expr_ref_vector &res) {
-    if(f.empty()) return;
+void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
+             expr_ref_vector &res) {
+    if (f.empty())
+        return;
     NOT_IMPLEMENTED_YET();
     return;
 }
 
 // project a single variable
 bool operator()(model &model, app *v, app_ref_vector &vars,
-                  expr_ref_vector &lits) {
+                expr_ref_vector &lits) {
     app_ref_vector vs(m);
     vs.push_back(v);
     project(model, vs, lits, false);
@@ -216,12 +228,14 @@ bool solve(model &model, app_ref_vector &vars, expr_ref_vector &lits) {
     return false;
 }
 
-bool is_sat(expr* a, expr* b = nullptr, expr* c = nullptr) {
+bool is_sat(expr *a, expr *b = nullptr, expr *c = nullptr) {
     params_ref p;
     ref<solver> sol = mk_smt_solver(m, p, symbol::null);
     sol->assert_expr(a);
-    if (b != nullptr) sol->assert_expr(b);
-    if (c != nullptr) sol->assert_expr(c);
+    if (b != nullptr)
+        sol->assert_expr(b);
+    if (c != nullptr)
+        sol->assert_expr(c);
     return (sol->check_sat(0, nullptr) == l_true);
 }
 };
@@ -229,16 +243,13 @@ bool is_sat(expr* a, expr* b = nullptr, expr* c = nullptr) {
 /**********************************************************/
 /*  bv_project_plugin implementation                     */
 /**********************************************************/
-bv_project_plugin::bv_project_plugin(ast_manager &m) {
-  m_imp = alloc(imp, m);
-}
+bv_project_plugin::bv_project_plugin(ast_manager &m) { m_imp = alloc(imp, m); }
 
 bv_project_plugin::~bv_project_plugin() { dealloc(m_imp); }
 
-bool bv_project_plugin::operator()(model &model, app *var,
-                                    app_ref_vector &vars,
-                                    expr_ref_vector &lits) {
-  return (*m_imp)(model, var, vars, lits);
+bool bv_project_plugin::operator()(model &model, app *var, app_ref_vector &vars,
+                                   expr_ref_vector &lits) {
+    return (*m_imp)(model, var, vars, lits);
 }
 
 void bv_project_plugin::operator()(model &model, app_ref_vector &vars,
@@ -247,7 +258,7 @@ void bv_project_plugin::operator()(model &model, app_ref_vector &vars,
 }
 
 vector<def> bv_project_plugin::project(model &model, app_ref_vector &vars,
-                                           expr_ref_vector &lits) {
+                                       expr_ref_vector &lits) {
     return m_imp->project(model, vars, lits, true);
 }
 
@@ -256,7 +267,7 @@ void bv_project_plugin::set_check_purified(bool check_purified) {
 }
 
 bool bv_project_plugin::solve(model &model, app_ref_vector &vars,
-                               expr_ref_vector &lits) {
+                              expr_ref_vector &lits) {
     return m_imp->solve(model, vars, lits);
 }
 
@@ -275,7 +286,7 @@ opt::inf_eps bv_project_plugin::maximize(expr_ref_vector const &fmls,
 void bv_project_plugin::saturate(model &model,
                                  func_decl_ref_vector const &shared,
                                  expr_ref_vector &lits) {
-  NOT_IMPLEMENTED_YET();
+    NOT_IMPLEMENTED_YET();
 }
 
 } // namespace qe
