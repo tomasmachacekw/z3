@@ -201,9 +201,133 @@ expr_ref get_subst(model &model, expr *v, expr *f) {
     return subst;
 }
 
+bool push_not(expr_ref f, expr_ref &res, expr_ref &sc, model &mdl) {
+    expr_ref rw(m);
+    expr *lhs, *rhs;
+    SASSERT(m.is_not(f));
+    rw = to_app(f)->get_arg(0);
+    TRACE("qe", tout << "Trying to push not into " << rw << "\n";);
 
-bool normalize(expr_ref var, expr_ref f, model& mdl, expr_ref_vector &res) {
-  return false;
+    if (u.is_bv_ule(rw, rhs, lhs)) {
+        // not(a <= b) <==> b <= a && b <= 2^n - 2
+        res = u.mk_ule(rhs, lhs);
+        const unsigned sz = u.get_bv_size(lhs);
+        rational bnd = rational::power_of_two(sz) - 2;
+        sc = u.mk_ule(lhs, u.mk_numeral(bnd, sz));
+        return true;
+    }
+    if (m.is_eq(rw, lhs, rhs)) {
+        res = m.mk_not(u.mk_ule(lhs, rhs));
+        if (mdl.is_true(res))
+            return true;
+        else {
+            res = m.mk_not(u.mk_ule(rhs, lhs));
+            SASSERT(mdl.is_true(res));
+            return true;
+        }
+    }
+    return false;
+}
+
+void mk_neg(expr *f, expr_ref &res) {
+    rational val;
+    if (u.is_numeral(f, val)) {
+        if (val == rational::zero())
+            res = f;
+        else {
+            const unsigned sz = u.get_bv_size(f);
+            rational neg = rational::power_of_two(sz) - 1 - val;
+            res = u.mk_numeral(neg, sz);
+        }
+    } else
+        res = u.mk_bv_neg(f);
+}
+
+void mk_add(expr_ref_vector &f, expr_ref &res) {
+    TRACE("qe", tout << "Trying to add "
+          << "\n";
+          for (auto a
+                   : f) tout
+                            << " and " << mk_pp(a, m););
+    res = m.mk_app(u.get_fid(), OP_BADD, f.size(), f.c_ptr());
+}
+
+bool rewrite_ule(expr_ref var, expr *lhs, expr *rhs, model &mdl,
+                 expr_ref_vector &res) {
+    expr_ref nw_lhs(m), neg(m), sum(m), t2_sum(m), neg_t2_sum(m);
+    expr_ref_vector nw_rhs(m), t2(m), neg_t2(m);
+    // if already in normal form, return true
+    // TODO check whether lhs = c * var
+    if (lhs == var) {
+        res.push_back(u.mk_ule(lhs, rhs));
+        return true;
+    }
+    TRACE("qe", tout << "Trying to normalize " << mk_pp(lhs, m) << " leq "
+          << mk_pp(rhs, m) << " wrt var " << var << "\n";);
+    if (!u.is_bv_add(rhs))
+        nw_rhs.push_back(rhs);
+    else {
+        for (expr *arg : *to_app(rhs))
+            nw_rhs.push_back(arg);
+    }
+    if (!u.is_bv_add(lhs)) {
+        SASSERT(contains(lhs, var));
+        nw_lhs = lhs;
+    } else {
+        bool found = false;
+        for (expr *arg : *to_app(lhs)) {
+            if (contains(arg, var)) {
+                if (found)
+                    return false;
+                nw_lhs = arg;
+                found = true;
+                continue;
+            }
+            t2.push_back(arg);
+            mk_neg(arg, neg);
+            neg_t2.push_back(neg);
+            nw_rhs.push_back(neg);
+        }
+    }
+    mk_add(nw_rhs, sum);
+    mk_add(neg_t2, neg_t2_sum);
+    mk_add(t2, t2_sum);
+    if (mdl.is_true(u.mk_ule(t2_sum, rhs)))
+        res.push_back(u.mk_ule(t2_sum, rhs));
+    else if (mdl.is_true(u.mk_ule(neg_t2_sum, lhs)))
+        res.push_back(u.mk_ule(neg_t2_sum, lhs));
+    else
+        return false;
+    res.push_back(u.mk_ule(nw_lhs, sum));
+    return true;
+}
+
+bool normalize(expr_ref var, expr_ref f, model &mdl, expr_ref_vector &res) {
+    expr_ref rw(f, m), sc(m);
+    expr *lhs, *rhs;
+    TRACE("qe",
+          tout << "Trying to normalize " << f << " wrt var " << var << "\n";);
+    if (m.is_not(f)) {
+        if (!push_not(f, rw, sc, mdl))
+            return false;
+        // normalize both the expression inside f and the side condition produced
+        bool n1 = normalize(var, rw, mdl, res);
+        if (sc.get() != nullptr)
+            n1 = n1 && normalize(var, sc, mdl, res);
+        return n1;
+    }
+    if (!u.is_bv_ule(rw, lhs, rhs))
+        return false;
+    if ((!contains(lhs, var)) || contains(rhs, var))
+        return false;
+    if (!rewrite_ule(var, lhs, rhs, mdl, res)) {
+        if (sc.get() != nullptr) {
+            // normalize and add sc to res
+            normalize(var, sc, mdl, res);
+        }
+        return true;
+    }
+    return false;
 }
 
 void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
