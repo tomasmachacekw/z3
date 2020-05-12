@@ -97,20 +97,32 @@ vector<def> project(model &model, app_ref_vector &vars, expr_ref_vector &fmls,
             if (normalize(v, f, model, norm)) {
                 TRACE("qe", tout << "normalized from " << mk_pp(f, m) << " to "
                       << mk_pp(mk_and(norm), m) << "\n";);
-                // norm_fmls.push_back(mk_and(norm));
+                for (auto a : norm) {
+                    // normalization can create side conditions not involving v
+                    if (contains(a, v))
+                        norm_fmls.push_back(a);
+                    else
+                        backg_fmls.push_back(a);
+                }
                 // sanity check. normalization should be an under approximation
                 SASSERT(is_sat((mk_and(norm), m.mk_not(f))));
                 // sanity check. model satisfies normalized formula
-                pi.push_back(f);
                 SASSERT(model.is_true(mk_and(norm)));
             } else {
-                sig.push_back(f);
+                TRACE("qe", tout << "could not normalize " << f << " in var " << v
+                               << "\n";);
+              sig.push_back(f);
             }
         }
-        resolve(v, norm_fmls, model, new_fmls);
+        expr_ref_vector bd_fmls(m);
+        resolve(v, norm_fmls, model, new_fmls, bd_fmls);
+        CTRACE("qe", bd_fmls.size() > 0, tout << " could not resolve out " << mk_and(bd_fmls) << " for var " << v << "\n";);
+        sig.append(bd_fmls);
+        pi.append(norm_fmls);
 
         // TODO maybe do this after projecting all the vars ?
         if (!sig.empty()) {
+            TRACE("qe", tout << "calling lazy mbp with pi " << mk_and(pi) << " and sig " << mk_and(sig) << "\n";);
             lazy_mbp(pi, sig, v, new_fmls, model);
         }
 
@@ -395,11 +407,38 @@ bool normalize(expr_ref var, expr_ref f, model &mdl, expr_ref_vector &res) {
     return rewrite_ule(var, lhs, rhs, mdl, res);
 }
 
+void get_lbs(expr_ref var, expr_ref_vector& f, expr_ref_vector& lbs) {
+    expr *lhs, *rhs;
+    for (auto a : f) {
+        if (contains(a, var)) {
+            if (u.is_bv_ule(a, lhs, rhs) && !contains(lhs, var) && contains(rhs, var))
+                lbs.push_back(a);
+        }
+    }
+}
+
+void get_ubs(expr_ref var, expr_ref_vector &f, expr_ref_vector &ubs) {
+  expr *lhs, *rhs;
+  for (auto a : f) {
+    if (contains(a, var)) {
+      if (u.is_bv_ule(a, lhs, rhs) && contains(lhs, var) && !contains(rhs, var))
+        ubs.push_back(a);
+    }
+  }
+}
+
 void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
-             expr_ref_vector &res) {
+             expr_ref_vector &res, expr_ref_vector& bd_fmls) {
     if (f.empty())
         return;
-    NOT_IMPLEMENTED_YET();
+    expr_ref_vector lbs(m), ubs(m);
+    get_lbs(var, f, lbs);
+    get_ubs(var, f, ubs);
+    if (ubs.size() == f.size()) {
+        f.reset();
+        res.push_back(m.mk_true());
+        return;
+    }
     return;
 }
 
