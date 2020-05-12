@@ -101,8 +101,8 @@ vector<def> project(model &model, app_ref_vector &vars, expr_ref_vector &fmls,
                 // sanity check. normalization should be an under approximation
                 SASSERT(is_sat((mk_and(norm), m.mk_not(f))));
                 // sanity check. model satisfies normalized formula
-                SASSERT(m.is_true(mk_and(norm)));
                 pi.push_back(f);
+                SASSERT(model.is_true(mk_and(norm)));
             } else {
                 sig.push_back(f);
             }
