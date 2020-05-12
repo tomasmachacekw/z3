@@ -152,42 +152,28 @@ void lazy_mbp(expr_ref_vector &pi, expr_ref_vector &sig, expr_ref v,
         substs.push_back(get_subst(model, v, f));
     }
     unsigned init_sz = substs.size(); // for stats
-    unsigned stren_sz = init_sz;
 
-    if (is_sat(new_fmls_conj, mk_and(substs), negged_quant_conj)) {
-        for (auto &f : pi) {
-            // too weak; add missing substs
-            expr_ref new_subst = get_subst(model, v, f);
-            substs.push_back(new_subst);
-        }
-        stren_sz = substs.size();
+    if (!is_sat(new_fmls_conj, mk_and(substs), negged_quant_conj)) {
+        new_fmls.append(substs);
+        verbose_stream() << "\nLazy MBP completed. sig size " << init_sz
+                         << " no substitutions in pi \n";
+        return ;
     }
 
     expr_ref_vector substs_tmp(m); // backup copy
     substs_tmp.append(substs);
 
     // todo: possibly, optimize with incremental SMT
-    for (unsigned k = 0; k < substs.size();) {
-        expr_ref_vector tmp(m);
-        for (unsigned l = 0; l < substs.size(); l++)
-            if (k != l)
-                tmp.push_back(substs.get(l));
+    for (auto f : pi) {
+        // too weak; add missing substs
+        expr_ref new_subst = get_subst(model, v, f);
+        substs.push_back(new_subst);
 
-        expr_ref tmp_conj(m);
-        tmp_conj = mk_and(tmp);
-
-        if (is_sat(new_fmls_conj, tmp_conj, negged_quant_conj))
-            k++;
-        else {
-            // erase k:
-            for (unsigned m = k; m < substs.size() - 1; m++)
-                substs.set(m, substs.get(m + 1));
-            substs.pop_back();
-        }
+        if (!is_sat(new_fmls_conj, mk_and(substs), negged_quant_conj))
+            break;
     }
 
-    verbose_stream() << "\nLazy MBP completed: " << init_sz << " -> "
-                     << stren_sz << " -> " << substs.size() << " conjuncts\n";
+    verbose_stream() << "\nLazy MBP completed. sig size " << init_sz << " substitutions in pi " << substs.size() - init_sz << " and pi size " << pi.size()  << "\n";
     new_fmls.append(substs);
 }
 
