@@ -187,6 +187,8 @@ expr_ref get_subst(model &model, expr *v, expr *f) {
     return subst;
 }
 
+// push not inside f
+// produces side condition sc satisfied by mdl
 bool push_not(expr_ref f, expr_ref &res, expr_ref &sc, model &mdl) {
     expr_ref rw(m);
     expr *lhs, *rhs;
@@ -194,22 +196,31 @@ bool push_not(expr_ref f, expr_ref &res, expr_ref &sc, model &mdl) {
     rw = to_app(f)->get_arg(0);
     TRACE("qe", tout << "Trying to push not into " << rw << "\n";);
 
-    if (u.is_bv_ule(rw, rhs, lhs)) {
-        // not(a <= b) <==> b <= a && b <= 2^n - 2
-        res = u.mk_ule(rhs, lhs);
+    if (u.is_bv_ule(rw, lhs, rhs)) {
+        // not(a <= b) <==> b + 1 <= a && b <= 2^n - 2
         const unsigned sz = u.get_bv_size(lhs);
+        expr_ref one = expr_ref(u.mk_numeral(rational::one(), sz), m);
+        expr_ref nw_lhs(m);
+        rational val;
+        if(u.is_numeral(rhs, val))
+            nw_lhs = u.mk_numeral(val + rational::one(), sz);
+        else
+            nw_lhs = u.mk_bv_add(rhs, one);
+        res = u.mk_ule(nw_lhs, lhs);
         rational bnd = rational::power_of_two(sz) - 2;
-        sc = u.mk_ule(lhs, u.mk_numeral(bnd, sz));
+        sc = u.mk_ule(nw_lhs, u.mk_numeral(bnd, sz));
+        SASSERT(mdl.is_true(sc));
         return true;
     }
     if (m.is_eq(rw, lhs, rhs)) {
         res = m.mk_not(u.mk_ule(lhs, rhs));
-        if (mdl.is_true(res))
-            return true;
+        if (mdl.is_true(res)) {
+            return push_not(res, res, sc, mdl);
+        }
         else {
             res = m.mk_not(u.mk_ule(rhs, lhs));
             SASSERT(mdl.is_true(res));
-            return true;
+            return push_not(res, res, sc, mdl);
         }
     }
     return false;
@@ -230,62 +241,135 @@ void mk_neg(expr *f, expr_ref &res) {
 }
 
 void mk_add(expr_ref_vector &f, expr_ref &res) {
-    TRACE("qe", tout << "Trying to add "
-          << "\n";
-          for (auto a
-                   : f) tout
-                            << " and " << mk_pp(a, m););
+  if (f.size() == 1)
+    res = f.get(0);
+  if (f.size() != 0)
     res = m.mk_app(u.get_fid(), OP_BADD, f.size(), f.c_ptr());
 }
 
+void flatten_add(expr_ref t1, expr_ref_vector& res) {
+    if (t1.get() == nullptr) return;
+    if (!u.is_bv_add(t1)) {
+        res.push_back(t1);
+        return;
+    }
+    rational val, sum = rational::zero();
+    unsigned sz = u.get_bv_size(t1.get());
+    expr_ref flt(m);
+    for (auto arg : *(to_app(t1))) {
+        flatten_term(arg, flt);
+        if (u.is_numeral(flt, val)) sum = sum + val;
+        else
+            res.push_back(flt);
+    }
+    if (!sum.is_zero())
+        res.push_back(u.mk_numeral(sum, sz));
+}
+
+void flatten_term (expr* t, expr_ref& res) {
+    expr* neg;
+    if (u.is_bv_neg(t)) {
+        neg = to_app(t)->get_arg(0);
+        if (u.is_bv_neg(neg)) {
+            res = to_app(neg)->get_arg(0);
+            return;
+        }
+        if (u.is_numeral(neg)) {
+            mk_neg (neg, res);
+            return;
+        }
+    }
+    res = t;
+    return;
+}
+void mk_add(expr_ref t1, expr_ref t2, expr_ref &res) {
+    expr_ref_vector f(m);
+    flatten_add(t1, f);
+    flatten_add(t2, f);
+    mk_add(f, res);
+}
+
+// separates lhs, rhs into three parts such that only one contains var
+void split(expr_ref var, expr *lhs, expr *rhs, expr_ref& t1, expr_ref& t2, expr_ref& t2_neg, expr_ref& t3) {
+
+  bool lhs_var = contains(lhs, var);
+  TRACE("qe", tout << "Trying to split " << mk_pp(lhs, m) << " leq "
+                   << mk_pp(rhs, m) << " wrt var " << var << "\n";);
+
+  if (lhs_var) {
+      split_term(var, lhs, t1, t2, t2_neg);
+      t3 = rhs;
+  }
+  else {
+      split_term(var, rhs, t3, t2, t2_neg);
+      t1 = lhs;
+  }
+  return;
+}
+
+// splits exp into terms t and t2 such that exp = t + t2 and t contains var
+void split_term(expr_ref var, expr* exp, expr_ref& t, expr_ref& t2, expr_ref& t2_neg) {
+    SASSERT(contains(exp, var));
+    if (!u.is_bv_add(exp)) {
+        t = exp;
+        return;
+    }
+    expr_ref neg(m);
+    expr_ref_vector t2_vec(m), t2_neg_vec(m);
+    bool found = false;
+    for (expr *arg : *to_app(exp)) {
+        if (contains(arg, var)) {
+            SASSERT(!found);
+            t = arg;
+            found = true;
+            continue;
+        }
+        t2_vec.push_back(arg);
+        mk_neg(arg, neg);
+        t2_neg_vec.push_back(neg);
+    }
+    mk_add(t2_neg_vec, t2_neg);
+    mk_add(t2_vec, t2);
+}
+// rewrite lhs <= rhs so that var to the form t <= k * var or k * var <= t
+// requires var is either in lhs or rhs but not both
+// requires model satisfies sc
 bool rewrite_ule(expr_ref var, expr *lhs, expr *rhs, model &mdl,
                  expr_ref_vector &res) {
-    expr_ref nw_lhs(m), neg(m), sum(m), t2_sum(m), neg_t2_sum(m);
-    expr_ref_vector nw_rhs(m), t2(m), neg_t2(m);
+    expr_ref sc1(m), sc2(m), t1(m), t2(m), t2_neg(m), t3(m), nw_rhs(m), nw_lhs(m);
+    if (!(contains(lhs, var) ^ contains(rhs, var))) return false;
+
+    TRACE("qe",
+          tout << "Trying to normalize ule " << mk_pp(lhs, m) << " leq " << mk_pp(rhs, m) << " wrt var " << var << "\n";);
     // if already in normal form, return true
     // TODO check whether lhs = c * var
-    if (lhs == var) {
+    if (lhs == var || rhs == var) {
         res.push_back(u.mk_ule(lhs, rhs));
         return true;
     }
-    TRACE("qe", tout << "Trying to normalize " << mk_pp(lhs, m) << " leq "
-          << mk_pp(rhs, m) << " wrt var " << var << "\n";);
-    if (!u.is_bv_add(rhs))
-        nw_rhs.push_back(rhs);
-    else {
-        for (expr *arg : *to_app(rhs))
-            nw_rhs.push_back(arg);
-    }
-    if (!u.is_bv_add(lhs)) {
-        SASSERT(contains(lhs, var));
-        nw_lhs = lhs;
-    } else {
-        bool found = false;
-        for (expr *arg : *to_app(lhs)) {
-            if (contains(arg, var)) {
-                if (found)
-                    return false;
-                nw_lhs = arg;
-                found = true;
-                continue;
-            }
-            t2.push_back(arg);
-            mk_neg(arg, neg);
-            neg_t2.push_back(neg);
-            nw_rhs.push_back(neg);
-        }
-    }
-    mk_add(nw_rhs, sum);
-    mk_add(neg_t2, neg_t2_sum);
-    mk_add(t2, t2_sum);
-    if (mdl.is_true(u.mk_ule(t2_sum, rhs)))
-        res.push_back(u.mk_ule(t2_sum, rhs));
-    else if (mdl.is_true(u.mk_ule(neg_t2_sum, lhs)))
-        res.push_back(u.mk_ule(neg_t2_sum, lhs));
-    else
+
+    split(var, lhs, rhs, t1, t2, t2_neg, t3);
+    bool lhs_var = contains(lhs, var);
+    sc1 = u.mk_ule(t1, t2);
+    sc2 = u.mk_ule(t2_neg, t3);
+    if (mdl.is_true(sc1) && mdl.is_true(sc2)) {
+        TRACE("qe", tout << "sc not true in model\n";);
         return false;
-    res.push_back(u.mk_ule(nw_lhs, sum));
-    return true;
+    }
+    res.push_back(sc1);
+    res.push_back(sc2);
+    if (lhs_var) {
+        SASSERT(contains(t1, var));
+        mk_add(t3, t2_neg, nw_rhs);
+        res.push_back(u.mk_ule(t1, nw_rhs));
+        return true;
+    }
+    else {
+        SASSERT(contains(t3, var));
+        mk_add(t1, t2_neg, nw_lhs);
+        res.push_back(u.mk_ule(nw_lhs, t3));
+        return true;
+    }
 }
 
 bool normalize(expr_ref var, expr_ref f, model &mdl, expr_ref_vector &res) {
@@ -293,6 +377,10 @@ bool normalize(expr_ref var, expr_ref f, model &mdl, expr_ref_vector &res) {
     expr *lhs, *rhs;
     TRACE("qe",
           tout << "Trying to normalize " << f << " wrt var " << var << "\n";);
+    if (!contains(f, var)) {
+        res.push_back(f);
+        return true;
+    }
     if (m.is_not(f)) {
         if (!push_not(f, rw, sc, mdl))
             return false;
@@ -304,16 +392,7 @@ bool normalize(expr_ref var, expr_ref f, model &mdl, expr_ref_vector &res) {
     }
     if (!u.is_bv_ule(rw, lhs, rhs))
         return false;
-    if ((!contains(lhs, var)) || contains(rhs, var))
-        return false;
-    if (!rewrite_ule(var, lhs, rhs, mdl, res)) {
-        if (sc.get() != nullptr) {
-            // normalize and add sc to res
-            normalize(var, sc, mdl, res);
-        }
-        return true;
-    }
-    return false;
+    return rewrite_ule(var, lhs, rhs, mdl, res);
 }
 
 void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
