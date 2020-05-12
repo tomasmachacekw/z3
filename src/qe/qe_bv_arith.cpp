@@ -129,6 +129,7 @@ vector<def> project(model &model, app_ref_vector &vars, expr_ref_vector &fmls,
         res.reset();
         res.append(new_fmls);
         res.append(backg_fmls);
+        TRACE("qe", tout << "mbp produced " << mk_and(res) << "\n";);
     }
 
     // final sanity check
