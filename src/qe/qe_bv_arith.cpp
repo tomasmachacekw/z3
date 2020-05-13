@@ -256,7 +256,7 @@ void mk_neg(expr *f, expr_ref &res) {
 void mk_add(expr_ref_vector &f, expr_ref &res) {
   if (f.size() == 1)
     res = f.get(0);
-  if (f.size() != 0)
+  else if (f.size() != 0)
     res = m.mk_app(u.get_fid(), OP_BADD, f.size(), f.c_ptr());
 }
 
