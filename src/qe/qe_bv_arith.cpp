@@ -403,6 +403,14 @@ bool normalize(expr_ref var, expr_ref f, model &mdl, expr_ref_vector &res) {
             n1 = n1 && normalize(var, sc, mdl, res);
         return n1;
     }
+    if (m.is_eq(rw, lhs, rhs)) {
+        expr_ref t(m);
+        t = u.mk_ule(lhs, rhs);
+        bool n1 = normalize(var, t, mdl, res);
+        t = u.mk_ule(rhs, lhs);
+        n1 = n1 && normalize(var, t, mdl, res);
+        return n1;
+    }
     if (!u.is_bv_ule(rw, lhs, rhs))
         return false;
     return rewrite_ule(var, lhs, rhs, mdl, res);
