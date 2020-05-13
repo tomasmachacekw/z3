@@ -507,8 +507,8 @@ void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
     expr_ref_vector lbs(m), ubs(m);
     get_lbs(var, f, lbs);
     get_ubs(var, f, ubs);
-    if (ubs.size() == f.size()) {
-        f.reset();
+    if (ubs.size() == f.size() || lbs.size() == f.size()) {
+        bd_fmls.reset();
         res.push_back(m.mk_true());
         return;
     }
