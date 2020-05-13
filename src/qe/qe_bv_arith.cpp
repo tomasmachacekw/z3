@@ -428,6 +428,78 @@ void get_ubs(expr_ref var, expr_ref_vector &f, expr_ref_vector &ubs) {
   }
 }
 
+rational get_coeff(expr* a, expr_ref var) {
+    if (!contains(a, var)) return rational::zero();
+    if (a == var.get()) return rational::one();
+    expr *t1, *t2;
+    if (u.is_bv_mul(a, t1, t2)) {
+        rational o_coeff;
+        SASSERT(u.is_numeral(t1));
+        u.is_numeral(t1, o_coeff);
+        return o_coeff * get_coeff(t2, var);
+    }
+    SASSERT(u.is_bv_add(a));
+    for (auto t : *to_app(a)) {
+        if (contains(t, var)) return get_coeff(t, var);
+    }
+    return rational::zero();
+}
+
+//lcm of coefficients of var in f
+rational get_lcm(expr_ref_vector& f, expr_ref var) {
+    rational l = rational::one();
+    for(auto a : f) {
+        rational c = get_coeff(a, var);
+        l = lcm(l, c);
+    }
+    return l;
+}
+
+
+
+expr* find_glb(model &mdl, expr_ref_vector& lbs) {
+    expr_ref res(m);
+    expr *r = nullptr;
+    rational val, glb(0);
+    for (auto a : lbs) {
+        mdl.eval_expr(to_app(a)->get_arg(0), res);
+        if (u.is_numeral(res, val) && glb < val) {
+            r = a;
+        }
+    }
+    return r;
+}
+
+expr *find_lub(model &mdl, expr_ref_vector &ubs) {
+  expr_ref res(m);
+  expr *r = nullptr;
+  rational val, lub;
+
+  mdl.eval_expr(to_app(ubs[0].get())->get_arg(0), res);
+  if (!u.is_numeral(res, lub))
+      return nullptr;
+
+  for (auto a : ubs) {
+    mdl.eval_expr(to_app(a)->get_arg(0), res);
+    if (u.is_numeral(res, val) && lub > val) {
+      r = a;
+    }
+  }
+  return r;
+}
+
+void mk_mul(expr* a, rational b, expr_ref& o) {
+    rational val;
+    unsigned sz = u.get_bv_size(a);
+    if (u.is_numeral(a, val)) {
+        o = u.mk_numeral(val * b, sz);
+        return;
+    }
+    o = u.mk_bv_mul(u.mk_numeral(b, sz), a);
+}
+
+// generates an under-approximation for some literals in f
+// modifies f, res and bd_fmls
 void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
              expr_ref_vector &res, expr_ref_vector& bd_fmls) {
     if (f.empty())
