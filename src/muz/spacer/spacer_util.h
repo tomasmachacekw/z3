@@ -173,6 +173,9 @@ namespace spacer {
     void mul_if_not_one(rational coeff, expr *e, expr_ref &res);
     // get all numeral values in the formula
     void extract_nums(expr_ref fml, vector<rational> &res);
+
+    // set f to true in model
+    void set_true_in_mdl(model &model, func_decl *f);
 }
 
 #endif
