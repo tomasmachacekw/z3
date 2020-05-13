@@ -512,6 +512,62 @@ void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
         res.push_back(m.mk_true());
         return;
     }
+    TRACE("qe", tout << "trying to resolve " << mk_and(ubs) << " and " << mk_and(lbs) << "\n";);
+    SASSERT(ubs.size() + lbs.size() == f.size());
+    expr *ub, *lb;
+    expr_ref nw_lhs(m), nw_rhs(m);
+    rational lcm = get_lcm(f, var);
+    ub = find_glb(mdl, lbs);
+    lb = find_lub(mdl, ubs);
+    rational ub_c = get_coeff(ub, var);
+    rational lb_c = get_coeff(lb, var);
+
+    //create lb_lhs * (lcm/lb_c)/lcm <= ub_rhs *(lcm/ub_c)/lcm
+    rational c1 = div(div(lcm, lb_c), lcm);
+    rational c2 = div(div(lcm, ub_c), lcm);
+    mk_mul(to_app(lb)->get_arg(0), c1, nw_lhs);
+    mk_mul(to_app(ub)->get_arg(1), c1, nw_rhs);
+    res.push_back(u.mk_ule(nw_lhs, nw_rhs));
+
+    unsigned sz = u.get_bv_size(ub);
+    for (auto a : lbs) {
+        rational a_c = get_coeff(to_app(a)->get_arg(1), var);
+        SASSERT(!a_c.is_zero());
+        rational bnd = div(rational::power_of_two(sz) - 1, div(lcm, a_c));
+        res.push_back(u.mk_ule(to_app(a)->get_arg(0), u.mk_numeral(bnd, sz)));
+    }
+
+    for (auto a : ubs) {
+      rational a_c = get_coeff(to_app(a)->get_arg(0), var);
+      SASSERT(!a_c.is_zero());
+      rational bnd = div(rational::power_of_two(sz) - 1, div(lcm, a_c));
+      res.push_back(u.mk_ule(to_app(a)->get_arg(1), u.mk_numeral(bnd, sz)));
+    }
+
+    expr_ref term(m);
+    mk_mul(to_app(lb)->get_arg(0), div(lcm, c1), term);
+
+    for (auto a : lbs) {
+        if (a == lb) continue;
+        expr_ref nw_lhs(m);
+        rational c = get_coeff(to_app(a)->get_arg(1), var);
+        mk_mul(to_app(a)->get_arg(0), div(lcm, c), nw_lhs);
+        res.push_back(u.mk_ule(nw_lhs, to_app(a)->get_arg(0)));
+    }
+
+    for (auto a : ubs) {
+        expr_ref nw_rhs(m);
+        rational c = get_coeff(to_app(a)->get_arg(0), var);
+        mk_mul(to_app(a)->get_arg(1), div(lcm, c), nw_rhs);
+        res.push_back(u.mk_ule(to_app(a)->get_arg(0), nw_rhs));
+    }
+
+    //check if any side conditions failed
+    if (!mdl.is_true(mk_and(res))) {
+        bd_fmls.append(f);
+        f.reset();
+        res.reset();
+    }
     return;
 }
 
