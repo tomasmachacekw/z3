@@ -168,8 +168,8 @@ void lazy_mbp(expr_ref_vector &pi, expr_ref_vector &sig, expr_ref v,
 
     if (!is_sat(new_fmls_conj, mk_and(substs), negged_quant_conj)) {
         new_fmls.append(substs);
-        verbose_stream() << "\nLazy MBP completed. sig size " << init_sz
-                         << " no substitutions in pi \n";
+        TRACE("qe", tout << "\nLazy MBP completed. sig size " << init_sz
+              << " no substitutions in pi \n";);
         return ;
     }
 
@@ -186,7 +186,7 @@ void lazy_mbp(expr_ref_vector &pi, expr_ref_vector &sig, expr_ref v,
             break;
     }
 
-    verbose_stream() << "\nLazy MBP completed. sig size " << init_sz << " substitutions in pi " << substs.size() - init_sz << " and pi size " << pi.size()  << "\n";
+    TRACE("qe", tout << "\nLazy MBP completed. sig size " << init_sz << " substitutions in pi " << substs.size() - init_sz << " and pi size " << pi.size()  << "\n";);
     new_fmls.append(substs);
 }
 
