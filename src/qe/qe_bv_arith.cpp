@@ -506,21 +506,26 @@ void mk_mul(expr* a, rational b, expr_ref& o) {
     o = u.mk_bv_mul(u.mk_numeral(b, sz), a);
 }
 
-// resolve a1 <= k1*var with k2*var <= b2 to get k2*a1 <= k1*b2 and other side
-// conditions create a_lhs * (lcm/a_c)/lcm <= b_rhs *(lcm/b_c)/lcm
+// resolve a1 <= a_c*var with b_c*var <= b2 to get a_lhs * (lcm/a_c)/lcm <= b_rhs *(lcm/b_c)/lcm
 void resolve(expr* a, expr* b, rational lcm, expr_ref var, expr_ref& res) {
     SASSERT(u.is_bv_ule(a));
     SASSERT(u.is_bv_ule(b));
     rational b_c = get_coeff(b, var);
     rational a_c = get_coeff(a, var);
-    expr_ref nw_lhs(m), nw_rhs(m);
     SASSERT(!b_c.is_zero() && !a_c.is_zero());
-
-    rational c1 = div(div(lcm, a_c), lcm);
-    rational c2 = div(div(lcm, b_c), lcm);
-    mk_mul(to_app(a)->get_arg(0), c1, nw_lhs);
-    mk_mul(to_app(b)->get_arg(1), c2, nw_rhs);
-    res = u.mk_ule(nw_lhs, nw_rhs);
+    if (lcm.is_one()) {
+        SASSERT(a_c.is_one());
+        SASSERT(b_c.is_one());
+        res = u.mk_ule(to_app(a)->get_arg(0), to_app(b)->get_arg(1));
+    }
+    else {
+        rational c1 = div(div(lcm, a_c), lcm);
+        rational c2 = div(div(lcm, b_c), lcm);
+        expr_ref nw_lhs(m), nw_rhs(m);
+        mk_mul(to_app(a)->get_arg(0), c1, nw_lhs);
+        mk_mul(to_app(b)->get_arg(1), c2, nw_rhs);
+        res = u.mk_ule(nw_lhs, nw_rhs);
+    }
 }
 
 // generates an under-approximation for some literals in f
