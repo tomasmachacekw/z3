@@ -556,12 +556,13 @@ void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
     expr *ub, *lb;
     expr_ref nw_lhs(m), nw_rhs(m), r(m);
     rational lcm = get_lcm(f, var);
-    ub = find_glb(mdl, lbs);
-    lb = find_lub(mdl, ubs);
+    lb = find_glb(mdl, lbs);
+    ub = find_lub(mdl, ubs);
+    TRACE("qe", tout << "the upper bound is " << mk_pp(ub, m) << " and the lower bound is " << mk_pp(lb, m) << "\n";);
     rational ub_c = get_coeff(ub, var);
     rational lb_c = get_coeff(lb, var);
     expr_ref_vector sc(m);
-    unsigned sz = u.get_bv_size(ub);
+    unsigned sz = u.get_bv_size(var);
     // side conditions to ensure no overflow occurs
     for (auto a : lbs) {
         rational a_c = get_coeff(to_app(a)->get_arg(1), var);
