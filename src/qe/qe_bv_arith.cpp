@@ -506,7 +506,14 @@ void mk_mul(expr* a, rational b, expr_ref& o) {
     o = u.mk_bv_mul(u.mk_numeral(b, sz), a);
 }
 
-// resolve a1 <= a_c*var with b_c*var <= b2 to get a_lhs * (lcm/a_c)/lcm <= b_rhs *(lcm/b_c)/lcm
+void mk_div(expr* a, rational b, expr_ref& res) {
+    arith_util m_util(m);
+    expr* c = m_util.mk_to_int(a);
+    res = m_util.mk_idiv(c, m_util.mk_int(b));
+    TRACE("qe", tout << "making int div " << res << "\n";);
+}
+
+// resolve a1 <= a_c*var with b_c*var <= b2 to get (a_lhs * (lcm/a_c))/lcm <= (b_rhs *(lcm/b_c))/lcm
 void resolve(expr* a, expr* b, rational lcm, expr_ref var, expr_ref& res) {
     SASSERT(u.is_bv_ule(a));
     SASSERT(u.is_bv_ule(b));
@@ -519,11 +526,13 @@ void resolve(expr* a, expr* b, rational lcm, expr_ref var, expr_ref& res) {
         res = u.mk_ule(to_app(a)->get_arg(0), to_app(b)->get_arg(1));
     }
     else {
-        rational c1 = div(div(lcm, a_c), lcm);
-        rational c2 = div(div(lcm, b_c), lcm);
+        rational c1 = div(lcm, a_c);
+        rational c2 = div(lcm, b_c);
         expr_ref nw_lhs(m), nw_rhs(m);
         mk_mul(to_app(a)->get_arg(0), c1, nw_lhs);
         mk_mul(to_app(b)->get_arg(1), c2, nw_rhs);
+        mk_div(nw_lhs, lcm, nw_lhs);
+        mk_div(nw_rhs, lcm, nw_rhs);
         res = u.mk_ule(nw_lhs, nw_rhs);
     }
 }
