@@ -486,7 +486,7 @@ expr *find_lub(model &mdl, expr_ref_vector &ubs) {
   mdl.eval_expr(to_app(ubs[0].get())->get_arg(0), res);
   if (!u.is_numeral(res, lub))
       return nullptr;
-
+  r = ubs[0].get();
   for (auto a : ubs) {
     mdl.eval_expr(to_app(a)->get_arg(0), res);
     if (u.is_numeral(res, val) && lub > val) {
