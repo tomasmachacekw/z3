@@ -325,6 +325,8 @@ void split_term(expr_ref var, expr* exp, expr_ref& t, expr_ref& t2, expr_ref& t2
     SASSERT(contains(exp, var));
     if (!u.is_bv_add(exp)) {
         t = exp;
+        t2 = u.mk_numeral(rational(0), u.get_bv_size(var));
+        mk_neg(t2, t2_neg);
         return;
     }
     expr_ref neg(m);
@@ -480,9 +482,8 @@ expr* find_glb(model &mdl, expr_ref_vector& lbs) {
 
 expr *find_lub(model &mdl, expr_ref_vector &ubs) {
   expr_ref res(m);
-  expr *r = nullptr;
+  expr *r = ubs.get(0);
   rational val, lub;
-
   mdl.eval_expr(to_app(ubs[0].get())->get_arg(0), res);
   if (!u.is_numeral(res, lub))
       return nullptr;
@@ -552,7 +553,10 @@ void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
     rational ub_c = get_coeff(ub, var);
     rational lb_c = get_coeff(lb, var);
     expr_ref_vector sc(m);
-    unsigned sz = u.get_bv_size(ub);
+    expr_ref val(m);
+    mdl.eval_expr(var, val);
+    unsigned sz = u.get_bv_size(val);
+
     // side conditions to ensure no overflow occurs
     for (auto a : lbs) {
         rational a_c = get_coeff(to_app(a)->get_arg(1), var);
