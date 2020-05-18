@@ -157,12 +157,13 @@ void lazy_mbp(expr_ref_vector &pi, expr_ref_vector &sig, expr_ref v,
     }
     negged_quant_conj = m.mk_not(negged_quant_conj);
 
-    expr_ref new_fmls_conj(m);
+    expr_ref new_fmls_conj(m), r(m);
     new_fmls_conj = mk_and(new_fmls);
 
     expr_ref_vector substs(m);
     for (auto f : sig) {
-        substs.push_back(get_subst(model, v, f));
+        get_subst(model, v, f, r);
+        substs.push_back(r);
     }
     unsigned init_sz = substs.size(); // for stats
 
@@ -179,8 +180,8 @@ void lazy_mbp(expr_ref_vector &pi, expr_ref_vector &sig, expr_ref v,
     // todo: possibly, optimize with incremental SMT
     for (auto f : pi) {
         // too weak; add missing substs
-        expr_ref new_subst = get_subst(model, v, f);
-        substs.push_back(new_subst);
+        get_subst(model, v, f, r);
+        substs.push_back(r);
 
         if (!is_sat(new_fmls_conj, mk_and(substs), negged_quant_conj))
             break;
@@ -190,14 +191,12 @@ void lazy_mbp(expr_ref_vector &pi, expr_ref_vector &sig, expr_ref v,
     new_fmls.append(substs);
 }
 
-expr_ref get_subst(model &model, expr *v, expr *f) {
-    expr_ref subst(m);
+void get_subst(model &model, expr *v, expr *f, expr_ref& res) {
     expr_safe_replace sub(m);
     sub.insert(v, model(v));
-    sub(f, subst);
+    sub(f, res);
     th_rewriter m_rw(m);
-    m_rw(subst);
-    return subst;
+    m_rw(res);
 }
 
 // push not inside f
