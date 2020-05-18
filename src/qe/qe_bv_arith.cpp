@@ -195,8 +195,6 @@ void get_subst(model &model, expr *v, expr *f, expr_ref& res) {
     expr_safe_replace sub(m);
     sub.insert(v, model(v));
     sub(f, res);
-    th_rewriter m_rw(m);
-    m_rw(res);
 }
 
 // push not inside f
