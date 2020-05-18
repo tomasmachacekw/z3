@@ -567,42 +567,45 @@ void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
     rational ub_c = get_coeff(ub, var);
     rational lb_c = get_coeff(lb, var);
     expr_ref_vector sc(m);
-    expr_ref val(m);
-    mdl.eval_expr(var, val);
-    unsigned sz = u.get_bv_size(val);
-    // side conditions to ensure no overflow occurs
-    for (auto a : lbs) {
-        rational a_c = get_coeff(to_app(a)->get_arg(1), var);
-        SASSERT(!a_c.is_zero());
-        rational bnd = div(rational::power_of_two(sz) - 1, div(lcm, a_c));
-        r = u.mk_ule(to_app(a)->get_arg(0), u.mk_numeral(bnd, sz));
-        res.push_back(r);
-        sc.push_back(r);
+    unsigned sz = u.get_bv_size(var);
+    if (!lcm.is_one()) {
+        // side conditions to ensure no overflow occurs
+        for (auto a : lbs) {
+            rational a_c = get_coeff(to_app(a)->get_arg(1), var);
+            SASSERT(!a_c.is_zero());
+            rational bnd = div(rational::power_of_two(sz) - 1, div(lcm, a_c));
+            r = u.mk_ule(to_app(a)->get_arg(0), u.mk_numeral(bnd, sz));
+            res.push_back(r);
+            sc.push_back(r);
+            TRACE("qe", tout << "added sc " << r << "\n";);
+        }
+        for (auto a : ubs) {
+            rational a_c = get_coeff(to_app(a)->get_arg(0), var);
+            SASSERT(!a_c.is_zero());
+            rational bnd = div(rational::power_of_two(sz) - 1, div(lcm, a_c));
+            r = u.mk_ule(to_app(a)->get_arg(1), u.mk_numeral(bnd, sz));
+            res.push_back(r);
+            sc.push_back(r);
+            TRACE("qe", tout << "added sc " << r << "\n";);
+        }
     }
-
-    for (auto a : ubs) {
-      rational a_c = get_coeff(to_app(a)->get_arg(0), var);
-      SASSERT(!a_c.is_zero());
-      rational bnd = div(rational::power_of_two(sz) - 1, div(lcm, a_c));
-      r = u.mk_ule(to_app(a)->get_arg(1), u.mk_numeral(bnd, sz));
-      res.push_back(r);
-      sc.push_back(r);
-    }
-
 
     //compare all lbs against lb
+    mk_mul(to_app(lb)->get_arg(0), div(lcm, lb_c), nw_rhs);
     for (auto a : lbs) {
         if (a == lb) continue;
-        expr_ref nw_lhs(m);
         rational c = get_coeff(to_app(a)->get_arg(1), var);
         mk_mul(to_app(a)->get_arg(0), div(lcm, c), nw_lhs);
-        res.push_back(u.mk_ule(nw_lhs, to_app(a)->get_arg(0)));
+        r = u.mk_ule(nw_lhs, nw_rhs);
+        res.push_back(r);
+        TRACE("qe", tout << "lb comparison produced " << r << "\n";);
     }
 
     //resolve all ubs against lb
     for (auto a : ubs) {
-        resolve(a, lb, lcm, var, r);
+        resolve(lb, a, lcm, var, r);
         res.push_back(r);
+        TRACE("qe", tout << "resolve produced " << r << "\n";);
     }
 
     //check if any side conditions failed
