@@ -469,7 +469,7 @@ rational get_lcm(expr_ref_vector& f, expr_ref var) {
 
 expr* find_glb(model &mdl, expr_ref_vector& lbs) {
     expr_ref res(m);
-    expr *r = nullptr;
+    expr *r = lbs.get(0);
     rational val, glb(0);
     for (auto a : lbs) {
         mdl.eval_expr(to_app(a)->get_arg(0), res);
