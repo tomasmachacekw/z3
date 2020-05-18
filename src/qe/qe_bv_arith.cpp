@@ -367,8 +367,8 @@ bool rewrite_ule(expr_ref var, expr *lhs, expr *rhs, model &mdl,
     bool lhs_var = contains(lhs, var);
     sc1 = u.mk_ule(t1, t2);
     sc2 = u.mk_ule(t2_neg, t3);
-    if (mdl.is_true(sc1) && mdl.is_true(sc2)) {
-        TRACE("qe", tout << "sc not true in model\n";);
+    if (!(mdl.is_true(sc1) && mdl.is_true(sc2))) {
+        TRACE("qe", tout << "sc " << sc1 << " and " << sc2 << "not true in model " << mdl << "\n";);
         return false;
     }
     res.push_back(sc1);
