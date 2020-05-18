@@ -499,6 +499,10 @@ expr *find_lub(model &mdl, expr_ref_vector &ubs) {
 
 void mk_mul(expr* a, rational b, expr_ref& o) {
     rational val;
+    if (b.is_one()) {
+        o = a;
+        return ;
+    }
     unsigned sz = u.get_bv_size(a);
     if (u.is_numeral(a, val)) {
         o = u.mk_numeral(val * b, sz);
