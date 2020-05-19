@@ -243,7 +243,7 @@ void mk_neg(expr *f, expr_ref &res) {
             res = f;
         else {
             const unsigned sz = u.get_bv_size(f);
-            rational neg = rational::power_of_two(sz) - 1 - val;
+            rational neg = rational::power_of_two(sz) - val;
             res = u.mk_numeral(neg, sz);
         }
     } else
