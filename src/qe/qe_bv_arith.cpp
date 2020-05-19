@@ -366,7 +366,7 @@ bool rewrite_ule(expr_ref var, expr *lhs, expr *rhs, model &mdl,
     t = m.mk_not(u.mk_ule(t2, t1));
     bool n1 = push_not(t, r, sc1, mdl);
     sc2 = u.mk_ule(t2_neg, t3);
-    if (!(n1 && mdl.is_true(sc1) && mdl.is_true(sc2))) {
+    if (!(n1 && mdl.is_true(r) && mdl.is_true(sc1) && mdl.is_true(sc2))) {
         TRACE("qe", tout << "sc " << sc1 << " and " << sc2  << " and " << r << "not true in model " << mdl << "\n";);
         return false;
     }
