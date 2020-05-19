@@ -445,7 +445,6 @@ rational get_coeff(expr* a, expr_ref var) {
         u.is_numeral(t1, o_coeff);
         return o_coeff * get_coeff(t2, var);
     }
-    SASSERT(u.is_bv_add(a));
     for (auto t : *to_app(a)) {
         if (contains(t, var)) return get_coeff(t, var);
     }
