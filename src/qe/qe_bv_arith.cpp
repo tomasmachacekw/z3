@@ -393,6 +393,7 @@ bool unhandled(expr *f, expr_ref var) {
     if (u.is_bv_sdiv(f) || u.is_bv_udiv(f)) return true;
     if (u.is_bv_smod(f) || u.is_bv_smodi(f) || u.is_bv_smod0(f)) return true;
     if (u.is_bv_urem(f) || u.is_bv_urem0(f) || u.is_bv_uremi(f)) return true;
+    if (u.is_extract(f) || u.is_concat(f)) return true;
     for (auto a : *(to_app(f))) {
         if (!contains(a, var)) continue;
         return unhandled(a, var);
