@@ -219,7 +219,7 @@ bool push_not(expr_ref f, expr_ref &res, expr_ref &sc, model &mdl) {
         res = u.mk_ule(nw_lhs, lhs);
         rational bnd = rational::power_of_two(sz) - 2;
         sc = u.mk_ule(nw_lhs, u.mk_numeral(bnd, sz));
-        SASSERT(mdl.is_true(sc));
+        if(!mdl.is_true(sc)) return false;
         return true;
     }
     if (m.is_eq(rw, lhs, rhs)) {
