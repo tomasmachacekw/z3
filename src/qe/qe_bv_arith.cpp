@@ -387,6 +387,19 @@ bool rewrite_ule(expr_ref var, expr *lhs, expr *rhs, model &mdl,
     }
 }
 
+bool unhandled(expr *f, expr_ref var) {
+    SASSERT(contains(f, var));
+    if (is_uninterp(f)) return false;
+    if (u.is_bv_sdiv(f) || u.is_bv_udiv(f)) return true;
+    if (u.is_bv_smod(f) || u.is_bv_smodi(f) || u.is_bv_smod0(f)) return true;
+    if (u.is_bv_urem(f) || u.is_bv_urem0(f) || u.is_bv_uremi(f)) return true;
+    for (auto a : *(to_app(f))) {
+        if (!contains(a, var)) continue;
+        return unhandled(a, var);
+    }
+    return false;
+}
+
 bool normalize(expr_ref var, expr_ref f, model &mdl, expr_ref_vector &res) {
     expr_ref rw(f, m), sc(m);
     expr *lhs, *rhs;
@@ -395,6 +408,10 @@ bool normalize(expr_ref var, expr_ref f, model &mdl, expr_ref_vector &res) {
     if (!contains(f, var)) {
         res.push_back(f);
         return true;
+    }
+    if (unhandled(f, var)) {
+        TRACE("qe", tout << "Operation not handled " << f << " on var " << var << "\n";);
+        return false;
     }
     if (m.is_not(f)) {
         if (!push_not(f, rw, sc, mdl))
