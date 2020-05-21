@@ -54,6 +54,18 @@ bool contains(expr *e, expr *v) {
     }
 }
 
+unsigned num_occurs(expr *e, expr *v) {
+    if (e == v)
+        return 1;
+    else {
+        int num = 0;
+        for (expr *arg : *to_app(e)) {
+            num += num_occurs(arg, v);
+        }
+        return num;
+    }
+}
+
 
 void mk_exists(expr *f, app_ref_vector &vars, expr_ref &res) {
     svector<symbol> names;
@@ -84,6 +96,11 @@ vector<def> project(model &model, app_ref_vector &vars, expr_ref_vector &fmls,
         expr_ref_vector new_fmls(m), norm(m), backg_fmls(m), norm_fmls(m);
         expr_ref_vector pi(m), sig(m);
 
+        if (resolve_eqs(res, v)) {
+          TRACE("qe", tout << "mbp produced " << mk_and(res) << "\n";);
+          continue;
+        }
+
         for (unsigned f_num = 0; f_num < res.size(); f_num++) {
             expr_ref f(res.get(f_num), m);
 
@@ -92,7 +109,7 @@ vector<def> project(model &model, app_ref_vector &vars, expr_ref_vector &fmls,
                 backg_fmls.push_back(f);
                 continue;
             }
-
+            norm.reset();
             // normalize and add to pi
             if (normalize(v, f, model, norm)) {
                 TRACE("qe", tout << "normalized from " << mk_pp(f, m) << " to "
@@ -237,16 +254,37 @@ bool push_not(expr_ref f, expr_ref &res, expr_ref &sc, model &mdl) {
 }
 
 void mk_neg(expr *f, expr_ref &res) {
-    rational val;
+    rational val, val1, val2;
+    expr *t1, *t2 = nullptr;
+    const unsigned sz = u.get_bv_size(f);
+    rational bnd = rational::power_of_two(sz) - 1;
+
     if (u.is_numeral(f, val)) {
         if (val == rational::zero())
             res = f;
         else {
-            const unsigned sz = u.get_bv_size(f);
             rational neg = rational::power_of_two(sz) - val;
             res = u.mk_numeral(neg, sz);
         }
-    } else
+    }
+    else if (u.is_bv_neg(f))
+          res = (to_app(f)->get_arg(0));
+    else if (u.is_bv_mul(f, t1, t2) &&
+           ((u.is_numeral(t1, val1) && val1 == bnd) ||
+            (u.is_numeral(t2, val2) && val2 == bnd))) {
+                if (t1 == nullptr) res = t1;
+                else res = t2;
+    }
+    else if (u.is_bv_add(f)) {
+        expr_ref_vector tmp(m);
+        expr_ref tmp1(m);
+        for (auto arg : *(to_app(f))) {
+            mk_neg(arg, tmp1);
+            tmp.push_back(tmp1);
+        }
+        mk_add(tmp, res);
+    }
+    else
         res = u.mk_bv_neg(f);
 }
 
@@ -299,11 +337,31 @@ void mk_add(expr_ref t1, expr_ref t2, expr_ref &res) {
     mk_add(f, res);
 }
 
+//void swap_neg_add(expr_ref t, expr_ref& res)
+//{
+//  if (u.is_bv_neg(t)) {
+//    expr_ref neg(m);
+//    neg = to_app(t)->get_arg(0);
+//    if (!u.is_bv_add(neg)) {
+//      res = t;
+//      return;
+//    }
+//    expr_ref_vector tmp(m);
+//    expr_ref tmp1(m);
+//    for (auto arg : *(to_app(neg))) {
+//      mk_neg(arg, tmp1);
+//      tmp.push_back(tmp1);
+//    }
+//    mk_add(tmp, res);
+//  }
+//  else res = t;
+//}
+
 // separates lhs, rhs into three parts such that only one contains var
 void split(expr_ref var, expr *lhs, expr *rhs, expr_ref& t1, expr_ref& t2, expr_ref& t2_neg, expr_ref& t3) {
 
   bool lhs_var = contains(lhs, var);
-  TRACE("qe", tout << "Trying to split " << mk_pp(lhs, m) << " leq "
+  TRACE("qe", tout << "Trying to split " << mk_pp(lhs, m) << " tilda "
                    << mk_pp(rhs, m) << " wrt var " << var << "\n";);
 
   if (lhs_var) {
@@ -387,6 +445,223 @@ bool rewrite_ule(expr_ref var, expr *lhs, expr *rhs, model &mdl,
     }
 }
 
+bool rewrite_ule_alt(expr_ref var, expr *lhs, expr *rhs, model &mdl, expr_ref_vector &res) {
+    if (num_occurs(lhs, var) + num_occurs(rhs, var) != 1) return false;
+
+    expr_ref sc1(m), sc2(m), t1(m), t2(m), t2_neg(m), t3(m), tmp(m), nw_rhs(m), nw_lhs(m), bv_zero(m), bv_one(m);
+    unsigned sz = u.get_bv_size(var);
+    bv_zero = u.mk_numeral(rational::zero(), sz);
+    bv_one = u.mk_numeral(rational::one(), sz);
+
+    TRACE("qe",
+          tout << "Trying to normalize ule " << mk_pp(lhs, m) << " <= " << mk_pp(rhs, m) << " wrt var " << var << "\n";);
+
+    if (lhs == var || rhs == var){
+        res.push_back(u.mk_ule(lhs, rhs));
+        return true;
+    }
+
+    // try rule [sub1]: if {1 <= var /\ var <= -y} then {y <= -var}
+    if (is_bvneg(rhs, var)) {
+        mk_neg(lhs, tmp);
+        sc1 = u.mk_ule(bv_one, var);
+        sc2 = u.mk_ule(var, tmp);
+        if (mdl.is_true(sc1) && mdl.is_true(sc2)) {
+            TRACE("qe", tout << " applied rule [sub1]\n";);
+            res.push_back(sc1);
+            res.push_back(sc2);
+            return true;
+        }
+    }
+
+    // try rule [sub2]: if {1 <= y /\ -y <= var} then {-var <= y}
+    if (is_bvneg(lhs, var)) {
+        mk_neg(rhs, tmp);
+        sc1 = u.mk_ule(bv_one, rhs);
+        sc2 = u.mk_ule(tmp, var);
+        if (mdl.is_true(sc1) && mdl.is_true(sc2)) {
+            TRACE("qe", tout << " applied rule [sub2]\n";);
+            res.push_back(sc1);
+            res.push_back(sc2);
+            return true;
+        }
+    }
+
+    split(var, lhs, rhs, t1, t2, t2_neg, t3);
+    bool lhs_var = contains(lhs, var);
+    if (lhs_var) {
+        SASSERT(contains(t1, var));
+        mk_add(t3, t2_neg, nw_rhs);
+        if (mdl.is_true(u.mk_ule(t1, nw_rhs))) {
+
+            // try rule [add2]:  if {y <= z /\ f(var) <= z - y} then {f(var) + y <= z}
+            sc1 = u.mk_ule(t2, rhs);
+            if (mdl.is_true(sc1)) {
+                TRACE("qe", tout << " applied rule [add2]\n";);
+                return rewrite_ule_alt(var, t2, rhs, mdl, res) &&
+                       rewrite_ule_alt(var, t1, nw_rhs, mdl, res);
+            }
+
+            // try rule [add21]: if {-y <= f(var) /\ f(var) <= z - y} then {f(var) + y <= z}
+            sc1 = u.mk_ule(t2_neg, t1);
+            if (mdl.is_true(sc1)) {
+                TRACE("qe", tout << " applied rule [add21]\n";);
+                return rewrite_ule_alt(var, t2_neg, t1, mdl, res) &&
+                       rewrite_ule_alt(var, t1, nw_rhs, mdl, res);
+            }
+        }
+        else if (mdl.is_true(u.mk_ule(t1, rhs))) {
+
+            // try rule [add22]: if {y <= z /\ f(var) <= z} then {f(var) + y <= z}
+            TRACE("qe", tout << " applied rule [add22]\n";);
+            return rewrite_ule_alt(var, t2, rhs, mdl, res) &&
+                   rewrite_ule_alt(var, t1, rhs, mdl, res);
+        }
+    }
+    else {
+        SASSERT(contains(t3, var));
+        mk_add(t1, t2_neg, nw_lhs);
+        if (!mdl.is_true(u.mk_ule(nw_lhs, t3))) return false;
+
+        // try rule [add4]:  if {f(var) < -y /\ z - y <= f(var)} then {z <= f(var) + y}
+        mk_neg(bv_one, tmp);
+        mk_add(t2_neg, tmp, tmp);
+        sc1 = u.mk_ule(bv_one, t2_neg);
+        sc2 = u.mk_ule(t3, tmp);
+        if (mdl.is_true(sc1) && mdl.is_true(sc2)) {
+            TRACE("qe", tout << " applied rule [add4]\n";);
+            return rewrite_ule_alt(var, bv_one, t2_neg, mdl, res) &&
+                   rewrite_ule_alt(var, t3, nw_lhs, mdl, res);
+        }
+
+        // try rule [add41]: if {z < y /\ z - y <= f(var)} then {z <= f(var) + y}
+        mk_neg(bv_one, tmp);
+        mk_add(t2, tmp, tmp);
+        sc1 = u.mk_ule(bv_one, t2);
+        sc2 = u.mk_ule(lhs, tmp);
+        if (mdl.is_true(sc1) && mdl.is_true(sc2)) {
+            TRACE("qe", tout << " applied rule [add42]\n";);
+            return rewrite_ule_alt(var, bv_one, t2, mdl, res) &&
+                   rewrite_ule_alt(var, t3, nw_lhs, mdl, res);
+        }
+    }
+    return false;
+}
+
+bool is_bvneg(expr *e, expr_ref v) {
+    rational bnd = rational::power_of_two(u.get_bv_size(v)) - 1;
+    if (u.is_bv_neg(e))
+        return (v == to_app(e)->get_arg(0));
+    else
+        return (get_coeff(e, v) == bnd);
+}
+
+void handle_eq(expr_ref var, expr *lhs, expr *rhs, expr_ref_vector &res) {
+    expr_ref t1(m), t2(m), t2_neg(m), t3(m), nw_rhs(m), nw_lhs(m);
+    if (num_occurs(lhs, var) + num_occurs(rhs, var) != 1) return;
+
+    if (lhs == var) {
+        res.push_back(rhs);
+        return;
+    } else if (rhs == var) {
+        res.push_back(lhs);
+        return;
+    }
+
+    split (var, lhs, rhs, t1, t2, t2_neg, t3);
+
+    bool succ = false;
+    if (contains(lhs, var)) {
+        mk_add (t3, t2_neg, nw_rhs);
+        succ = extract_assgn(t1, nw_rhs, var, res);
+    } else {
+        mk_add (t1, t2_neg, nw_lhs);
+        succ = extract_assgn(t3, nw_lhs, var, res);
+    }
+    if (succ)
+    {
+        TRACE("qe", tout <<
+                  "equality handling:  " << mk_pp(var, m) << " = " << mk_pp(res.back(), m) << "for\n" <<
+                                            mk_pp(lhs, m) << " = " << mk_pp(rhs, m) << "\n";);
+        SASSERT(!is_sat(m.mk_eq(var, res.back()), m.mk_not(m.mk_eq(lhs,rhs))) &&
+                !is_sat(m.mk_not(m.mk_eq(var, res.back())), m.mk_eq(lhs,rhs)));
+    }
+}
+
+bool extract_assgn(expr *lhs, expr *rhs, expr_ref var, expr_ref_vector &res) {
+    if (contains(rhs, var)) return false;
+
+    bool is_neg = is_bvneg(lhs, var);
+    if (is_neg) {
+        res.push_back(u.mk_bv_neg(rhs));
+        return true;
+    }
+    else if (lhs == var)
+    {
+        res.push_back(rhs);
+        return true;
+    }
+    return false;
+}
+
+bool resolve_eqs(expr_ref_vector &res, expr_ref v) {
+    expr_ref_vector tmm(m);
+    for (unsigned f_num = 0; f_num < res.size(); f_num++) {
+        expr_ref f(res.get(f_num), m);
+        expr *lhs, *rhs;
+        if (m.is_eq(f, lhs, rhs)) handle_eq(v, lhs, rhs, tmm);
+    }
+
+    if (tmm.size() > 0) {
+        TRACE("qe", tout << "resolve based on equalities " << mk_pp(v, m) << "\n";);
+        for (unsigned f_num = 0; f_num < res.size(); f_num++) {
+            expr_safe_replace sub(m);
+            sub.insert(v, tmm.get(0)); // here, we use only the first elem, but in principle can any other
+            expr_ref tmp(m);
+            sub(res.get(f_num), tmp);
+            res.set(f_num, tmp);
+        }
+        return true;
+    }
+    return false;
+}
+
+void handle_signed(expr* lhs, expr* rhs, expr_ref_vector &res, model &mdl) {
+    //assumes u.is_bv_sle(rw, lhs, rhs), TODO: extend
+
+    unsigned sz = u.get_bv_size(lhs);
+    expr_ref sc1(m), sc2(m), sc3(m), sc4(m), b1(m), b2(m);
+    b1 = u.mk_numeral(rational::power_of_two(sz-1) - 1, sz);
+    b2 = u.mk_numeral(rational::power_of_two(sz-1), sz);
+    sc1 = u.mk_ule(lhs, b1);
+    sc2 = u.mk_ule(rhs, b1);
+    sc3 = u.mk_ule(b2, lhs);
+    sc4 = u.mk_ule(b2, rhs);
+    if (mdl.is_true(sc1) && mdl.is_true(sc2)) {
+        res.push_back(sc1);
+        res.push_back(sc2);
+        res.push_back(u.mk_ule(lhs, rhs));
+    }
+    else if (mdl.is_true(sc1) && mdl.is_true(sc4)) {
+        res.push_back(sc1);
+        res.push_back(sc4);
+        res.push_back(u.mk_ule(b2, lhs));
+        res.push_back(u.mk_ule(rhs, b2));
+    }
+    else if (mdl.is_true(sc3) && mdl.is_true(sc2)) {
+        res.push_back(sc3);
+        res.push_back(sc2);
+        res.push_back(u.mk_ule(b2, lhs));
+        res.push_back(u.mk_ule(rhs, b2));
+    }
+    else if (mdl.is_true(sc3) && mdl.is_true(sc4)) {
+        res.push_back(sc3);
+        res.push_back(sc4);
+        res.push_back(u.mk_ule(lhs, rhs));
+    }
+    else SASSERT(0);
+  }
+
 bool unhandled(expr *f, expr_ref var) {
     SASSERT(contains(f, var));
     if (is_uninterp(f)) return false;
@@ -431,9 +706,17 @@ bool normalize(expr_ref var, expr_ref f, model &mdl, expr_ref_vector &res) {
         n1 = n1 && normalize(var, t, mdl, res);
         return n1;
     }
+    if (u.is_bv_sle(rw, lhs, rhs)) {
+        expr_ref_vector all(m);
+        handle_signed(lhs, rhs, all, mdl);
+        bool n = true;
+        for (auto a : all)
+            n &= normalize(var, expr_ref(a, m), mdl, res);
+        return n;
+    }
     if (!u.is_bv_ule(rw, lhs, rhs))
         return false;
-    return rewrite_ule(var, lhs, rhs, mdl, res);
+    return rewrite_ule_alt(var, lhs, rhs, mdl, res);
 }
 
 void get_lbs(expr_ref var, expr_ref_vector& f, expr_ref_vector& lbs) {
@@ -576,6 +859,8 @@ void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
             rational a_c = get_coeff(to_app(a)->get_arg(1), var);
             SASSERT(!a_c.is_zero());
             rational bnd = div(rational::power_of_two(sz) - 1, div(lcm, a_c));
+            rational val;
+            if(u.is_numeral(to_app(a)->get_arg(0), val) && val <= bnd) continue;
             r = u.mk_ule(to_app(a)->get_arg(0), u.mk_numeral(bnd, sz));
             res.push_back(r);
             sc.push_back(r);
@@ -585,6 +870,8 @@ void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
             rational a_c = get_coeff(to_app(a)->get_arg(0), var);
             SASSERT(!a_c.is_zero());
             rational bnd = div(rational::power_of_two(sz) - 1, div(lcm, a_c));
+            rational val;
+            if(u.is_numeral(to_app(a)->get_arg(1), val) && val <= bnd) continue;
             r = u.mk_ule(to_app(a)->get_arg(1), u.mk_numeral(bnd, sz));
             res.push_back(r);
             sc.push_back(r);
