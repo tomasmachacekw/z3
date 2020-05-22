@@ -135,8 +135,13 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
         TRACE("cluster_stats_verb", tout << "Trying to add lemma "
                                          << lemma->get_cube()
                                          << " to existing clusters\n";);
-        pt.add_to_cluster(lemma);
-
+        bool added = pt.add_to_cluster(lemma);
+        if(added) {
+            IF_VERBOSE(1, verbose_stream() << "\nAdded a lemma to a cluster with pattern: "
+                       << pt.clstr_match(lemma)->get_pattern() << "\n"
+                       << " and lemmas:\n";
+                       for(auto l : pt.clstr_match(lemma)->get_lemmas()) verbose_stream() << mk_and(l.get_lemma()->get_cube()) << "\n";);
+        }
         // avoid creating clusters with lemmas that can't be added to existing
         // clusters
         return;
@@ -180,7 +185,9 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
 
     IF_VERBOSE(1, verbose_stream() << "\ncreated new cluster with pattern: "
                                    << pattern << "\n"
-                                   << " and lemma cube: " << lcube << "\n";);
+                                   << " and lemmas:\n";
+               for(auto l : neighbours) verbose_stream() << mk_and(l->get_cube()) << "\n";
+               verbose_stream() << lcube << "\n";);
 
     for (const lemma_ref &l : neighbours) {
         SASSERT(cluster->can_contain(l));
