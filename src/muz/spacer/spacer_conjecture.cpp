@@ -59,49 +59,28 @@ bool drop_lit(expr_ref_vector &fml_vec, expr_ref &lit,
     abs_fml.reset();
     bool is_smaller = false;
     ast_manager &m = fml_vec.get_manager();
-    expr_ref cube(m), lhs(m), rhs(m), lit_lhs(m), lit_rhs(m);
-    expr *e1, *e2;
-    SASSERT(!m.is_not(lit, e1) || !m.is_eq(e1));
-    if (m.is_eq(lit, e1, e2)) {
-        lit_lhs = e1;
-        lit_rhs = e2;
-    } else
-        normalize_to_le(lit.get(), lit_lhs, lit_rhs);
-    bool rhs_var = get_num_vars(lit_rhs) > 0;
-    arith_util m_arith(m);
-    expr_ref_vector exp_fml(m);
+    sem_matcher m_matcher(m);
+    bv_util bv(m);
+    substitution sub(m);
+    sub.reserve(1, get_num_vars(lit.get()));
+    std::pair<unsigned, unsigned> var;
+    expr_offset r;
+    bool pos;
+    SASSERT(!(m.is_not(lit) && m.is_eq(to_app(lit)->get_arg(0))));
     for (auto &c : fml_vec) {
-        if (m.is_eq(c, e1, e2) &&
-            (m_arith.is_arith_expr(e1) || m_arith.is_arith_expr(e2))) {
-            exp_fml.push_back(m_arith.mk_le(e1, e2));
-            exp_fml.push_back(m_arith.mk_ge(e1, e2));
-        } else
-            exp_fml.push_back(c);
-    }
-    for (auto &c : exp_fml) {
-        bool norm = normalize_to_le(c, lhs, rhs);
-        if (!norm) {
-            abs_fml.push_back(c);
-            continue;
+        m_matcher.reset();
+        if (m_matcher(lit, c, sub, pos) && pos) {
+            bool numeral_match = true;
+            for(unsigned i = 0; i < sub.get_num_bindings(); i++) {
+                sub.get_binding(i, var, r);
+                if (!bv.is_numeral(r.get_expr())) numeral_match = false;
+            }
+            if (numeral_match) {
+                is_smaller = true;
+                continue;
+            }
         }
-
-        // normalize the literal so that it is exactly as in the lemma
-        if (rhs_var) {
-            normalize_order(lit_lhs, lit_lhs);
-            normalize_order(lhs, lhs);
-        } else {
-            normalize_order(lit_rhs, lit_rhs);
-            normalize_order(rhs, rhs);
-        }
-        TRACE("conjecture_verb", tout << " comparing " << lhs << " <= " << rhs
-                                      << " with " << lit_lhs
-                                      << " <= " << lit_rhs << "\n";);
-
-        if ((rhs_var && lit_lhs != lhs) || (!rhs_var && lit_rhs != rhs)) {
-            abs_fml.push_back(c);
-            continue;
-        }
-        is_smaller = true;
+        abs_fml.push_back(c);
     }
     return is_smaller;
 }
