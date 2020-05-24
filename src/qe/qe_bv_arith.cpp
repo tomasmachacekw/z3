@@ -97,8 +97,11 @@ vector<def> project(model &model, app_ref_vector &vars, expr_ref_vector &fmls,
         expr_ref_vector pi(m), sig(m);
 
         if (resolve_eqs(res, v)) {
-          TRACE("qe", tout << "mbp produced " << mk_and(res) << "\n";);
-          continue;
+            lazy_mbp(backg_fmls, pi, res, v, new_fmls, model);
+            res.reset();
+            res.append(new_fmls);
+            TRACE("qe", tout << "mbp produced after eqs\n";);
+            continue;
         }
 
         for (unsigned f_num = 0; f_num < res.size(); f_num++) {
@@ -112,6 +115,7 @@ vector<def> project(model &model, app_ref_vector &vars, expr_ref_vector &fmls,
             norm.reset();
             // normalize and add to pi
             if (normalize(v, f, model, norm)) {
+                pi.push_back(f);
                 TRACE("qe", tout << "normalized from " << mk_pp(f, m) << " to "
                       << mk_pp(mk_and(norm), m) << "\n";);
                 for (auto a : norm) {
@@ -134,13 +138,11 @@ vector<def> project(model &model, app_ref_vector &vars, expr_ref_vector &fmls,
         expr_ref_vector bd_fmls(m);
         resolve(v, norm_fmls, model, new_fmls, bd_fmls);
         CTRACE("qe", bd_fmls.size() > 0, tout << " could not resolve out " << mk_and(bd_fmls) << " for var " << v << "\n";);
-        sig.append(bd_fmls);
-        pi.append(norm_fmls);
 
         // TODO maybe do this after projecting all the vars ?
         if (!sig.empty()) {
             TRACE("qe", tout << "calling lazy mbp with pi " << mk_and(pi) << " and sig " << mk_and(sig) << "\n";);
-            lazy_mbp(pi, sig, v, new_fmls, model);
+            lazy_mbp(backg_fmls, pi, sig, v, new_fmls, model);
         }
 
         res.reset();
@@ -160,10 +162,65 @@ vector<def> project(model &model, app_ref_vector &vars, expr_ref_vector &fmls,
     return vector<def>();
 }
 
+//  version from qe_lia_arith
+void lazy_mbp(expr_ref_vector &backg, expr_ref_vector &pi, expr_ref_vector &sig,
+              expr_ref v, expr_ref_vector &new_fmls, model &model) {
+    expr_ref negged_quant_conj(m);
+    negged_quant_conj = m.mk_and(mk_and(pi), m.mk_and(mk_and(sig), mk_and(backg)));
+    if (contains(negged_quant_conj, v)) {
+        app_ref_vector vec(m);
+        vec.push_back(to_app(v.get()));
+        mk_exists(negged_quant_conj, vec, negged_quant_conj);
+    }
+    negged_quant_conj = m.mk_not(negged_quant_conj);
+
+    expr_ref new_fmls_conj(m), r(m);
+    expr_ref_vector substs(m);
+    new_fmls_conj = m.mk_and(mk_and(new_fmls), mk_and(backg));
+
+    for (auto f : sig) {
+        get_subst(model, v, f, r);
+        substs.push_back(r);
+    }
+
+    unsigned init_sz = substs.size(); // for stats
+    unsigned stren_sz = init_sz;
+
+    if (is_sat(new_fmls_conj, mk_and(substs), negged_quant_conj)) {
+        for (auto & f : pi) {     // too weak; add missing substs
+            get_subst(model, v, f, r);
+            substs.push_back(r);    // to do: try adding lazily, i.e., based on the model
+        }
+        stren_sz = substs.size();
+    }
+
+    // todo: possibly, optimize with incremental SMT
+    for (unsigned k = 0; k < substs.size(); ) {
+        expr_ref_vector tmp(m);
+        for (unsigned l = 0; l < substs.size(); l++)
+        if (k != l) tmp.push_back(substs.get(l));
+
+        expr_ref tmp_conj(m);
+        tmp_conj = mk_and(tmp);
+
+        if (is_sat(new_fmls_conj, tmp_conj, negged_quant_conj)) k++;
+        else {
+            // erase k:
+            for (unsigned m = k; m < substs.size() - 1; m++) substs.set(m, substs.get(m+1));
+            substs.pop_back();
+        }
+    }
+
+    unsigned weak_sz = substs.size(); // for stats
+    TRACE("qe", tout << "Lazy MBP completed: "
+                << init_sz << " -> " << stren_sz << " -> " << weak_sz << " conjuncts\n";);
+    new_fmls.append(substs);
+}
+
 // computes mbp(pi && sig, model, v)
 // input: new_fmls ==> \exist v pi
 // output: new_fmls ==> \exists v pi && sig
-void lazy_mbp(expr_ref_vector &pi, expr_ref_vector &sig, expr_ref v,
+void lazy_mbp_hari(expr_ref_vector &pi, expr_ref_vector &sig, expr_ref v,
               expr_ref_vector &new_fmls, model &model) {
     expr_ref negged_quant_conj(m);
     negged_quant_conj = m.mk_and(mk_and(pi), mk_and(sig));
@@ -380,7 +437,7 @@ void split_term(expr_ref var, expr* exp, expr_ref& t, expr_ref& t2, expr_ref& t2
     SASSERT(contains(exp, var));
     if (!u.is_bv_add(exp)) {
         t = exp;
-        t2 = u.mk_numeral(rational(0), u.get_bv_size(var));
+        t2 = u.mk_numeral(rational(0), u.get_bv_size(exp));
         mk_neg(t2, t2_neg);
         return;
     }
@@ -928,7 +985,7 @@ bool is_sat(expr *a, expr *b = nullptr, expr *c = nullptr) {
         sol->assert_expr(b);
     if (c != nullptr)
         sol->assert_expr(c);
-    return (sol->check_sat(0, nullptr) == l_true);
+    return (sol->check_sat(0, nullptr) != l_false);
 }
 };
 
