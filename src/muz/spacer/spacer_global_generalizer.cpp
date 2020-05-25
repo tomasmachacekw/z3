@@ -470,7 +470,6 @@ bool lemma_global_generalizer::core(lemma_ref &lemma) {
         }
     }
 
-    return false;
     // if subsumption removed all the other lemmas, there is nothing to
     // generalize
     if (lc.get_size() < 2) return false;
