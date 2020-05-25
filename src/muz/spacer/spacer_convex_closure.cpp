@@ -17,7 +17,6 @@ void convex_closure::collect_statistics(statistics &st) const {
     m_kernel->collect_statistics(st);
 }
 unsigned convex_closure::reduce_dim() {
-    scoped_watch _w_(m_st.watch);
     if (m_dim <= 1) return m_dim;
     SASSERT(m_kernel != nullptr);
     bool non_null_ker = m_kernel->compute_kernel();
@@ -201,6 +200,7 @@ bool convex_closure::compute_div_constraint(const vector<rational> &data,
 
 // returns whether the closure is exact or not (i.e syntactic)
 bool convex_closure::closure(expr_ref_vector &res_vec) {
+    scoped_watch _w_(m_st.watch);
     SASSERT(is_int_points());
     unsigned red_dim = reduce_dim();
     // store dim var before rewrite
