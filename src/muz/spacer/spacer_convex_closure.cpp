@@ -165,10 +165,18 @@ bool is_sorted(const vector<rational> &data) {
     }
     return true;
 }
+//check whether elements are congruent modulo m
+bool congruent_mod(const vector<rational> &data, rational m) {
+    rational p = data[0] % m;
+    for(auto k : data)
+        if (k % m != p) return false;
+    return true;
+}
 } // namespace
 // check whether \exists m, d s.t data[i] mod m = d. Returns the largest m and
 // corresponding d
-// TODO: compute div constraints even if the elements are not continuous
+// TODO: find the largest divisor, not the smallest.
+// TODO: improve efficiency
 bool convex_closure::compute_div_constraint(const vector<rational> &data,
                                             rational &m, rational &d) {
     TRACE("cvx_dbg_verb", tout << "computing div constraints for ";
@@ -178,24 +186,16 @@ bool convex_closure::compute_div_constraint(const vector<rational> &data,
           tout << "\n";);
     SASSERT(data.size() > 1);
     SASSERT(is_sorted(data));
-    // find the least difference
-    m = data[0] - data[1];
-    for (unsigned i = 2; i < data.size(); i++) {
-        rational cd = data[i - 1] - data[i];
-        if ((cd < m || m == 0) && cd > 0) m = cd;
+    m = rational(2);
+    for (; m < data[data.size() - 1]; m++) {
+        if (congruent_mod(data, m)) break;
     }
-    if (m <= 1) return false;
     d = data[0] % m;
     // work around for z3::rational::rem returning negative numbers.
     d = (m + d) % m;
     SASSERT(d >= rational::zero());
 
-    TRACE("cvx_dbg_verb",
-          tout << "The cd  is " << m << " and off is " << d << "\n";);
-    for (rational r : data) {
-        if (((r % m) + m) % m != d) { return false; }
-    }
-    TRACE("cvx_dbg_verb", tout << "div constraint generated\n";);
+    TRACE("cvx_dbg_verb", tout << "div constraint generated. cf " << m << " and off " << d << "\n";);
     return true;
 }
 
