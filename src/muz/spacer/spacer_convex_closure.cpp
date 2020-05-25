@@ -197,6 +197,7 @@ bool convex_closure::compute_div_constraint(const vector<rational> &data,
     for (; m < data[data.size() - 1]; m++) {
         if (congruent_mod(data, m)) break;
     }
+    if (m >= data[data.size() - 1]) return false;
     d = data[0] % m;
     // work around for z3::rational::rem returning negative numbers.
     d = (m + d) % m;
