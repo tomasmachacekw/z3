@@ -292,6 +292,8 @@ bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
                 << mk_and(cls) << "\n";);
 
     if (!m_syn_cvx_cls) {
+        // For now, no syntactic convex closure for bv
+        return false;
         m_st.m_num_syn_cls++;
         // Add the new variables to the list of variables to be eliminated
         const var_ref_vector &vars = m_cvx_cls.get_nw_vars();

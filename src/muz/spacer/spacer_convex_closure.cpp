@@ -224,7 +224,7 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
     if (red_dim > 1) {
         SASSERT(m_nw_vars.size() == 0);
         TRACE("subsume", tout << "Computing syntactic convex closure\n";);
-        syn_cls(res_vec);
+        // syn_cls(res_vec);
         return false;
     }
 
