@@ -159,6 +159,8 @@ vector<def> project(model &model, app_ref_vector &vars, expr_ref_vector &fmls,
     SASSERT(!is_sat(mbp, m.mk_not(orig_fla)));
     fmls.reset();
     fmls.append(res);
+    // Since lazy_mbp guarentees elimination of all vars, reset vars
+    vars.shrink(0);
     return vector<def>();
 }
 
