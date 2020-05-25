@@ -704,9 +704,9 @@ namespace qel {
         void set_is_variable_proc(is_variable_proc& proc) { 
             m_is_variable = &proc;
             m_solvers.reset();
-            m_solvers.register_plugin(qe::mk_arith_solve_plugin(m, proc));            
-            m_solvers.register_plugin(qe::mk_basic_solve_plugin(m, proc));            
-            m_solvers.register_plugin(qe::mk_bv_solve_plugin(m, proc));            
+//            m_solvers.register_plugin(qe::mk_arith_solve_plugin(m, proc));
+//            m_solvers.register_plugin(qe::mk_basic_solve_plugin(m, proc));
+//            m_solvers.register_plugin(qe::mk_bv_solve_plugin(m, proc));
         }
 
         void operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
