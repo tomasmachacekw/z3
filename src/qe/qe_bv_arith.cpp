@@ -611,8 +611,15 @@ bool is_bvneg(expr *e, expr_ref v) {
     rational bnd = rational::power_of_two(u.get_bv_size(v)) - 1;
     if (u.is_bv_neg(e))
         return (v == to_app(e)->get_arg(0));
-    else
-        return (get_coeff(e, v) == bnd);
+    else {
+        expr *t1, *t2;
+        rational val;
+        if (u.is_bv_mul(e, t1, t2)) {
+            if (u.is_numeral(t1, val) && t2 == v && val == bnd) return true;
+            if (u.is_numeral(t2, val) && t1 == v && val == bnd) return true;
+        }
+        return false;
+    }
 }
 
 void handle_eq(expr_ref var, expr *lhs, expr *rhs, expr_ref_vector &res) {
