@@ -333,6 +333,8 @@ void mk_neg(expr *f, expr_ref &res) {
             res = t2;
         else if (u.is_numeral(t2, val) && val == bnd)
             res = t1;
+        else
+            res = u.mk_bv_neg(f);
     }
     else if (u.is_bv_add(f)) {
         expr_ref_vector tmp(m);
@@ -638,7 +640,7 @@ void handle_eq(expr_ref var, expr *lhs, expr *rhs, expr_ref_vector &res) {
 
     bool succ = false;
     if (contains(lhs, var)) {
-        mk_add (t3, t2_neg, nw_rhs);
+        mk_add (t3, t2, nw_rhs);
         succ = extract_assgn(t1, nw_rhs, var, res);
     } else {
         mk_add (t1, t2_neg, nw_lhs);
@@ -647,7 +649,7 @@ void handle_eq(expr_ref var, expr *lhs, expr *rhs, expr_ref_vector &res) {
     if (succ)
     {
         TRACE("qe", tout <<
-                  "equality handling:  " << mk_pp(var, m) << " = " << mk_pp(res.back(), m) << "for\n" <<
+                  "equality handling:  " << mk_pp(var, m) << " = " << mk_pp(res.back(), m) << "for \n" <<
                                             mk_pp(lhs, m) << " = " << mk_pp(rhs, m) << "\n";);
         SASSERT(!is_sat(m.mk_eq(var, res.back()), m.mk_not(m.mk_eq(lhs,rhs))) &&
                 !is_sat(m.mk_not(m.mk_eq(var, res.back())), m.mk_eq(lhs,rhs)));
