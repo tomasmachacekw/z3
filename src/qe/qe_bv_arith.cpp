@@ -839,8 +839,10 @@ expr* find_glb(model &mdl, expr_ref_vector& lbs) {
     rational val, glb(0);
     for (auto a : lbs) {
         mdl.eval_expr(to_app(a)->get_arg(0), res);
+        SASSERT(u.is_numeral(res));
         if (u.is_numeral(res, val) && glb < val) {
             r = a;
+            glb = val;
         }
     }
     return r;
@@ -850,13 +852,15 @@ expr *find_lub(model &mdl, expr_ref_vector &ubs) {
   expr_ref res(m);
   expr *r = ubs.get(0);
   rational val, lub;
-  mdl.eval_expr(to_app(ubs[0].get())->get_arg(0), res);
+  mdl.eval_expr(to_app(ubs[0].get())->get_arg(1), res);
   if (!u.is_numeral(res, lub))
       return nullptr;
   for (auto a : ubs) {
-    mdl.eval_expr(to_app(a)->get_arg(0), res);
+    mdl.eval_expr(to_app(a)->get_arg(1), res);
+    SASSERT(u.is_numeral(res));
     if (u.is_numeral(res, val) && lub > val) {
       r = a;
+      lub = val;
     }
   }
   return r;
