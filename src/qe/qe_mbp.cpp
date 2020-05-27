@@ -475,9 +475,9 @@ public:
                 }
             }
             else {
-                if (extract_bools(eval, fmls, fml)) {
-                    project_plugin::erase(fmls, i);
-                }
+//                if (extract_bools(eval, fmls, fml)) {
+//                    project_plugin::erase(fmls, i);
+//                }
                 // TBD other Boolean operations.
             }
         }
@@ -587,6 +587,7 @@ public:
     }
     
     void do_qe_lite(app_ref_vector& vars, expr_ref& fml) {
+      return;
         qe_lite qe(m, m_params, false);
         qe (vars, fml);
         m_rw (fml);            
