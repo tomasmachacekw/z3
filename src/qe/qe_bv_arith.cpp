@@ -313,7 +313,7 @@ bool push_not(expr_ref f, expr_ref &res, expr_ref &sc, model &mdl) {
 }
 
 void mk_neg(expr *f, expr_ref &res) {
-    rational val, val1, val2;
+    rational val;
     expr *t1, *t2 = nullptr;
     const unsigned sz = u.get_bv_size(f);
     rational bnd = rational::power_of_two(sz) - 1;
@@ -327,12 +327,12 @@ void mk_neg(expr *f, expr_ref &res) {
         }
     }
     else if (u.is_bv_neg(f))
-          res = (to_app(f)->get_arg(0));
-    else if (u.is_bv_mul(f, t1, t2) &&
-           ((u.is_numeral(t1, val1) && val1 == bnd) ||
-            (u.is_numeral(t2, val2) && val2 == bnd))) {
-                if (t1 == nullptr) res = t1;
-                else res = t2;
+        res = (to_app(f)->get_arg(0));
+    else if (u.is_bv_mul(f, t1, t2)) {
+        if (u.is_numeral(t1, val) && val == bnd)
+            res = t2;
+        else if (u.is_numeral(t2, val) && val == bnd)
+            res = t1;
     }
     else if (u.is_bv_add(f)) {
         expr_ref_vector tmp(m);
