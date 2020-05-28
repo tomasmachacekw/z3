@@ -426,7 +426,7 @@ void split(expr_ref var, expr *lhs, expr *rhs, expr_ref& t1, expr_ref& t2, expr_
                    << mk_pp(rhs, m) << " wrt var " << var << "\n";);
 
   if (lhs_var) {
-      split_term(var, lhs, t1, t2_neg, t2);
+      split_term(var, lhs, t1, t2, t2_neg);
       t3 = rhs;
   }
   else {
