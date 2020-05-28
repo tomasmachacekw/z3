@@ -194,7 +194,9 @@ bool convex_closure::compute_div_constraint(const vector<rational> &data,
     SASSERT(data.size() > 1);
     SASSERT(is_sorted(data));
     m = rational(2);
-    for (; m < data[data.size() - 1]; m++) {
+    // hard cut off to save time
+    rational bnd(100);
+    for (; m < data[data.size() - 1] && m < bnd; m++) {
         if (congruent_mod(data, m)) break;
     }
     if (m >= data[data.size() - 1]) return false;
