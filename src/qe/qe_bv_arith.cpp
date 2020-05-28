@@ -640,7 +640,7 @@ void handle_eq(expr_ref var, expr *lhs, expr *rhs, expr_ref_vector &res) {
 
     bool succ = false;
     if (contains(lhs, var)) {
-        mk_add (t3, t2, nw_rhs);
+        mk_add (t3, t2_neg, nw_rhs);
         succ = extract_assgn(t1, nw_rhs, var, res);
     } else {
         mk_add (t1, t2_neg, nw_lhs);
