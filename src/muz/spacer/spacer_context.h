@@ -513,7 +513,7 @@ class pred_transformer {
 
         lemma_cluster *can_contain(const lemma_ref &lemma) {
             for (auto *c : m_clusters) {
-                if (c->can_contain(lemma)) { return c; }
+                if (c->can_contain(lemma) && c->get_gas() > 0) { return c; }
             }
             return nullptr;
         }

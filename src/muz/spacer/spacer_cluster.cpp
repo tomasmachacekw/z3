@@ -57,15 +57,16 @@ bool lemma_cluster_finder::are_neighbours(const expr_ref &cube,
 // e) | e \in fmls}
 // TODO: do complete n-ary anti-unification. Not done now
 // because anti_unifier does not support free variables
-bool lemma_cluster_finder::anti_unify_n_intrp(expr_ref &cube,
+void lemma_cluster_finder::anti_unify_n_intrp(expr_ref &cube,
                                               expr_ref_vector &fmls,
-                                              expr_ref &res) {
+                                              expr_ref_vector &res) {
     expr_ref_vector patterns(m);
     expr_ref pat(m), fml(m);
     substitution sub1(m), sub2(m);
     anti_unifier anti_u(m);
     substitution s1(m), s2(m);
 
+    SASSERT(res.empty());
     TRACE("cluster_stats_verb",
           tout << "Trying to generate a general pattern for " << cube
                << " neighbours are " << fmls << "\n";);
@@ -79,12 +80,17 @@ bool lemma_cluster_finder::anti_unify_n_intrp(expr_ref &cube,
         fml = expr_ref(c, m);
         SASSERT(are_neighbours(cube, fml));
         anti_u(cube, fml, pat, s1, s2);
-        patterns.push_back(pat);
+        if (get_num_vars(pat) == 0) {
+            TRACE("cluster_stats", tout << "Repeated lemmas\n";);
+            return;
+        }
+        if (!patterns.contains(pat))
+            patterns.push_back(pat);
     }
 
     // go through all the patterns to see if there is a pattern which is general
     // enough to include all lemmas.
-    bool is_general_pattern = false, pos = true, all_same = true;
+    bool is_general_pattern = false, pos = true;
     sem_matcher matcher(m);
     unsigned n_vars_pat = 0;
     for (expr *e : patterns) {
@@ -93,7 +99,6 @@ bool lemma_cluster_finder::anti_unify_n_intrp(expr_ref &cube,
               tout << "Checking pattern " << mk_pp(e, m) << "\n";);
         is_general_pattern = true;
         n_vars_pat = get_num_vars(e);
-        all_same = all_same && n_vars_pat == 0;
         for (auto *lcube : fmls) {
             matcher.reset();
             s1.reset();
@@ -109,15 +114,13 @@ bool lemma_cluster_finder::anti_unify_n_intrp(expr_ref &cube,
             TRACE("cluster_stats",
                   tout << "Found a general pattern " << mk_pp(e, m) << "\n";);
             // found a good pattern
-            res = expr_ref(e, m);
-            return true;
+            res.push_back(expr_ref(e, m));
         }
     }
 
-    CTRACE("cluster_stats", !all_same,
+    CTRACE("cluster_stats", res.empty(),
            tout << "Failed to find a general pattern for cluster. Cube is: "
                 << cube << " Patterns are " << patterns << "\n";);
-    return false;
 }
 
 void lemma_cluster_finder::cluster(lemma_ref &lemma) {
@@ -163,33 +166,41 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
 
     if (neighbours.empty()) return;
 
-    // compute the most general pattern to which lemmas fit
-    expr_ref pattern(m);
-    bool is_cluster = anti_unify_n_intrp(lcube, lma_cubes, pattern);
+    // compute the patterns to which lemmas
+    expr_ref_vector patterns(m);
+    anti_unify_n_intrp(lcube, lma_cubes, patterns);
+    bool is_cluster = !patterns.empty();
 
     // no general pattern
-    if (!is_cluster || get_num_vars(pattern) == 0) return;
+    if (!is_cluster) return;
 
-    lemma_cluster *cluster = pt.mk_cluster(pattern);
+    for (auto p : patterns) {
+        expr_ref pattern(p, m);
+        lemma_cluster *cluster = pt.mk_cluster(pattern);
 
-    TRACE("cluster_stats",
-          tout << "created new cluster with pattern: " << pattern << "\n"
-               << " and lemma cube: " << lcube << "\n";);
-
-    IF_VERBOSE(1, verbose_stream() << "\ncreated new cluster with pattern: "
-                                   << pattern << "\n"
-                                   << " and lemma cube: " << lcube << "\n";);
-
-    for (const lemma_ref &l : neighbours) {
-        SASSERT(cluster->can_contain(l));
-        cluster->add_lemma(l, false);
         TRACE("cluster_stats",
-              tout << "Added lemma " << mk_and(l->get_cube()) << "\n";);
-    }
+              tout << "created new cluster with pattern: " << pattern << "\n"
+              << " and lemma cube:\n";
+              for (auto f : neighbours) {
+                  tout << mk_and(f->get_cube()) << "\n";
+              };);
 
-    // finally add the lemma and do subsumption check
-    cluster->add_lemma(lemma, true);
-    SASSERT(cluster->get_size() >= 1);
+        IF_VERBOSE(1, verbose_stream()
+                   << "\ncreated new cluster with pattern: " << pattern
+                   << "\n"
+                   << " and lemma cube: " << lcube << "\n";);
+
+        for (const lemma_ref &l : neighbours) {
+            SASSERT(cluster->can_contain(l));
+            cluster->add_lemma(l, false);
+            TRACE("cluster_stats",
+                  tout << "Added lemma " << mk_and(l->get_cube()) << "\n";);
+        }
+
+        // finally add the lemma and do subsumption check
+        cluster->add_lemma(lemma, true);
+        SASSERT(cluster->get_size() >= 1);
+    }
 }
 
 void lemma_cluster_finder::collect_statistics(statistics &st) const {

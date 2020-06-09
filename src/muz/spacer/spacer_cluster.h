@@ -20,10 +20,10 @@ class lemma_cluster_finder {
     bool are_neighbours(const expr_ref &cube, const expr_ref &lcube);
 
     stats m_st;
-    // n-arry antiunify. Returns whether there is a substitution with only
-    // interpreted consts
-    bool anti_unify_n_intrp(expr_ref &cube, expr_ref_vector &fmls,
-                            expr_ref &res);
+    // n-arry antiunify. Returns all patterns such that there is a substitution with only
+    // interpreted consts.
+    void anti_unify_n_intrp(expr_ref &cube, expr_ref_vector &fmls,
+                            expr_ref_vector &res);
 
   public:
     lemma_cluster_finder(ast_manager &m);
