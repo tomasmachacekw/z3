@@ -59,6 +59,25 @@ Notes:
 
 #define WEAKNESS_MAX 65535
 
+namespace {
+bool abstract_pob(spacer::pob n, expr_ref_vector& nw_post) {
+    nw_post.reset();
+    ast_manager& m(n.get_ast_manager());
+    expr* post = n.post();
+    expr_ref_vector conj(m);
+    flatten_and(post, conj);
+    bool abs = false;
+    for(expr *a: conj) {
+        TRACE("spacer", tout << " abstraction " << to_app(a)->get_depth() << "\n";);
+        if (to_app(a)->get_depth() > 2) {
+            abs = true;
+            continue;
+        }
+        nw_post.push_back(a);
+    }
+    return abs;
+}
+}
 namespace spacer {
 
 /// pob -- proof obligation
@@ -3510,6 +3529,26 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                              << mk_pp(n.post(), m) << "\n";);
         m_stats.m_num_pob_ofg++;
         return l_undef;
+    }
+
+    expr_ref_vector nw_post(m);
+    if (abstract_pob(n, nw_post) && n.get_gas() != 1 && !n.is_may_pob()) {
+        pob *f = n.pt().find_pob(n.parent(), mk_and(nw_post));
+        // skip if a similar pob is already in the queue
+        if (!f || !f->is_in_queue()) {
+            pob *nw_pob = n.pt().mk_pob(n.parent(), n.level(), n.depth(),
+                                        mk_and(nw_post), n.get_binding());
+            unsigned gas = GAS_INIT;
+            nw_pob->set_gas(gas);
+            nw_pob->set_conj();
+            TRACE("spacer", tout << "Abstracted from " << mk_pp(n.post(), m)
+                  << " to " << mk_pp(nw_pob->post(), m)
+                  << " and gas " << gas << "\n";);
+            out.push_back(&(*nw_pob));
+            out.push_back(&n);
+            n.set_gas(1);
+            return l_undef;
+        }
     }
     // Decide whether to concretize pob
     // get a model that satisfies the pob and the current set of lemmas
