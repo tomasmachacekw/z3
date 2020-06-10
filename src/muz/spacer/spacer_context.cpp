@@ -60,7 +60,7 @@ Notes:
 #define WEAKNESS_MAX 65535
 
 namespace {
-bool abstract_pob(spacer::pob n, expr_ref_vector& nw_post) {
+bool abstract_pob(spacer::pob& n, expr_ref_vector& nw_post) {
     nw_post.reset();
     ast_manager& m(n.get_ast_manager());
     expr* post = n.post();
@@ -68,8 +68,7 @@ bool abstract_pob(spacer::pob n, expr_ref_vector& nw_post) {
     flatten_and(post, conj);
     bool abs = false;
     for(expr *a: conj) {
-        TRACE("spacer", tout << " abstraction " << to_app(a)->get_depth() << "\n";);
-        if (to_app(a)->get_depth() > 2) {
+        if (to_app(a)->get_depth() > 4) {
             abs = true;
             continue;
         }
@@ -3532,7 +3531,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     }
 
     expr_ref_vector nw_post(m);
-    if (abstract_pob(n, nw_post) && n.get_gas() != 1 && !n.is_may_pob()) {
+    if (n.get_gas() != 1 && !n.is_may_pob() &&
+        abstract_pob(n, nw_post)) {
         pob *f = n.pt().find_pob(n.parent(), mk_and(nw_post));
         // skip if a similar pob is already in the queue
         if (!f || !f->is_in_queue()) {
