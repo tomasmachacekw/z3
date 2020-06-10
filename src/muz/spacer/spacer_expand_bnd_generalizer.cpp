@@ -20,7 +20,7 @@ void lemma_expand_bnd_generalizer::operator()(lemma_ref &lemma) {
             expr_ref bnd(conj.get(i), m);
             if ((m_arith.is_le(bnd, term, num) ||
                  m_arith.is_ge(bnd, term, num)) &&
-                m_arith.is_numeral(num) && is_uninterp(term)) {
+                m_arith.is_numeral(num)) {
                 TRACE("expand_bnd_verb",
                       tout << "bnd is " << mk_pp(bnd, m) << "\n";);
                 expand_expr.reset();
