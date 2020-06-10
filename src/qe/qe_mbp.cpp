@@ -28,7 +28,7 @@ Revision History:
 #include "ast/scoped_proof.h"
 #include "qe/qe_mbp.h"
 #include "qe/qe_arith.h"
-#include "qe/qe_lia_arith.h"
+#include "qe/qe_bv_arith.h"
 #include "qe/qe_arrays.h"
 #include "qe/qe_datatypes.h"
 #include "qe/qe_lite.h"
@@ -498,7 +498,7 @@ public:
         if (true)
           add_plugin(alloc(arith_project_plugin, m));
         else
-          add_plugin(alloc(lia_project_plugin, m));
+          add_plugin(alloc(bv_project_plugin, m));
         add_plugin(alloc(datatype_project_plugin, m));
         add_plugin(alloc(array_project_plugin, m));
         updt_params(p);

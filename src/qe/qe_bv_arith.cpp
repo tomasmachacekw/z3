@@ -3,7 +3,7 @@ Copyright (c) 2020
 
 Module Name:
 
-    qe_lia_arith.cpp
+    qe_bv_arith.cpp
 
 Abstract:
 
@@ -11,20 +11,19 @@ Abstract:
 
 Author:
 
-   Arie Gurfinkel
-   Grigory Fedyukovich
-
+    Arie Gurfinkel
+    Hari Govind V K
 Revision History:
 
 --*/
 
-#include "qe/qe_lia_arith.h"
+#include "qe/qe_bv_arith.h"
 #include "ast/ast_util.h"
 #include "qe/qe_mbp.h"
 
 namespace qe {
 
-struct lia_project_plugin::imp {
+struct bv_project_plugin::imp {
   ast_manager &m;
   arith_util a;
 
@@ -57,44 +56,44 @@ struct lia_project_plugin::imp {
 };
 
 /**********************************************************/
-/*  lia_project_plugin implementation                     */
+/*  bv_project_plugin implementation                     */
 /**********************************************************/
-lia_project_plugin::lia_project_plugin(ast_manager &m) {
+bv_project_plugin::bv_project_plugin(ast_manager &m) {
   m_imp = alloc(imp, m);
 }
 
-lia_project_plugin::~lia_project_plugin() { dealloc(m_imp); }
+bv_project_plugin::~bv_project_plugin() { dealloc(m_imp); }
 
-bool lia_project_plugin::operator()(model &model, app *var,
+bool bv_project_plugin::operator()(model &model, app *var,
                                     app_ref_vector &vars,
                                     expr_ref_vector &lits) {
   return (*m_imp)(model, var, vars, lits);
 }
 
-void lia_project_plugin::operator()(model &model, app_ref_vector &vars,
+void bv_project_plugin::operator()(model &model, app_ref_vector &vars,
                                     expr_ref_vector &lits) {
   m_imp->project(model, vars, lits, false);
 }
 
-vector<def> lia_project_plugin::project(model &model, app_ref_vector &vars,
+vector<def> bv_project_plugin::project(model &model, app_ref_vector &vars,
                                         expr_ref_vector &lits) {
   return m_imp->project(model, vars, lits, true);
 }
 
-void lia_project_plugin::set_check_purified(bool check_purified) {
+void bv_project_plugin::set_check_purified(bool check_purified) {
   UNREACHABLE();
 }
 
-bool lia_project_plugin::solve(model &model, app_ref_vector &vars,
+bool bv_project_plugin::solve(model &model, app_ref_vector &vars,
                                expr_ref_vector &lits) {
   return m_imp->solve(model, vars, lits);
 }
 
-family_id lia_project_plugin::get_family_id() {
+family_id bv_project_plugin::get_family_id() {
   return m_imp->a.get_family_id();
 }
 
-opt::inf_eps lia_project_plugin::maximize(expr_ref_vector const &fmls,
+opt::inf_eps bv_project_plugin::maximize(expr_ref_vector const &fmls,
                                           model &mdl, app *t, expr_ref &ge,
                                           expr_ref &gt) {
   UNREACHABLE();
@@ -102,10 +101,5 @@ opt::inf_eps lia_project_plugin::maximize(expr_ref_vector const &fmls,
   return value;
 }
 
-void lia_project_plugin::saturate(model &model,
-                                  func_decl_ref_vector const &shared,
-                                  expr_ref_vector &lits) {
-  UNREACHABLE();
-}
 
 } // namespace qe
