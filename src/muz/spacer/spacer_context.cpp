@@ -72,7 +72,7 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_conj_pattern(m_pt.get_ast_manager()), m_local_gen(true),
       m_shd_concr(false), m_concr_pat(m_pt.get_ast_manager()),
       m_subsume_pob(m_pt.get_ast_manager()), m_subsume_bindings(m_pt.get_ast_manager()), m_is_subsume_pob(false),
-      m_expand_bnd(true), m_gas(0) {
+      m_expand_bnd(false), m_gas(0) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
