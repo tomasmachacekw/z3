@@ -10,7 +10,7 @@ lemma_expand_bnd_generalizer::lemma_expand_bnd_generalizer(context &ctx)
 
 void lemma_expand_bnd_generalizer::operator()(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
-    if (lemma->get_pob()->is_subsume_pob() && lemma->get_pob()->expand_bnd()) {
+    if (lemma->get_pob()->expand_bnd()) {
         // try expanding cvx bounds
         expr_ref_vector conj = lemma->get_cube();
         expr_ref_vector expand_expr(m), updt_conj(conj);

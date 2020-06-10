@@ -895,6 +895,7 @@ class pob {
 
     void stop_expand_bnd() { m_expand_bnd = false; }
     bool expand_bnd() { return m_expand_bnd; }
+    void set_expand_bnd() { m_expand_bnd = true; }
     void set_concr_pat(expr_ref pattern) { m_concr_pat = pattern; }
     expr_ref get_concr_pat() const { return m_concr_pat; }
     expr_ref_vector const &get_conj_pattern() const { return m_conj_pattern; }
