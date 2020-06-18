@@ -1304,6 +1304,9 @@ void pred_transformer::add_cover(unsigned level, expr* property, bool bg)
 void pred_transformer::propagate_to_infinity (unsigned level)
 {m_frames.propagate_to_infinity (level);}
 
+bool pred_transformer::is_empty(unsigned level) {
+    return m_frames.is_empty(level);
+}
 // compute a conjunction of all background facts
 void pred_transformer::get_pred_bg_invs(expr_ref_vector& out) {
     expr_ref inv(m), tmp1(m), tmp2(m);
@@ -2131,7 +2134,12 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
     return true;
 }
 
-
+bool pred_transformer::frames::is_empty(unsigned lvl) {
+    for (unsigned i = 0, sz = m_lemmas.size(); i < sz; i++) {
+        if (m_lemmas[i]->level() <= lvl) return false;
+    }
+    return true;
+}
 void pred_transformer::frames::propagate_to_infinity (unsigned level)
 {
     for (unsigned i = 0, sz = m_lemmas.size (); i < sz; ++i)
@@ -3941,6 +3949,17 @@ bool context::propagate(unsigned min_prop_lvl,
     }
     if (m_simplify_formulas_post) {
         simplify_formulas();
+    }
+
+    for (unsigned i = 0; i <= max_prop_lvl; i++) {
+        bool is_empty = true;
+        for (auto &kv : m_rels) {
+            checkpoint();
+            pred_transformer &r = *kv.m_value;
+            is_empty = r.is_empty(i) && is_empty;
+            if (!is_empty) break;
+        }
+        if(is_empty) return true;
     }
 
     IF_VERBOSE(1, verbose_stream () << "\n";);
