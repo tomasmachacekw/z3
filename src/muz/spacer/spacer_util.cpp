@@ -402,11 +402,11 @@ namespace {
                 if (m.is_xor(nres, f1, f2))
                     res = m.mk_eq(f1, f2);
                 // -- split arithmetic inequality
-                else if (m.is_eq(nres, f1, f2) && m_arith.is_int_real(f1)) {
-                    res = m_arith.mk_lt(f1, f2);
-                    if (!m_model.is_true(res))
-                        res = m_arith.mk_lt(f2, f1);
-                }
+                // else if (m.is_eq(nres, f1, f2) && m_arith.is_int_real(f1)) {
+                    // res = m_arith.mk_lt(f1, f2);
+                    // if (!m_model.is_true(res))
+                        // res = m_arith.mk_lt(f2, f1);
+                // }
             }
 
             if (!m_model.is_true(res)) {
