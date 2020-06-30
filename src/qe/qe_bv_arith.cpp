@@ -21,61 +21,150 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/expr_abstract.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
+#include "cmd_context/cmd_context.h"
 #include "qe/qe_mbp.h"
+#include "smt/smt_solver.h"
 
 namespace qe {
 
-struct bv_mbp_rw_cfg : public default_rewriter_cfg {
-    model* m_mdl;
-    ast_manager& m;
-    expr_ref_vector& m_sc;
-    bv_util m_bv;
-    void add_model(model *model) { m_mdl = model; }
-    bv_mbp_rw_cfg(ast_manager &m, expr_ref_vector& sc) : m(m), m_sc(sc), m_bv(m) {}
-    void mk_add(expr_ref_vector &f, expr_ref &res) {
-        if (f.size() == 1)
-            res = f.get(0);
-        else if (f.size() != 0)
-            res = m.mk_app(m_bv.get_fid(), OP_BADD, f.size(), f.c_ptr());
-    }
+bool contains(expr *e, expr *v) {
+  if (e == v)
+    return true;
+  for (expr *arg : *to_app(e))
+    if (contains(arg, v))
+      return true;
+  return false;
+}
+void mk_add(expr_ref_vector &f, expr_ref &res) {
+  ast_manager &m = res.get_manager();
+  bv_util m_bv(m);
+  if (f.size() == 1)
+    res = f.get(0);
+  else if (f.size() != 0)
+    res = m.mk_app(m_bv.get_fid(), OP_BADD, f.size(), f.c_ptr());
+}
+void mk_neg(expr *f, expr_ref &res) {
+    ast_manager &m = res.get_manager();
+    bv_util m_bv(m);
+    rational val;
+    expr *t1, *t2 = nullptr;
+    const unsigned sz = m_bv.get_bv_size(f);
+    rational bnd = rational::power_of_two(sz) - 1;
 
-    void flatten_add(expr_ref t1, expr_ref_vector& res) {
-        if (t1.get() == nullptr) return;
-        if (!m_bv.is_bv_add(t1)) {
-            res.push_back(t1);
-            return;
+    if (m_bv.is_numeral(f, val)) {
+        if (val == rational::zero())
+            res = f;
+        else {
+            rational neg = rational::power_of_two(sz) - val;
+            res = m_bv.mk_numeral(neg, sz);
         }
-        rational val, sum = rational::zero();
-        unsigned sz = m_bv.get_bv_size(t1.get());
-        expr_ref flt(m);
-        for (auto arg : *(to_app(t1))) {
-            flatten_term(arg, flt);
-            if (m_bv.is_numeral(flt, val)) sum = sum + val;
-            else
-                res.push_back(flt);
+    } else if (m_bv.is_bv_neg(f))
+        res = (to_app(f)->get_arg(0));
+    else if (m_bv.is_bv_mul(f, t1, t2)) {
+        if (m_bv.is_numeral(t1, val) && val == bnd)
+            res = t2;
+        else if (m_bv.is_numeral(t2, val) && val == bnd)
+            res = t1;
+        else
+            res = m_bv.mk_bv_neg(f);
+    } else if (m_bv.is_bv_add(f)) {
+        expr_ref_vector tmp(m);
+        expr_ref tmp1(m);
+        for (auto arg : *(to_app(f))) {
+            mk_neg(arg, tmp1);
+            tmp.push_back(tmp1);
         }
-        if (!sum.is_zero())
-            res.push_back(m_bv.mk_numeral(sum, sz));
+        mk_add(tmp, res);
+    } else
+        res = m_bv.mk_bv_neg(f);
+}
+void flatten_term(expr *t, expr_ref &res) {
+  ast_manager &m = res.get_manager();
+  bv_util m_bv(m);
+  expr *neg;
+  if (m_bv.is_bv_neg(t)) {
+    neg = to_app(t)->get_arg(0);
+    if (m_bv.is_bv_neg(neg)) {
+      res = to_app(neg)->get_arg(0);
+      return;
     }
+    if (m_bv.is_numeral(neg)) {
+      mk_neg(neg, res);
+      return;
+    }
+  }
+  res = t;
+  return;
+}
+void flatten_add(expr_ref t1, expr_ref_vector &res) {
+  ast_manager &m = t1.get_manager();
+  bv_util m_bv(m);
+  if (t1.get() == nullptr)
+    return;
+  if (!m_bv.is_bv_add(t1)) {
+    res.push_back(t1);
+    return;
+  }
+  rational val, sum = rational::zero();
+  unsigned sz = m_bv.get_bv_size(t1.get());
+  expr_ref flt(m);
+  for (auto arg : *(to_app(t1))) {
+    flatten_term(arg, flt);
+    if (m_bv.is_numeral(flt, val))
+      sum = sum + val;
+    else
+      res.push_back(flt);
+  }
+  if (!sum.is_zero())
+    res.push_back(m_bv.mk_numeral(sum, sz));
+}
 
-    void flatten_term (expr* t, expr_ref& res) {
-        expr* neg;
-        if (m_bv.is_bv_neg(t)) {
-            neg = to_app(t)->get_arg(0);
-            if (m_bv.is_bv_neg(neg)) {
-                res = to_app(neg)->get_arg(0);
-                return;
-            }
-            if (m_bv.is_numeral(neg)) {
-                mk_neg (neg, res);
-                return;
-            }
-        }
-        res = t;
-        return;
+void mk_add(expr_ref t1, expr_ref t2, expr_ref &res) {
+  expr_ref_vector f(t1.get_manager());
+  flatten_add(t1, f);
+  flatten_add(t2, f);
+  mk_add(f, res);
+}
+
+bool unhandled(expr *f, expr_ref var) {
+    bv_util u(var.get_manager());
+    SASSERT(contains(f, var));
+    if (is_uninterp(f))
+        return false;
+    if (u.is_bv_sdiv(f) || u.is_bv_udiv(f))
+        return true;
+    if (u.is_bv_smod(f) || u.is_bv_smodi(f) || u.is_bv_smod0(f))
+        return true;
+    if (u.is_bv_urem(f) || u.is_bv_urem0(f) || u.is_bv_uremi(f))
+        return true;
+    if (u.is_extract(f) || u.is_concat(f))
+        return true;
+    for (auto a : *(to_app(f))) {
+        if (!contains(a, var))
+            continue;
+        return unhandled(a, var);
     }
+    return false;
+}
+bool split(expr *e, expr *var, expr_ref t1, expr_ref t2) {
+    ast_manager &m(t2.get_manager());
+    bv_util m_bv(m);
+    if (!m_bv.is_bv_add(e))
+        return false;
+    expr_ref_vector nw_args(m);
+    for (expr *arg : *to_app(e)) {
+        if (contains(arg, var))
+            t1 = arg;
+        else
+            nw_args.push_back(arg);
+    }
+    mk_add(nw_args, t2);
+    return true;
+}
 
     void mk_add(expr_ref t1, expr_ref t2, expr_ref &res) {
         expr_ref_vector f(m);
