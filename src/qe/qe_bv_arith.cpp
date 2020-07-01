@@ -172,12 +172,12 @@ class rw_rule {
         model_ref m_mdl;
         expr_ref m_var;
         bv_util m_bv;
-    bool is_add(expr_ref e, expr* &lhs, expr* &rhs) {
-        if (to_app(e)->get_num_args() != 2)
+    bool is_ule(expr_ref e, expr* &lhs, expr* &rhs) {
+        if (!m_bv.is_bv_ule(e))
             return false;
         lhs = to_app(e)->get_arg(0);
         rhs = to_app(e)->get_arg(1);
-        if (!contains(lhs, m_var) || contains(rhs, m_var))
+        if (contains(lhs, m_var) == contains(rhs, m_var))
             return false;
         return true;
     }
@@ -196,7 +196,7 @@ public:
     addl1 (ast_manager& m): rw_rule(m){}
     bool apply(expr_ref e, expr_ref_vector &out) override {
         expr *lhs, *rhs;
-        if (!is_add(e, lhs, rhs)) return false;
+        if (!is_ule(e, lhs, rhs)) return false;
         expr_ref t1(m), t2(m), t2_neg(m);
         if (!split(lhs, m_var, t1, t2)) return false;
         mk_neg(t2, t2_neg);
@@ -217,7 +217,7 @@ public:
   addl2 (ast_manager &m) : rw_rule(m) {}
   bool apply(expr_ref e, expr_ref_vector &out) override {
       expr *lhs, *rhs;
-      if (!is_add(e, lhs, rhs))
+      if (!is_ule(e, lhs, rhs))
           return false;
       expr_ref t1(m), t2(m), t2_neg(m);
       if (split(lhs, m_var, t1, t2))
@@ -240,7 +240,7 @@ public:
   addr1(ast_manager &m) : rw_rule(m) {}
   bool apply(expr_ref e, expr_ref_vector &out) override {
       expr *lhs, *rhs;
-      if (!is_add(e, lhs, rhs))
+      if (!is_ule(e, lhs, rhs))
           return false;
       expr_ref t1(m), t2(m), t2_neg(m);
       if (split(rhs, m_var, t1, t2))
@@ -270,7 +270,7 @@ public:
   addr2(ast_manager &m) : rw_rule(m) {}
   bool apply(expr_ref e, expr_ref_vector &out) override {
     expr *lhs, *rhs;
-    if (!is_add(e, lhs, rhs))
+    if (!is_ule(e, lhs, rhs))
         return false;
     expr_ref t1(m), t2(m), t2_neg(m);
     if (split(rhs, m_var, t1, t2))
@@ -340,7 +340,6 @@ struct bv_mbp_rw_cfg : public default_rewriter_cfg {
                          expr_ref &result, proof_ref &result_pr) {
         expr_ref sc(m);
         expr *e = m.mk_app(f, num, args);
-        TRACE("bv_tmp", tout << "rewriting " << mk_pp(e, m) << "\n";);
         if (rewrite_concat(e, result, sc)) {
             m_sc.push_back(sc);
             TRACE("bv_tmp", tout << "concat rewritten " << result << " and sc " << sc << "\n";);
@@ -373,7 +372,7 @@ struct bv_project_plugin::imp {
         expr *e;
         if (m.is_not(b, e) && to_app(e)->get_num_args() != 2) return false;
         else e = b;
-        if (to_app(e)->get_num_args() != 2) return false;
+        if (!bv.is_bv_ule(e)) return false;
         expr *chd = to_app(e)->get_arg(0);
         expr *o_chd = to_app(e)->get_arg(1);
         if (!contains(chd, var)) {
