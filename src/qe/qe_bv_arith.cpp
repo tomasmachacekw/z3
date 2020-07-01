@@ -442,14 +442,14 @@ struct bv_project_plugin::imp {
           if (normalize(v, f, model, norm)) {
             TRACE("bv_tmp", tout << "Normalized " << f << " into "
                                   << mk_and(norm) << "\n";);
-            pi.push_back(f);
+            sig.push_back(f);
           } else {
             TRACE("bv_tmp", tout << "Could not normalize " << f << " at var "
                                   << v << "\n";);
-            sig.push_back(f);
+            pi.push_back(f);
           }
         }
-        lazy_mbp(backg_fmls, pi, sig, v, new_fmls, model);
+        lazy_mbp(backg_fmls, sig, pi, v, new_fmls, model);
         res.reset();
         res.append(new_fmls);
         res.append(backg_fmls);
@@ -491,24 +491,26 @@ bool is_sat(expr *a, expr *b = nullptr, expr *c = nullptr) {
 }
 
 // computes mbp(pi && sig, model, v)
-// input: new_fmls ==> bg && \exist v pi
+// input: new_fmls ==> \exist v sig
 // output: new_fmls ==> bg && \exists v pi && sig
-void lazy_mbp(expr_ref_vector &bg, expr_ref_vector &pi, expr_ref_vector &sig, expr_ref v,
+void lazy_mbp(expr_ref_vector &bg, expr_ref_vector &sig, expr_ref_vector &pi, expr_ref v,
               expr_ref_vector &new_fmls, model &model) {
     expr_ref negged_quant_conj(m);
     negged_quant_conj = m.mk_and(mk_and(pi), mk_and(sig), mk_and(bg));
-    if (contains(negged_quant_conj, v)) {
-        app_ref_vector vec(m);
-        vec.push_back(to_app(v.get()));
-        mk_exists(negged_quant_conj, vec, negged_quant_conj);
+    if (!contains(negged_quant_conj, v)) {
+        flatten_and(negged_quant_conj, new_fmls);
+        return;
     }
+    app_ref_vector vec(m);
+    vec.push_back(to_app(v.get()));
+    mk_exists(negged_quant_conj, vec, negged_quant_conj);
     negged_quant_conj = m.mk_not(negged_quant_conj);
 
     expr_ref new_fmls_conj(m), r(m);
     new_fmls_conj = m.mk_and(mk_and(new_fmls), mk_and(bg));
 
     expr_ref_vector substs(m);
-    for (auto f : sig) {
+    for (auto f : pi) {
         get_subst(model, v, f, r);
         substs.push_back(r);
     }
@@ -521,11 +523,8 @@ void lazy_mbp(expr_ref_vector &bg, expr_ref_vector &pi, expr_ref_vector &sig, ex
         return ;
     }
 
-    expr_ref_vector substs_tmp(m); // backup copy
-    substs_tmp.append(substs);
-
     // todo: possibly, optimize with incremental SMT
-    for (auto f : pi) {
+    for (auto f : sig) {
         // too weak; add missing substs
         get_subst(model, v, f, r);
         substs.push_back(r);
@@ -534,7 +533,7 @@ void lazy_mbp(expr_ref_vector &bg, expr_ref_vector &pi, expr_ref_vector &sig, ex
             break;
     }
 
-    TRACE("bv_tmp", tout << "\nLazy MBP completed. sig size " << init_sz << " substitutions in pi " << substs.size() - init_sz << " and pi size " << pi.size()  << "\n";);
+    TRACE("bv_tmp", tout << "\nLazy MBP completed. pi size " << init_sz << " substitutions in sig " << substs.size() - init_sz << " and sig size " << sig.size()  << "\n";);
     new_fmls.append(substs);
 }
 
