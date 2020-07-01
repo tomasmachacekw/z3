@@ -443,19 +443,211 @@ struct bv_project_plugin::imp {
             TRACE("bv_tmp", tout << "Normalized " << f << " into "
                                   << mk_and(norm) << "\n";);
             sig.push_back(f);
+            TRACE("qe", tout << "normalized from " << mk_pp(f, m) << " to "
+                             << mk_pp(mk_and(norm), m) << "\n";);
+            for (auto a : norm) {
+              // normalization can create side conditions not involving v
+              if (contains(a, v))
+                norm_fmls.push_back(a);
+              else
+                backg_fmls.push_back(a);
+            }
+            // sanity check. normalization should be an under approximation
+            SASSERT(is_sat((mk_and(norm), m.mk_not(f))));
+            // sanity check. model satisfies normalized formula
+            SASSERT(model.is_true(mk_and(norm)));
           } else {
             TRACE("bv_tmp", tout << "Could not normalize " << f << " at var "
                                   << v << "\n";);
             pi.push_back(f);
           }
         }
-        lazy_mbp(backg_fmls, sig, pi, v, new_fmls, model);
+        expr_ref_vector bd_fmls(m);
+        resolve(v, norm_fmls, model, new_fmls, bd_fmls);
+        if (bd_fmls.size() > 0) {
+            pi.append(bd_fmls);
+            CTRACE("bv_tmp", bd_fmls.size() > 0,
+                   tout << " could not resolve out " << mk_and(bd_fmls)
+                        << " for var " << v << "\n";);
+        }
+        if (!sig.empty()) {
+          TRACE("bv_tmp", tout << "calling lazy mbp with pi " << mk_and(pi)
+                           << " and sig " << mk_and(sig) << "\n";);
+          lazy_mbp(backg_fmls, sig, pi, v, new_fmls, model);
+        }
         res.reset();
         res.append(new_fmls);
         res.append(backg_fmls);
       }
       return vector<def>();
     }
+
+void get_lbs(expr_ref var, expr_ref_vector& f, expr_ref_vector& lbs) {
+    expr *lhs, *rhs;
+    for (auto a : f) {
+        if (contains(a, var)) {
+            if (bv.is_bv_ule(a, lhs, rhs) && !contains(lhs, var) && contains(rhs, var))
+                lbs.push_back(a);
+        }
+    }
+}
+
+void get_ubs(expr_ref var, expr_ref_vector &f, expr_ref_vector &ubs) {
+  expr *lhs, *rhs;
+  for (auto a : f) {
+    if (contains(a, var)) {
+      if (bv.is_bv_ule(a, lhs, rhs) && contains(lhs, var) && !contains(rhs, var))
+        ubs.push_back(a);
+    }
+  }
+}
+
+rational get_coeff(expr* a, expr_ref var) {
+    if (!contains(a, var)) return rational::zero();
+    if (a == var.get()) return rational::one();
+    expr *t1, *t2;
+    if (bv.is_bv_mul(a, t1, t2)) {
+        rational o_coeff;
+        SASSERT(u.is_numeral(t1));
+        bv.is_numeral(t1, o_coeff);
+        return o_coeff * get_coeff(t2, var);
+    }
+    for (auto t : *to_app(a)) {
+        if (contains(t, var)) return get_coeff(t, var);
+    }
+    return rational::zero();
+}
+
+//lcm of coefficients of var in f
+rational get_lcm(expr_ref_vector& f, expr_ref var) {
+    rational l = rational::one();
+    for(auto a : f) {
+        rational c = get_coeff(a, var);
+        l = lcm(l, c);
+    }
+    return l;
+}
+
+expr* find_glb(model &mdl, expr_ref_vector& lbs) {
+    expr_ref res(m);
+    expr *r = lbs.get(0);
+    rational val, glb(0);
+    mdl.eval_expr(to_app(lbs[0].get())->get_arg(0), res);
+    if (!bv.is_numeral(res, glb))
+        return nullptr;
+    for (auto a : lbs) {
+        mdl.eval_expr(to_app(a)->get_arg(0), res);
+        SASSERT(bv.is_numeral(res));
+        if (bv.is_numeral(res, val) && glb < val) {
+            r = a;
+            glb = val;
+        }
+    }
+    return r;
+}
+
+expr *find_lub(model &mdl, expr_ref_vector &ubs) {
+  expr_ref res(m);
+  expr *r = ubs.get(0);
+  rational val, lub;
+  mdl.eval_expr(to_app(ubs[0].get())->get_arg(1), res);
+  if (!bv.is_numeral(res, lub))
+      return nullptr;
+  for (auto a : ubs) {
+    mdl.eval_expr(to_app(a)->get_arg(1), res);
+    SASSERT(u.is_numeral(res));
+    if (bv.is_numeral(res, val) && lub > val) {
+      r = a;
+      lub = val;
+    }
+  }
+  return r;
+}
+
+void mk_mul(expr* a, rational b, expr_ref& o) {
+    rational val;
+    if (b.is_one()) {
+        o = a;
+        return ;
+    }
+    unsigned sz = bv.get_bv_size(a);
+    if (bv.is_numeral(a, val)) {
+        o = bv.mk_numeral(val * b, sz);
+        return;
+    }
+    o = bv.mk_bv_mul(bv.mk_numeral(b, sz), a);
+}
+
+// resolve a1 <= var with var <= b1 to get a1 <= b1
+void resolve(expr *a, expr *b, rational lcm, expr_ref var, expr_ref &res) {
+  SASSERT(bv.is_bv_ule(a));
+  SASSERT(bv.is_bv_ule(b));
+  rational b_c = get_coeff(b, var);
+  rational a_c = get_coeff(a, var);
+  SASSERT(!b_c.is_zero() && !a_c.is_zero());
+  if (lcm.is_one()) {
+    SASSERT(a_c.is_one());
+    SASSERT(b_c.is_one());
+    res = bv.mk_ule(to_app(a)->get_arg(0), to_app(b)->get_arg(1));
+  } else {
+    NOT_IMPLEMENTED_YET();
+  }
+}
+
+// generates an under-approximation for some literals in f
+// modifies f, res and bd_fmls
+void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
+             expr_ref_vector &res, expr_ref_vector& bd_fmls) {
+    if (f.empty())
+        return;
+    expr_ref_vector lbs(m), ubs(m);
+    get_lbs(var, f, lbs);
+    get_ubs(var, f, ubs);
+    if (ubs.size() == f.size() || lbs.size() == f.size()) {
+        bd_fmls.reset();
+        res.push_back(m.mk_true());
+        return;
+    }
+    TRACE("bv_tmp", tout << "trying to resolve " << mk_and(ubs) << " and " << mk_and(lbs) << "\n";);
+    SASSERT(ubs.size() + lbs.size() == f.size());
+    expr *ub, *lb;
+    expr_ref nw_lhs(m), nw_rhs(m), r(m);
+    rational lcm = get_lcm(f, var);
+    lb = find_glb(mdl, lbs);
+    ub = find_lub(mdl, ubs);
+    TRACE("bv_tmp", tout << "the upper bound is " << mk_pp(ub, m) << " and the lower bound is " << mk_pp(lb, m) << "\n";);
+    rational ub_c = get_coeff(ub, var);
+    rational lb_c = get_coeff(lb, var);
+    expr_ref_vector sc(m);
+    if (!lcm.is_one()) {
+        NOT_IMPLEMENTED_YET();
+        return;
+    }
+
+    //compare all lbs against lb
+    nw_rhs = to_app(lb)->get_arg(0);
+    for (auto a : lbs) {
+        if (a == lb) continue;
+        r = bv.mk_ule(to_app(a)->get_arg(0), nw_rhs);
+        res.push_back(r);
+        TRACE("bv_tmp", tout << "lb comparison produced " << r << "\n";);
+    }
+
+    //resolve all ubs against lb
+    for (auto a : ubs) {
+        resolve(lb, a, lcm, var, r);
+        res.push_back(r);
+        TRACE("qe", tout << "resolve produced " << r << "\n";);
+    }
+
+    //check if any side conditions failed
+    if (!mdl.is_true(mk_and(sc))) {
+        bd_fmls.append(f);
+        f.reset();
+        res.reset();
+    }
+    return;
+}
 
 void mk_exists(expr *f, app_ref_vector &vars, expr_ref &res) {
     svector<symbol> names;
