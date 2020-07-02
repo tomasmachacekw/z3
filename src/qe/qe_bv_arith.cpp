@@ -557,6 +557,56 @@ public:
   };
 };
 
+class addr3 : public rw_rule {
+  // if { y == 0  /\ z <= f(x)} then { z <= f(x) + y}
+public:
+  addr3(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+      expr_ref lhs(m), rhs(m);
+      if (!is_ule(e, lhs, rhs)) return false;
+      expr_ref t1(m), t2(m), t2_neg(m);
+      if (!split(rhs, m_var, t1, t2)) return false;
+      unsigned sz = m_bv.get_bv_size(m_var);
+      expr_ref one(m), minus_one(m), zro(m), add_t2(m), add_lhs(m);
+      zro = m_bv.mk_numeral(rational::zero(), sz);
+      expr *oth = m_bv.mk_ule(lhs, t1);
+      expr *t2_zro = m.mk_eq(t2, zro);
+      if (m_mdl->is_true(t2_zro) && m_mdl->is_true(oth)) {
+        out.push_back(oth);
+        out.push_back(t2_zro);
+        return true;
+    }
+    return false;
+  };
+};
+
+class addr4 : public rw_rule {
+  // if { y != 0  /\ z < y && x < -y } then { z <= f(x) + y}
+public:
+  addr4(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+      expr_ref lhs(m), rhs(m);
+      if (!is_ule(e, lhs, rhs))
+          return false;
+      expr_ref t1(m), t2(m), t2_neg(m);
+      if (!split(rhs, m_var, t1, t2))
+          return false;
+      unsigned sz = m_bv.get_bv_size(m_var);
+      expr_ref one(m), minus_one(m), zro(m), add_t2(m), add_lhs(m);
+      zro = m_bv.mk_numeral(rational::zero(), sz);
+      expr *t2_zro = m.mk_not(m.mk_eq(t2, zro));
+      expr *oth = m.mk_not(m_bv.mk_ule(t2, lhs));
+      expr *oth2 = m.mk_not(m_bv.mk_ule(t2_neg, t1));
+      if (m_mdl->is_true(t2_zro) && m_mdl->is_true(oth) && m_mdl->is_true(oth2)) {
+          out.push_back(oth);
+          out.push_back(oth2);
+          out.push_back(t2_zro);
+          return true;
+      }
+      return false;
+  };
+};
+
 struct bv_mbp_rw_cfg : public default_rewriter_cfg {
     model* m_mdl;
     ast_manager& m;
@@ -622,6 +672,8 @@ struct bv_project_plugin::imp {
         m_rw_rules.push_back(alloc(addl3, m));
         m_rw_rules.push_back(alloc(addr1, m));
         m_rw_rules.push_back(alloc(addr2, m));
+        m_rw_rules.push_back(alloc(addr3, m));
+        m_rw_rules.push_back(alloc(addr4, m));
         m_rw_rules.push_back(alloc(sle1, m));
         m_rw_rules.push_back(alloc(sle2, m));
         m_rw_rules.push_back(alloc(sle3, m));
