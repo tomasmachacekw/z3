@@ -391,7 +391,9 @@ public:
         rational val;
         if (!is_ule(e, lhs, rhs)) return false;
         if (!(contains(lhs, m_var) && m_bv.is_bv_mul(lhs, l1, l2) && l2 == m_var)) return false;
-        if (!(m_bv.is_numeral(l1, val) && val.is_minus_one())) return false;
+        unsigned sz = m_bv.get_bv_size(m_var);
+        if (!(m_bv.is_numeral(l1, val) && (val.is_minus_one() || (val == rational::power_of_two(sz) - 1))))
+            return false;
         mk_mul(l1, rhs, nw_lhs);
         expr *b1 = m_bv.mk_ule(nw_lhs, l2);
         if (m_mdl->is_true(b1)) {
@@ -399,7 +401,7 @@ public:
             return true;
         }
         return false;
-    }
+        }
 };
 
 class mul_mone2 : public rw_rule {
@@ -414,8 +416,9 @@ public:
       return false;
     if (!(contains(rhs, m_var) && m_bv.is_bv_mul(rhs, l1, l2) && l2 == m_var))
       return false;
-    if (!(m_bv.is_numeral(l1, val) && val.is_minus_one()))
-      return false;
+    unsigned sz = m_bv.get_bv_size(m_var);
+    if (!(m_bv.is_numeral(l1, val) && (val.is_minus_one() || (val == rational::power_of_two(sz) - 1))))
+        return false;
     mk_mul(l1, lhs, nw_rhs);
     expr *b1 = m_bv.mk_ule(l2, nw_rhs);
     if (m_mdl->is_true(b1)) {
@@ -498,7 +501,7 @@ public:
 };
 
 class addr1 : public rw_rule {
-  // if {z <= -y - 1 /\ y != 0 /\ z - y <= f(x)} then {z <= f(x) + y}
+  // if {z <= y - 1 /\ y != 0 /\ z - y <= f(x)} then {z <= f(x) + y}
 public:
   addr1(ast_manager &m) : rw_rule(m) {}
   bool apply(expr_ref e, expr_ref_vector &out) override {
@@ -512,8 +515,8 @@ public:
       one = m_bv.mk_numeral(rational::one(), sz);
       zro = m_bv.mk_numeral(rational::zero(), sz);
       mk_neg(one, minus_one);
-      mk_add(t2_neg, minus_one, add_mo);
-      expr *oth = m_bv.mk_ule(rhs, add_mo);
+      mk_add(t2, minus_one, add_mo);
+      expr *oth = m_bv.mk_ule(lhs, add_mo);
       expr *no_zro = m.mk_not(m.mk_eq(t2, zro));
       mk_add(lhs, t2_neg, add_t1);
       expr *rw = m_bv.mk_ule(add_t1, t1);
@@ -554,6 +557,60 @@ public:
         return true;
     }
     return false;
+  };
+};
+
+class addr3 : public rw_rule {
+  // if { y == 0  /\ z <= f(x)} then { z <= f(x) + y}
+public:
+  addr3(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+      expr_ref lhs(m), rhs(m);
+      if (!is_ule(e, lhs, rhs)) return false;
+      expr_ref t1(m), t2(m);
+      if (!split(rhs, m_var, t1, t2)) return false;
+      unsigned sz = m_bv.get_bv_size(m_var);
+      expr_ref zro(m);
+      zro = m_bv.mk_numeral(rational::zero(), sz);
+      expr *oth = m_bv.mk_ule(lhs, t1);
+      expr *t2_zro = m.mk_eq(t2, zro);
+      if (m_mdl->is_true(t2_zro) && m_mdl->is_true(oth)) {
+        out.push_back(oth);
+        out.push_back(t2_zro);
+        return true;
+    }
+    return false;
+  };
+};
+
+class addr4 : public rw_rule {
+  // if { y != 0  /\ z <= y - 1 && x <= -y - 1 } then { z <= f(x) + y}
+public:
+  addr4(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+      expr_ref lhs(m), rhs(m);
+      if (!is_ule(e, lhs, rhs))
+          return false;
+      expr_ref t1(m), t2(m), t2_neg(m);
+      if (!split(rhs, m_var, t1, t2))
+          return false;
+      mk_neg(t2, t2_neg);
+      unsigned sz = m_bv.get_bv_size(m_var);
+      expr_ref one(m), zro(m), mone(m), add_t2(m), add_negt2(m);
+      zro = m_bv.mk_numeral(rational::zero(), sz);
+      mone = m_bv.mk_numeral(rational::minus_one(), sz);
+      mk_add(t2, mone, add_t2);
+      mk_add(t2_neg, mone, add_negt2);
+      expr *t2_zro = m.mk_not(m.mk_eq(t2, zro));
+      expr *oth = m_bv.mk_ule(lhs, add_t2);
+      expr *oth2 = m_bv.mk_ule(t1, add_negt2);
+      if (m_mdl->is_true(t2_zro) && m_mdl->is_true(oth) && m_mdl->is_true(oth2)) {
+          out.push_back(oth);
+          out.push_back(oth2);
+          out.push_back(t2_zro);
+          return true;
+      }
+      return false;
   };
 };
 
@@ -622,6 +679,8 @@ struct bv_project_plugin::imp {
         m_rw_rules.push_back(alloc(addl3, m));
         m_rw_rules.push_back(alloc(addr1, m));
         m_rw_rules.push_back(alloc(addr2, m));
+        m_rw_rules.push_back(alloc(addr3, m));
+        m_rw_rules.push_back(alloc(addr4, m));
         m_rw_rules.push_back(alloc(sle1, m));
         m_rw_rules.push_back(alloc(sle2, m));
         m_rw_rules.push_back(alloc(sle3, m));
@@ -629,7 +688,7 @@ struct bv_project_plugin::imp {
         m_rw_rules.push_back(alloc(neq1, m));
         m_rw_rules.push_back(alloc(neq2, m));
         m_rw_rules.push_back(alloc(nule, m));
-        m_rw_rules.push_back(alloc(mul_mone2, m));
+        m_rw_rules.push_back(alloc(mul_mone1, m));
         m_rw_rules.push_back(alloc(mul_mone2, m));
     }
     ~imp() {}
