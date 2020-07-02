@@ -203,7 +203,7 @@ class rw_rule {
         model_ref m_mdl;
         expr_ref m_var;
         bv_util m_bv;
-    bool is_ule(expr_ref e, expr* &lhs, expr* &rhs) {
+    bool is_ule(expr_ref e, expr_ref &lhs, expr_ref &rhs) {
         if (!m_bv.is_bv_ule(e))
             return false;
         lhs = to_app(e)->get_arg(0);
@@ -212,13 +212,218 @@ class rw_rule {
             return false;
         return true;
     }
+    bool is_sle(expr_ref e, expr_ref &lhs, expr_ref &rhs) {
+      if (!m_bv.is_bv_sle(e))
+        return false;
+      lhs = to_app(e)->get_arg(0);
+      rhs = to_app(e)->get_arg(1);
+      if (contains(lhs, m_var) == contains(rhs, m_var))
+        return false;
+      return true;
+    }
+
 public:
     rw_rule(ast_manager& m): m(m), m_var(m), m_bv(m) {}
     void reset(model *mdl, expr_ref x) {
-        m_var = x;
-        m_mdl = mdl;
+      m_var = x;
+      m_mdl = mdl;
     }
-    virtual bool apply(expr_ref exp, expr_ref_vector& out) {return false;}
+    virtual bool apply(expr_ref exp, expr_ref_vector &out) = 0;
+};
+
+class sle1 : public rw_rule {
+  // a <= 2^(n - 1) - 1 && b <= 2^(n - 1) - 1 && a <= b ==> a <=_s b
+public:
+    sle1 (ast_manager &m): rw_rule(m) {}
+    bool apply(expr_ref e, expr_ref_vector &out) override {
+        expr_ref lhs(m), rhs(m);
+        if (!is_sle(e, lhs, rhs)) return false;
+        unsigned sz = m_bv.get_bv_size(m_var);
+        expr *bnd = m_bv.mk_numeral(rational::power_of_two(sz - 1) - 1, sz);
+        expr *b1 = m_bv.mk_ule(lhs, bnd);
+        expr *b2 = m_bv.mk_ule(rhs, bnd);
+        expr *rw = m_bv.mk_ule(lhs, rhs);
+        if (m_mdl->is_true(m.mk_and(b1, b2, rw))) {
+            out.push_back(b1);
+            out.push_back(b2);
+            out.push_back(rw);
+            return true;
+        }
+        return false;
+    }
+};
+
+class sle2 : public rw_rule {
+  // a >= 2^(n - 1) && b >= 2^(n - 1) && a <= b ==> a <=_s b
+public:
+  sle2(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+      expr_ref lhs(m), rhs(m);
+    if (!is_sle(e, lhs, rhs))
+      return false;
+    unsigned sz = m_bv.get_bv_size(m_var);
+    expr *bnd = m_bv.mk_numeral(rational::power_of_two(sz - 1), sz);
+    expr *b1 = m_bv.mk_ule(bnd, lhs);
+    expr *b2 = m_bv.mk_ule(bnd, rhs);
+    expr *rw = m_bv.mk_ule(lhs, rhs);
+    if (m_mdl->is_true(m.mk_and(b1, b2, rw))) {
+      out.push_back(b1);
+      out.push_back(b2);
+      out.push_back(rw);
+      return true;
+    }
+    return false;
+  }
+};
+
+class sle3 : public rw_rule {
+  // a >= 2^(n - 1) && b <= 2^(n - 1) - 1 ==> a <=_s b
+public:
+  sle3(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+      expr_ref lhs(m), rhs(m);
+    if (!is_sle(e, lhs, rhs))
+      return false;
+    unsigned sz = m_bv.get_bv_size(m_var);
+    expr *bnd1 = m_bv.mk_numeral(rational::power_of_two(sz - 1) - 1, sz);
+    expr *bnd2 = m_bv.mk_numeral(rational::power_of_two(sz - 1), sz);
+    expr *b1 = m_bv.mk_ule(bnd2, lhs);
+    expr *b2 = m_bv.mk_ule(rhs, bnd1);
+    if (m_mdl->is_true(m.mk_and(b1, b2))) {
+      out.push_back(b1);
+      out.push_back(b2);
+      return true;
+    }
+    return false;
+  }
+};
+
+class eq : public rw_rule {
+  // a <= b && b <= a ==> a = b
+public:
+  eq(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+      expr *lhs, *rhs;
+      if (!(m.is_eq(e, lhs, rhs) && (contains(lhs, m_var) || contains(rhs, m_var))))
+          return false;
+      expr *b1 = m_bv.mk_ule(rhs, lhs);
+      expr *b2 = m_bv.mk_ule(lhs, rhs);
+      if (m_mdl->is_true(m.mk_and(b1, b2))) {
+          out.push_back(b1);
+          out.push_back(b2);
+          return true;
+    }
+      return false;
+  }
+};
+
+class neq1 : public rw_rule {
+  // a < b ==> a != b
+public:
+  neq1(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+      expr *f, *lhs, *rhs;
+      if (!((m.is_not(e, f)) && m.is_eq(f, lhs, rhs) &&
+          (contains(lhs, m_var) || contains(rhs, m_var))))
+      return false;
+      expr *b1 = m.mk_not(m_bv.mk_ule(rhs, lhs));
+      if (m_mdl->is_true(b1)) {
+          out.push_back(b1);
+          return true;
+      }
+      return false;
+  }
+};
+
+class neq2 : public rw_rule {
+  // a > b ==> a != b
+public:
+  neq2(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+    expr *f, *lhs, *rhs;
+    if (!((m.is_not(e, f)) && m.is_eq(f, lhs, rhs) &&
+          (contains(lhs, m_var) || contains(rhs, m_var))))
+      return false;
+    expr *b1 = m.mk_not(m_bv.mk_ule(lhs, rhs));
+    if (m_mdl->is_true(b1)) {
+      out.push_back(b1);
+      return true;
+    }
+    return false;
+  }
+};
+
+class nule : public rw_rule {
+  // b <= a - 1 /\ 1 <= a ==> not(a <= b)
+public:
+  nule(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+      expr *f, *lhs, *rhs;
+      if (!((m.is_not(e, f)) && m_bv.is_bv_ule(f, lhs, rhs) &&
+            (contains(lhs, m_var) || contains(rhs, m_var))))
+          return false;
+      unsigned sz = m_bv.get_bv_size(m_var);
+      expr *one = m_bv.mk_numeral(rational::one(), sz);
+      expr_ref lhs_ref(m), mone(m), dff(m);
+      // This feels weird. Should have to keep around a pointer as well as a reference.
+      lhs_ref = lhs;
+
+      mk_neg(one, mone);
+      mk_add(lhs_ref, mone, dff);
+      expr *b1 = m_bv.mk_ule(rhs, dff);
+      expr *b2 = m_bv.mk_ule(one, lhs);
+      if (m_mdl->is_true(b1) && m_mdl->is_true(b2)) {
+          out.push_back(b1);
+          out.push_back(b2);
+          return true;
+      }
+      return false;
+  }
+};
+
+class mul_mone1 : public rw_rule {
+  //-1*b <= a ==> -1*a <= b
+public:
+    mul_mone1(ast_manager &m) : rw_rule(m) {}
+    bool apply(expr_ref e, expr_ref_vector &out) override {
+        expr_ref lhs(m), rhs(m), nw_lhs(m);
+        expr *l1, *l2;
+        rational val;
+        if (!is_ule(e, lhs, rhs)) return false;
+        if (!(contains(lhs, m_var) && m_bv.is_bv_mul(lhs, l1, l2) && l2 == m_var)) return false;
+        if (!(m_bv.is_numeral(l1, val) && val.is_minus_one())) return false;
+        mk_mul(l1, rhs, nw_lhs);
+        expr *b1 = m_bv.mk_ule(nw_lhs, l2);
+        if (m_mdl->is_true(b1)) {
+            out.push_back(b1);
+            return true;
+        }
+        return false;
+    }
+};
+
+class mul_mone2 : public rw_rule {
+  //a <= -1*b ==> b <= -1*a
+public:
+  mul_mone2(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m), nw_rhs(m);
+    expr *l1, *l2;
+    rational val;
+    if (!is_ule(e, lhs, rhs))
+      return false;
+    if (!(contains(rhs, m_var) && m_bv.is_bv_mul(rhs, l1, l2) && l2 == m_var))
+      return false;
+    if (!(m_bv.is_numeral(l1, val) && val.is_minus_one()))
+      return false;
+    mk_mul(l1, lhs, nw_rhs);
+    expr *b1 = m_bv.mk_ule(l2, nw_rhs);
+    if (m_mdl->is_true(b1)) {
+        out.push_back(b1);
+        return true;
+    }
+    return false;
+  }
 };
 
 class addl1: public rw_rule {
@@ -262,6 +467,33 @@ public:
           return true;
       }
       return false;
+  };
+};
+
+class addl3 : public rw_rule {
+  // if {-y <= f(x) /\ y <= z /\ y != 0} then {f(x) + y <= z}
+public:
+  addl3(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ule(e, lhs, rhs))
+      return false;
+    expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
+    if (!split(lhs, m_var, t1, t2))
+      return false;
+    mk_neg(t2, t2_neg);
+    expr *sc1 = m_bv.mk_ule(t2_neg, t1);
+    expr *sc2 = m_bv.mk_ule(t2, rhs);
+    unsigned sz = m_bv.get_bv_size(m_var);
+    expr *zro = m_bv.mk_numeral(rational::zero(), sz);
+    expr *sc3 = m.mk_not(m.mk_eq(t2, zro));
+    if (m_mdl->is_true(sc1) && m_mdl->is_true(sc2) && m_mdl->is_true(sc3)) {
+      out.push_back(sc1);
+      out.push_back(sc2);
+      out.push_back(sc3);
+      return true;
+    }
+    return false;
   };
 };
 
@@ -390,6 +622,15 @@ struct bv_project_plugin::imp {
         m_rw_rules.push_back(alloc(addl3, m));
         m_rw_rules.push_back(alloc(addr1, m));
         m_rw_rules.push_back(alloc(addr2, m));
+        m_rw_rules.push_back(alloc(sle1, m));
+        m_rw_rules.push_back(alloc(sle2, m));
+        m_rw_rules.push_back(alloc(sle3, m));
+        m_rw_rules.push_back(alloc(eq, m));
+        m_rw_rules.push_back(alloc(neq1, m));
+        m_rw_rules.push_back(alloc(neq2, m));
+        m_rw_rules.push_back(alloc(nule, m));
+        m_rw_rules.push_back(alloc(mul_mone2, m));
+        m_rw_rules.push_back(alloc(mul_mone2, m));
     }
     ~imp() {}
 
@@ -431,13 +672,13 @@ struct bv_project_plugin::imp {
                 todo.pop_back();
                 continue;
             }
-            for (rw_rule r: m_rw_rules) {
+            for (auto r: m_rw_rules) {
                 out.reset();
-                if (r.apply(t, out)) {
-                    normalized = true;
-                    todo.pop_back();
-                    todo.append(out);
-                    break;
+                if (r->apply(t, out)) {
+                  normalized = true;
+                  todo.pop_back();
+                  todo.append(out);
+                  break;
                 }
             }
             // t cannot be normalized
@@ -470,7 +711,7 @@ struct bv_project_plugin::imp {
             continue;
           }
           norm.reset();
-          // normalize and add to pi
+          // normalize and add to sig
           if (normalize(v, f, model, norm)) {
             TRACE("bv_tmp", tout << "Normalized " << f << " into "
                                   << mk_and(norm) << "\n";);
@@ -496,6 +737,7 @@ struct bv_project_plugin::imp {
         }
         expr_ref_vector bd_fmls(m);
         resolve(v, norm_fmls, model, new_fmls, bd_fmls);
+        TRACE("bv_tmp", tout << "Resolve produced " << mk_and(new_fmls) << "\n";);
         if (bd_fmls.size() > 0) {
             pi.append(bd_fmls);
             CTRACE("bv_tmp", bd_fmls.size() > 0,
