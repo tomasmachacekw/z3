@@ -40,13 +40,43 @@ bool contains(expr *e, expr *v) {
       return true;
   return false;
 }
+
+void mk_mul(expr* a, expr* b, expr_ref &c) {
+    ast_manager &m(c.get_manager());
+    bv_util m_bv(m);
+    rational av, bv;
+    if (m_bv.is_numeral(a, av) && m_bv.is_numeral(b, bv)) {
+        rational cv = av*bv;
+        unsigned sz = m_bv.get_bv_size(a);
+        c = m_bv.mk_numeral(cv, sz);
+        return;
+    }
+    c = m_bv.mk_bv_mul(a, b);
+}
 void mk_add(expr_ref_vector &f, expr_ref &res) {
   ast_manager &m = res.get_manager();
   bv_util m_bv(m);
-  if (f.size() == 1)
-    res = f.get(0);
-  else if (f.size() != 0)
-    res = m.mk_app(m_bv.get_fid(), OP_BADD, f.size(), f.c_ptr());
+  if (f.size() == 0)
+      return;
+  expr_ref_vector nw_args(m);
+  rational sm = rational::zero(), val;
+  unsigned sz = 0;
+  for (auto a: f) {
+      if (m_bv.is_numeral(a, val)) {
+          sz = m_bv.get_bv_size(a);
+          sm = sm + val;
+      }
+      else nw_args.push_back(a);
+  }
+  if (!sm.is_zero()) {
+      expr_ref sm_bv(m);
+      sm_bv = m_bv.mk_numeral(sm, sz);
+      nw_args.push_back(sm_bv);
+  }
+  if (nw_args.size() == 1)
+      res = nw_args.get(0);
+  else
+      res = m.mk_app(m_bv.get_fid(), OP_BADD, nw_args.size(), nw_args.c_ptr());
 }
 void mk_neg(expr *f, expr_ref &res) {
     ast_manager &m = res.get_manager();
@@ -151,10 +181,10 @@ bool unhandled(expr *f, expr_ref var) {
     }
     return false;
 }
-bool split(expr *e, expr *var, expr_ref t1, expr_ref t2) {
+bool split(expr *e, expr *var, expr_ref &t1, expr_ref &t2) {
     ast_manager &m(t2.get_manager());
     bv_util m_bv(m);
-    if (!m_bv.is_bv_add(e))
+    if (!m_bv.is_bv_add(e) || !contains(e, var))
         return false;
     expr_ref_vector nw_args(m);
     for (expr *arg : *to_app(e)) {
@@ -196,13 +226,14 @@ class addl1: public rw_rule {
 public:
     addl1 (ast_manager& m): rw_rule(m){}
     bool apply(expr_ref e, expr_ref_vector &out) override {
-        expr *lhs, *rhs;
+        expr_ref lhs(m), rhs(m);
         if (!is_ule(e, lhs, rhs)) return false;
-        expr_ref t1(m), t2(m), t2_neg(m);
+        expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
         if (!split(lhs, m_var, t1, t2)) return false;
         mk_neg(t2, t2_neg);
         expr *oth = m_bv.mk_ule(t2, rhs);
-        expr *rw = m_bv.mk_ule(t1, m_bv.mk_bv_add(rhs, t2_neg));
+        mk_add(rhs, t2_neg, add_t);
+        expr *rw = m_bv.mk_ule(t1, add_t);
         if (m_mdl->is_true(oth) && m_mdl->is_true(rw)) {
             out.push_back(oth);
             out.push_back(rw);
@@ -217,15 +248,14 @@ class addl2: public rw_rule {
 public:
   addl2 (ast_manager &m) : rw_rule(m) {}
   bool apply(expr_ref e, expr_ref_vector &out) override {
-      expr *lhs, *rhs;
-      if (!is_ule(e, lhs, rhs))
-          return false;
-      expr_ref t1(m), t2(m), t2_neg(m);
-      if (split(lhs, m_var, t1, t2))
-          return false;
+      expr_ref lhs(m), rhs(m);
+      if (!is_ule(e, lhs, rhs)) return false;
+      expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
+      if (!split(lhs, m_var, t1, t2)) return false;
       mk_neg(t2, t2_neg);
       expr *oth = m_bv.mk_ule(t2_neg, t1);
-      expr *rw = m_bv.mk_ule(t1, m_bv.mk_bv_add(rhs, t2_neg));
+      mk_add(rhs, t2_neg, add_t);
+      expr *rw = m_bv.mk_ule(t1, add_t);
       if (m_mdl->is_true(oth) && m_mdl->is_true(rw)) {
           out.push_back(oth);
           out.push_back(rw);
@@ -240,21 +270,21 @@ class addr1 : public rw_rule {
 public:
   addr1(ast_manager &m) : rw_rule(m) {}
   bool apply(expr_ref e, expr_ref_vector &out) override {
-      expr *lhs, *rhs;
-      if (!is_ule(e, lhs, rhs))
-          return false;
+      expr_ref lhs(m), rhs(m);
+      if (!is_ule(e, lhs, rhs)) return false;
       expr_ref t1(m), t2(m), t2_neg(m);
-      if (split(rhs, m_var, t1, t2))
-          return false;
+      if (!split(rhs, m_var, t1, t2)) return false;
       mk_neg(t2, t2_neg);
       unsigned sz = m_bv.get_bv_size(m_var);
-      expr_ref one(m), minus_one(m), zro(m);
+      expr_ref one(m), minus_one(m), zro(m), add_t1(m), add_mo(m);
       one = m_bv.mk_numeral(rational::one(), sz);
       zro = m_bv.mk_numeral(rational::zero(), sz);
       mk_neg(one, minus_one);
-      expr *oth = m_bv.mk_ule(rhs, m_bv.mk_bv_add(t2_neg, minus_one));
+      mk_add(t2_neg, minus_one, add_mo);
+      expr *oth = m_bv.mk_ule(rhs, add_mo);
       expr *no_zro = m.mk_not(m.mk_eq(t2, zro));
-      expr *rw = m_bv.mk_ule(m_bv.mk_bv_add(lhs, t2_neg), t1);
+      mk_add(lhs, t2_neg, add_t1);
+      expr *rw = m_bv.mk_ule(add_t1, t1);
       if (m_mdl->is_true(oth) && m_mdl->is_true(rw) && m_mdl->is_true(no_zro)) {
           out.push_back(oth);
           out.push_back(no_zro);
@@ -270,21 +300,21 @@ class addr2 : public rw_rule {
 public:
   addr2(ast_manager &m) : rw_rule(m) {}
   bool apply(expr_ref e, expr_ref_vector &out) override {
-    expr *lhs, *rhs;
-    if (!is_ule(e, lhs, rhs))
-        return false;
+      expr_ref lhs(m), rhs(m);
+    if (!is_ule(e, lhs, rhs)) return false;
     expr_ref t1(m), t2(m), t2_neg(m);
-    if (split(rhs, m_var, t1, t2))
-        return false;
+    if (!split(rhs, m_var, t1, t2)) return false;
     mk_neg(t2, t2_neg);
     unsigned sz = m_bv.get_bv_size(m_var);
-    expr_ref one(m), minus_one(m), zro(m);
+    expr_ref one(m), minus_one(m), zro(m), add_t2(m), add_lhs(m);
     one = m_bv.mk_numeral(rational::one(), sz);
     zro = m_bv.mk_numeral(rational::zero(), sz);
     mk_neg(one, minus_one);
-    expr *oth = m_bv.mk_ule(t1, m_bv.mk_bv_add(t2_neg, minus_one));
+    mk_add(t2_neg, minus_one, add_t2);
+    expr *oth = m_bv.mk_ule(t1, add_t2);
     expr *no_zro = m.mk_not(m.mk_eq(t2, zro));
-    expr *rw = m_bv.mk_ule(m_bv.mk_bv_add(lhs, t2_neg), t1);
+    mk_add(lhs, t2_neg, add_lhs);
+    expr *rw = m_bv.mk_ule(add_lhs, t1);
     if (m_mdl->is_true(oth) && m_mdl->is_true(rw) && m_mdl->is_true(no_zro)) {
         out.push_back(oth);
         out.push_back(no_zro);
@@ -353,36 +383,37 @@ struct bv_mbp_rw_cfg : public default_rewriter_cfg {
 struct bv_project_plugin::imp {
     ast_manager &m;
     bv_util bv;
-    vector<rw_rule> m_rw_rules;
+    ptr_buffer<rw_rule> m_rw_rules;
     imp(ast_manager &_m) : m(_m), bv(m) {
-        m_rw_rules.push_back(addl1(m));
-        m_rw_rules.push_back(addl2(m));
-        m_rw_rules.push_back(addr1(m));
-        m_rw_rules.push_back(addr2(m));
+        m_rw_rules.push_back(alloc(addl1, m));
+        m_rw_rules.push_back(alloc(addl2, m));
+        m_rw_rules.push_back(alloc(addl3, m));
+        m_rw_rules.push_back(alloc(addr1, m));
+        m_rw_rules.push_back(alloc(addr2, m));
     }
     ~imp() {}
 
     void reset_rw_rules(model &mdl, expr_ref var) {
-        for (rw_rule r : m_rw_rules) {
-            r.reset(&mdl, var);
+        for (auto r : m_rw_rules) {
+            r->reset(&mdl, var);
         }
     }
     //var is the only uninterpreted constant on one side of literal
     bool is_normalized(expr_ref b, expr_ref var) {
+        if (!contains(b, var)) return true;
         if (unhandled(b, var)) return false;
-        expr *e;
-        if (m.is_not(b, e) && to_app(e)->get_num_args() != 2) return false;
-        else e = b;
-        if (!bv.is_bv_ule(e)) return false;
-        expr *chd = to_app(e)->get_arg(0);
-        expr *o_chd = to_app(e)->get_arg(1);
+        if (!bv.is_bv_ule(b)) return false;
+        expr *chd = to_app(b)->get_arg(0);
+        expr *o_chd = to_app(b)->get_arg(1);
         if (!contains(chd, var)) {
-            chd = to_app(e)->get_arg(1);
-            o_chd = to_app(e)->get_arg(0);
+            chd = to_app(b)->get_arg(1);
+            o_chd = to_app(b)->get_arg(0);
             if (!contains(chd, var)) return false;
         }
         if (contains(o_chd, var)) return false;
-        if (chd == var || bv.is_bv_mul(var)) return true;
+        // Coefficient should be one
+        // TODO: handle cases when coefficient is not one
+        if (chd == var) return true;
         return false;
     }
 
