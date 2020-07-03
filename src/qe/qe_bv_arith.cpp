@@ -564,10 +564,10 @@ public:
   bool apply(expr_ref e, expr_ref_vector &out) override {
       expr_ref lhs(m), rhs(m);
       if (!is_ule(e, lhs, rhs)) return false;
-      expr_ref t1(m), t2(m), t2_neg(m);
+      expr_ref t1(m), t2(m);
       if (!split(rhs, m_var, t1, t2)) return false;
       unsigned sz = m_bv.get_bv_size(m_var);
-      expr_ref one(m), minus_one(m), zro(m), add_t2(m), add_lhs(m);
+      expr_ref zro(m);
       zro = m_bv.mk_numeral(rational::zero(), sz);
       expr *oth = m_bv.mk_ule(lhs, t1);
       expr *t2_zro = m.mk_eq(t2, zro);
@@ -593,7 +593,7 @@ public:
           return false;
       mk_neg(t2, t2_neg);
       unsigned sz = m_bv.get_bv_size(m_var);
-      expr_ref one(m), minus_one(m), zro(m), add_t2(m), add_lhs(m);
+      expr_ref one(m), zro(m);
       zro = m_bv.mk_numeral(rational::zero(), sz);
       expr *t2_zro = m.mk_not(m.mk_eq(t2, zro));
       expr *oth = m.mk_not(m_bv.mk_ule(t2, lhs));
