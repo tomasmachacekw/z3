@@ -381,6 +381,34 @@ public:
   }
 };
 
+class nsle : public rw_rule {
+  // b <=_s a - 1 /\ -2^(n - 1) + 1 <=_s a ==> not(a <=_s b)
+public:
+  nsle(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+    expr *f, *lhs, *rhs;
+    if (!((m.is_not(e, f)) && m_bv.is_bv_sle(f, lhs, rhs) &&
+          (contains(lhs, m_var) || contains(rhs, m_var))))
+      return false;
+    unsigned sz = m_bv.get_bv_size(m_var);
+    expr *bnd = m_bv.mk_numeral((-1*rational::power_of_two(sz - 1)) + 1, sz);
+    expr_ref lhs_ref(m), mone(m), dff(m);
+    mone = m_bv.mk_numeral(rational::minus_one(), sz);
+    // This feels weird. Should have to keep around a pointer as well as a
+    // reference.
+    lhs_ref = lhs;
+    mk_add(lhs_ref, mone, dff);
+    expr *b1 = m_bv.mk_sle(bnd, lhs);
+    expr *b2 = m_bv.mk_sle(rhs, dff);
+    if (m_mdl->is_true(b1) && m_mdl->is_true(b2)) {
+      out.push_back(b1);
+      out.push_back(b2);
+      return true;
+    }
+    return false;
+  }
+};
+
 class mul_mone1 : public rw_rule {
   //-1*b <= a ==> -1*a <= b
 public:
@@ -688,6 +716,7 @@ struct bv_project_plugin::imp {
         m_rw_rules.push_back(alloc(neq1, m));
         m_rw_rules.push_back(alloc(neq2, m));
         m_rw_rules.push_back(alloc(nule, m));
+        m_rw_rules.push_back(alloc(nsle, m));
         m_rw_rules.push_back(alloc(mul_mone1, m));
         m_rw_rules.push_back(alloc(mul_mone2, m));
     }
