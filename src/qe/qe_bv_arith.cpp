@@ -591,6 +591,7 @@ public:
       expr_ref t1(m), t2(m), t2_neg(m);
       if (!split(rhs, m_var, t1, t2))
           return false;
+      mk_neg(t2, t2_neg);
       unsigned sz = m_bv.get_bv_size(m_var);
       expr_ref one(m), minus_one(m), zro(m), add_t2(m), add_lhs(m);
       zro = m_bv.mk_numeral(rational::zero(), sz);
