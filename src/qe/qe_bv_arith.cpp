@@ -687,6 +687,12 @@ struct bv_mbp_rw_cfg : public default_rewriter_cfg {
         return false;
     }
 
+    bool rewrite_bvneg(expr* a, expr_ref &res) {
+        if (!m_bv.is_bv_neg(a)) return false;
+        expr *b = to_app(a)->get_arg(0);
+        mk_neg(b, res);
+        return true;
+    }
     br_status reduce_app(func_decl *f, unsigned num, expr *const *args,
                          expr_ref &result, proof_ref &result_pr) {
         expr_ref sc(m);
@@ -694,6 +700,9 @@ struct bv_mbp_rw_cfg : public default_rewriter_cfg {
         if (rewrite_concat(e, result, sc)) {
             m_sc.push_back(sc);
             TRACE("bv_tmp", tout << "concat rewritten " << result << " and sc " << sc << "\n";);
+            return BR_DONE;
+        }
+        if (rewrite_bvneg(e, result)) {
             return BR_DONE;
         }
         return BR_FAILED;
