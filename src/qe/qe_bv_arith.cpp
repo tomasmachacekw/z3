@@ -206,7 +206,7 @@ class rw_rule {
         model_ref m_mdl;
         expr_ref m_var;
         bv_util m_bv;
-    bool is_ule(expr_ref e, expr_ref &lhs, expr_ref &rhs) {
+    bool is_ule_one_side(expr_ref e, expr_ref &lhs, expr_ref &rhs) {
         if (!m_bv.is_bv_ule(e))
             return false;
         lhs = to_app(e)->get_arg(0);
@@ -214,6 +214,15 @@ class rw_rule {
         if (contains(lhs, m_var) == contains(rhs, m_var))
             return false;
         return true;
+    }
+    bool is_ule(expr_ref e, expr_ref &lhs, expr_ref &rhs) {
+      if (!m_bv.is_bv_ule(e))
+        return false;
+      lhs = to_app(e)->get_arg(0);
+      rhs = to_app(e)->get_arg(1);
+      if (!contains(lhs, m_var) && !contains(rhs, m_var))
+        return false;
+      return true;
     }
     bool is_sle(expr_ref e, expr_ref &lhs, expr_ref &rhs) {
       if (!m_bv.is_bv_sle(e))
@@ -420,7 +429,7 @@ public:
         expr_ref lhs(m), rhs(m), nw_lhs(m);
         expr *l1, *l2;
         rational val;
-        if (!is_ule(e, lhs, rhs)) return false;
+        if (!is_ule_one_side(e, lhs, rhs)) return false;
         if (!(contains(lhs, m_var) && m_bv.is_bv_mul(lhs, l1, l2) && l2 == m_var)) return false;
         unsigned sz = m_bv.get_bv_size(m_var);
         if (!(m_bv.is_numeral(l1, val) && (val.is_minus_one() || (val == rational::power_of_two(sz) - 1))))
@@ -443,7 +452,7 @@ public:
     expr_ref lhs(m), rhs(m), nw_rhs(m);
     expr *l1, *l2;
     rational val;
-    if (!is_ule(e, lhs, rhs))
+    if (!is_ule_one_side(e, lhs, rhs))
       return false;
     if (!(contains(rhs, m_var) && m_bv.is_bv_mul(rhs, l1, l2) && l2 == m_var))
       return false;
@@ -466,7 +475,7 @@ public:
     addl1 (ast_manager& m): rw_rule(m){}
     bool apply(expr_ref e, expr_ref_vector &out) override {
         expr_ref lhs(m), rhs(m);
-        if (!is_ule(e, lhs, rhs)) return false;
+        if (!is_ule_one_side(e, lhs, rhs)) return false;
         expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
         if (!split(lhs, m_var, t1, t2)) return false;
         mk_neg(t2, t2_neg);
@@ -488,7 +497,7 @@ public:
   addl2 (ast_manager &m) : rw_rule(m) {}
   bool apply(expr_ref e, expr_ref_vector &out) override {
       expr_ref lhs(m), rhs(m);
-      if (!is_ule(e, lhs, rhs)) return false;
+      if (!is_ule_one_side(e, lhs, rhs)) return false;
       expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
       if (!split(lhs, m_var, t1, t2)) return false;
       mk_neg(t2, t2_neg);
@@ -510,7 +519,7 @@ public:
   addl3(ast_manager &m) : rw_rule(m) {}
   bool apply(expr_ref e, expr_ref_vector &out) override {
     expr_ref lhs(m), rhs(m);
-    if (!is_ule(e, lhs, rhs))
+    if (!is_ule_one_side(e, lhs, rhs))
       return false;
     expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
     if (!split(lhs, m_var, t1, t2))
