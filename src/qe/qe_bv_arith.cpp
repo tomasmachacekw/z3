@@ -487,6 +487,22 @@ public:
   }
 };
 
+class ule_zro : public rw_rule {
+  // b = 0 ==> b <= x
+public:
+  ule_zro(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+    expr_ref lhs(m);
+    rational val;
+    if (!m_bv.is_bv_ule(e)) return false;
+    lhs = to_app(e)->get_arg(0);
+
+    if (m_bv.is_numeral(lhs, val) && val.is_zero())
+        return true;
+    return false;
+  }
+};
+
 class addl1: public rw_rule {
   //if {y <= z /\ f(x) <= z - y} then {f(x) + y <= z}
 public:
@@ -548,6 +564,123 @@ public:
     unsigned sz = m_bv.get_bv_size(m_var);
     expr *zro = m_bv.mk_numeral(rational::zero(), sz);
     expr *sc3 = m.mk_not(m.mk_eq(t2, zro));
+    if (m_mdl->is_true(sc1) && m_mdl->is_true(sc2) && m_mdl->is_true(sc3)) {
+      out.push_back(sc1);
+      out.push_back(sc2);
+      out.push_back(sc3);
+      return true;
+    }
+    return false;
+  };
+};
+
+class addbx4 : public rw_rule {
+  // if {x <= 2^n/k2/k1} then {k1*x <= k2*x}
+  // TODO: handle other cases as well
+public:
+  addbx4(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m), nw_rhs(m);
+    if (!is_ule(e, lhs, rhs))
+      return false;
+    expr *k1_e, *k2_e, *var;
+    rational k1, k2;
+    if (!m_bv.is_bv_mul(lhs, k1_e, var)) return false;
+    if (var != m_var) return false;
+    if (!m_bv.is_numeral(k1_e, k1)) return false;
+
+    if (!m_bv.is_bv_mul(rhs, k2_e, var)) return false;
+    if (var != m_var) return false;
+    if (!m_bv.is_numeral(k2_e, k2)) return false;
+    if (k1 == k2) return true;
+    rational k3 = k2/k1;
+    unsigned sz = m_bv.get_bv_size(m_var);
+    rational bnd = rational::power_of_two(sz)/k3;
+    expr *bnd_e = m_bv.mk_numeral(bnd, sz);
+    expr *sc1 = m_bv.mk_ule(m_var, bnd_e);
+    if (m_mdl->is_true(sc1)) {
+      out.push_back(sc1);
+      return true;
+    }
+    TRACE("bv_tmp", tout << "model not good enough for bx4 " << mk_pp(sc1, m) << "\n";);
+    return false;
+  };
+};
+
+class addbx1 : public rw_rule {
+  // if {f1(x) <= f2(x) /\ y <= f2(x) - f1(x)} then {f1(x) + y <= f2(x)}
+public:
+  addbx1(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+      expr_ref lhs(m), rhs(m), nw_rhs(m);
+    if (!is_ule(e, lhs, rhs))
+      return false;
+    expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
+    if (!split_exl(lhs, m_var, t1, t2))
+      return false;
+    mk_neg(t2, t2_neg);
+    expr *sc1 = m_bv.mk_ule(t2, rhs);
+    mk_add(rhs, t2_neg, nw_rhs);
+    expr *rw = m_bv.mk_ule(t1, nw_rhs);
+    TRACE("bv_tmp",
+          tout << "checking mdl bx1 with " << mk_pp(sc1, m)<< " and " << mk_pp(rw, m) << "\n";);
+    if (m_mdl->is_true(sc1) && m_mdl->is_true(rw)) {
+      out.push_back(sc1);
+      out.push_back(rw);
+      return true;
+    }
+    TRACE("bv_tmp", tout << "checking mdl bx1 with " << mk_pp(sc1, m) << " and "
+                         << mk_pp(rw, m) << "\n";);
+    return false;
+  };
+};
+
+class addbx2 : public rw_rule {
+  // if {-f1(x) <= y /\ y <= f2(x) - f1(x)} then {f1(x) + y <= f2(x)}
+public:
+  addbx2(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m), nw_rhs(m);
+    if (!is_ule(e, lhs, rhs))
+      return false;
+    expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
+    if (!split_exl(lhs, m_var, t1, t2))
+      return false;
+    mk_neg(t2, t2_neg);
+    expr *sc1 = m_bv.mk_ule(t2_neg, t1);
+    mk_add(rhs, t2_neg, nw_rhs);
+    expr *rw = m_bv.mk_ule(t1, nw_rhs);
+    TRACE("bv_tmp", tout << "checking mdl bx2 with " << mk_pp(sc1, m) << " and "
+                         << mk_pp(rw, m) << "\n";);
+    if (m_mdl->is_true(sc1) && m_mdl->is_true(rw)) {
+      out.push_back(sc1);
+      out.push_back(rw);
+      return true;
+    }
+    return false;
+  };
+};
+
+class addbx3 : public rw_rule {
+  // if {-f1(x) <= y /\ f1(x) <= f2(x) /\ f1(x) != 0} then {f1(x) + y <= f2(x)}
+public:
+  addbx3(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr_ref e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m), nw_rhs(m);
+    if (!is_ule(e, lhs, rhs))
+      return false;
+    expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
+    if (!split_exl(lhs, m_var, t1, t2))
+      return false;
+    mk_neg(t2, t2_neg);
+    expr *sc1 = m_bv.mk_ule(t2_neg, t1);
+    expr *sc2 = m_bv.mk_ule(t2, rhs);
+    unsigned sz = m_bv.get_bv_size(m_var);
+    expr *zro = m_bv.mk_numeral(rational::zero(), sz);
+    expr *sc3 = m.mk_not(m.mk_eq(t2, zro));
+
+    TRACE("bv_tmp", tout << "checking mdl bx3 with " << mk_pp(sc1, m) << " and "
+                         << mk_pp(sc2, m) << "\n";);
     if (m_mdl->is_true(sc1) && m_mdl->is_true(sc2) && m_mdl->is_true(sc3)) {
       out.push_back(sc1);
       out.push_back(sc2);
@@ -748,6 +881,10 @@ struct bv_project_plugin::imp {
         m_rw_rules.push_back(alloc(addr2, m));
         m_rw_rules.push_back(alloc(addr3, m));
         m_rw_rules.push_back(alloc(addr4, m));
+        m_rw_rules.push_back(alloc(addbx1, m));
+        m_rw_rules.push_back(alloc(addbx2, m));
+        m_rw_rules.push_back(alloc(addbx3, m));
+        m_rw_rules.push_back(alloc(addbx4, m));
         m_rw_rules.push_back(alloc(sle1, m));
         m_rw_rules.push_back(alloc(sle2, m));
         m_rw_rules.push_back(alloc(sle3, m));
@@ -758,6 +895,7 @@ struct bv_project_plugin::imp {
         m_rw_rules.push_back(alloc(nsle, m));
         m_rw_rules.push_back(alloc(mul_mone1, m));
         m_rw_rules.push_back(alloc(mul_mone2, m));
+        m_rw_rules.push_back(alloc(ule_zro, m));
     }
     ~imp() {}
 
