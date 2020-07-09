@@ -196,8 +196,26 @@ bool split(expr *e, expr *var, expr_ref &t1, expr_ref &t2) {
         else
             nw_args.push_back(arg);
     }
+    if (nw_args.size() == 0) return false;
     mk_add(nw_args, t2);
     return true;
+}
+bool split_exl(expr *e, expr *var, expr_ref &t1, expr_ref &t2) {
+  ast_manager &m(t2.get_manager());
+  bv_util m_bv(m);
+  if (!m_bv.is_bv_add(e) || !contains(e, var))
+    return false;
+  expr_ref_vector nw_args(m);
+  for (expr *arg : *to_app(e)) {
+    if (contains(arg, var))
+      t2 = arg;
+    else
+      nw_args.push_back(arg);
+  }
+  if (nw_args.size() == 0)
+    return false;
+  mk_add(nw_args, t1);
+  return true;
 }
 
 class rw_rule {
