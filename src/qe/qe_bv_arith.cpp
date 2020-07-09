@@ -29,6 +29,7 @@ Revision History:
 #include "cmd_context/cmd_context.h"
 #include "qe/qe_mbp.h"
 #include "smt/smt_solver.h"
+#include "ast/rewriter/th_rewriter.h"
 
 namespace qe {
 
@@ -77,6 +78,8 @@ void mk_add(expr_ref_vector &f, expr_ref &res) {
       res = nw_args.get(0);
   else
       res = m.mk_app(m_bv.get_fid(), OP_BADD, nw_args.size(), nw_args.c_ptr());
+  th_rewriter rw(m);
+  rw(res);
 }
 void mk_neg(expr *f, expr_ref &res) {
     ast_manager &m = res.get_manager();
