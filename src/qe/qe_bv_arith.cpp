@@ -114,7 +114,7 @@ void mk_neg(expr *f, expr_ref &res) {
         }
         mk_add(tmp, res);
     } else
-        res = m_bv.mk_bv_neg(f);
+        res = m_bv.mk_bv_mul(m_bv.mk_numeral(bnd, sz), f);
 }
 void flatten_term(expr *t, expr_ref &res) {
   ast_manager &m = res.get_manager();
