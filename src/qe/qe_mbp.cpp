@@ -221,8 +221,9 @@ class mbp::impl {
                 if (!m.is_true(val) && !m.is_false(val) && contains_uninterpreted(val)) {
                     throw default_exception("could not evaluate Boolean in model");
                 }
-                SASSERT(m.is_true(val) || m.is_false(val));
 
+                //skip bools that are not prime implicants.
+                if (!m.is_true(val) && !m.is_false(val)) continue;
                 if (!m_bool_visited.is_marked(e)) {
                     fmls.push_back(m.is_true(val) ? e : mk_not(m, e));
                 }
@@ -240,6 +241,8 @@ class mbp::impl {
         if (found_bool) {
             expr_ref tmp(m);
             sub(fml, tmp);
+            th_rewriter tmp_rw(m);
+            tmp_rw(tmp);
             expr_ref val = eval(tmp);
             if (!m.is_true(val) && !m.is_false(val))
                 return false;
