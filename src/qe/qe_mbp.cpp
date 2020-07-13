@@ -196,8 +196,9 @@ class mbp::impl {
             }
             m_visited.mark(e);
             if (m.is_bool(e) && !m.is_true(e) && !m.is_false(e)) {
-                expr_ref val = eval(e);
                 TRACE("qe", tout << "found: " << mk_pp(e, m) << "\n";);
+                expr_ref val(m);
+                val = eval.is_true(e) ? m.mk_true() : m.mk_false();
                 SASSERT(m.is_true(val) || m.is_false(val));
                 if (!m_bool_visited.is_marked(e)) {
                     fmls.push_back(m.is_true(val) ? e : mk_not(m, e));
