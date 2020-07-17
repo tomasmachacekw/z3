@@ -197,13 +197,14 @@ class mbp::impl {
             m_visited.mark(e);
             if (m.is_bool(e) && !m.is_true(e) && !m.is_false(e)) {
                 TRACE("qe", tout << "found: " << mk_pp(e, m) << "\n";);
+                m_bool_visited.mark(e);
                 expr_ref val = eval(e);
-                SASSERT(m.is_true(val) || m.is_false(val));
+                //skip bools that are not prime implicants.
+                if (!m.is_true(val) && !m.is_false(val)) continue;
                 if (!m_bool_visited.is_marked(e)) {
                     fmls.push_back(m.is_true(val) ? e : mk_not(m, e));
                 }
                 sub.insert(e, val);
-                m_bool_visited.mark(e);                
                 found_bool = true;
             }
             else if (is_app(e)) {
