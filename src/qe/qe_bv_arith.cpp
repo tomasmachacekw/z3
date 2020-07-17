@@ -1047,7 +1047,7 @@ rational get_coeff(expr* a, expr_ref var) {
     expr *t1, *t2;
     if (bv.is_bv_mul(a, t1, t2)) {
         rational o_coeff;
-        SASSERT(u.is_numeral(t1));
+        SASSERT(bv.is_numeral(t1));
         bv.is_numeral(t1, o_coeff);
         return o_coeff * get_coeff(t2, var);
     }
@@ -1094,7 +1094,7 @@ expr *find_lub(model &mdl, expr_ref_vector &ubs) {
       return nullptr;
   for (auto a : ubs) {
     mdl.eval_expr(to_app(a)->get_arg(1), res);
-    SASSERT(u.is_numeral(res));
+    SASSERT(bv.is_numeral(res));
     if (bv.is_numeral(res, val) && lub > val) {
       r = a;
       lub = val;
