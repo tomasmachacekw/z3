@@ -22,6 +22,7 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/for_each_expr.h"
 #include "ast/expr_abstract.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/rewriter.h"
@@ -32,6 +33,88 @@ Revision History:
 #include "ast/rewriter/th_rewriter.h"
 
 namespace qe {
+typedef std::pair<unsigned, unsigned> bnd;
+namespace extrt_bnds_ns {
+struct extrt_bnds {
+  ast_manager &m;
+  bv_util m_bv;
+  expr_ref m_var;
+  vector<bnd> &m_bnds;
+  extrt_bnds(ast_manager &a_m, expr* var, vector<bnd> &bnds)
+      : m(a_m), m_bv(m), m_var(var, m), m_bnds(bnds) {
+      m_bnds.reset();
+  }
+  void operator()(expr *n) const {}
+  void operator()(app *n) {
+    expr *b;
+    unsigned lw, hh;
+    if (m_bv.is_extract(n, lw, hh, b) && m_var == b) {
+        bnd nw_bnd(lw, hh);
+        if (!m_bnds.contains(nw_bnd))
+            m_bnds.push_back(nw_bnd);
+    }
+  }
+};
+} // namespace extrt_bnds_ns
+
+void get_extrt_bnds(expr* var, expr_ref e, vector<bnd> &bnds) {
+  bnds.reset();
+  extrt_bnds_ns::extrt_bnds t(e.get_manager(), var, bnds);
+  for_each_expr(t, e);
+  if (bnds.size() == 0) return;
+  bv_util m_bv(e.get_manager());
+  unsigned sz = m_bv.get_bv_size(var);
+  bnd full(0, sz - 1);
+  bnds.push_back(full);
+  CTRACE("bv_tmp", bnds.size() > 0, tout << "extracted bnds " << e << " for var " << mk_pp(var, e.get_manager()) << " "<< bnds.size() << "\n";);
+}
+//check whether r overlaps with any bnd in bnds
+bool does_overlap(vector<bnd> &bnds, bnd r) {
+    for (bnd t : bnds) {
+        if (r.second > t.second && t.first <= r.first && r.first <= t.second) return true;
+        if (r.first < t.first && t.first <= r.second && r.second <= t.second) return true;
+    }
+    return false;
+}
+
+unsigned get_lw_point(vector<bnd> &bnds) {
+    unsigned min = bnds[0].first;
+    for (auto b : bnds) {
+        if (b.first < min) {
+            min = b.first;
+        }
+    }
+    return min;
+}
+
+unsigned get_hg_point(vector<bnd> &bnds) {
+  unsigned max = bnds[0].second;
+  for (auto b : bnds) {
+    if (b.second > max) {
+        max = b.second;
+    }
+  }
+  return max;
+}
+//ip: a vector of overlapping bounds some of which could be subsets of others
+//op: the smallest vector of disjoint bounds whose union is the same range as
+//bnds and each range in bnds can be expressed as union of ranges in nw_bnds
+void collapse_bnds(vector<bnd> &bnds, vector<bnd> &nw_bnds) {
+    unsigned lw = get_lw_point(bnds);
+    unsigned hg = get_hg_point(bnds);
+    unsigned i = lw, j = lw;
+    nw_bnds.reset();
+    while (i <= hg) {
+        bnd b(i, j);
+        if (does_overlap(bnds, b)) {
+            b.second = j - 1;
+            nw_bnds.push_back(b);
+            i = j;
+        }
+        else j++;
+    }
+    TRACE("bv_tmp", for (auto b : bnds) tout << b <<" "; tout << "\n new bnd"; for (auto b : nw_bnds) tout << b << " ";);
+}
 
 bool contains(expr *e, expr *v) {
   if (e == v)
@@ -805,6 +888,58 @@ public:
   };
 };
 
+struct bv_ext_rw_cfg : public default_rewriter_cfg {
+    ast_manager &m;
+    bv_util m_bv;
+    expr_ref m_var;
+    app_ref_vector m_nw_vars;
+    vector<bnd> m_bnds;
+    bv_ext_rw_cfg(ast_manager &m, expr *v) : m(m), m_bv(m), m_var(v, m), m_nw_vars(m) {}
+    void add_bnds(vector<bnd> &bnds, app_ref_vector& vars) {
+        //creates a new variable for each [lb, ub] in bnds
+        for (unsigned i = 0; i < bnds.size(); i++) {
+            unsigned sz = bnds[i].second - bnds[i].first + 1;
+            app *nw_var = m.mk_fresh_const("extrt_elim", m_bv.mk_sort(sz));
+            vars.push_back(nw_var);
+            m_nw_vars.push_back(nw_var);
+        }
+        m_bnds.reset();
+        m_bnds.append(bnds);
+    }
+    void get_bnd_eq(expr_ref_vector &sc, model &mdl) {
+        for (unsigned i = 0; i < m_bnds.size(); i++) {
+            expr* rhs = m_bv.mk_extract(m_bnds[i].second, m_bnds[i].first, m_var);
+            expr* lhs = m_nw_vars.get(i);
+            expr* eq = m.mk_eq(lhs, rhs);
+            sc.push_back(eq);
+            expr_ref val(m);
+            val = mdl(rhs);
+            mdl.register_decl(to_app(lhs)->get_decl(), val);
+        }
+        return;
+    }
+    br_status reduce_app(func_decl *f, unsigned num, expr *const *args,
+                         expr_ref &result, proof_ref &result_pr) {
+        if (!(m_bv.is_extract(f) && args[0] == m_var)) {
+          result = m.mk_app(f, num, args);
+          return BR_DONE;
+        }
+        unsigned lw = m_bv.get_extract_low(f);
+        unsigned hg = m_bv.get_extract_high(f);
+        expr_ref_vector nw_args(m);
+        for (unsigned i = 0; i < m_bnds.size(); i++) {
+            if (lw <= m_bnds[i].first && m_bnds[i].second <= hg) nw_args.push_back(to_expr(m_nw_vars.get(i)));
+        }
+        if (nw_args.size() == 1) {
+            result = nw_args.get(0);
+            return BR_DONE;
+        }
+        result = m_bv.mk_concat(nw_args.size(), nw_args.c_ptr());
+        return BR_DONE;
+
+    }
+};
+
 struct bv_mbp_rw_cfg : public default_rewriter_cfg {
     model* m_mdl;
     ast_manager& m;
@@ -1278,16 +1413,34 @@ void lazy_mbp(expr_ref_vector &bg, expr_ref_vector &sig, expr_ref_vector &pi, ex
       }
 
       bool solve(model & model, app_ref_vector & vars, expr_ref_vector & lits) {
-        expr_ref_vector sc(m);
+        expr_ref_vector sc_ext(m), sc_bvr(m);
         expr_ref res(m), lit_and(m);
         lit_and = mk_and(lits);
-        bv_mbp_rw_cfg bvr(m, sc);
+        app_ref_vector nw_vars(m);
+        vector<bnd> bnds, nw_bnds;
+        for (auto e: vars) {
+            bnds.reset();
+            bv_ext_rw_cfg bv_ext_rw(m, e);
+            get_extrt_bnds(e, lit_and, bnds);
+            if (bnds.size() == 0) continue;
+            collapse_bnds(bnds, nw_bnds);
+            bv_ext_rw.add_bnds(nw_bnds, nw_vars);
+            expr_ref_vector eq_sc(m);
+            bv_ext_rw.get_bnd_eq(eq_sc, model);
+            rewriter_tpl<bv_ext_rw_cfg> rw(m, false, bv_ext_rw);
+            rw(lit_and.get(), lit_and);
+            sc_ext.append(eq_sc);
+        }
+        vars.append(nw_vars);
+        bv_mbp_rw_cfg bvr(m, sc_bvr);
         bvr.add_model(&model);
         rewriter_tpl<bv_mbp_rw_cfg> bv_rw(m, false, bvr);
         bv_rw(lit_and.get(), lit_and);
         lits.reset();
         flatten_and(lit_and, lits);
-        lits.append(sc);
+        lits.append(sc_ext);
+        lits.append(sc_bvr);
+        //returning false because all preprocessing is over
         return false;
       }
       };
