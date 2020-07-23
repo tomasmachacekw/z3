@@ -1072,6 +1072,7 @@ struct bv_project_plugin::imp {
                 todo.pop_back();
                 continue;
             }
+            else if (unhandled(t, var)) return false;
             for (auto r: m_rw_rules) {
                 out.reset();
                 if (r->apply(t, out)) {
