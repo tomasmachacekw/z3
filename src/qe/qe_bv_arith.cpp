@@ -1145,7 +1145,7 @@ struct bv_project_plugin::imp {
                    tout << " could not resolve out " << mk_and(bd_fmls)
                         << " for var " << v << "\n";);
         }
-        if (!sig.empty()) {
+        if (!pi.empty()) {
           TRACE("bv_tmp", tout << "calling lazy mbp with pi " << mk_and(pi)
                            << " and sig " << mk_and(sig) << "\n";);
           lazy_mbp(backg_fmls, sig, pi, v, new_fmls, model);
