@@ -915,6 +915,7 @@ struct bv_ext_rw_cfg : public default_rewriter_cfg {
             expr_ref val(m);
             val = mdl(rhs);
             mdl.register_decl(to_app(lhs)->get_decl(), val);
+            mdl.reset_eval_cache();
         }
         return;
     }
