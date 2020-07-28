@@ -1480,6 +1480,12 @@ void lazy_mbp(expr_ref_vector &bg, expr_ref_vector &sig, expr_ref_vector &pi, ex
         return m_imp->solve(model, vars, lits);
       }
 
+      void bv_project_plugin::saturate(model &model,
+                                       func_decl_ref_vector const &shared,
+                                       expr_ref_vector &lits) {
+        NOT_IMPLEMENTED_YET();
+      }
+
       family_id bv_project_plugin::get_family_id() {
         return m_imp->bv.get_family_id();
       }

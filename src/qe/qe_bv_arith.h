@@ -25,6 +25,8 @@ namespace qe {
 
         opt::inf_eps maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& ge, expr_ref& gt);
 
+        void saturate(model &model, func_decl_ref_vector const &shared,
+                      expr_ref_vector &lits) override;
         /**
          * \brief check if formulas are purified, or leave it to caller to ensure that
          * arithmetic variables nested under foreign functions are handled properly.
