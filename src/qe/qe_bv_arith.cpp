@@ -1418,7 +1418,7 @@ void lazy_mbp(expr_ref_vector &bg, expr_ref_vector &sig, expr_ref_vector &pi, ex
         expr_ref_vector sc_ext(m), sc_bvr(m);
         expr_ref res(m), lit_and(m);
         lit_and = mk_and(lits);
-        app_ref_vector nw_vars(m);
+        app_ref_vector nw_vars(m), old_vars(m);
         vector<bnd> bnds, nw_bnds;
         for (auto e: vars) {
             bnds.reset();
@@ -1433,7 +1433,10 @@ void lazy_mbp(expr_ref_vector &bg, expr_ref_vector &sig, expr_ref_vector &pi, ex
             rw(lit_and.get(), lit_and);
             sc_ext.append(eq_sc);
         }
+        old_vars.append(vars);
+        vars.reset();
         vars.append(nw_vars);
+        vars.append(old_vars);
         bv_mbp_rw_cfg bvr(m, sc_bvr);
         bvr.add_model(&model);
         rewriter_tpl<bv_mbp_rw_cfg> bv_rw(m, false, bvr);
