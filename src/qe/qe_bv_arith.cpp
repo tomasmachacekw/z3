@@ -1387,7 +1387,7 @@ void lazy_mbp(expr_ref_vector &bg, expr_ref_vector &sig, expr_ref_vector &pi, ex
     if (!is_sat(new_fmls_conj, mk_and(substs), negged_quant_conj)) {
         new_fmls.append(substs);
         TRACE("bv_tmp", tout << "\nLazy MBP completed. sig size " << init_sz
-              << " no substitutions in pi \n";);
+                             << " no substitutions in sig \n";);
         return ;
     }
 
