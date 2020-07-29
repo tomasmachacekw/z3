@@ -928,7 +928,7 @@ struct bv_ext_rw_cfg : public default_rewriter_cfg {
         unsigned lw = m_bv.get_extract_low(f);
         unsigned hg = m_bv.get_extract_high(f);
         expr_ref_vector nw_args(m);
-        for (unsigned i = 0; i < m_bnds.size(); i++) {
+        for (unsigned i = m_bnds.size(); i-- != 0; ) {
             if (lw <= m_bnds[i].first && m_bnds[i].second <= hg) nw_args.push_back(to_expr(m_nw_vars.get(i)));
         }
         if (nw_args.size() == 1) {
