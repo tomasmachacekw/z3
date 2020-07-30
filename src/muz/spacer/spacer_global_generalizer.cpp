@@ -400,10 +400,23 @@ bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
     // call solver to get model for mbp
     m_solver->push();
     m_solver->assert_expr(pat);
+    m_solver->push();
+    expr_ref_vector neg(m);
+    for (auto l : lc.get_lemmas()) {
+      neg.push_back((l.get_lemma()->get_expr()));
+    }
+    expr_ref neg_expr(m.mk_and(neg), m);
+    m_solver->assert_expr(neg_expr);
     lbool res = m_solver->check_sat(0, nullptr);
-    TRACE("subsume", tout << "res is " << res << "\n";);
+    if (res == l_true) {
+      m_solver->get_model(mdl);
+      m_solver->pop(1);
+    } else {
+      m_solver->pop(1);
+      res = m_solver->check_sat(0, nullptr);
+      m_solver->get_model(mdl);
+    }
     VERIFY(res == l_true);
-    m_solver->get_model(mdl);
 
     SASSERT(mdl.get() != nullptr);
     TRACE("subsume", expr_ref t(m); model2expr(mdl, t);
