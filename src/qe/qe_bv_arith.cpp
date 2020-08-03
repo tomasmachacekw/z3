@@ -906,18 +906,16 @@ struct bv_ext_rw_cfg : public default_rewriter_cfg {
         m_bnds.reset();
         m_bnds.append(bnds);
     }
-    void get_bnd_eq(expr_ref_vector &sc, model &mdl) {
-        for (unsigned i = 0; i < m_bnds.size(); i++) {
-            expr* rhs = m_bv.mk_extract(m_bnds[i].second, m_bnds[i].first, m_var);
-            expr* lhs = m_nw_vars.get(i);
-            expr* eq = m.mk_eq(lhs, rhs);
-            sc.push_back(eq);
-            expr_ref val(m);
-            val = mdl(rhs);
-            mdl.register_decl(to_app(lhs)->get_decl(), val);
-            mdl.reset_eval_cache();
-        }
-        return;
+    void register_nw_vars(model &mdl) {
+      for (unsigned i = 0; i < m_bnds.size(); i++) {
+        expr *rhs = m_bv.mk_extract(m_bnds[i].second, m_bnds[i].first, m_var);
+        expr *lhs = m_nw_vars.get(i);
+        expr_ref val(m);
+        val = mdl(rhs);
+        mdl.register_decl(to_app(lhs)->get_decl(), val);
+      }
+      mdl.reset_eval_cache();
+      return;
     }
     br_status reduce_app(func_decl *f, unsigned num, expr *const *args,
                          expr_ref &result, proof_ref &result_pr) {
@@ -1415,35 +1413,40 @@ void lazy_mbp(expr_ref_vector &bg, expr_ref_vector &sig, expr_ref_vector &pi, ex
       }
 
       bool solve(model & model, app_ref_vector & vars, expr_ref_vector & lits) {
-        expr_ref_vector sc_ext(m), sc_bvr(m);
+        TRACE("bv_tmp",
+              tout << "entering solve with " << mk_and(lits) << "\n";);
+        expr_ref_vector sc_bvr(m);
         expr_ref res(m), lit_and(m);
+        expr_mark reduced;
         lit_and = mk_and(lits);
-        app_ref_vector nw_vars(m), old_vars(m);
+        app_ref_vector nw_vars(m);
         vector<bnd> bnds, nw_bnds;
-        for (auto e: vars) {
-            bnds.reset();
-            bv_ext_rw_cfg bv_ext_rw(m, e);
-            get_extrt_bnds(e, lit_and, bnds);
-            if (bnds.size() == 0) continue;
-            collapse_bnds(bnds, nw_bnds);
-            bv_ext_rw.add_bnds(nw_bnds, nw_vars);
-            expr_ref_vector eq_sc(m);
-            bv_ext_rw.get_bnd_eq(eq_sc, model);
-            rewriter_tpl<bv_ext_rw_cfg> rw(m, false, bv_ext_rw);
-            rw(lit_and.get(), lit_and);
-            sc_ext.append(eq_sc);
+        for (auto *e : vars) {
+          bnds.reset();
+          bv_ext_rw_cfg bv_ext_rw(m, e);
+          get_extrt_bnds(e, lit_and, bnds);
+          if (bnds.size() == 0)
+            continue;
+          collapse_bnds(bnds, nw_bnds);
+          bv_ext_rw.add_bnds(nw_bnds, nw_vars);
+          bv_ext_rw.register_nw_vars(model);
+          rewriter_tpl<bv_ext_rw_cfg> rw(m, false, bv_ext_rw);
+          rw(lit_and.get(), lit_and);
+          reduced.mark(e);
         }
-        old_vars.append(vars);
-        vars.reset();
+        unsigned i = 0;
+        for (auto *e : vars) {
+          if (!reduced.is_marked(e))
+            vars[i++] = e;
+        }
+        vars.shrink(i);
         vars.append(nw_vars);
-        vars.append(old_vars);
         bv_mbp_rw_cfg bvr(m, sc_bvr);
         bvr.add_model(&model);
         rewriter_tpl<bv_mbp_rw_cfg> bv_rw(m, false, bvr);
         bv_rw(lit_and.get(), lit_and);
         lits.reset();
         flatten_and(lit_and, lits);
-        lits.append(sc_ext);
         lits.append(sc_bvr);
         //returning false because all preprocessing is over
         return false;
