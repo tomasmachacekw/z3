@@ -300,7 +300,8 @@ void mul_if_not_one(rational coeff, expr *e, expr_ref &res) {
     bv_util m_bv(m);
     if (coeff == rational::one())
         res = expr_ref(e, m);
-    else if (m_arith.is_arith_expr(e))
+    else if (m_arith.is_arith_expr(e) || m_arith.is_int(e) ||
+             m_arith.is_real(e))
       res = m_arith.mk_mul(m_arith.mk_numeral(coeff, coeff.is_int()), e);
     else {
       SASSERT(m_bv.is_bv(e));
