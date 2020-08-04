@@ -1152,6 +1152,9 @@ struct bv_project_plugin::imp {
         res.reset();
         res.append(new_fmls);
         res.append(backg_fmls);
+        TRACE("bv_tmp", tout << "eliminated " << mk_pp(v, m) << " result is "
+                             << mk_and(res) << "\n";);
+        SASSERT(model.is_true(res));
       }
       return vector<def>();
     }
