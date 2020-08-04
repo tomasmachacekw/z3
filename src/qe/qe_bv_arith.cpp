@@ -919,23 +919,34 @@ struct bv_ext_rw_cfg : public default_rewriter_cfg {
     }
     br_status reduce_app(func_decl *f, unsigned num, expr *const *args,
                          expr_ref &result, proof_ref &result_pr) {
-        if (!(m_bv.is_extract(f) && args[0] == m_var)) {
-          result = m.mk_app(f, num, args);
-          return BR_DONE;
-        }
+      expr_ref_vector nw_args(m), rwt_args(m);
+      if (m_bv.is_extract(f) && args[0] == m_var) {
         unsigned lw = m_bv.get_extract_low(f);
         unsigned hg = m_bv.get_extract_high(f);
-        expr_ref_vector nw_args(m);
-        for (unsigned i = m_bnds.size(); i-- != 0; ) {
-            if (lw <= m_bnds[i].first && m_bnds[i].second <= hg) nw_args.push_back(to_expr(m_nw_vars.get(i)));
+        for (unsigned i = m_bnds.size(); i-- != 0;) {
+          if (lw <= m_bnds[i].first && m_bnds[i].second <= hg)
+            nw_args.push_back(to_expr(m_nw_vars.get(i)));
         }
         if (nw_args.size() == 1) {
-            result = nw_args.get(0);
-            return BR_DONE;
+          result = nw_args.get(0);
+          return BR_DONE;
         }
         result = m_bv.mk_concat(nw_args.size(), nw_args.c_ptr());
         return BR_DONE;
-
+      }
+      for (unsigned i = m_nw_vars.size(); i-- != 0;)
+        rwt_args.push_back(to_expr(m_nw_vars.get(i)));
+      expr_ref rwt(m);
+      rwt = m_bv.mk_concat(rwt_args.size(), rwt_args.c_ptr());
+      // rewrite all occurrences of m_var with nw_arg
+      for (unsigned i = 0; i < num; i++) {
+        if (args[i] == m_var)
+          nw_args.push_back(rwt);
+        else
+          nw_args.push_back(args[i]);
+      }
+      result = m.mk_app(f, num, nw_args.c_ptr());
+      return BR_DONE;
     }
 };
 
