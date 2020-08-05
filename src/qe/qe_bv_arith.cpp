@@ -1065,7 +1065,11 @@ struct bv_project_plugin::imp {
         m_rw_rules.push_back(alloc(mul_mone2, m));
         m_rw_rules.push_back(alloc(ule_zro, m));
     }
-    ~imp() {}
+    ~imp() {
+      for (auto *r : m_rw_rules) {
+        dealloc(r);
+      }
+    }
 
     void reset_rw_rules(model &mdl, expr *var) {
       for (auto r : m_rw_rules) {
