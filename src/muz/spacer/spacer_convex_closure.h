@@ -50,6 +50,9 @@ class convex_closure {
     // size of all bit vectors in m_dim_vars
     unsigned m_bv_sz;
 
+    // Compute syntactic convex closure
+    bool m_do_syn_cls;
+
     // true if \p m_dim_vars are arithmetic sort (i.e., Real or Int)
     bool m_is_arith;
 
@@ -115,9 +118,9 @@ class convex_closure {
 
   public:
     convex_closure(ast_manager &manager, bool use_sage)
-        : m(manager), m_arith(m), m_bv(m), m_bv_sz(0), m_is_arith(true),
-          m_dim(0), m_data(0, 0), m_dim_vars(m), m_kernel(m_data),
-          m_nw_vars(m) {
+        : m(manager), m_arith(m), m_bv(m), m_bv_sz(0), m_do_syn_cls(true),
+          m_is_arith(true), m_dim(0), m_data(0, 0), m_dim_vars(m),
+          m_kernel(m_data), m_nw_vars(m) {
 
         if (use_sage) m_kernel.set_plugin(mk_sage_plugin());
     }
@@ -131,11 +134,13 @@ class convex_closure {
         m_bv_sz = sz;
     }
 
-    /// \brief Name dimension \p i by variable \p v
+    /// \brief Name dimension \p i by variable \p v. This disable syntactic
+    /// convex closure as well
     void set_dimension(unsigned i, var *v) {
         SASSERT(i < dims());
         SASSERT(m_dim_vars[i] == nullptr);
         m_dim_vars[i] = v;
+        m_do_syn_cls = false;
     }
 
     /// \brief Return number of dimensions of each point

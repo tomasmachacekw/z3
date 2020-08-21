@@ -57,6 +57,7 @@ void convex_closure::reset(unsigned n_cols) {
     m_dim_vars.reserve(m_dim);
     m_nw_vars.reset();
     m_bv_sz = 0;
+    m_do_syn_cls = true;
 }
 
 void convex_closure::collect_statistics(statistics &st) const {
@@ -260,7 +261,7 @@ bool convex_closure::compute_div_constraint(const vector<rational> &data,
     return true;
 }
 
-// returns whether the closure is exact or not (i.e syntactic)
+// Returns whether the closure is exact or not (i.e syntactic)
 bool convex_closure::closure(expr_ref_vector &res_vec) {
     scoped_watch _w_(m_st.watch);
     SASSERT(is_int_matrix(m_data));
@@ -276,10 +277,9 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
     }
 
     if (red_dim > m_st.m_max_dim) m_st.m_max_dim = red_dim;
-    if (red_dim > 1) {
+    if (red_dim > 1 && m_do_syn_cls) {
         SASSERT(m_nw_vars.size() == 0);
         TRACE("subsume", tout << "Computing syntactic convex closure\n";);
-        // TODO: add an option to disable syn cls and use it for bv
         syn_cls(res_vec);
         return true;
     }
