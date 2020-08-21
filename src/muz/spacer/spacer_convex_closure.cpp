@@ -20,6 +20,33 @@ Notes:
 
 #include "muz/spacer/spacer_convex_closure.h"
 
+namespace {
+bool is_int_matrix(const spacer::spacer_matrix &matrix) {
+    rational val;
+    for (unsigned i = 0, rows = matrix.num_rows(); i < rows; i++) {
+        for (unsigned j = 0, cols = matrix.num_cols(); j < cols; j++)
+            if (!matrix.get(i, j).is_int()) return false;
+    }
+    return true;
+}
+
+bool is_sorted(const vector<rational> &data) {
+    for (unsigned i = 0; i < data.size() - 1; i++) {
+        if (data[i] < data[i + 1]) return false;
+    }
+    return true;
+}
+
+/// Check whether all elements of \p data are congruent modulo \p m
+bool congruent_mod(const vector<rational> &data, rational m) {
+    SASSERT(data.size() > 0);
+    rational p = data[0] % m;
+    for (auto k : data)
+        if (k % m != p) return false;
+    return true;
+}
+} // namespace
+
 namespace spacer {
 
 void convex_closure::reset(unsigned n_cols) {
@@ -33,10 +60,10 @@ void convex_closure::reset(unsigned n_cols) {
 }
 
 void convex_closure::collect_statistics(statistics &st) const {
-    st.update("time.spacer.solve.reach.gen.global.cvx_cls",
+    st.update("time.spacer.solve.reach.gen.global.cc",
               m_st.watch.get_seconds());
-    st.update("SPACER num dim reduction success", m_st.m_num_reductions);
-    st.update("SPACER max cvx reduced dim", m_st.m_max_dim);
+    st.update("SPACER cc num dim reduction success", m_st.m_num_reductions);
+    st.update("SPACER cc max reduced dim", m_st.m_max_dim);
     m_kernel.collect_statistics(st);
 }
 
@@ -44,8 +71,8 @@ void convex_closure::collect_statistics(statistics &st) const {
 // return the rank of m_data
 unsigned convex_closure::reduce_dim() {
     if (m_dim <= 1) return m_dim;
-    bool non_null_ker = m_kernel.compute_kernel();
-    if (!non_null_ker) {
+    bool has_kernel = m_kernel.compute_kernel();
+    if (!has_kernel) {
         TRACE("cvx_dbg",
               tout << "No linear dependencies between pattern vars\n";);
         return m_dim;
@@ -66,19 +93,26 @@ unsigned convex_closure::reduce_dim() {
 // for each row [0, 1, 0, 1 , 1] in m_kernel, the equality m_lcm*v1 =
 // -1*m_lcm*v3 + -1*1 is constructed and stored at index 1 of m_dim_vars
 void convex_closure::generate_lin_deps(expr_ref_vector &res) {
+    // assume kernel has been computed already
     const spacer_matrix &ker = m_kernel.get_kernel();
     unsigned n_rows = ker.num_rows();
     SASSERT(n_rows > 0);
 
-    // contains the right hand side of equality
+
+    // for each row in m_kernel, construct the equality:
+    //
+    // m_kernel[i] * m_dim_vars = 0
+    //
+    // In the equality, exactly one variable from  m_dim_vars is on the lhs
+
+    // contains the right hand side of an equality
     expr_ref_vector rw(m);
 
-    // for each row in m_kernel, construct the equality m_kernel[i] . m_dim_vars
-    // = 0 construct the equality so that only one constant in m_dim_vars is on
-    // the lhs
+    // AG: refactor with one method constructing a single equality and another
+    // AG: iterating over all rows
     for (unsigned i = n_rows; i > 0; i--) {
-        const vector<rational> &row = ker.get_row(i - 1);
         rw.reset();
+        const vector<rational> &row = ker.get_row(i - 1);
         // index of first non zero element in row
         int pv = -1;
         // are we constructing rhs or lhs
@@ -105,14 +139,12 @@ void convex_closure::generate_lin_deps(expr_ref_vector &res) {
                 expr_ref prod(m);
                 if (j != row.size() - 1) {
                     prod = m_dim_vars.get(j);
-                    mul_by_rat(prod, -1*val*m_lcm);
+                    mul_by_rat(prod, -1 * val * m_lcm);
                 } else if (m_is_arith) {
                     // AG: determine type from expression, don't assume it
                     // AG: is INT and not REAL
                     prod = m_arith.mk_int(-1 * val);
                 } else {
-                    // AG: determine type from expression. Document
-                    // assumption about bit-width
                     prod = m_bv.mk_numeral(-1 * val, m_bv_sz);
                 }
                 rw.push_back(prod);
@@ -123,14 +155,15 @@ void convex_closure::generate_lin_deps(expr_ref_vector &res) {
         SASSERT(pv != -1);
 
         // AG: types must be determined from expressions
-        // AG: what is different between m_arith.mk_eq() and m.mk_eq()?
         if (rw.size() == 0) {
             if (m_is_arith)
                 res.push_back(m_arith.mk_eq(m_dim_vars.get(pv),
+                                            // AG: can this be 0.0 sometimes, i.e., Real?
                                             m_arith.mk_int(rational::zero())));
             else
-                res.push_back(m.mk_eq(m_dim_vars.get(pv),
-                                   m_bv.mk_numeral(rational::zero(), m_bv_sz)));
+                res.push_back(
+                    m.mk_eq(m_dim_vars.get(pv),
+                            m_bv.mk_numeral(rational::zero(), m_bv_sz)));
             continue;
         }
 
@@ -198,22 +231,6 @@ void convex_closure::syn_cls(expr_ref_vector &res_vec) {
                               m_arith.mk_int(rational::one())));
 }
 
-namespace {
-bool is_sorted(const vector<rational> &data) {
-    for (unsigned i = 0; i < data.size() - 1; i++) {
-        if (data[i] < data[i + 1]) return false;
-    }
-    return true;
-}
-// check whether elements are congruent modulo m
-bool congruent_mod(const vector<rational> &data, rational m) {
-    rational p = data[0] % m;
-    for (auto k : data)
-        if (k % m != p) return false;
-    return true;
-}
-} // namespace
-
 // check whether \exists m, d s.t data[i] mod m = d. Returns the largest m and
 // corresponding d
 // TODO: find the largest divisor, not the smallest.
@@ -244,14 +261,6 @@ bool convex_closure::compute_div_constraint(const vector<rational> &data,
     return true;
 }
 
-static bool is_int_matrix(const spacer_matrix &matrix) {
-    rational val;
-    for (unsigned i = 0, rows = matrix.num_rows(); i < rows; i++) {
-        for (unsigned j = 0, cols = matrix.num_cols(); j < cols; j++)
-            if (!matrix.get(i, j).is_int()) return false;
-    }
-    return true;
-}
 // returns whether the closure is exact or not (i.e syntactic)
 bool convex_closure::closure(expr_ref_vector &res_vec) {
     scoped_watch _w_(m_st.watch);
@@ -271,7 +280,7 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
     if (red_dim > 1) {
         SASSERT(m_nw_vars.size() == 0);
         TRACE("subsume", tout << "Computing syntactic convex closure\n";);
-        //TODO: add an option to disable syn cls and use it for bv
+        // TODO: add an option to disable syn cls and use it for bv
         syn_cls(res_vec);
         return false;
     }
