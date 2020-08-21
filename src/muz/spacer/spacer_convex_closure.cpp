@@ -87,7 +87,84 @@ unsigned convex_closure::reduce_dim() {
     return m_dim - ker.num_rows();
 }
 
-// generates linear equalities implied by m_data
+// For row \p row in m_kernel, construct the equality:
+//
+// row * m_dim_vars = 0
+//
+// In the equality, exactly one variable from  m_dim_vars is on the lhs
+void convex_closure::generate_lin_deps_for_row(const vector<rational> &row,
+                                               expr_ref &res) {
+    // contains the right hand side of an equality
+    expr_ref_buffer rw(m);
+    // index of first non zero element in row
+    int pv = -1;
+    // are we constructing rhs or lhs
+    bool rhs = false;
+    // coefficient of m_dim_vars[pv]
+    rational coeff(1);
+    // the elements in row are the coefficients of m_dim_vars
+    // some elements should go to the rhs, in which case the signs are
+    // changed
+    for (unsigned j = 0; j < row.size(); j++) {
+        rational val = row.get(j);
+        SASSERT(val.is_int());
+        if (val.is_zero()) continue;
+        if (!rhs) {
+            // Cannot re-write the last element
+            if (j == row.size() - 1) continue;
+            SASSERT(pv == -1);
+            pv = j;
+            rhs = true;
+            // In integer echelon form, the pivot need not be 1
+            coeff = val;
+        } else {
+            expr_ref prod(m);
+            if (j != row.size() - 1) {
+                prod = m_dim_vars.get(j);
+                mul_by_rat(prod, -1 * val * m_lcm);
+            } else {
+                if (m_arith.is_int(m_dim_vars.get(pv))) {
+                    prod = m_arith.mk_int(-1 * val);
+                } else if (m_arith.is_real(m_dim_vars.get(pv))) {
+                    prod = m_arith.mk_real(-1 * val);
+                } else if (m_bv.is_bv(m_dim_vars.get(pv))) {
+                    prod = m_bv.mk_numeral(-1 * val, m_bv_sz);
+                }
+            }
+            SASSERT(prod.get());
+            rw.push_back(prod);
+        }
+    }
+
+    // make sure that there is a non-zero entry
+    SASSERT(pv != -1);
+
+    if (rw.size() == 0) {
+        expr_ref rhs(m);
+        if (m_arith.is_int(m_dim_vars.get(pv)))
+            rhs = m_arith.mk_int(rational::zero());
+        else if (m_arith.is_real(m_dim_vars.get(pv)))
+            rhs = m_arith.mk_real(rational::zero());
+        else if (m_bv.is_bv(m_dim_vars.get(pv)))
+            rhs = m_bv.mk_numeral(rational::zero(), m_bv_sz);
+        res = m_arith.mk_eq(m_dim_vars.get(pv), rhs);
+        return;
+    }
+
+    // TODO: n-ary bvadd is not in SMT-LIB standard. Is not supported in Z3
+    res = m_is_arith ? m_arith.mk_add(rw.size(), rw.c_ptr())
+        : m.mk_app(m_bv.get_fid(), OP_BADD, rw.size(),
+                   rw.c_ptr());
+    expr_ref pv_var(m);
+    pv_var = m_dim_vars.get(pv);
+    mul_by_rat(pv_var, coeff * m_lcm);
+
+    res = m.mk_eq(pv_var, res);
+    TRACE("cvx_dbg", tout << "rewrote " << mk_pp(m_dim_vars.get(pv), m)
+          << " into " << res << "\n";);
+}
+
+// Generates linear equalities implied by m_data
 // the linear equalities are m_kernel * m_dim_vars = 0
 // the new equalities are stored in m_dim_vars
 // for each row [0, 1, 0, 1 , 1] in m_kernel, the equality m_lcm*v1 =
@@ -97,95 +174,17 @@ void convex_closure::generate_lin_deps(expr_ref_vector &res) {
     const spacer_matrix &ker = m_kernel.get_kernel();
     unsigned n_rows = ker.num_rows();
     SASSERT(n_rows > 0);
+    expr_ref lin_dep(m);
 
-
-    // for each row in m_kernel, construct the equality:
-    //
-    // m_kernel[i] * m_dim_vars = 0
-    //
-    // In the equality, exactly one variable from  m_dim_vars is on the lhs
-
-    // contains the right hand side of an equality
-    expr_ref_vector rw(m);
-
-    // AG: refactor with one method constructing a single equality and another
-    // AG: iterating over all rows
     for (unsigned i = n_rows; i > 0; i--) {
-        rw.reset();
         const vector<rational> &row = ker.get_row(i - 1);
-        // index of first non zero element in row
-        int pv = -1;
-        // are we constructing rhs or lhs
-        bool rhs = false;
-        // coefficient of m_dim_vars[pv]
-        rational coeff(1);
-        // the elements in row are the coefficients of m_dim_vars
-        // some elements should go to the rhs, in which case the signs are
-        // changed
-        for (unsigned j = 0; j < row.size(); j++) {
-            rational val = row.get(j);
-            SASSERT(j >= i - 1 || val.is_zero());
-            SASSERT(val.is_int());
-            if (val.is_zero()) continue;
-            if (!rhs) {
-                // Cannot re-write the last element
-                if (j == row.size() - 1) continue;
-                SASSERT(pv == -1);
-                pv = j;
-                rhs = true;
-                // In integer echelon form, the pivot need not be 1
-                if (val != 1) coeff = val;
-            } else {
-                expr_ref prod(m);
-                if (j != row.size() - 1) {
-                    prod = m_dim_vars.get(j);
-                    mul_by_rat(prod, -1 * val * m_lcm);
-                } else if (m_is_arith) {
-                    // AG: determine type from expression, don't assume it
-                    // AG: is INT and not REAL
-                    prod = m_arith.mk_int(-1 * val);
-                } else {
-                    prod = m_bv.mk_numeral(-1 * val, m_bv_sz);
-                }
-                rw.push_back(prod);
-            }
-        }
-
-        // make sure that there is a non-zero entry
-        SASSERT(pv != -1);
-
-        // AG: types must be determined from expressions
-        if (rw.size() == 0) {
-            if (m_is_arith)
-                res.push_back(m_arith.mk_eq(m_dim_vars.get(pv),
-                                            // AG: can this be 0.0 sometimes, i.e., Real?
-                                            m_arith.mk_int(rational::zero())));
-            else
-                res.push_back(
-                    m.mk_eq(m_dim_vars.get(pv),
-                            m_bv.mk_numeral(rational::zero(), m_bv_sz)));
-            continue;
-        }
-
-        // AG: use bv_util
-        // AG: n-ary bvadd is not in SMT-LIB standard. Might not be fully
-        // supported in Z3
-        expr_ref rw_term(m);
-        rw_term = m_is_arith ? m_arith.mk_add(rw.size(), rw.c_ptr())
-                             : m.mk_app(m_bv.get_fid(), OP_BADD, rw.size(),
-                                        rw.c_ptr());
-        expr_ref pv_var(m);
-        pv_var = m_dim_vars.get(pv);
-        mul_by_rat(pv_var, coeff * m_lcm);
-
-        rw_term = m.mk_eq(pv_var, rw_term);
-        TRACE("cvx_dbg", tout << "rewrote " << mk_pp(m_dim_vars.get(pv), m)
-                              << " into " << rw_term << "\n";);
-        res.push_back(rw_term);
+        generate_lin_deps_for_row(row, lin_dep);
+        res.push_back(lin_dep);
     }
 }
 
-/// add (Col_j . m_nw_vars = m_dim_vars[j]) to res_vec
+/// Construct the equality ((m_nw_vars . m_data[*][j]) = m_dim_vars[j]) and add
+/// to res_vec. Where m_data[*][j] is the jth column of m_data
 void convex_closure::add_sum_cnstr(unsigned i, expr_ref_vector &res_vec) {
     expr_ref_vector add(m);
     expr_ref mul(m), result_var(m);

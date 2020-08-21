@@ -339,7 +339,7 @@ void lemma_global_generalizer::add_dim_vars(const lemma_cluster &lc) {
     }
 }
 
-// populate m_cvx_cls by 1) collecting all substitutions in the cluster lc
+// Populate m_cvx_cls by 1) collecting all substitutions in the cluster \p lc
 // 2) converting them to integer numerals
 void lemma_global_generalizer::populate_cvx_cls(const lemma_cluster &lc) {
     vector<rational> point;

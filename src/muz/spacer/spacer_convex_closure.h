@@ -71,13 +71,23 @@ class convex_closure {
     // These variables are always of sort Real
     var_ref_vector m_nw_vars;
 
-    // Least common multiple of all coordinates in \p m_data
+    // m_lcm is a hack to allow convex_closure computation of rational matrices
+    // as well. Let A be a real matrix. m_lcm is the lcm of all denominators in
+    // A m_data = m_lcm * A, is always an integer matrix
+    // TODO: m_lcm should be maintained by the client
     rational m_lcm;
 
     // AG: Needs better comment
     // call m_kernel to reduce dimensions of m_data
     // return the rank of m_data
     unsigned reduce_dim();
+
+    // For row \p row in m_kernel, construct the equality:
+    //
+    // row * m_dim_vars = 0
+    //
+    // In the equality, exactly one variable from  m_dim_vars is on the lhs
+    void generate_lin_deps_for_row(const vector<rational> &row, expr_ref &res);
 
     /// Construct all linear equations implied by points in \p m_data
     // This is defined by \p m_kernel * m_dim_vars = 0
@@ -86,16 +96,17 @@ class convex_closure {
     /// Compute syntactic convex closure of \p m_data
     void syn_cls(expr_ref_vector &res_vec);
 
-    // AG: better comment
-    /// add (Col_j . m_nw_vars = m_dim_vars[j]) to res_vec
+    /// Construct the equality ((m_nw_vars . m_data[*][j]) = m_dim_vars[j]) and
+    /// add to res_vec. Where m_data[*][j] is the jth column of m_data
     void add_sum_cnstr(unsigned j, expr_ref_vector &res_vec);
 
-    /// Compute one dimensional convex closure
-    /// AG: what is \p var? 
+    /// Compute one dimensional convex closure. \p var is the dimension over
+    /// which convex closure is computed and \p res stores the convex
+    /// closure
     void do_one_dim_cls(expr_ref var, expr_ref_vector &res);
 
-    /// Finds the largest numbers \p m and \p d such that \p m_data[i] mod m = d
-    /// Returns true if successful
+    /// Finds the largest numbers \p m and \p d such that \p m_data[i] mod m
+    /// = d Returns true if successful
     bool compute_div_constraint(const vector<rational> &data, rational &m,
                                 rational &d);
 
@@ -159,7 +170,8 @@ class convex_closure {
     /// \brief Compute convex closure of the current set of points
     ///
     /// Returns true if successful and \p res is an exact convex closure
-    /// Returns false if \p res is an over-approximation of the convex closure
+    /// Returns false if \p res is an over-approximation of the convex
+    /// closure
     bool closure(expr_ref_vector &res);
 
     void collect_statistics(statistics &st) const;
@@ -167,7 +179,6 @@ class convex_closure {
     void reset_statistics() { m_st.reset(); }
 
     /// Set the least common multiple of \p m_data
-    /// AG: this should be computed internally
     void set_lcm(rational l) { m_lcm = l; }
 };
 } // namespace spacer
