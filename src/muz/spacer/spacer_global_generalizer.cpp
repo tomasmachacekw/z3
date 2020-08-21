@@ -422,7 +422,7 @@ bool lemma_global_generalizer::skolemize_sel_vars(expr_ref &f,
     return true;
 }
 
-// compute a lemma that subsumes lemmas in lc
+// Compute a lemma that subsumes lemmas in lc
 bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
                                        expr_ref_vector &subs_gen) {
     const expr_ref &pattern = lc.get_pattern();
@@ -430,6 +430,7 @@ bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
     SASSERT(n_vars > 0);
     reset(n_vars);
 
+    // check whether all substitutions are to bv_numerals
     unsigned sz = 0;
     bool bv_clus = contains_bv(m, lc.get_lemmas()[0].get_sub(), sz);
     if (bv_clus) {
@@ -446,13 +447,14 @@ bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
     add_dim_vars(lc);
     // add points
     populate_cvx_cls(lc);
+
     expr_ref_vector cls(m);
-    bool no_new_vars = m_cvx_cls.closure(cls);
-    CTRACE("subsume_verb", !no_new_vars,
+    bool has_new_vars = m_cvx_cls.closure(cls);
+    CTRACE("subsume_verb", has_new_vars,
            tout << "Convex closure introduced new variables. Closure is"
                 << mk_and(cls) << "\n";);
 
-    if (!no_new_vars) {
+    if (has_new_vars) {
         // For now, no syntactic convex closure for bv
         if (bv_clus) return false;
         m_st.m_num_syn_cls++;
@@ -470,7 +472,7 @@ bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
     expr_ref cvx_pattern(m);
     var_to_const(mk_and(cls), cvx_pattern);
 
-    if (!no_new_vars) {
+    if (has_new_vars) {
         to_real(cvx_pattern);
         TRACE("subsume_verb",
               tout << "To real produced " << cvx_pattern << "\n";);
@@ -514,7 +516,7 @@ bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
     TRACE("subsume_verb", tout << "Pattern after mbp of computing cvx cls: "
                                << cvx_pattern << "\n";);
 
-    if (!no_new_vars) { to_int(cvx_pattern); }
+    if (has_new_vars) { to_int(cvx_pattern); }
     if (m_dim_frsh_cnsts.size() > 0 && !m_ctx.use_ground_pob()) {
         app_ref_vector &vars = lemma->get_bindings();
         // Try to skolemize

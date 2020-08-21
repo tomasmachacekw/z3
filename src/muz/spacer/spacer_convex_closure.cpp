@@ -281,15 +281,15 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
         TRACE("subsume", tout << "Computing syntactic convex closure\n";);
         // TODO: add an option to disable syn cls and use it for bv
         syn_cls(res_vec);
-        return false;
+        return true;
     }
 
     // zero dimensional convex closure
-    if (red_dim == 0) { return true; }
+    if (red_dim == 0) { return false; }
 
     SASSERT(red_dim == 1);
     do_one_dim_cls(var, res_vec);
-    return true;
+    return false;
 }
 
 // construct the formula result_var <= bnd or result_var >= bnd
