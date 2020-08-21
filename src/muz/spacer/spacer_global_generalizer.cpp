@@ -456,7 +456,7 @@ bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
 
     if (has_new_vars) {
         // For now, no syntactic convex closure for bv
-        if (bv_clus) return false;
+        SASSERT(!bv_clus);
         m_st.m_num_syn_cls++;
         // Add the new variables to the list of variables to be eliminated
         const var_ref_vector &vars = m_cvx_cls.get_nw_vars();
