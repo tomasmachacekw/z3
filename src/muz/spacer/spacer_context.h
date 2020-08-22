@@ -243,6 +243,15 @@ class lemma_cluster {
         }
     }
 
+    /// Get a conjunction of all the lemmas in cluster
+    void get_conj_lemmas(expr_ref &e) const {
+        expr_ref_vector neg(m);
+        for (auto l : get_lemmas()) {
+            neg.push_back((l.get_lemma()->get_expr()));
+        }
+        e = mk_and(neg);
+    }
+
     // WARNING: Adding a lemma can reduce the size of the cluster due to
     // subsumption check
     bool add_lemma(const lemma_ref &lemma, bool subs_check = false);

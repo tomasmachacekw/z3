@@ -444,32 +444,45 @@ void lemma_global_generalizer::get_model(expr_ref a, expr_ref b,
     m_solver->pop(1);
 }
 
+/// Returns false if subsumption is not supported for \p lc
+bool lemma_global_generalizer::is_handled(const lemma_cluster& lc) {
+    // check whether all substitutions are to bv_numerals
+    unsigned sz = 0;
+    bool bv_clus = contains_bv(m, lc.get_lemmas()[0].get_sub(), sz);
+    // If there are no BV numerals, cases are handled.
+    // TODO: put restriction on Arrays, non linear arithmetic etc
+    if (!bv_clus) return true;
+    if (!all_same_sz(m, lc.get_lemmas()[0].get_sub(), sz)) {
+        TRACE("global",
+              tout << "cannot compute cvx cls of different size variables\n";);
+        return false;
+    }
+}
+
+/// Prepare internal state for computing subsumption
+void lemma_global_generalizer::set_up_subsume(const lemma_cluster &lc) {
+    unsigned sz = 0;
+    bool bv_clus = contains_bv(m, lc.get_lemmas()[0].get_sub(), sz);
+    if (bv_clus) m_cvx_cls.set_bv(sz);
+    // create and add dim vars
+    add_dim_vars(lc);
+    // add points
+    populate_cvx_cls(lc);
+}
+
 // Compute a lemma that subsumes lemmas in lc
-bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
+bool lemma_global_generalizer::subsume(const lemma_cluster &lc, lemma_ref &lemma,
                                        expr_ref_vector &subs_gen) {
     const expr_ref &pattern = lc.get_pattern();
     unsigned n_vars = get_num_vars(pattern);
     SASSERT(n_vars > 0);
     reset(n_vars);
 
-    // check whether all substitutions are to bv_numerals
-    unsigned sz = 0;
-    bool bv_clus = contains_bv(m, lc.get_lemmas()[0].get_sub(), sz);
-    if (bv_clus) {
-        if (!all_same_sz(m, lc.get_lemmas()[0].get_sub(), sz)) {
-            TRACE(
-                "global",
-                tout
-                    << "cannot compute cvx cls of different size variables\n";);
-            return false;
-        }
-        m_cvx_cls.set_bv(sz);
-    }
-    // create and add dim vars
-    add_dim_vars(lc);
-    // add points
-    populate_cvx_cls(lc);
+    if (!is_handled(lc)) return false;
+    // prepare internal state to compute subsumption
+    set_up_subsume(lc);
 
+    // compute convex closure
     expr_ref_vector cls(m);
     bool has_new_vars = m_cvx_cls.closure(cls);
     CTRACE("subsume_verb", has_new_vars,
@@ -477,8 +490,6 @@ bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
                 << mk_and(cls) << "\n";);
 
     if (has_new_vars) {
-        // For now, no syntactic convex closure for bv
-        SASSERT(!bv_clus);
         m_st.m_num_syn_cls++;
         // Add the new variables to the list of variables to be eliminated
         const var_ref_vector &vars = m_cvx_cls.get_nw_vars();
@@ -501,27 +512,23 @@ bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
         rewrite_fresh_cnsts();
     }
 
-    // get a model for the lemma
     model_ref mdl;
-    // store convex closure
+    // store convex closure. cvx_pattern is going to be modified
     expr_ref cvx_cls(m);
     cvx_cls = cvx_pattern;
 
-    // prefer a model that is not satisfied by ANY of the cubes in the
+    // Get a model that is not satisfied by ANY of the cubes in the
     // cluster
-    expr_ref_vector neg(m);
-    for (auto l : lc.get_lemmas()) {
-        neg.push_back((l.get_lemma()->get_expr()));
-    }
+    expr_ref neg_cubes(m);
     // all models for neg_cubes are outside all the cubes in the cluster
-    expr_ref neg_cubes(mk_and(neg), m);
-
+    lc.get_conj_lemmas(neg_cubes);
     // call solver to get the model
     get_model(cvx_cls, neg_cubes, mdl);
 
     SASSERT(mdl.get() != nullptr);
     TRACE("subsume", expr_ref t(m); model2expr(mdl, t);
           tout << "calling mbp with " << cvx_pattern << " and " << t << "\n";);
+
     qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true,
                !m_ctx.use_ground_pob());
     // TODO: make sure that all new vars introduced by convex closure are

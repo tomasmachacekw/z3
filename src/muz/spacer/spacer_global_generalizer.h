@@ -62,9 +62,15 @@ class lemma_global_generalizer : public lemma_generalizer {
     // cvx_cls  ==> mbp
     ref<solver> m_solver;
 
+    /// Prepare internal state for computing subsumption
+    void set_up_subsume(const lemma_cluster &lc);
+
+    /// Returns false if subsumption is not supported for \p lc
+    bool is_handled(const lemma_cluster &lc);
+
     /// Compute a cube \p res that subsumes lemmas in \p lc
     /// lemma \p l is required in case lemma bindings are to be updated
-    bool subsume(lemma_cluster lc, lemma_ref &l, expr_ref_vector &res);
+    bool subsume(const lemma_cluster& lc, lemma_ref &l, expr_ref_vector &res);
 
     /// Skolemize fresh variables that appear under array select
     ///
