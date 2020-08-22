@@ -634,7 +634,8 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
     pob_ref n = lemma->get_pob();
     expr_ref lit(m);
 
-    // if the cluster does not have enough gas, stop local generalization and return
+    // if the cluster does not have enough gas, stop local generalization and
+    // return
     if (pt_cls->get_gas() == 0) {
         m_st.m_num_cls_ofg++;
         n->stop_local_gen();
@@ -658,7 +659,8 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
 
         TRACE("global",
               tout << "Found non linear pattern. Marked to concretize \n";);
-        // not constructing the concrete pob here since we need a model for n->post()
+        // not constructing the concrete pob here since we need a model for
+        // n->post()
         n->set_concr_pat(pattern);
         n->set_concretize();
         n->set_gas(pt_cls->get_pob_gas());
@@ -666,7 +668,7 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
         return;
     }
 
-    //Conjecture
+    // Conjecture
     if (should_conjecture(pattern, lit)) {
         // Create a conjecture by dropping literal from pob.
         TRACE("global", tout << "Conjecture with pattern " << mk_pp(pattern, m)
@@ -674,7 +676,8 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
         unsigned gas = pt_cls->get_pob_gas();
         unsigned lvl = pt_cls->get_min_lvl() + 1;
         if (do_conjecture(n, lit, lvl, gas)) {
-            // decrease the number of times this cluster is going to be used for conjecturing
+            // decrease the number of times this cluster is going to be used for
+            // conjecturing
             pt_cls->dec_gas();
             return;
         }
@@ -695,9 +698,9 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
         n->set_expand_bnd();
         TRACE("global", tout << "subsume pob " << mk_and(subsume_gen)
                              << " at level " << pt_cls->get_min_lvl() + 1
-                             << " set on pob " << mk_pp(n->post(), m)
-                             << "\n";);
-        //This decision is hard to explain. I believe this helped in solving an instance
+                             << " set on pob " << mk_pp(n->post(), m) << "\n";);
+        // This decision is hard to explain. I believe this helped in solving an
+        // instance
         n->stop_local_gen();
     }
     return;
