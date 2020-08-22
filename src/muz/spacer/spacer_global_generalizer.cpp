@@ -501,32 +501,23 @@ bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
         rewrite_fresh_cnsts();
     }
 
-    model_ref mdl;
-
     // get a model for the lemma
-    expr_ref_vector pat(m);
-    pat.push_back(cvx_pattern);
+    model_ref mdl;
+    // store convex closure
+    expr_ref cvx_cls(m);
+    cvx_cls = cvx_pattern;
 
-    // call solver to get model for mbp
-    m_solver->push();
-    m_solver->assert_expr(pat);
-    m_solver->push();
+    // prefer a model that is not satisfied by ANY of the cubes in the
+    // cluster
     expr_ref_vector neg(m);
     for (auto l : lc.get_lemmas()) {
         neg.push_back((l.get_lemma()->get_expr()));
     }
-    expr_ref neg_expr(mk_and(neg), m);
-    m_solver->assert_expr(neg_expr);
-    lbool res = m_solver->check_sat(0, nullptr);
-    if (res == l_true) {
-        m_solver->get_model(mdl);
-        m_solver->pop(1);
-    } else {
-        m_solver->pop(1);
-        res = m_solver->check_sat(0, nullptr);
-        m_solver->get_model(mdl);
-    }
-    VERIFY(res == l_true);
+    // all models for neg_cubes are outside all the cubes in the cluster
+    expr_ref neg_cubes(mk_and(neg), m);
+
+    // call solver to get the model
+    get_model(cvx_cls, neg_cubes, mdl);
 
     SASSERT(mdl.get() != nullptr);
     TRACE("subsume", expr_ref t(m); model2expr(mdl, t);
