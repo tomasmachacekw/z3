@@ -99,6 +99,9 @@ class lemma_global_generalizer : public lemma_generalizer {
     /// AG: isn't this just ground?
     void var_to_const(expr *fml, expr_ref &rw_fml);
 
+    /// Weaken a such that b ==> (and a)
+    bool over_approximate(expr_ref_vector &a, expr_ref b);
+
     ///If possible, find a model for (a /\ b). If not, find model for a
     void get_model(expr_ref a, expr_ref b, model_ref &mdl);
 

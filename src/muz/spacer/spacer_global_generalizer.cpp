@@ -545,56 +545,75 @@ bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
         flatten_and(cvx_pattern, subs_gen);
         return true;
     }
-    // check whether mbp over approximates cnx_cls
-    // If not, remove literals from mbp till mbp overapproximates cnx_cls
-    expr_ref_vector neg_mbp(m);
-    // subs_gen stores the generalization
     flatten_and(cvx_pattern, subs_gen);
-    for (expr *e : subs_gen) { neg_mbp.push_back(mk_not(m, e)); }
+    return over_approximate(subs_gen, cvx_cls);
+}
 
-    expr_ref asmpt(m);
-    expr_ref_vector pat_nw(m), n_mbp_nw(m);
-
-    while (neg_mbp.size() > 0) {
-        asmpt = mk_or(neg_mbp);
-        TRACE("subsume_verb", tout << "checking neg mbp: " << asmpt << "\n";);
-
-        m_solver->push();
-        m_solver->assert_expr(asmpt);
-        res = m_solver->check_sat(0, nullptr);
+/// Weaken \p a such that \p b ==> a
+///
+/// drop literals from a until b && \not a is unsat. Each time a sat answer is
+/// obtained, use a model to choose which literals to drop next
+bool lemma_global_generalizer::over_approximate(expr_ref_vector &a,
+                                                expr_ref b) {
+    expr_ref tag(m);
+    expr_ref_vector tags(m), assump_a(m);
+    expr_ref_buffer new_a(m), new_tags(m);
+    std::string name = "ovr_approx_assump";
+    for (auto e : a) {
+        tag = m.mk_fresh_const(symbol(name), m.mk_bool_sort());
+        tags.push_back(tag);
+        assump_a.push_back(m.mk_implies(tag, e));
+    }
+    // neg_a stores the negation of a
+    expr_ref neg_a(m);
+    neg_a = push_not(mk_and(assump_a));
+    lbool res = l_true;
+    TRACE("subsume_verb", tout << "weakening " << mk_and(a)
+                               << " to over approximate " << b << "\n";);
+    bool all_tags_disabled = false;
+    m_solver->push();
+    m_solver->assert_expr(b);
+    m_solver->assert_expr(neg_a);
+    while (!all_tags_disabled) {
+        res = m_solver->check_sat(tags.size(), tags.c_ptr());
         if (res == l_false) {
-            // one for getting model and one for checking cvx_cls ==> mbp
-            m_solver->pop(2);
-            return true;
+            break;
         }
-
         // remove satisfied literals
         model_ref rslt;
         m_solver->get_model(rslt);
 
-        for (unsigned i = 0; i < neg_mbp.size(); i++) {
-            if (!rslt->is_true(neg_mbp.get(i))) {
-                n_mbp_nw.push_back(neg_mbp.get(i));
-                pat_nw.push_back(subs_gen.get(i));
+        all_tags_disabled = true;
+        new_tags.reset();
+        for (unsigned i = 0; i < a.size(); i++) {
+            if (!m.is_not(tags.get(i)) && rslt->is_false(a.get(i))) {
+                // mark a[i] as to be removed by negating the tag
+                new_tags.push_back(m.mk_not(tags.get(i)));
+                all_tags_disabled = false;
+            } else {
+                new_tags.push_back(tags.get(i));
             }
         }
-        neg_mbp.reset();
-        for (auto a : n_mbp_nw) neg_mbp.push_back(a);
-        subs_gen.reset();
-        for (auto a : pat_nw) subs_gen.push_back(a);
-        n_mbp_nw.reset();
-        pat_nw.reset();
-
-        // reset solver
-        m_solver->pop(1);
+        // assert # negations in new_tags > # negations in tags
+        tags.reset();
+        for (auto e : new_tags) tags.push_back(e);
     }
-    // could not find an over approximation
-    TRACE("global", tout << "mbp could not overapproximate cnx_cls\n";);
     m_solver->pop(1);
-    m_st.m_num_no_ovr_approx++;
-    return false;
+    if (all_tags_disabled) {
+        // could not find an over approximation
+        TRACE("global", tout << "mbp could not overapproximate cnx_cls\n";);
+        m_st.m_num_no_ovr_approx++;
+        a.reset();
+        return false;
+    }
+    // remove all expressions whose tags are false
+    for (unsigned i = 0; i < new_tags.size(); i++) {
+        if (!m.is_not(tags.get(i))) new_a.push_back(a.get(i));
+    }
+    a.reset();
+    for (auto e : new_a) a.push_back(e);
+    return true;
 }
-
 /// Attempt to set a conjecture on pob \p n by dropping literal \p lit from its
 /// post. \p lvl and \p gas are the level and gas for conjecture pob
 /// returns true if conjecture is set
