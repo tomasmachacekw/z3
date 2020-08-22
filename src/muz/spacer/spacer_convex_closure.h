@@ -127,20 +127,20 @@ class convex_closure {
 
     void reset(unsigned n_cols);
 
-    /// Turn support for fixed sized bit-vectors of size \p sz
+    /// Turn support for fixed sized bit-vectors of size \p sz. This disable
+    /// syntactic convex closure as well
     void set_bv(unsigned sz) {
         SASSERT(sz > 0);
         m_is_arith = false;
         m_bv_sz = sz;
+        m_do_syn_cls = false;
     }
 
-    /// \brief Name dimension \p i by variable \p v. This disable syntactic
-    /// convex closure as well
+    /// \brief Name dimension \p i by variable \p v.
     void set_dimension(unsigned i, var *v) {
         SASSERT(i < dims());
         SASSERT(m_dim_vars[i] == nullptr);
         m_dim_vars[i] = v;
-        m_do_syn_cls = false;
     }
 
     /// \brief Return number of dimensions of each point

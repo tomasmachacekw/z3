@@ -277,10 +277,15 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
     }
 
     if (red_dim > m_st.m_max_dim) m_st.m_max_dim = red_dim;
-    if (red_dim > 1 && m_do_syn_cls) {
-        SASSERT(m_nw_vars.size() == 0);
-        TRACE("subsume", tout << "Computing syntactic convex closure\n";);
-        syn_cls(res_vec);
+    if (red_dim > 1) {
+        // there is no alternative to syntactic convex closure right now
+        // syntactic convex closure does not support BV
+        if (m_do_syn_cls) {
+            SASSERT(m_nw_vars.size() == 0);
+            TRACE("subsume", tout << "Computing syntactic convex closure\n";);
+            syn_cls(res_vec);
+        }
+        else NOT_IMPLEMENTED_YET();
         return true;
     }
 
