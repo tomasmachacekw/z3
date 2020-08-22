@@ -99,6 +99,9 @@ class lemma_global_generalizer : public lemma_generalizer {
     /// AG: isn't this just ground?
     void var_to_const(expr *fml, expr_ref &rw_fml);
 
+    ///If possible, find a model for (a /\ b). If not, find model for a
+    void get_model(expr_ref a, expr_ref b, model_ref &mdl);
+
   public:
     lemma_global_generalizer(context &ctx);
     ~lemma_global_generalizer() override {}

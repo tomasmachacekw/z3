@@ -422,6 +422,28 @@ bool lemma_global_generalizer::skolemize_sel_vars(expr_ref &f,
     return true;
 }
 
+/// If possible, find a model for (a /\ b). If not, find model for a
+void lemma_global_generalizer::get_model(expr_ref a, expr_ref b,
+                                         model_ref &mdl) {
+    m_solver->push();
+    m_solver->assert_expr(a);
+    expr_ref_buffer tmp(m);
+    expr_ref tag(m), assump_b(m);
+    tag = m.mk_fresh_const("get_mdl_assump", m.mk_bool_sort());
+    tmp.push_back(tag);
+    assump_b = m.mk_implies(tag, b);
+    m_solver->assert_expr(assump_b);
+    lbool res = m_solver->check_sat(tmp.size(), tmp.c_ptr());
+    if (res != l_true) {
+        tmp.pop_back();
+        tmp.push_back(m.mk_not(tag));
+        res = m_solver->check_sat(tmp.size(), tmp.c_ptr());
+        SASSERT(res == l_true);
+    }
+    m_solver->get_model(mdl);
+    m_solver->pop(1);
+}
+
 // Compute a lemma that subsumes lemmas in lc
 bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
                                        expr_ref_vector &subs_gen) {
