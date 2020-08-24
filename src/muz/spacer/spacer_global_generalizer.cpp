@@ -454,7 +454,7 @@ void lemma_global_generalizer::get_model(expr_ref a, expr_ref b,
 }
 
 /// Returns false if subsumption is not supported for \p lc
-bool lemma_global_generalizer::is_handled(const lemma_cluster& lc) {
+bool lemma_global_generalizer::is_handled(const lemma_cluster &lc) {
     // check whether all substitutions are to bv_numerals
     unsigned sz = 0;
     bool bv_clus = contains_bv(m, lc.get_lemmas()[0].get_sub(), sz);
@@ -600,9 +600,7 @@ bool lemma_global_generalizer::over_approximate(expr_ref_vector &a,
     m_solver->assert_expr(neg_a);
     while (!all_tags_disabled) {
         res = m_solver->check_sat(tags.size(), tags.c_ptr());
-        if (res == l_false) {
-            break;
-        }
+        if (res == l_false) { break; }
         // remove satisfied literals
         model_ref rslt;
         m_solver->get_model(rslt);
