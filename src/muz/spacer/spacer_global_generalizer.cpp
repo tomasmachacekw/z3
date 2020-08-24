@@ -125,7 +125,8 @@ lemma_global_generalizer::lemma_global_generalizer(context &ctx)
     : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m), m_array(m),
       m_bv(m), m_cvx_cls(m, ctx.use_sage()), m_dim_frsh_cnsts(m),
       m_dim_vars(m) {
-    m_solver = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+    scoped_ptr<solver_factory> factory(mk_smt_strategic_solver_factory(symbol::null));
+    m_solver = (*factory)(m, params_ref::get_empty(), false, true, false, symbol::null);
 }
 
 void lemma_global_generalizer::operator()(lemma_ref &lemma) {
