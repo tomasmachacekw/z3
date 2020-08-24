@@ -466,6 +466,7 @@ bool lemma_global_generalizer::is_handled(const lemma_cluster &lc) {
               tout << "cannot compute cvx cls of different size variables\n";);
         return false;
     }
+    return true;
 }
 
 /// Prepare internal state for computing subsumption
