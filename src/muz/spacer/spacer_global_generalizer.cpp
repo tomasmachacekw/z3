@@ -388,8 +388,8 @@ void lemma_global_generalizer::reset(unsigned n_vars) {
     m_dim_vars.reserve(n_vars);
 }
 
-// if all m_dim_frsh_cnsts appear inside array selects in f, skolemize them
-// append new constants to cnsts
+// If all m_dim_frsh_cnsts appear inside array selects in \p f, skolemize them
+// append new constants to \p cnsts
 bool lemma_global_generalizer::skolemize_sel_vars(expr_ref &f,
                                                   app_ref_vector &cnsts) {
     unsigned idx = cnsts.size();
@@ -470,7 +470,7 @@ void lemma_global_generalizer::set_up_subsume(const lemma_cluster &lc) {
     populate_cvx_cls(lc);
 }
 
-// Compute a lemma that subsumes lemmas in lc
+// Compute a lemma that subsumes lemmas in \p lc. The new lemma cube is stored in \p subs_gen
 bool lemma_global_generalizer::subsume(const lemma_cluster &lc, lemma_ref &lemma,
                                        expr_ref_vector &subs_gen) {
     const expr_ref &pattern = lc.get_pattern();
@@ -489,6 +489,7 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc, lemma_ref &lemma
            tout << "Convex closure introduced new variables. Closure is"
                 << mk_and(cls) << "\n";);
 
+    // setting up mbp
     if (has_new_vars) {
         m_st.m_num_syn_cls++;
         // Add the new variables to the list of variables to be eliminated
