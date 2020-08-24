@@ -50,7 +50,7 @@ struct compute_lcm {
         }
     }
 };
-// check whether cnst appears inside an array select expression
+/// Check whether cnst appears inside an array select expression
 struct cnst_in_ind_proc {
     ast_manager &m;
     array_util m_array;
@@ -68,10 +68,19 @@ struct cnst_in_ind_proc {
         }
     }
 };
+// Check whether \p c appears as an index of an array in \p n
 bool cnst_in_ind(ast_manager &m, expr *c, expr *n) {
     cnst_in_ind_proc finder(m, c);
     for_each_expr(finder, n);
     return finder.found;
+}
+
+// Check whether all constants in \p c appears as an index of an array in \p n
+bool cnst_in_ind(ast_manager &m, app_ref_vector &c, expr *n) {
+    for (auto f : c) {
+        if (!cnst_in_ind(m, f, n)) return false;
+    }
+    return true;
 }
 
 // make fresh constant of sort s
@@ -470,9 +479,11 @@ void lemma_global_generalizer::set_up_subsume(const lemma_cluster &lc) {
     populate_cvx_cls(lc);
 }
 
-// Compute a lemma that subsumes lemmas in \p lc. The new lemma cube is stored in \p subs_gen
-bool lemma_global_generalizer::subsume(const lemma_cluster &lc, lemma_ref &lemma,
-                                       expr_ref_vector &subs_gen) {
+/// Compute a cube \p res such that \neg p subsumes all the lemmas in \p lc
+/// \p cnsts is a set of constants that can be used to make \p res ground
+bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
+                                       expr_ref_vector &subs_gen,
+                                       app_ref_vector &cnsts) {
     const expr_ref &pattern = lc.get_pattern();
     unsigned n_vars = get_num_vars(pattern);
     SASSERT(n_vars > 0);
@@ -532,19 +543,24 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc, lemma_ref &lemma
 
     qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true,
                !m_ctx.use_ground_pob());
-    // TODO: make sure that all new vars introduced by convex closure are
-    // projected
     TRACE("subsume_verb", tout << "Pattern after mbp of computing cvx cls: "
                                << cvx_pattern << "\n";);
-
+    if (!m_ctx.use_ground_pob() &&
+        !cnst_in_ind(m, m_dim_frsh_cnsts, cvx_pattern)) {
+        TRACE("subsume", tout << "Could not eliminate variables that do not "
+                                 "appear as array indices \n";
+              for (auto e
+                   : m_dim_vars) tout
+              << mk_pp(e, m);
+              tout << "\n";);
+        return false;
+    }
     if (has_new_vars) { to_int(cvx_pattern); }
     if (m_dim_frsh_cnsts.size() > 0 && !m_ctx.use_ground_pob()) {
-        app_ref_vector &vars = lemma->get_bindings();
         // Try to skolemize
-        bool skmized = skolemize_sel_vars(cvx_pattern, vars);
+        bool skmized = skolemize_sel_vars(cvx_pattern, cnsts);
         if (!skmized) {
             m_st.m_num_mbp_failed++;
-            m_solver->pop(1);
             TRACE("subsume", tout << "could not eliminate all vars\n";);
             return false;
         }
@@ -730,9 +746,10 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
 
     // Subsume
     expr_ref_vector subsume_gen(m);
-    if (subsume(lc, lemma, subsume_gen)) {
+    app_ref_vector &cnsts = lemma->get_bindings();
+    if (subsume(lc, subsume_gen, cnsts)) {
         n->set_subsume_pob(subsume_gen);
-        n->set_subsume_bindings(lemma->get_bindings());
+        n->set_subsume_bindings(cnsts);
         n->set_may_pob_lvl(pt_cls->get_min_lvl() + 1);
         n->set_gas(pt_cls->get_pob_gas() + 1);
         n->set_expand_bnd();
