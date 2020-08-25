@@ -63,7 +63,7 @@ class lemma_global_generalizer : public lemma_generalizer {
     ref<solver> m_solver;
 
     /// Prepare internal state for computing subsumption
-    void set_up_subsume(const lemma_cluster &lc);
+    void setup_subsume(const lemma_cluster &lc);
 
     /// Returns false if subsumption is not supported for \p lc
     bool is_handled(const lemma_cluster &lc);
@@ -105,10 +105,10 @@ class lemma_global_generalizer : public lemma_generalizer {
     void var_to_const(expr *fml, expr_ref &rw_fml);
 
     /// Weaken a such that b ==> (and a)
-    bool over_approximate(expr_ref_vector &a, expr_ref b);
+    bool over_approximate(expr_ref_vector &a, const expr_ref b);
 
-    ///If possible, find a model for (a /\ b). If not, find model for a
-    void get_model(expr_ref a, expr_ref b, model_ref &mdl);
+    ///\p a is a hard constraint and \p b is a soft constraint that have to be satisfied by mdl
+    bool maxsat_with_model(expr_ref a, expr_ref b, model_ref &mdl);
 
   public:
     lemma_global_generalizer(context &ctx);

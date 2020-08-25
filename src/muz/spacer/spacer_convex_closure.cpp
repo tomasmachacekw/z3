@@ -172,14 +172,15 @@ void convex_closure::generate_lin_deps_for_row(const vector<rational> &row,
 
     res = m.mk_eq(pv_var, res);
     TRACE("cvx_dbg", tout << "rewrote " << mk_pp(m_dim_vars.get(pv), m)
-          << " into " << res << "\n";);
+                          << " into " << res << "\n";);
 }
 
-// Generates linear equalities implied by m_data
-// the linear equalities are m_kernel * m_dim_vars = 0
-// the new equalities are stored in m_dim_vars
-// for each row [0, 1, 0, 1 , 1] in m_kernel, the equality m_lcm*v1 =
-// -1*m_lcm*v3 + -1*1 is constructed and stored at index 1 of m_dim_vars
+/// Generates linear equalities implied by m_data
+///
+/// the linear equalities are m_kernel * m_dim_vars = 0 (where * is matrix multiplication)
+/// the new equalities are stored in m_dim_vars
+/// for each row [0, 1, 0, 1 , 1] in m_kernel, the equality m_lcm*v1 =
+/// -1*m_lcm*v3 + -1*1 is constructed and stored at index 1 of m_dim_vars
 void convex_closure::generate_lin_deps(expr_ref_vector &res) {
     // assume kernel has been computed already
     const spacer_matrix &ker = m_kernel.get_kernel();
@@ -194,8 +195,10 @@ void convex_closure::generate_lin_deps(expr_ref_vector &res) {
     }
 }
 
-/// Construct the equality ((m_nw_vars . m_data[*][j]) = m_dim_vars[j]) and add
-/// to res_vec. Where m_data[*][j] is the jth column of m_data
+/// Construct the equality ((m_nw_vars . m_data[*][i]) = m_dim_vars[i])
+///
+/// Where . is the dot product,  m_data[*][i] is
+/// the ith column of m_data. Add the result to res_vec.
 void convex_closure::add_sum_cnstr(unsigned i, expr_ref_vector &res_vec) {
     expr_ref_vector add(m);
     expr_ref mul(m), result_var(m);
@@ -270,7 +273,9 @@ bool convex_closure::compute_div_constraint(const vector<rational> &data,
     return true;
 }
 
-// Returns whether the closure is exact or not (i.e syntactic)
+/// Compute the convex closure of points in m_data
+///
+/// Returns true if the convex closure is syntactic
 bool convex_closure::closure(expr_ref_vector &res_vec) {
     scoped_watch _w_(m_st.watch);
     SASSERT(is_int_matrix(m_data));
@@ -293,8 +298,10 @@ bool convex_closure::closure(expr_ref_vector &res_vec) {
             SASSERT(m_nw_vars.size() == 0);
             TRACE("subsume", tout << "Computing syntactic convex closure\n";);
             syn_cls(res_vec);
+        } else {
+            res_vec.reset();
+            return false;
         }
-        else NOT_IMPLEMENTED_YET();
         return true;
     }
 

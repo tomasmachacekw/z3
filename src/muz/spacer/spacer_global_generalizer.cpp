@@ -422,8 +422,9 @@ void lemma_global_generalizer::skolemize_sel_vars(expr_ref &f,
     m_dim_frsh_cnsts.reset();
 }
 
-/// If possible, find a model for (a /\ b). If not, find model for a
-void lemma_global_generalizer::get_model(expr_ref a, expr_ref b,
+///\p a is a hard constraint and \p b is a soft constraint that have to be
+///satisfied by mdl
+bool lemma_global_generalizer::maxsat_with_model(expr_ref a, expr_ref b,
                                          model_ref &mdl) {
     m_solver->push();
     m_solver->assert_expr(a);
@@ -438,10 +439,11 @@ void lemma_global_generalizer::get_model(expr_ref a, expr_ref b,
         tmp.pop_back();
         tmp.push_back(m.mk_not(tag));
         res = m_solver->check_sat(tmp.size(), tmp.c_ptr());
-        SASSERT(res == l_true);
+        if (res != l_true) return false;
     }
     m_solver->get_model(mdl);
     m_solver->pop(1);
+    return true;
 }
 
 /// Returns false if subsumption is not supported for \p lc
@@ -461,7 +463,7 @@ bool lemma_global_generalizer::is_handled(const lemma_cluster &lc) {
 }
 
 /// Prepare internal state for computing subsumption
-void lemma_global_generalizer::set_up_subsume(const lemma_cluster &lc) {
+void lemma_global_generalizer::setup_subsume(const lemma_cluster &lc) {
     unsigned sz = 0;
     bool bv_clus = contains_bv(m, lc.get_lemmas()[0].get_sub(), sz);
     if (bv_clus) m_cvx_cls.set_bv(sz);
@@ -483,7 +485,7 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
 
     if (!is_handled(lc)) return false;
     // prepare internal state to compute subsumption
-    set_up_subsume(lc);
+    setup_subsume(lc);
 
     // compute convex closure
     expr_ref_vector cls(m);
@@ -527,7 +529,10 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
     // all models for neg_cubes are outside all the cubes in the cluster
     lc.get_conj_lemmas(neg_cubes);
     // call solver to get the model
-    get_model(cvx_cls, neg_cubes, mdl);
+    if (!maxsat_with_model(cvx_cls, neg_cubes, mdl)) {
+        TRACE("subsume", tout << "Convex closure is unsat " << cvx_cls << "\n";);
+        return false;
+    }
 
     SASSERT(mdl.get() != nullptr);
     TRACE("subsume", expr_ref t(m); model2expr(mdl, t);
@@ -562,7 +567,7 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
 /// drop literals from a until b && \not a is unsat. Each time a sat answer is
 /// obtained, use a model to choose which literals to drop next
 bool lemma_global_generalizer::over_approximate(expr_ref_vector &a,
-                                                expr_ref b) {
+                                                const expr_ref b) {
     expr_ref tag(m);
     expr_ref_vector tags(m), assump_a(m);
     expr_ref_buffer new_a(m), new_tags(m);
