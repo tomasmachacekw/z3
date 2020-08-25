@@ -656,21 +656,12 @@ bool lemma_global_generalizer::do_conjecture(pob_ref n, expr_ref lit,
     return true;
 }
 
-// decide global guidance based on lemma
+// Decide global guidance based on lemma
 void lemma_global_generalizer::core(lemma_ref &lemma) {
+    pob_ref n = lemma->get_pob();
     lemma_cluster *pt_cls = (&*lemma->get_pob())->pt().clstr_match(lemma);
     /// Lemma does not belong to any cluster. return
     if (pt_cls == nullptr) return;
-
-    // the lemma has not been added to the cluster yet since the lemma has not
-    // been added to spacer yet. So we create a new, local, cluster and add the
-    // lemma to it.
-    lemma_cluster lc(*pt_cls);
-    lc.add_lemma(lemma, true);
-
-    const expr_ref &pattern = lc.get_pattern();
-    pob_ref n = lemma->get_pob();
-    expr_ref lit(m);
 
     // if the cluster does not have enough gas, stop local generalization and
     // return
@@ -682,6 +673,16 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
                              << n->post()->get_id() << "\n";);
         return;
     }
+
+    // the lemma has not been added to the cluster yet since the lemma has not
+    // been added to spacer yet. So we create a local copy of the cluster and add the
+    // lemma to it.
+    lemma_cluster lc(*pt_cls);
+    // add lemma to lc, remove all subsumed lemmas in lc
+    lc.add_lemma(lemma, true);
+
+    const expr_ref &pattern = lc.get_pattern();
+    expr_ref lit(m);
 
     TRACE("global",
           tout << "Start global generalization of lemma : " << lemma->get_cube()

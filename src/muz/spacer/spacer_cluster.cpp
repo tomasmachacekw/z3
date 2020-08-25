@@ -44,6 +44,7 @@ bool lemma_cluster_finder::is_intrp_diff(expr_ref antiU_result,
     return true;
 }
 
+//TODO: handle non-ground lemmas
 bool lemma_cluster_finder::are_neighbours(const expr_ref &cube,
                                           const expr_ref &lcube) {
     anti_unifier anti(m);
@@ -271,7 +272,7 @@ bool lemma_cluster ::add_lemma(const lemma_ref &lemma, bool subs_check) {
         lemma_info_vector removed_lemmas;
         rm_subsumed(removed_lemmas);
         for (auto r_l : removed_lemmas) {
-            // There is going to atmost subsumed lemma that matches l_i
+            // There is going to atmost one subsumed lemma that matches l_i
             if (r_l.get_lemma() == l_i.get_lemma()) return false;
         }
     }
