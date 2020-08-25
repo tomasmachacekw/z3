@@ -72,11 +72,10 @@ class lemma_global_generalizer : public lemma_generalizer {
     /// \p cnsts is a set of constants that can be used to make \p res ground
     bool subsume(const lemma_cluster& lc, expr_ref_vector &res, app_ref_vector &cnsts);
 
-    /// Skolemize fresh variables that appear under array select
+    /// Skolemize m_dim_frsh_cnsts that appear as indices in array selects in \p f
     ///
-    /// If all \p m_dim_frsh_cnsts appear inside array selects in \p f,
-    /// skolemize them Newly created skolem constants are added to \p cnsts
-    bool skolemize_sel_vars(expr_ref &f, app_ref_vector &cnsts);
+    /// The newly created skolem constants are added to \p cnsts
+    void skolemize_sel_vars(expr_ref &f, app_ref_vector &cnsts);
 
     /// Decide global guidance based on lemma
     void core(lemma_ref &lemma);

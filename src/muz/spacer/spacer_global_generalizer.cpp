@@ -398,21 +398,12 @@ void lemma_global_generalizer::reset(unsigned n_vars) {
     m_dim_vars.reserve(n_vars);
 }
 
-// If all m_dim_frsh_cnsts appear inside array selects in \p f, skolemize them
+// Skolemize all m_dim_frsh_cnsts that appear inside array selects in \p f
 // append new constants to \p cnsts
-bool lemma_global_generalizer::skolemize_sel_vars(expr_ref &f,
+void lemma_global_generalizer::skolemize_sel_vars(expr_ref &f,
                                                   app_ref_vector &cnsts) {
+    SASSERT(cnst_in_ind(m, m_dim_frsh_cnsts, f));
     unsigned idx = cnsts.size();
-    TRACE("subsume", tout << "Trying to skolemize " << f << "\n";);
-    // if there are constants in m_dim_fresh_cnsts that don't appear as indices
-    // in sel, return false
-    for (auto c : m_dim_frsh_cnsts) {
-        if (!cnst_in_ind(m, c, f)) {
-            TRACE("global",
-                  tout << "not in index " << f << " " << mk_pp(c, m) << "\n";);
-            return false;
-        }
-    }
     expr_ref sk(m), c(m);
     app_ref v(m);
     expr_safe_replace sub(m);
@@ -429,7 +420,6 @@ bool lemma_global_generalizer::skolemize_sel_vars(expr_ref &f,
     sub(f.get(), f);
     TRACE("subsume", tout << "skolemized into " << f << "\n";);
     m_dim_frsh_cnsts.reset();
-    return true;
 }
 
 /// If possible, find a model for (a /\ b). If not, find model for a
@@ -558,18 +548,10 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
         return false;
     }
     if (has_new_vars) { to_int(cvx_pattern); }
+    // TODO: handle cases where cvx_pattern is non-ground
+    if (!is_ground(cvx_pattern)) return false;
     if (m_dim_frsh_cnsts.size() > 0 && !m_ctx.use_ground_pob()) {
-        // Try to skolemize
-        bool skmized = skolemize_sel_vars(cvx_pattern, cnsts);
-        if (!skmized) {
-            m_st.m_num_mbp_failed++;
-            TRACE("subsume", tout << "could not eliminate all vars\n";);
-            return false;
-        }
-        // TODO: fix. Should not assume that the skolem mpb overapproximates
-        // cvx_cls
-        flatten_and(cvx_pattern, subs_gen);
-        return true;
+        skolemize_sel_vars(cvx_pattern, cnsts);
     }
     flatten_and(cvx_pattern, subs_gen);
     return over_approximate(subs_gen, cvx_cls);
@@ -746,7 +728,10 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
 
     // Subsume
     expr_ref_vector subsume_gen(m);
-    app_ref_vector &cnsts = lemma->get_bindings();
+    //subsume might introduce new bindings
+    //TODO subsume does not support non-ground lemmas
+    if (!lemma->is_ground()) return;
+    app_ref_vector cnsts(m);
     if (subsume(lc, subsume_gen, cnsts)) {
         n->set_subsume_pob(subsume_gen);
         n->set_subsume_bindings(cnsts);
