@@ -45,6 +45,18 @@ bool congruent_mod(const vector<rational> &data, rational m) {
         if (k % m != p) return false;
     return true;
 }
+
+// TODO: is n-ary bvadd supported in Z3 ?
+app *mk_bvadd(ast_manager &m, unsigned num, expr *const *args) {
+    if (num == 0) return nullptr;
+    if (num == 1) {
+        if (!is_app(args[0])) return nullptr;
+        return to_app(args[0]);
+    }
+    bv_util bv(m);
+    if (num == 2) { return bv.mk_bv_add(args[0], args[1]); }
+    return m.mk_app(bv.get_fid(), OP_BADD, num, args);
+}
 } // namespace
 
 namespace spacer {
@@ -152,10 +164,8 @@ void convex_closure::generate_lin_deps_for_row(const vector<rational> &row,
         return;
     }
 
-    // TODO: n-ary bvadd is not in SMT-LIB standard. Is not supported in Z3
     res = m_is_arith ? m_arith.mk_add(rw.size(), rw.c_ptr())
-        : m.mk_app(m_bv.get_fid(), OP_BADD, rw.size(),
-                   rw.c_ptr());
+                     : mk_bvadd(m, rw.size(), rw.c_ptr());
     expr_ref pv_var(m);
     pv_var = m_dim_vars.get(pv);
     mul_by_rat(pv_var, coeff * m_lcm);
@@ -201,8 +211,7 @@ void convex_closure::add_sum_cnstr(unsigned i, expr_ref_vector &res_vec) {
             m.mk_eq(m_arith.mk_add(add.size(), add.c_ptr()), result_var));
     else
         res_vec.push_back(
-            m.mk_eq(m.mk_app(m_bv.get_fid(), OP_BADD, add.size(), add.c_ptr()),
-                    result_var));
+            m.mk_eq(mk_bvadd(m, add.size(), add.c_ptr()), result_var));
 }
 
 void convex_closure::syn_cls(expr_ref_vector &res_vec) {
