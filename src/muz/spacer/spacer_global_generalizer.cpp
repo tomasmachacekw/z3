@@ -607,6 +607,7 @@ bool lemma_global_generalizer::over_approximate(expr_ref_vector &a,
                 new_tags.push_back(tags.get(i));
             }
         }
+        SASSERT(new_tags.size() == tags.size());
         // TODO: assert # negations in new_tags > # negations in tags
         tags.reset();
         for (auto e : new_tags) tags.push_back(e);
@@ -620,7 +621,7 @@ bool lemma_global_generalizer::over_approximate(expr_ref_vector &a,
         return false;
     }
     // remove all expressions whose tags are false
-    for (unsigned i = 0; i < new_tags.size(); i++) {
+    for (unsigned i = 0; i < tags.size(); i++) {
         if (!m.is_not(tags.get(i))) new_a.push_back(a.get(i));
     }
     a.reset();
