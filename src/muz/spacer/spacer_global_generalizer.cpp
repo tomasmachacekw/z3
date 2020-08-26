@@ -50,37 +50,14 @@ struct compute_lcm {
         }
     }
 };
-/// Check whether cnst appears inside an array select expression
-struct cnst_in_ind_proc {
-    ast_manager &m;
-    array_util m_array;
-    expr_ref c;
-    bool found;
-    expr_ref_vector cnsts;
-    cnst_in_ind_proc(ast_manager &a_m, expr *cnst)
-        : m(a_m), m_array(m), c(cnst, m), found(false), cnsts(m) {}
-    void operator()(expr *n) const {}
-    void operator()(app *n) {
-        if (m_array.is_select(n)) {
-            cnsts.reset();
-            spacer::get_uninterp_consts(n, cnsts);
-            if (cnsts.contains(c)) found = true;
-        }
-    }
-};
-// Check whether \p c appears as an index of an array in \p n
-bool cnst_in_ind(ast_manager &m, expr *c, expr *n) {
-    cnst_in_ind_proc finder(m, c);
-    for_each_expr(finder, n);
-    return finder.found;
-}
 
-// Check whether all constants in \p c appears as an index of an array in \p n
-bool cnst_in_ind(ast_manager &m, app_ref_vector &c, expr *n) {
+// Check whether all constants in \p c
+bool contains_real_cnsts(app_ref_vector &c) {
+    arith_util m_arith(c.get_manager());
     for (auto f : c) {
-        if (!cnst_in_ind(m, f, n)) return false;
+        if (m_arith.is_real(f)) return true;
     }
-    return true;
+    return false;
 }
 
 // make fresh constant of sort s
@@ -398,21 +375,22 @@ void lemma_global_generalizer::reset(unsigned n_vars) {
     m_dim_vars.reserve(n_vars);
 }
 
-// Skolemize all m_dim_frsh_cnsts that appear inside array selects in \p f
-// append new constants to \p cnsts
-void lemma_global_generalizer::skolemize_sel_vars(expr_ref &f,
-                                                  app_ref_vector &cnsts) {
-    SASSERT(cnst_in_ind(m, m_dim_frsh_cnsts, f));
+/// Skolemize all m_dim_frsh_cnsts in \p f
+///
+/// append the skolem constants to \p cnsts
+void lemma_global_generalizer::skolemize(expr_ref &f, app_ref_vector &cnsts) {
     unsigned idx = cnsts.size();
     expr_ref sk(m), c(m);
     app_ref v(m);
     expr_safe_replace sub(m);
+    expr_ref_vector f_cnsts(m);
+    spacer::get_uninterp_consts(f, f_cnsts);
     for (unsigned i = 0; i < m_dim_frsh_cnsts.size(); i++) {
         c = m_dim_frsh_cnsts.get(i);
-        // Make fresh constants for instantiation
-        // TODO: Is it better to use one of the actual values?
+        if (!f_cnsts.contains(c)) continue;
         v = mk_frsh_const(m, i + idx, m.get_sort(c));
         cnsts.push_back(v);
+        SASSERT(m_arith.is_int(c));
         // Make skolem constants for ground pob
         sk = mk_zk_const(m, i + idx, m.get_sort(c));
         sub.insert(c, sk);
@@ -423,24 +401,29 @@ void lemma_global_generalizer::skolemize_sel_vars(expr_ref &f,
 }
 
 ///\p a is a hard constraint and \p b is a soft constraint that have to be
-///satisfied by mdl
-bool lemma_global_generalizer::maxsat_with_model(expr_ref a, expr_ref b,
-                                         model_ref &mdl) {
+/// satisfied by mdl
+bool lemma_global_generalizer::maxsat_with_model(const expr_ref a, const expr_ref b,
+                                                 model_ref &mdl) {
+    TRACE("subsume_verb", tout << "maxsat with model " << a << " " << b << "\n";);
+    SASSERT(is_ground(a));
     m_solver->push();
     m_solver->assert_expr(a);
     expr_ref_buffer tmp(m);
     expr_ref tag(m), assump_b(m);
-    tag = m.mk_fresh_const("get_mdl_assump", m.mk_bool_sort());
-    tmp.push_back(tag);
-    assump_b = m.mk_implies(tag, b);
-    m_solver->assert_expr(assump_b);
-    lbool res = m_solver->check_sat(tmp.size(), tmp.c_ptr());
-    if (res != l_true) {
+    lbool res;
+    if (is_ground(b)) {
+        tag = m.mk_fresh_const("get_mdl_assump", m.mk_bool_sort());
+        tmp.push_back(tag);
+        assump_b = m.mk_implies(tag, b);
+        m_solver->assert_expr(assump_b);
+    }
+    res = m_solver->check_sat(tmp.size(), tmp.c_ptr());
+    if (res != l_true && tmp.size() > 0) {
         tmp.pop_back();
         tmp.push_back(m.mk_not(tag));
         res = m_solver->check_sat(tmp.size(), tmp.c_ptr());
-        if (res != l_true) return false;
     }
+    if (res != l_true) return false;
     m_solver->get_model(mdl);
     m_solver->pop(1);
     return true;
@@ -448,8 +431,6 @@ bool lemma_global_generalizer::maxsat_with_model(expr_ref a, expr_ref b,
 
 /// Returns false if subsumption is not supported for \p lc
 bool lemma_global_generalizer::is_handled(const lemma_cluster &lc) {
-    // TODO: handle cases where cvx_cls is non-ground
-    if (!lc.get_lemmas()[0].get_lemma()->is_ground()) return false;
     // check whether all substitutions are to bv_numerals
     unsigned sz = 0;
     bool bv_clus = contains_bv(m, lc.get_lemmas()[0].get_sub(), sz);
@@ -475,11 +456,11 @@ void lemma_global_generalizer::setup_subsume(const lemma_cluster &lc) {
     populate_cvx_cls(lc);
 }
 
-/// Compute a cube \p res such that \neg p subsumes all the lemmas in \p lc
-/// \p cnsts is a set of constants that can be used to make \p res ground
+/// Compute a cube \p subs_gen such that \neg p subsumes all the lemmas in \p lc
+/// \p bindings is the set of skolem constants that can be used to make \p subs_gen ground
 bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
                                        expr_ref_vector &subs_gen,
-                                       app_ref_vector &cnsts) {
+                                       app_ref_vector &bindings) {
     const expr_ref &pattern = lc.get_pattern();
     unsigned n_vars = get_num_vars(pattern);
     SASSERT(n_vars > 0);
@@ -545,11 +526,9 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
     qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true,
                !m_ctx.use_ground_pob());
     TRACE("subsume", tout << "Pattern after mbp of computing cvx cls: "
-                               << cvx_pattern << "\n";);
-    if (!m_ctx.use_ground_pob() &&
-        !cnst_in_ind(m, m_dim_frsh_cnsts, cvx_pattern)) {
-        TRACE("subsume", tout << "Could not eliminate variables that do not "
-                                 "appear as array indices \n";
+                          << cvx_pattern << "\n";);
+    if (!m_ctx.use_ground_pob() && contains_real_cnsts(m_dim_frsh_cnsts)) {
+        TRACE("subsume", tout << "Could not eliminate non integer variables\n";
               for (auto e
                    : m_dim_vars) tout
               << mk_pp(e, m);
@@ -558,7 +537,7 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
     }
     if (has_new_vars) { to_int(cvx_pattern); }
     if (m_dim_frsh_cnsts.size() > 0 && !m_ctx.use_ground_pob()) {
-        skolemize_sel_vars(cvx_pattern, cnsts);
+        skolemize(cvx_pattern, bindings);
     }
     flatten_and(cvx_pattern, subs_gen);
     return over_approximate(subs_gen, cvx_cls);
@@ -738,13 +717,12 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
 
     // Subsume
     expr_ref_vector subsume_gen(m);
-    //subsume might introduce new bindings
-    //TODO subsume does not support non-ground lemmas
-    if (!lemma->is_ground()) return;
-    app_ref_vector cnsts(m);
-    if (subsume(lc, subsume_gen, cnsts)) {
+    // subsume might introduce new bindings
+    app_ref_vector bindings(m);
+    bindings.append(lemma->get_bindings());
+    if (subsume(lc, subsume_gen, bindings)) {
         n->set_subsume_pob(subsume_gen);
-        n->set_subsume_bindings(cnsts);
+        n->set_subsume_bindings(bindings);
         n->set_may_pob_lvl(pt_cls->get_min_lvl() + 1);
         n->set_gas(pt_cls->get_pob_gas() + 1);
         n->set_expand_bnd();

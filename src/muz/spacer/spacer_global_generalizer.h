@@ -72,10 +72,10 @@ class lemma_global_generalizer : public lemma_generalizer {
     /// \p cnsts is a set of constants that can be used to make \p res ground
     bool subsume(const lemma_cluster& lc, expr_ref_vector &res, app_ref_vector &cnsts);
 
-    /// Skolemize m_dim_frsh_cnsts that appear as indices in array selects in \p f
+    /// Skolemize m_dim_frsh_cnsts in \p f
     ///
     /// The newly created skolem constants are added to \p cnsts
-    void skolemize_sel_vars(expr_ref &f, app_ref_vector &cnsts);
+    void skolemize(expr_ref &f, app_ref_vector &cnsts);
 
     /// Decide global guidance based on lemma
     void core(lemma_ref &lemma);
@@ -108,7 +108,7 @@ class lemma_global_generalizer : public lemma_generalizer {
     bool over_approximate(expr_ref_vector &a, const expr_ref b);
 
     ///\p a is a hard constraint and \p b is a soft constraint that have to be satisfied by mdl
-    bool maxsat_with_model(expr_ref a, expr_ref b, model_ref &mdl);
+    bool maxsat_with_model(const expr_ref a, const expr_ref b, model_ref &mdl);
 
   public:
     lemma_global_generalizer(context &ctx);
