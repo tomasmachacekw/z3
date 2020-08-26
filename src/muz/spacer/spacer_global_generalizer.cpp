@@ -211,12 +211,11 @@ static void to_int(expr_ref &fml) {
 ///
 /// only supports arithmetic expressions
 /// Applies the following rewrite rules upto depth \p depth
-/// (to_real_term c)                             --> (c:Real) where c is a numeral
-/// (to_real_term i:Int)                         --> (to_real i) where i is a
-/// constant/var (to_real_term (select A i:Int)) --> (select A (to_int (to_real i)))
-/// (to_real_term (op (a0:Int) ... (aN:Int)))    --> (op (to_real a0) ... (to_real aN))
-///                                           where op is an arithmetic
-///                                           operation
+/// (to_real_term c)                                           --> (c:Real) where c is a numeral
+/// (to_real_term i:Int)                                       --> (to_real i) where i is a constant/var
+/// (to_real_term (select A i:Int))                            --> (select A (to_int
+/// (to_real i))) (to_real_term (op (a0:Int) ... (aN:Int)))    --> (op (to_real a0) ... (to_real aN))
+///                                                                where op is an arithmetic operation
 /// on all other formulas, do nothing
 /// NOTE: cannot use a rewriter since we change the sort of fml
 static void to_real_term(expr_ref &fml, unsigned depth = 3) {
@@ -292,7 +291,6 @@ static void to_real(expr_ref &fml) {
         else
             new_f = m.mk_app(f_app->get_family_id(), f_app->get_decl_kind(),
                              new_args.size(), new_args.c_ptr());
-        TRACE("subsume", tout << "to real op2 " << new_f << "\n";);
         new_fml.push_back(new_f);
     }
     fml = mk_and(new_fml);
