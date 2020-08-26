@@ -448,6 +448,8 @@ bool lemma_global_generalizer::maxsat_with_model(expr_ref a, expr_ref b,
 
 /// Returns false if subsumption is not supported for \p lc
 bool lemma_global_generalizer::is_handled(const lemma_cluster &lc) {
+    // TODO: handle cases where cvx_cls is non-ground
+    if (!lc.get_lemmas()[0].get_lemma()->is_ground()) return false;
     // check whether all substitutions are to bv_numerals
     unsigned sz = 0;
     bool bv_clus = contains_bv(m, lc.get_lemmas()[0].get_sub(), sz);
@@ -523,6 +525,8 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
     expr_ref cvx_cls(m);
     cvx_cls = cvx_pattern;
 
+    SASSERT(is_ground(cvx_cls));
+
     // Get a model that is not satisfied by ANY of the cubes in the
     // cluster
     expr_ref neg_cubes(m);
@@ -540,7 +544,7 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
 
     qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true,
                !m_ctx.use_ground_pob());
-    TRACE("subsume_verb", tout << "Pattern after mbp of computing cvx cls: "
+    TRACE("subsume", tout << "Pattern after mbp of computing cvx cls: "
                                << cvx_pattern << "\n";);
     if (!m_ctx.use_ground_pob() &&
         !cnst_in_ind(m, m_dim_frsh_cnsts, cvx_pattern)) {
@@ -553,8 +557,6 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
         return false;
     }
     if (has_new_vars) { to_int(cvx_pattern); }
-    // TODO: handle cases where cvx_pattern is non-ground
-    if (!is_ground(cvx_pattern)) return false;
     if (m_dim_frsh_cnsts.size() > 0 && !m_ctx.use_ground_pob()) {
         skolemize_sel_vars(cvx_pattern, cnsts);
     }
@@ -605,14 +607,14 @@ bool lemma_global_generalizer::over_approximate(expr_ref_vector &a,
                 new_tags.push_back(tags.get(i));
             }
         }
-        // assert # negations in new_tags > # negations in tags
+        // TODO: assert # negations in new_tags > # negations in tags
         tags.reset();
         for (auto e : new_tags) tags.push_back(e);
     }
     m_solver->pop(1);
     if (all_tags_disabled) {
         // could not find an over approximation
-        TRACE("global", tout << "mbp could not overapproximate cnx_cls\n";);
+        TRACE("subsume", tout << "mbp could not overapproximate cnx_cls\n";);
         m_st.m_num_no_ovr_approx++;
         a.reset();
         return false;
@@ -623,6 +625,7 @@ bool lemma_global_generalizer::over_approximate(expr_ref_vector &a,
     }
     a.reset();
     for (auto e : new_a) a.push_back(e);
+    TRACE("subsume", tout << "over approximate produced " << mk_and(a) << "\n";);
     return true;
 }
 /// Attempt to set a conjecture on pob \p n by dropping literal \p lit from its
