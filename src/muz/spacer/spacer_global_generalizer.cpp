@@ -438,7 +438,7 @@ bool lemma_global_generalizer::is_handled(const lemma_cluster &lc) {
     // TODO: put restriction on Arrays, non linear arithmetic etc
     if (!bv_clus) return true;
     if (!all_same_sz(m, lc.get_lemmas()[0].get_sub(), sz)) {
-        TRACE("global",
+        TRACE("subsume",
               tout << "cannot compute cvx cls of different size variables\n";);
         return false;
     }
@@ -474,7 +474,7 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
     expr_ref_vector cls(m);
     bool has_new_vars = m_cvx_cls.closure(cls);
     CTRACE("subsume_verb", has_new_vars,
-           tout << "Convex closure introduced new variables. Closure is"
+           tout << "Convex closure introduced new variables. Closure is "
                 << mk_and(cls) << "\n";);
 
     // setting up mbp
@@ -506,8 +506,6 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
     expr_ref cvx_cls(m);
     cvx_cls = cvx_pattern;
 
-    SASSERT(is_ground(cvx_cls));
-
     // Get a model that is not satisfied by ANY of the cubes in the
     // cluster
     expr_ref neg_cubes(m);
@@ -515,7 +513,8 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
     lc.get_conj_lemmas(neg_cubes);
     // call solver to get the model
     if (!maxsat_with_model(cvx_cls, neg_cubes, mdl)) {
-        TRACE("subsume", tout << "Convex closure is unsat " << cvx_cls << "\n";);
+        TRACE("subsume",
+              tout << "Convex closure is unsat " << cvx_cls << "\n";);
         return false;
     }
 
@@ -594,7 +593,7 @@ bool lemma_global_generalizer::over_approximate(expr_ref_vector &a,
     m_solver->pop(1);
     if (all_tags_disabled) {
         // could not find an over approximation
-        TRACE("subsume", tout << "mbp could not overapproximate cnx_cls\n";);
+        TRACE("subsume", tout << "mbp could not overapproximate cvx_cls\n";);
         m_st.m_num_no_ovr_approx++;
         a.reset();
         return false;
@@ -605,7 +604,8 @@ bool lemma_global_generalizer::over_approximate(expr_ref_vector &a,
     }
     a.reset();
     for (auto e : new_a) a.push_back(e);
-    TRACE("subsume", tout << "over approximate produced " << mk_and(a) << "\n";);
+    TRACE("subsume",
+          tout << "over approximate produced " << mk_and(a) << "\n";);
     return true;
 }
 /// Attempt to set a conjecture on pob \p n by dropping literal \p lit from its
@@ -663,8 +663,8 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
     }
 
     // the lemma has not been added to the cluster yet since the lemma has not
-    // been added to spacer yet. So we create a local copy of the cluster and add the
-    // lemma to it.
+    // been added to spacer yet. So we create a local copy of the cluster and
+    // add the lemma to it.
     lemma_cluster lc(*pt_cls);
     // add lemma to lc, remove all subsumed lemmas in lc
     lc.add_lemma(lemma, true);
@@ -739,6 +739,7 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
 /// Replace bound vars in \p fml with uninterpreted constants
 void lemma_global_generalizer::var_to_const(expr *pattern,
                                             expr_ref &rw_pattern) {
+    SASSERT(!is_ground(pattern));
     expr_safe_replace s(m);
     obj_map<expr, expr *> sub;
     for (unsigned i = 0; i < m_dim_vars.size(); i++) {
@@ -748,6 +749,7 @@ void lemma_global_generalizer::var_to_const(expr *pattern,
     TRACE("subsume_verb", tout << "Rewrote all vars into u_consts "
                                << mk_pp(pattern, m) << " into " << rw_pattern
                                << "\n";);
+    SASSERT(is_ground(rw_pattern));
     return;
 }
 
