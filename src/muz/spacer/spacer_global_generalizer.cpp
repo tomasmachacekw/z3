@@ -123,12 +123,14 @@ static rational get_lcm(expr *e, ast_manager &m) {
 /// Removes all occurrences of (to_real t) from \p fml where t is a constant
 ///
 /// Applies the following rewrites upto depth \p depth
-/// v:Real                             --> mk_int(v) where v is a real value
-/// (to_real v:Int)                    --> v
-/// (to_int v)                         --> (strip_to_real v)
-/// (select A (to_int (to_real i)))    --> (select A i)
-/// (op (to_real a0) ... (to_real aN)) --> (op a0 ... aN) where op is an
-///                                         arithmetic operation
+/// v:Real                                                        --> mk_int(v) where v is a real value
+/// (to_real v:Int)                                               --> v
+/// (to_int v)                                                    --> (strip_to_real v)
+/// (store A (to_int (to_real i0)) ... (to_int (to_real iN)) k)   --> (store A i0 ... iN
+///                                                                      (strip_to_real k))
+/// (select A (to_int (to_real i0)) ... (to_int (to_real iN)))    --> (select A i0 ... iN)
+/// (op (to_real a0) ... (to_real aN))                            --> (op a0 ... aN) where op is an
+///                                                                    arithmetic operation
 /// on all other formulas, do nothing
 /// NOTE: cannot use a rewriter since we change the sort of fml
 static void strip_to_real(expr_ref &fml, unsigned depth = 3) {
@@ -213,9 +215,15 @@ static void to_int(expr_ref &fml) {
 /// Applies the following rewrite rules upto depth \p depth
 /// (to_real_term c)                                           --> (c:Real) where c is a numeral
 /// (to_real_term i:Int)                                       --> (to_real i) where i is a constant/var
-/// (to_real_term (select A i:Int))                            --> (select A (to_int
-/// (to_real i))) (to_real_term (op (a0:Int) ... (aN:Int)))    --> (op (to_real a0) ... (to_real aN))
-///                                                                where op is an arithmetic operation
+/// (to_real_term (select A i0:Int ... iN:Int))                --> (select A (to_int (to_real i0)) ...
+///                                                                          (to_int (to_real iN)))
+/// (to_real_term (store A i0:Int ... iN:Int k))               --> (store A (to_int (to_real i0)) ...
+///                                                                         (to_int (to_real iN))
+///                                                                         (to_real_term k))
+/// (to_real_term (op (a0:Int) ... (aN:Int)))                  --> (op (to_real a0) ... (to_real aN))
+///                                                                where op is
+///                                                                an arithmetic
+///                                                                operation
 /// on all other formulas, do nothing
 /// NOTE: cannot use a rewriter since we change the sort of fml
 static void to_real_term(expr_ref &fml, unsigned depth = 3) {
@@ -228,7 +236,7 @@ static void to_real_term(expr_ref &fml, unsigned depth = 3) {
         fml = arith.mk_real(r);
         return;
     }
-    if (is_uninterp(fml)) {
+    if (is_uninterp_const(fml)) {
         if (arith.is_int(fml)) fml = arith.mk_to_real(fml);
         return;
     }
@@ -237,6 +245,8 @@ static void to_real_term(expr_ref &fml, unsigned depth = 3) {
         if (arith.is_numeral(arg, r)) fml = arith.mk_real(r);
         return;
     }
+
+    if (is_uninterp(fml)) return;
     if (depth == 0) return;
     SASSERT(is_app(fml));
     app *fml_app = to_app(fml);
@@ -245,13 +255,16 @@ static void to_real_term(expr_ref &fml, unsigned depth = 3) {
     expr_ref_buffer new_args(m);
     expr_ref child(m);
 
-    // handle selects separately because sort of index needs to be preserved
-    if (array.is_select(fml)) {
+    // handle arrays separately because sort of index/stored item needs to be preserved
+    if (array.is_select(fml) || array.is_store(fml)) {
         new_args.push_back(args[0]);
         for (unsigned i = 1; i < num; i++) {
             SASSERT(arith.is_int(args[i]));
-            child = arith.mk_to_real(args[i]);
-            child = arith.mk_to_int(child);
+            child = args[i];
+            to_real_term(child, depth - 1);
+            if (arith.is_int(args[i]))
+                child = arith.mk_to_int(child);
+            SASSERT(get_sort(args[i]) == get_sort(child));
             new_args.push_back(child);
         }
     } else {
