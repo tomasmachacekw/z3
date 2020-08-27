@@ -752,12 +752,12 @@ void lemma_global_generalizer::var_to_const(expr *pattern,
 }
 
 // convert all LIA constants in m_dim_frsh_cnsts to LRA constants using to_real
-void lemma_global_generalizer::rewrite_fresh_cnsts() {
+void lemma_global_generalizer::to_real_cnsts() {
     app_ref var_app(m);
-    for (unsigned i = 0; i < m_dim_vars.size(); i++) {
+    for (unsigned i = 0; i < m_dim_frsh_cnsts.size(); i++) {
         if (m_arith.is_real(m_dim_frsh_cnsts.get(i))) continue;
         var_app = m_arith.mk_to_real(m_dim_frsh_cnsts.get(i));
-        m_dim_frsh_cnsts[i] = var_app;
+        m_dim_frsh_cnsts.set(i, var_app);
     }
 }
 

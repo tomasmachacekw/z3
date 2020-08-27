@@ -84,8 +84,7 @@ class lemma_global_generalizer : public lemma_generalizer {
     void add_dim_vars(const lemma_cluster &lc);
 
     /// Coerce LIA constants in \p m_dim_frsh_cnsts to LRA constants
-    /// AG: needs better name
-    void rewrite_fresh_cnsts();
+    void to_real_cnsts();
 
     /// Populate \p m_cvx_cls
     ///
