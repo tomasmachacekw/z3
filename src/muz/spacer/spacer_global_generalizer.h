@@ -109,6 +109,9 @@ class lemma_global_generalizer : public lemma_generalizer {
     ///\p a is a hard constraint and \p b is a soft constraint that have to be satisfied by mdl
     bool maxsat_with_model(const expr_ref a, const expr_ref b, model_ref &mdl);
 
+    /// Add variables introduced by m_cvx_cls to the list of variables to be
+    /// eliminated
+    void add_cvx_cls_vars();
   public:
     lemma_global_generalizer(context &ctx);
     ~lemma_global_generalizer() override {}

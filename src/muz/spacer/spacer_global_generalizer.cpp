@@ -456,6 +456,17 @@ void lemma_global_generalizer::setup_subsume(const lemma_cluster &lc) {
 
 /// Compute a cube \p subs_gen such that \neg p subsumes all the lemmas in \p lc
 /// \p bindings is the set of skolem constants that can be used to make \p subs_gen ground
+/// Add variables introduced by cvx_cls to the list of variables
+void lemma_global_generalizer::add_cvx_cls_vars() {
+    const var_ref_vector &vars = m_cvx_cls.get_nw_vars();
+    app_ref var_app(m);
+    for (auto v : vars) {
+        m_dim_vars.push_back(v);
+        var_app = m.mk_fresh_const("mrg_syn_cvx", get_sort(v));
+        m_dim_frsh_cnsts.push_back(var_app);
+    }
+}
+
 bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
                                        expr_ref_vector &subs_gen,
                                        app_ref_vector &bindings) {
@@ -478,14 +489,7 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
     // setting up mbp
     if (has_new_vars) {
         m_st.m_num_syn_cls++;
-        // Add the new variables to the list of variables to be eliminated
-        const var_ref_vector &vars = m_cvx_cls.get_nw_vars();
-        app_ref var_app(m);
-        for (auto v : vars) {
-            m_dim_vars.push_back(v);
-            var_app = m.mk_fresh_const("mrg_syn_cvx", m_arith.mk_real());
-            m_dim_frsh_cnsts.push_back(var_app);
-        }
+        add_cvx_cls_vars();
     }
 
     cls.push_back(pattern);
