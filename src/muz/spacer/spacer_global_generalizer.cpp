@@ -454,8 +454,6 @@ void lemma_global_generalizer::setup_subsume(const lemma_cluster &lc) {
     populate_cvx_cls(lc);
 }
 
-/// Compute a cube \p subs_gen such that \neg p subsumes all the lemmas in \p lc
-/// \p bindings is the set of skolem constants that can be used to make \p subs_gen ground
 /// Add variables introduced by cvx_cls to the list of variables
 void lemma_global_generalizer::add_cvx_cls_vars() {
     const var_ref_vector &vars = m_cvx_cls.get_nw_vars();
@@ -467,6 +465,8 @@ void lemma_global_generalizer::add_cvx_cls_vars() {
     }
 }
 
+/// Compute a cube \p subs_gen such that \neg subs_gen subsumes all the lemmas in \p lc
+/// \p bindings is the set of skolem constants in \p subs_gen
 bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
                                        expr_ref_vector &subs_gen,
                                        app_ref_vector &bindings) {
@@ -486,13 +486,14 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
            tout << "Convex closure introduced new variables. Closure is "
                 << mk_and(cls) << "\n";);
 
-    // setting up mbp
+    //If convex closure introduced new variables, add them to m_dim_frsh_cnsts
     if (has_new_vars) {
         m_st.m_num_syn_cls++;
         add_cvx_cls_vars();
     }
 
     cls.push_back(pattern);
+    // Making convex closure ground
     expr_ref cvx_pattern(m);
     var_to_const(mk_and(cls), cvx_pattern);
 
@@ -544,6 +545,7 @@ bool lemma_global_generalizer::eliminate_vars(expr_ref &cvx_pattern, const lemma
 
     qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true,
                !m_ctx.use_ground_pob());
+
     TRACE("subsume", tout << "Pattern after mbp of computing cvx cls: "
                           << cvx_pattern << "\n";);
     if (!m_ctx.use_ground_pob() && contains_real_cnsts(m_dim_frsh_cnsts)) {

@@ -106,7 +106,7 @@ class lemma_global_generalizer : public lemma_generalizer {
     /// Weaken a such that b ==> (and a)
     bool over_approximate(expr_ref_vector &a, const expr_ref b);
 
-    ///\p a is a hard constraint and \p b is a soft constraint that have to be satisfied by mdl
+    /// \p a is a hard constraint and \p b is a soft constraint that have to be satisfied by mdl
     bool maxsat_with_model(const expr_ref a, const expr_ref b, model_ref &mdl);
 
     /// Eliminate m_dim_frsh_cnsts from \p cvx_cls. Use \p lc to get a model for mbp
