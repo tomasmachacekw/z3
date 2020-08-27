@@ -496,27 +496,45 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
     expr_ref cvx_pattern(m);
     var_to_const(mk_and(cls), cvx_pattern);
 
-    if (has_new_vars) {
-        to_real(cvx_pattern);
-        TRACE("subsume_verb",
-              tout << "To real produced " << cvx_pattern << "\n";);
-        rewrite_fresh_cnsts();
-    }
-
-    model_ref mdl;
     // store convex closure. cvx_pattern is going to be modified
     expr_ref cvx_cls(m);
     cvx_cls = cvx_pattern;
+
+    // eliminate convex closure variables using mbp
+    bool res = eliminate_vars(cvx_pattern, lc, has_new_vars);
+
+    if (!res) return false;
+
+    // If not all variables have been eliminated, skolemize and add bindings
+    if (m_dim_frsh_cnsts.size() > 0) {
+        SASSERT(!m_ctx.use_ground_pob());
+        skolemize(cvx_pattern, bindings);
+    }
+
+    flatten_and(cvx_pattern, subs_gen);
+    return over_approximate(subs_gen, cvx_cls);
+}
+
+/// Eliminate m_dim_frsh_cnsts from \p cvx_cls. Use \p lc to get a model for mbp
+/// \p mlir is turned on if \p cvx_cls contains ints and reals.
+bool lemma_global_generalizer::eliminate_vars(expr_ref &cvx_pattern, const lemma_cluster& lc, bool mlir) {
+    if (mlir) {
+        to_real(cvx_pattern);
+        TRACE("subsume_verb",
+              tout << "To real produced " << cvx_pattern << "\n";);
+        to_real_cnsts();
+    }
 
     // Get a model that is not satisfied by ANY of the cubes in the
     // cluster
     expr_ref neg_cubes(m);
     // all models for neg_cubes are outside all the cubes in the cluster
     lc.get_conj_lemmas(neg_cubes);
+    model_ref mdl;
     // call solver to get the model
-    if (!maxsat_with_model(cvx_cls, neg_cubes, mdl)) {
+    if (!maxsat_with_model(cvx_pattern, neg_cubes, mdl)) {
         TRACE("subsume",
-              tout << "Convex closure is unsat " << cvx_cls << "\n";);
+              tout << "Convex closure is unsat " << cvx_pattern << "\n";);
         return false;
     }
 
@@ -536,12 +554,9 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
               tout << "\n";);
         return false;
     }
-    if (has_new_vars) { to_int(cvx_pattern); }
-    if (m_dim_frsh_cnsts.size() > 0 && !m_ctx.use_ground_pob()) {
-        skolemize(cvx_pattern, bindings);
-    }
-    flatten_and(cvx_pattern, subs_gen);
-    return over_approximate(subs_gen, cvx_cls);
+    SASSERT(!m_ctx.use_ground_pob() || m_dim_frsh_cnsts.empty());
+    if (mlir) { to_int(cvx_pattern); }
+    return true;
 }
 
 /// Weaken \p a such that \p b ==> a
