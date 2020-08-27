@@ -495,7 +495,7 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
     cls.push_back(pattern);
     // Making convex closure ground
     expr_ref cvx_pattern(m);
-    var_to_const(mk_and(cls), cvx_pattern);
+    ground_free_vars(mk_and(cls), cvx_pattern);
 
     // store convex closure. cvx_pattern is going to be modified
     expr_ref cvx_cls(m);
@@ -756,7 +756,7 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
 }
 
 /// Replace bound vars in \p fml with uninterpreted constants
-void lemma_global_generalizer::var_to_const(expr *pattern,
+void lemma_global_generalizer::ground_free_vars(expr *pattern,
                                             expr_ref &rw_pattern) {
     SASSERT(!is_ground(pattern));
     expr_safe_replace s(m);

@@ -99,9 +99,8 @@ class lemma_global_generalizer : public lemma_generalizer {
     /// conjecture pob returns true if conjecture is set
     bool do_conjecture(pob_ref n, expr_ref lit, unsigned lvl, unsigned gas);
 
-    /// Replace bound vars in \p fml with uninterpreted constants
-    /// AG: isn't this just ground?
-    void var_to_const(expr *fml, expr_ref &rw_fml);
+    /// Make \p fml ground using m_dim_frsh_cnsts. Store result in \p rw_fml
+    void ground_free_vars(expr *fml, expr_ref &rw_fml);
 
     /// Weaken a such that b ==> (and a)
     bool over_approximate(expr_ref_vector &a, const expr_ref b);
