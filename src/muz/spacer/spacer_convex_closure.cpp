@@ -207,7 +207,7 @@ void convex_closure::add_sum_cnstr(unsigned i, expr_ref_vector &res_vec) {
         mul_by_rat(mul, m_data.get(j, i));
         add.push_back(mul);
     }
-    result_var = m_dim_vars.get(i);
+    result_var = m_arith.mk_to_real(m_dim_vars.get(i));
     mul_by_rat(result_var, m_lcm);
     if (m_is_arith)
         res_vec.push_back(
@@ -230,7 +230,7 @@ void convex_closure::syn_cls(expr_ref_vector &res_vec) {
     for (auto v : m_nw_vars) {
         e = expr_ref(to_expr(v), m);
         exprs.push_back(e);
-        res_vec.push_back(m_arith.mk_ge(e, m_arith.mk_int(rational::zero())));
+        res_vec.push_back(m_arith.mk_ge(e, m_arith.mk_real(rational::zero())));
     }
 
     for (unsigned i = 0; i < m_dim_vars.size(); i++) {
@@ -240,7 +240,7 @@ void convex_closure::syn_cls(expr_ref_vector &res_vec) {
 
     //(\Sum j . m_nw_vars[j]) = 1
     res_vec.push_back(m.mk_eq(m_arith.mk_add(m_nw_vars.size(), exprs.c_ptr()),
-                              m_arith.mk_int(rational::one())));
+                              m_arith.mk_real(rational::one())));
 }
 
 // check whether \exists m, d s.t data[i] mod m = d. Returns the largest m and
