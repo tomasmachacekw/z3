@@ -65,6 +65,13 @@ app *mk_frsh_const(ast_manager &m, unsigned idx, sort *s) {
     std::stringstream name;
     name << "gspcVar!" << idx;
     return m.mk_const(symbol(name.str().c_str()), s);
+// Check whether there are Int constants in \p c
+bool contains_int_cnsts(app_ref_vector &c) {
+    arith_util m_arith(c.get_manager());
+    for (auto f : c) {
+        if (m_arith.is_int(f)) return true;
+    }
+    return false;
 }
 
 // Check whether \p sub contains a mapping to a bv_numeral.
@@ -519,7 +526,7 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
     cvx_cls = cvx_pattern;
 
     // eliminate convex closure variables using mbp
-    bool res = eliminate_vars(cvx_pattern, lc, has_new_vars);
+    bool res = eliminate_vars(cvx_pattern, lc, has_new_vars && contains_int_cnsts(m_dim_frsh_cnsts));
 
     if (!res) return false;
 
