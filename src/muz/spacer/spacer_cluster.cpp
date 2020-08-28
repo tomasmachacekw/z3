@@ -1,10 +1,21 @@
-/*
+/*++
+Copyright (c) 2020 Arie Gurfinkel
+
+Module Name:
 
   spacer_cluster.cpp
 
-  Discover and mark lemma clusters.
+Abstract:
 
-*/
+  Discover and mark lemma clusters
+
+Author:
+
+  Hari Govind V K
+  Arie Gurfinkel
+
+
+--*/
 #include <algorithm>
 
 #include "ast/arith_decl_plugin.h"
@@ -39,12 +50,12 @@ bool lemma_cluster_finder::is_intrp_diff(expr_ref antiU_result,
                m_arith.is_numeral(r2.get_expr())) ||
               ((m_bv.is_numeral(r1.get_expr()) &&
                 m_bv.is_numeral(r2.get_expr())))))
-          return false;
+            return false;
     }
     return true;
 }
 
-//TODO: handle non-ground lemmas
+// TODO: handle non-ground lemmas
 bool lemma_cluster_finder::are_neighbours(const expr_ref &cube,
                                           const expr_ref &lcube) {
     anti_unifier anti(m);
@@ -248,7 +259,8 @@ bool lemma_cluster ::match(const expr_ref &e, substitution &sub) {
     // All the matches should be numerals
     for (unsigned i = 0; i < n_binds; i++) {
         sub.get_binding(i, var, r);
-        if (!(a_util.is_numeral(r.get_expr()) || bv.is_numeral(r.get_expr()))) return false;
+        if (!(a_util.is_numeral(r.get_expr()) || bv.is_numeral(r.get_expr())))
+            return false;
     }
     return true;
 }

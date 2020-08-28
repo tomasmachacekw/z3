@@ -1,4 +1,23 @@
 #pragma once
+/*++
+Copyright (c) 2020 Arie Gurfinkel
+
+Module Name:
+
+  spacer_cluster.h
+
+Abstract:
+
+  Discover and mark lemma clusters
+
+Author:
+
+  Hari Govind V K
+  Arie Gurfinkel
+
+
+--*/
+
 #include "muz/spacer/spacer_context.h"
 namespace spacer {
 class lemma_cluster_finder {
