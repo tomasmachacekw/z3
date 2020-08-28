@@ -529,8 +529,10 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
     return over_approximate(subs_gen, cvx_cls);
 }
 
-/// Eliminate m_dim_frsh_cnsts from \p cvx_cls. Use \p lc to get a model for mbp
-/// \p mlir is turned on if \p cvx_cls contains ints and reals.
+/// Eliminate m_dim_frsh_cnsts from \p cvx_cls
+///
+/// Uses \p lc to get a model for mbp.
+/// \p mlir indicates whether \p cvx_cls contains both ints and reals.
 bool lemma_global_generalizer::eliminate_vars(expr_ref &cvx_pattern, const lemma_cluster& lc, bool mlir) {
     if (mlir) {
         to_real(cvx_pattern);
@@ -640,9 +642,12 @@ bool lemma_global_generalizer::over_approximate(expr_ref_vector &a,
           tout << "over approximate produced " << mk_and(a) << "\n";);
     return true;
 }
-/// Attempt to set a conjecture on pob \p n by dropping literal \p lit from its
-/// post. \p lvl and \p gas are the level and gas for conjecture pob
-/// returns true if conjecture is set
+
+/// Attempt to set a conjecture on pob \p n.
+///
+/// Done by dropping literal \p lit from
+/// post of \p n. \p lvl is level for conjecture pob. \p gas is the gas for the
+/// conjecture pob returns true if conjecture is set
 bool lemma_global_generalizer::do_conjecture(pob_ref n, expr_ref lit,
                                              unsigned lvl, unsigned gas) {
     expr_ref_vector conj(m), fml_vec(m);

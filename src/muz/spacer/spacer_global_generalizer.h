@@ -69,6 +69,7 @@ class lemma_global_generalizer : public lemma_generalizer {
     bool is_handled(const lemma_cluster &lc);
 
     /// Compute a cube \p res such that \neg p subsumes all the lemmas in \p lc
+    ///
     /// \p cnsts is a set of constants that can be used to make \p res ground
     bool subsume(const lemma_cluster& lc, expr_ref_vector &res, app_ref_vector &cnsts);
 
@@ -94,22 +95,26 @@ class lemma_global_generalizer : public lemma_generalizer {
 
     void reset(unsigned n_vars);
 
-    /// Attempt to set a conjecture on \p pob n by dropping literal \p lit from
-    /// its post \p lvl is level for conjecture pob \p gas is the gas for the
+    /// Attempt to set a conjecture on pob \p n.
+    ///
+    /// Done by dropping literal \p lit from
+    /// post of \p n. \p lvl is level for conjecture pob. \p gas is the gas for the
     /// conjecture pob returns true if conjecture is set
     bool do_conjecture(pob_ref n, expr_ref lit, unsigned lvl, unsigned gas);
 
     /// Make \p fml ground using m_dim_frsh_cnsts. Store result in \p rw_fml
     void ground_free_vars(expr *fml, expr_ref &rw_fml);
 
-    /// Weaken a such that b ==> (and a)
+    /// Weaken \p a such that (and a) overapproximates \p b
     bool over_approximate(expr_ref_vector &a, const expr_ref b);
 
-    /// \p a is a hard constraint and \p b is a soft constraint that have to be satisfied by mdl
+    /// \p a is a hard constraint and \p b is a soft constraint that have to be satisfied by \p mdl
     bool maxsat_with_model(const expr_ref a, const expr_ref b, model_ref &mdl);
 
-    /// Eliminate m_dim_frsh_cnsts from \p cvx_cls. Use \p lc to get a model for mbp
-    /// \p mlir is turned on if \p cvx_cls contains ints and reals.
+    /// Eliminate m_dim_frsh_cnsts from \p cvx_cls
+    ///
+    /// Uses \p lc to get a model for mbp.
+    /// \p mlir indicates whether \p cvx_cls contains both ints and reals.
     bool eliminate_vars(expr_ref &cvx_cls, const lemma_cluster &lc, bool mlir);
 
     /// Add variables introduced by m_cvx_cls to the list of variables to be
