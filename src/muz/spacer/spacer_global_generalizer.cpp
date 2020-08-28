@@ -102,8 +102,10 @@ lemma_global_generalizer::lemma_global_generalizer(context &ctx)
     : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m), m_array(m),
       m_bv(m), m_cvx_cls(m, ctx.use_sage()), m_dim_frsh_cnsts(m),
       m_dim_vars(m) {
-    scoped_ptr<solver_factory> factory(mk_smt_strategic_solver_factory(symbol::null));
-    m_solver = (*factory)(m, params_ref::get_empty(), false, true, false, symbol::null);
+    scoped_ptr<solver_factory> factory(
+        mk_smt_strategic_solver_factory(symbol::null));
+    m_solver = (*factory)(m, params_ref::get_empty(), false, true, false,
+                          symbol::null);
 }
 
 void lemma_global_generalizer::operator()(lemma_ref &lemma) {
@@ -255,15 +257,15 @@ static void to_real_term(expr_ref &fml, unsigned depth = 3) {
     expr_ref_buffer new_args(m);
     expr_ref child(m);
 
-    // handle arrays separately because sort of index/stored item needs to be preserved
+    // handle arrays separately because sort of index/stored item needs to be
+    // preserved
     if (array.is_select(fml) || array.is_store(fml)) {
         new_args.push_back(args[0]);
         for (unsigned i = 1; i < num; i++) {
             SASSERT(arith.is_int(args[i]));
             child = args[i];
             to_real_term(child, depth - 1);
-            if (arith.is_int(args[i]))
-                child = arith.mk_to_int(child);
+            if (arith.is_int(args[i])) child = arith.mk_to_int(child);
             SASSERT(get_sort(args[i]) == get_sort(child));
             new_args.push_back(child);
         }
@@ -413,9 +415,11 @@ void lemma_global_generalizer::skolemize(expr_ref &f, app_ref_vector &cnsts) {
 
 ///\p a is a hard constraint and \p b is a soft constraint that have to be
 /// satisfied by mdl
-bool lemma_global_generalizer::maxsat_with_model(const expr_ref a, const expr_ref b,
+bool lemma_global_generalizer::maxsat_with_model(const expr_ref a,
+                                                 const expr_ref b,
                                                  model_ref &mdl) {
-    TRACE("subsume_verb", tout << "maxsat with model " << a << " " << b << "\n";);
+    TRACE("subsume_verb",
+          tout << "maxsat with model " << a << " " << b << "\n";);
     SASSERT(is_ground(a));
     m_solver->push();
     m_solver->assert_expr(a);
@@ -478,8 +482,8 @@ void lemma_global_generalizer::add_cvx_cls_vars() {
     }
 }
 
-/// Compute a cube \p subs_gen such that \neg subs_gen subsumes all the lemmas in \p lc
-/// \p bindings is the set of skolem constants in \p subs_gen
+/// Compute a cube \p subs_gen such that \neg subs_gen subsumes all the lemmas
+/// in \p lc \p bindings is the set of skolem constants in \p subs_gen
 bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
                                        expr_ref_vector &subs_gen,
                                        app_ref_vector &bindings) {
@@ -499,7 +503,7 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
            tout << "Convex closure introduced new variables. Closure is "
                 << mk_and(cls) << "\n";);
 
-    //If convex closure introduced new variables, add them to m_dim_frsh_cnsts
+    // If convex closure introduced new variables, add them to m_dim_frsh_cnsts
     if (has_new_vars) {
         m_st.m_num_syn_cls++;
         add_cvx_cls_vars();
@@ -533,7 +537,9 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
 ///
 /// Uses \p lc to get a model for mbp.
 /// \p mlir indicates whether \p cvx_cls contains both ints and reals.
-bool lemma_global_generalizer::eliminate_vars(expr_ref &cvx_pattern, const lemma_cluster& lc, bool mlir) {
+bool lemma_global_generalizer::eliminate_vars(expr_ref &cvx_pattern,
+                                              const lemma_cluster &lc,
+                                              bool mlir) {
     if (mlir) {
         to_real(cvx_pattern);
         TRACE("subsume_verb",
@@ -775,7 +781,7 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
 
 /// Replace bound vars in \p fml with uninterpreted constants
 void lemma_global_generalizer::ground_free_vars(expr *pattern,
-                                            expr_ref &rw_pattern) {
+                                                expr_ref &rw_pattern) {
     SASSERT(!is_ground(pattern));
     expr_safe_replace s(m);
     obj_map<expr, expr *> sub;

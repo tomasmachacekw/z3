@@ -71,7 +71,8 @@ class lemma_global_generalizer : public lemma_generalizer {
     /// Compute a cube \p res such that \neg p subsumes all the lemmas in \p lc
     ///
     /// \p cnsts is a set of constants that can be used to make \p res ground
-    bool subsume(const lemma_cluster& lc, expr_ref_vector &res, app_ref_vector &cnsts);
+    bool subsume(const lemma_cluster &lc, expr_ref_vector &res,
+                 app_ref_vector &cnsts);
 
     /// Skolemize m_dim_frsh_cnsts in \p f
     ///
@@ -98,8 +99,8 @@ class lemma_global_generalizer : public lemma_generalizer {
     /// Attempt to set a conjecture on pob \p n.
     ///
     /// Done by dropping literal \p lit from
-    /// post of \p n. \p lvl is level for conjecture pob. \p gas is the gas for the
-    /// conjecture pob returns true if conjecture is set
+    /// post of \p n. \p lvl is level for conjecture pob. \p gas is the gas for
+    /// the conjecture pob returns true if conjecture is set
     bool do_conjecture(pob_ref n, expr_ref lit, unsigned lvl, unsigned gas);
 
     /// Make \p fml ground using m_dim_frsh_cnsts. Store result in \p rw_fml
@@ -108,7 +109,8 @@ class lemma_global_generalizer : public lemma_generalizer {
     /// Weaken \p a such that (and a) overapproximates \p b
     bool over_approximate(expr_ref_vector &a, const expr_ref b);
 
-    /// \p a is a hard constraint and \p b is a soft constraint that have to be satisfied by \p mdl
+    /// \p a is a hard constraint and \p b is a soft constraint that have to be
+    /// satisfied by \p mdl
     bool maxsat_with_model(const expr_ref a, const expr_ref b, model_ref &mdl);
 
     /// Eliminate m_dim_frsh_cnsts from \p cvx_cls
@@ -120,6 +122,7 @@ class lemma_global_generalizer : public lemma_generalizer {
     /// Add variables introduced by m_cvx_cls to the list of variables to be
     /// eliminated
     void add_cvx_cls_vars();
+
   public:
     lemma_global_generalizer(context &ctx);
     ~lemma_global_generalizer() override {}
