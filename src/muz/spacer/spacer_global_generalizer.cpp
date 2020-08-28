@@ -36,7 +36,7 @@ using lemma_info_vector = vector<lemma_info, true>;
 } // namespace spacer
 
 namespace {
-// compute lcm of m_val and denomenator of input expression n, if n is a numeral
+// Compute lcm of m_val and denomenator of input expression n, if n is a numeral
 struct compute_lcm {
     ast_manager &m;
     arith_util m_arith;
@@ -51,7 +51,7 @@ struct compute_lcm {
     }
 };
 
-// Check whether all constants in \p c
+// Check whether there are Real constants in \p c
 bool contains_real_cnsts(app_ref_vector &c) {
     arith_util m_arith(c.get_manager());
     for (auto f : c) {
@@ -67,7 +67,7 @@ app *mk_frsh_const(ast_manager &m, unsigned idx, sort *s) {
     return m.mk_const(symbol(name.str().c_str()), s);
 }
 
-// check whether sub contains a mapping to a bv_numeral.
+// Check whether \p sub contains a mapping to a bv_numeral.
 // return bv_size of the bv_numeral in the first such mapping.
 bool contains_bv(ast_manager &m, const substitution &sub, unsigned &sz) {
     bv_util m_bv(m);
@@ -81,7 +81,7 @@ bool contains_bv(ast_manager &m, const substitution &sub, unsigned &sz) {
     return false;
 }
 
-// check whether 1) all expressions in the range of sub are bv_numerals 2) all
+// Check whether 1) all expressions in the range of \p sub are bv_numerals 2) all
 // bv_numerals in range are of size sz
 bool all_same_sz(ast_manager &m, const substitution &sub, unsigned sz) {
     bv_util m_bv(m);
@@ -113,7 +113,7 @@ void lemma_global_generalizer::operator()(lemma_ref &lemma) {
     core(lemma);
 }
 
-// get lcm of all the denominators of all the rational values in e
+/// Get lcm of all the denominators of all the rational values in e
 static rational get_lcm(expr *e, ast_manager &m) {
     compute_lcm g(m);
     for_each_expr(g, e);
