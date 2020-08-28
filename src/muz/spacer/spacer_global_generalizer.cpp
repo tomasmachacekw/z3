@@ -60,11 +60,6 @@ bool contains_real_cnsts(app_ref_vector &c) {
     return false;
 }
 
-// make fresh constant of sort s
-app *mk_frsh_const(ast_manager &m, unsigned idx, sort *s) {
-    std::stringstream name;
-    name << "gspcVar!" << idx;
-    return m.mk_const(symbol(name.str().c_str()), s);
 // Check whether there are Int constants in \p c
 bool contains_int_cnsts(app_ref_vector &c) {
     arith_util m_arith(c.get_manager());
@@ -400,19 +395,17 @@ void lemma_global_generalizer::reset(unsigned n_vars) {
 /// append the skolem constants to \p cnsts
 void lemma_global_generalizer::skolemize(expr_ref &f, app_ref_vector &cnsts) {
     unsigned idx = cnsts.size();
-    expr_ref sk(m), c(m);
-    app_ref v(m);
+    app_ref sk(m), c(m);
     expr_safe_replace sub(m);
     expr_ref_vector f_cnsts(m);
     spacer::get_uninterp_consts(f, f_cnsts);
     for (unsigned i = 0; i < m_dim_frsh_cnsts.size(); i++) {
         c = m_dim_frsh_cnsts.get(i);
         if (!f_cnsts.contains(c)) continue;
-        v = mk_frsh_const(m, i + idx, m.get_sort(c));
-        cnsts.push_back(v);
         SASSERT(m_arith.is_int(c));
         // Make skolem constants for ground pob
         sk = mk_zk_const(m, i + idx, m.get_sort(c));
+        cnsts.push_back(sk);
         sub.insert(c, sk);
     }
     sub(f.get(), f);
