@@ -392,10 +392,11 @@ void lemma_global_generalizer::reset(unsigned n_vars) {
 
 /// Skolemize all m_dim_frsh_cnsts in \p f
 ///
-/// append the skolem constants to \p cnsts
-void lemma_global_generalizer::skolemize(expr_ref &f, app_ref_vector &cnsts) {
+/// \p cnsts is appended with ground terms from \p mdl
+void lemma_global_generalizer::skolemize(expr_ref &f, app_ref_vector &cnsts, const model_ref &mdl) {
     unsigned idx = cnsts.size();
     app_ref sk(m), c(m);
+    expr_ref eval(m);
     expr_safe_replace sub(m);
     expr_ref_vector f_cnsts(m);
     spacer::get_uninterp_consts(f, f_cnsts);
@@ -405,7 +406,10 @@ void lemma_global_generalizer::skolemize(expr_ref &f, app_ref_vector &cnsts) {
         SASSERT(m_arith.is_int(c));
         // Make skolem constants for ground pob
         sk = mk_zk_const(m, i + idx, m.get_sort(c));
-        cnsts.push_back(sk);
+        eval = mdl->get_const_interp(c->get_decl());
+        SASSERT(is_app(eval));
+        cnsts.push_back(to_app(eval));
+        //push back original values for bindings
         sub.insert(c, sk);
     }
     sub(f.get(), f);
@@ -519,15 +523,9 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
     cvx_cls = cvx_pattern;
 
     // eliminate convex closure variables using mbp
-    bool res = eliminate_vars(cvx_pattern, lc, has_new_vars && contains_int_cnsts(m_dim_frsh_cnsts));
+    bool res = eliminate_vars(cvx_pattern, lc, has_new_vars && contains_int_cnsts(m_dim_frsh_cnsts), bindings);
 
     if (!res) return false;
-
-    // If not all variables have been eliminated, skolemize and add bindings
-    if (m_dim_frsh_cnsts.size() > 0) {
-        SASSERT(!m_ctx.use_ground_pob());
-        skolemize(cvx_pattern, bindings);
-    }
 
     flatten_and(cvx_pattern, subs_gen);
     return over_approximate(subs_gen, cvx_cls);
@@ -537,9 +535,11 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
 ///
 /// Uses \p lc to get a model for mbp.
 /// \p mlir indicates whether \p cvx_cls contains both ints and reals.
+/// all vars that could not be eliminated are skolemized and added to \p
+/// bindings
 bool lemma_global_generalizer::eliminate_vars(expr_ref &cvx_pattern,
                                               const lemma_cluster &lc,
-                                              bool mlir) {
+                                              bool mlir, app_ref_vector &bindings) {
     if (mlir) {
         to_real(cvx_pattern);
         TRACE("subsume_verb",
@@ -579,6 +579,13 @@ bool lemma_global_generalizer::eliminate_vars(expr_ref &cvx_pattern,
     }
     SASSERT(!m_ctx.use_ground_pob() || m_dim_frsh_cnsts.empty());
     if (mlir) { to_int(cvx_pattern); }
+
+    // If not all variables have been eliminated, skolemize and add bindings
+    if (m_dim_frsh_cnsts.size() > 0) {
+        SASSERT(!m_ctx.use_ground_pob());
+        skolemize(cvx_pattern, bindings, mdl);
+    }
+
     return true;
 }
 

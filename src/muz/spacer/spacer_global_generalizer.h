@@ -76,8 +76,8 @@ class lemma_global_generalizer : public lemma_generalizer {
 
     /// Skolemize m_dim_frsh_cnsts in \p f
     ///
-    /// The newly created skolem constants are added to \p cnsts
-    void skolemize(expr_ref &f, app_ref_vector &cnsts);
+    /// \p cnsts is appended with ground terms from \p mdl
+    void skolemize(expr_ref &f, app_ref_vector &cnsts, const model_ref &mdl);
 
     /// Decide global guidance based on lemma
     void core(lemma_ref &lemma);
@@ -117,7 +117,8 @@ class lemma_global_generalizer : public lemma_generalizer {
     ///
     /// Uses \p lc to get a model for mbp.
     /// \p mlir indicates whether \p cvx_cls contains both ints and reals.
-    bool eliminate_vars(expr_ref &cvx_cls, const lemma_cluster &lc, bool mlir);
+    /// all vars that could not be eliminated are skolemized and added to \p bindings
+    bool eliminate_vars(expr_ref &cvx_cls, const lemma_cluster &lc, bool mlir, app_ref_vector &bindings);
 
     /// Add variables introduced by m_cvx_cls to the list of variables to be
     /// eliminated
