@@ -51,7 +51,11 @@ struct compute_lcm {
     }
 };
 
-// Check whether there are Real constants in \p c
+/// Find a representative for \p c
+// TODO: replace with a symbolic representative
+expr *find_repr(const model_ref& mdl, const app_ref& c) { return mdl->get_const_interp(c->get_decl()); }
+
+/// Check whether there are Real constants in \p c
 bool contains_real_cnsts(app_ref_vector &c) {
     arith_util m_arith(c.get_manager());
     for (auto f : c) {
@@ -406,7 +410,7 @@ void lemma_global_generalizer::skolemize(expr_ref &f, app_ref_vector &cnsts, con
         SASSERT(m_arith.is_int(c));
         // Make skolem constants for ground pob
         sk = mk_zk_const(m, i + idx, m.get_sort(c));
-        eval = mdl->get_const_interp(c->get_decl());
+        eval = find_repr(mdl, c);
         SASSERT(is_app(eval));
         cnsts.push_back(to_app(eval));
         //push back original values for bindings
