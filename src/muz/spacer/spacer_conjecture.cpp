@@ -55,28 +55,35 @@ bool should_conjecture(const expr_ref &pattern, expr_ref &leq_lit) {
     return count == 1;
 }
 
+/// Returns true if range of s is numeric
+bool is_numeric_sub(substitution &s) {
+    ast_manager &m(s.get_manager());
+    arith_util arith(m);
+    bv_util bv(m);
+    std::pair<unsigned, unsigned> var;
+    expr_offset r;
+    for (unsigned i = 0; i < s.get_num_bindings(); i++) {
+        s.get_binding(i, var, r);
+        if (!(bv.is_numeral(r.get_expr()) || arith.is_numeral(r.get_expr())))
+            return false;
+    }
+    return true;
+}
+
 bool drop_lit(expr_ref_vector &fml_vec, expr_ref &lit,
               expr_ref_vector &abs_fml) {
     abs_fml.reset();
     bool is_smaller = false;
     ast_manager &m = fml_vec.get_manager();
     sem_matcher m_matcher(m);
-    bv_util bv(m);
     substitution sub(m);
     sub.reserve(1, get_num_vars(lit.get()));
-    std::pair<unsigned, unsigned> var;
-    expr_offset r;
     bool pos;
     SASSERT(!(m.is_not(lit) && m.is_eq(to_app(lit)->get_arg(0))));
     for (auto &c : fml_vec) {
         m_matcher.reset();
         if (m_matcher(lit, c, sub, pos) && pos) {
-            bool numeral_match = true;
-            for(unsigned i = 0; i < sub.get_num_bindings(); i++) {
-                sub.get_binding(i, var, r);
-                if (!bv.is_numeral(r.get_expr())) numeral_match = false;
-            }
-            if (numeral_match) {
+            if (is_numeric_sub(sub)) {
                 is_smaller = true;
                 continue;
             }

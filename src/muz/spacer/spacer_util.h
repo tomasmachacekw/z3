@@ -162,6 +162,9 @@ namespace spacer {
     // been dropped or not
     bool drop_lit(expr_ref_vector &in, expr_ref &lit, expr_ref_vector &out);
 
+    /// Returns true if range of s is numeric
+    bool is_numeric_sub(substitution &s);
+
     bool contains_mod(expr_ref e);
 
     //checks whether any sub expression of \p e is of sort Real

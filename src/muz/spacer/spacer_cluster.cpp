@@ -36,24 +36,6 @@ namespace spacer {
 lemma_cluster_finder::lemma_cluster_finder(ast_manager &am)
     : m(am), m_arith(m), m_bv(m) {}
 
-/// Check whether the \p s1 and \p s2 are of the same size and map to interpreted constants
-bool lemma_cluster_finder::is_intrp_diff(substitution &s1, substitution &s2) {
-    if (s1.get_num_bindings() != s2.get_num_bindings()) return  false;
-    expr_ref e(m), e2(m);
-    expr_offset r1, r2;
-    var_offset v1, v2;
-    for (unsigned j = 0, sz = s1.get_num_bindings(); j < sz; j++) {
-        s1.get_binding(j, v1, r1);
-        s2.get_binding(j, v2, r2);
-        if (!((m_arith.is_numeral(r1.get_expr()) &&
-               m_arith.is_numeral(r2.get_expr())) ||
-              ((m_bv.is_numeral(r1.get_expr()) &&
-                m_bv.is_numeral(r2.get_expr())))))
-            return false;
-    }
-    return true;
-}
-
 /// Check whether \p cube and \p lcube differ only in interpreted constants
 bool lemma_cluster_finder::are_neighbours(const expr_ref &cube,
                                           const expr_ref &lcube) {
@@ -62,7 +44,8 @@ bool lemma_cluster_finder::are_neighbours(const expr_ref &cube,
     expr_ref pat(m);
     substitution sub1(m), sub2(m);
     anti(cube, lcube, pat, sub1, sub2);
-    return is_intrp_diff(sub1, sub2);
+    SASSERT(sub1.get_num_bindings() == sub2.get_num_bindings());
+    return is_numeric_sub(sub1) && is_numeric_sub(sub2);
 }
 
 /// Compute antiunification of \p cube with all formulas in \p fmls.

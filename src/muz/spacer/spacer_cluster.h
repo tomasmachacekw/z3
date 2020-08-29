@@ -36,10 +36,6 @@ class lemma_cluster_finder {
     bv_util m_bv;
     typedef std::pair<unsigned, unsigned> var_offset;
 
-    /// Check whether the \p s1 and \p s2 are of the same size and map to
-    /// interpreted constants
-    bool is_intrp_diff(substitution &s1, substitution &s2);
-
     /// Check whether \p cube and \p lcube differ only in interpreted constants
     bool are_neighbours(const expr_ref &cube, const expr_ref &lcube);
 
