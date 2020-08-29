@@ -214,18 +214,24 @@ void lemma_cluster_finder::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.cluster", m_st.watch.get_seconds());
 }
 
+/// Removes subsumed lemmas in the cluster. \p removed_lemmas is the list of
+/// removed lemmas
 void lemma_cluster ::rm_subsumed(lemma_info_vector &removed_lemmas) {
     removed_lemmas.reset();
     if (m_lemma_vec.size() <= 1) return;
+    // set up and run the simplifier
     tactic_ref simplifier = mk_unit_subsumption_tactic(m);
     goal_ref g(alloc(goal, m, false, false, false));
-
     goal_ref_buffer result;
     for (auto l : m_lemma_vec) { g->assert_expr(l.get_lemma()->get_expr()); }
     (*simplifier)(g, result);
     SASSERT(result.size() == 1);
+
+
     goal *r = result[0];
+    // nothing removed
     if (r->size() == m_lemma_vec.size()) return;
+    // collect removed lemmas
     lemma_info_vector non_subsumd_lemmas;
     for (auto l : m_lemma_vec) {
         bool found = false;
@@ -250,7 +256,9 @@ void lemma_cluster ::rm_subsumed(lemma_info_vector &removed_lemmas) {
     m_lemma_vec.append(non_subsumd_lemmas);
 }
 
-bool lemma_cluster ::match(const expr_ref &e, substitution &sub) {
+/// Checks whether \p e matches m_pattern.
+/// If so, returns the substitution that gets e from pattern
+bool lemma_cluster::match(const expr_ref &e, substitution &sub) {
     m_matcher.reset();
     bool pos;
     bool is_match = m_matcher(m_pattern.get(), e.get(), sub, pos);
@@ -269,9 +277,12 @@ bool lemma_cluster ::match(const expr_ref &e, substitution &sub) {
     return true;
 }
 
-// Repetition of lemmas is avoided by doing a linear scan over the lemmas in the
-// cluster.
-bool lemma_cluster ::add_lemma(const lemma_ref &lemma, bool subs_check) {
+/// Try to add \p lemma to cluster. Remove subsumed lemmas if \p subs_check is true
+///
+/// Returns false if lemma does not match the pattern or if it is already in the cluster
+/// Repetition of lemmas is avoided by doing a linear scan over the lemmas in the
+/// cluster. Adding a lemma can reduce the size of the cluster due to subs_check
+bool lemma_cluster::add_lemma(const lemma_ref &lemma, bool subs_check) {
     substitution sub(m);
     sub.reserve(1, get_num_vars(m_pattern.get()));
     expr_ref cube(m);

@@ -220,10 +220,11 @@ class lemma_cluster {
     lemma_info_vector m_lemma_vec;
     ast_manager &m;
     sem_matcher m_matcher;
-    // removes subsumptions and returns a list of removed lemmas
+    /// Remove subsumed lemmas in the cluster. \p removed_lemmas a list of
+    /// removed lemmas
     void rm_subsumed(lemma_info_vector &removed_lemmas);
-    // checks whether e matches pattern.
-    // If so, returns the substitution that gets e from pattern
+    /// Checks whether \p e matches m_pattern.
+    /// If so, returns the substitution that gets e from pattern
     bool match(const expr_ref &e, substitution &sub);
     // The number of times CSM has to be tried using this cluster
     unsigned m_gas;
@@ -252,8 +253,13 @@ class lemma_cluster {
         e = mk_and(neg);
     }
 
-    // WARNING: Adding a lemma can reduce the size of the cluster due to
-    // subsumption check
+    /// Try to add \p lemma to cluster. Remove subsumed lemmas if \p subs_check
+    /// is true
+    ///
+    /// Returns false if lemma does not match the pattern or if it is already in
+    /// the cluster Repetition of lemmas is avoided by doing a linear scan over
+    /// the lemmas in the cluster. Adding a lemma can reduce the size of the
+    /// cluster due to subs_check
     bool add_lemma(const lemma_ref &lemma, bool subs_check = false);
 
     bool contains(const lemma_ref &lemma) {
