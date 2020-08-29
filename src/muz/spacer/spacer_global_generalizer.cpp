@@ -51,10 +51,6 @@ struct compute_lcm {
     }
 };
 
-/// Find a representative for \p c
-// TODO: replace with a symbolic representative
-expr *find_repr(const model_ref& mdl, const app_ref& c) { return mdl->get_const_interp(c->get_decl()); }
-
 /// Check whether there are Real constants in \p c
 bool contains_real_cnsts(app_ref_vector &c) {
     arith_util m_arith(c.get_manager());
@@ -87,8 +83,8 @@ bool contains_bv(ast_manager &m, const substitution &sub, unsigned &sz) {
     return false;
 }
 
-// Check whether 1) all expressions in the range of \p sub are bv_numerals 2) all
-// bv_numerals in range are of size sz
+// Check whether 1) all expressions in the range of \p sub are bv_numerals 2)
+// all bv_numerals in range are of size sz
 bool all_same_sz(ast_manager &m, const substitution &sub, unsigned sz) {
     bv_util m_bv(m);
     std::pair<unsigned, unsigned> v;
@@ -104,15 +100,19 @@ bool all_same_sz(ast_manager &m, const substitution &sub, unsigned sz) {
 }
 } // namespace
 namespace spacer {
-lemma_global_generalizer::lemma_global_generalizer(context &ctx)
-    : lemma_generalizer(ctx), m(ctx.get_ast_manager()), m_arith(m), m_array(m),
-      m_bv(m), m_cvx_cls(m, ctx.use_sage()), m_dim_frsh_cnsts(m),
-      m_dim_vars(m) {
+lemma_global_generalizer::subsumer::subsumer(ast_manager &a_m, bool use_sage,
+                                             bool ground_pob)
+    : m(a_m), m_arith(m), m_bv(m), m_cvx_cls(m, use_sage), m_dim_frsh_cnsts(m),
+      m_dim_vars(m), m_ground_pob(ground_pob) {
     scoped_ptr<solver_factory> factory(
         mk_smt_strategic_solver_factory(symbol::null));
     m_solver = (*factory)(m, params_ref::get_empty(), false, true, false,
                           symbol::null);
 }
+
+lemma_global_generalizer::lemma_global_generalizer(context &ctx)
+    : lemma_generalizer(ctx), m(ctx.get_ast_manager()),
+      m_subsumer(m, ctx.use_sage(), ctx.use_ground_pob()) {}
 
 void lemma_global_generalizer::operator()(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
@@ -318,7 +318,7 @@ static void to_real(expr_ref &fml) {
 }
 
 /// Create new vars to compute convex cls
-void lemma_global_generalizer::add_dim_vars(const lemma_cluster &lc) {
+void lemma_global_generalizer::subsumer::add_dim_vars(const lemma_cluster &lc) {
     // AG: review. This code looks fishy.
     const expr_ref &pattern = lc.get_pattern();
     expr_offset r;
@@ -347,7 +347,8 @@ void lemma_global_generalizer::add_dim_vars(const lemma_cluster &lc) {
 
 // Populate m_cvx_cls by 1) collecting all substitutions in the cluster \p lc
 // 2) converting them to integer numerals
-void lemma_global_generalizer::populate_cvx_cls(const lemma_cluster &lc) {
+void lemma_global_generalizer::subsumer::populate_cvx_cls(
+    const lemma_cluster &lc) {
     vector<rational> point;
     unsigned n_vars = get_num_vars(lc.get_pattern());
     const lemma_info_vector &lemmas = lc.get_lemmas();
@@ -385,7 +386,7 @@ void lemma_global_generalizer::populate_cvx_cls(const lemma_cluster &lc) {
 }
 
 // reset state
-void lemma_global_generalizer::reset(unsigned n_vars) {
+void lemma_global_generalizer::subsumer::reset(unsigned n_vars) {
     // start convex closure computation
     m_cvx_cls.reset(n_vars);
     m_dim_vars.reset();
@@ -394,10 +395,18 @@ void lemma_global_generalizer::reset(unsigned n_vars) {
     m_dim_vars.reserve(n_vars);
 }
 
+/// Find a representative for \p c
+// TODO: replace with a symbolic representative
+expr * lemma_global_generalizer::subsumer::find_repr(const model_ref &mdl, const app_ref &c) {
+    return mdl->get_const_interp(c->get_decl());
+}
+
 /// Skolemize all m_dim_frsh_cnsts in \p f
 ///
 /// \p cnsts is appended with ground terms from \p mdl
-void lemma_global_generalizer::skolemize(expr_ref &f, app_ref_vector &cnsts, const model_ref &mdl) {
+void lemma_global_generalizer::subsumer::skolemize(expr_ref &f,
+                                                   app_ref_vector &cnsts,
+                                                   const model_ref &mdl) {
     unsigned idx = cnsts.size();
     app_ref sk(m), c(m);
     expr_ref eval(m);
@@ -413,7 +422,7 @@ void lemma_global_generalizer::skolemize(expr_ref &f, app_ref_vector &cnsts, con
         eval = find_repr(mdl, c);
         SASSERT(is_app(eval));
         cnsts.push_back(to_app(eval));
-        //push back original values for bindings
+        // push back original values for bindings
         sub.insert(c, sk);
     }
     sub(f.get(), f);
@@ -423,9 +432,9 @@ void lemma_global_generalizer::skolemize(expr_ref &f, app_ref_vector &cnsts, con
 
 ///\p a is a hard constraint and \p b is a soft constraint that have to be
 /// satisfied by mdl
-bool lemma_global_generalizer::maxsat_with_model(const expr_ref a,
-                                                 const expr_ref b,
-                                                 model_ref &mdl) {
+bool lemma_global_generalizer::subsumer::maxsat_with_model(const expr_ref a,
+                                                           const expr_ref b,
+                                                           model_ref &mdl) {
     TRACE("subsume_verb",
           tout << "maxsat with model " << a << " " << b << "\n";);
     SASSERT(is_ground(a));
@@ -453,7 +462,7 @@ bool lemma_global_generalizer::maxsat_with_model(const expr_ref a,
 }
 
 /// Returns false if subsumption is not supported for \p lc
-bool lemma_global_generalizer::is_handled(const lemma_cluster &lc) {
+bool lemma_global_generalizer::subsumer::is_handled(const lemma_cluster &lc) {
     // check whether all substitutions are to bv_numerals
     unsigned sz = 0;
     bool bv_clus = contains_bv(m, lc.get_lemmas()[0].get_sub(), sz);
@@ -469,7 +478,8 @@ bool lemma_global_generalizer::is_handled(const lemma_cluster &lc) {
 }
 
 /// Prepare internal state for computing subsumption
-void lemma_global_generalizer::setup_subsume(const lemma_cluster &lc) {
+void lemma_global_generalizer::subsumer::setup_subsume(
+    const lemma_cluster &lc) {
     unsigned sz = 0;
     bool bv_clus = contains_bv(m, lc.get_lemmas()[0].get_sub(), sz);
     if (bv_clus) m_cvx_cls.set_bv(sz);
@@ -480,7 +490,7 @@ void lemma_global_generalizer::setup_subsume(const lemma_cluster &lc) {
 }
 
 /// Add variables introduced by cvx_cls to the list of variables
-void lemma_global_generalizer::add_cvx_cls_vars() {
+void lemma_global_generalizer::subsumer::add_cvx_cls_vars() {
     const var_ref_vector &vars = m_cvx_cls.get_nw_vars();
     app_ref var_app(m);
     for (auto v : vars) {
@@ -492,9 +502,9 @@ void lemma_global_generalizer::add_cvx_cls_vars() {
 
 /// Compute a cube \p subs_gen such that \neg subs_gen subsumes all the lemmas
 /// in \p lc \p bindings is the set of skolem constants in \p subs_gen
-bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
-                                       expr_ref_vector &subs_gen,
-                                       app_ref_vector &bindings) {
+bool lemma_global_generalizer::subsumer::subsume(const lemma_cluster &lc,
+                                                 expr_ref_vector &subs_gen,
+                                                 app_ref_vector &bindings) {
     const expr_ref &pattern = lc.get_pattern();
     unsigned n_vars = get_num_vars(pattern);
     SASSERT(n_vars > 0);
@@ -527,7 +537,9 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
     cvx_cls = cvx_pattern;
 
     // eliminate convex closure variables using mbp
-    bool res = eliminate_vars(cvx_pattern, lc, has_new_vars && contains_int_cnsts(m_dim_frsh_cnsts), bindings);
+    bool res = eliminate_vars(
+        cvx_pattern, lc, has_new_vars && contains_int_cnsts(m_dim_frsh_cnsts),
+        bindings);
 
     if (!res) return false;
 
@@ -541,9 +553,9 @@ bool lemma_global_generalizer::subsume(const lemma_cluster &lc,
 /// \p mlir indicates whether \p cvx_cls contains both ints and reals.
 /// all vars that could not be eliminated are skolemized and added to \p
 /// bindings
-bool lemma_global_generalizer::eliminate_vars(expr_ref &cvx_pattern,
-                                              const lemma_cluster &lc,
-                                              bool mlir, app_ref_vector &bindings) {
+bool lemma_global_generalizer::subsumer::eliminate_vars(
+    expr_ref &cvx_pattern, const lemma_cluster &lc, bool mlir,
+    app_ref_vector &bindings) {
     if (mlir) {
         to_real(cvx_pattern);
         TRACE("subsume_verb",
@@ -569,11 +581,11 @@ bool lemma_global_generalizer::eliminate_vars(expr_ref &cvx_pattern,
           tout << "calling mbp with " << cvx_pattern << " and " << t << "\n";);
 
     qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true,
-               !m_ctx.use_ground_pob());
+               !m_ground_pob);
 
     TRACE("subsume", tout << "Pattern after mbp of computing cvx cls: "
                           << cvx_pattern << "\n";);
-    if (!m_ctx.use_ground_pob() && contains_real_cnsts(m_dim_frsh_cnsts)) {
+    if (!m_ground_pob && contains_real_cnsts(m_dim_frsh_cnsts)) {
         TRACE("subsume", tout << "Could not eliminate non integer variables\n";
               for (auto e
                    : m_dim_vars) tout
@@ -581,12 +593,12 @@ bool lemma_global_generalizer::eliminate_vars(expr_ref &cvx_pattern,
               tout << "\n";);
         return false;
     }
-    SASSERT(!m_ctx.use_ground_pob() || m_dim_frsh_cnsts.empty());
+    SASSERT(!m_ground_pob || m_dim_frsh_cnsts.empty());
     if (mlir) { to_int(cvx_pattern); }
 
     // If not all variables have been eliminated, skolemize and add bindings
     if (m_dim_frsh_cnsts.size() > 0) {
-        SASSERT(!m_ctx.use_ground_pob());
+        SASSERT(!m_ground_pob);
         skolemize(cvx_pattern, bindings, mdl);
     }
 
@@ -597,8 +609,8 @@ bool lemma_global_generalizer::eliminate_vars(expr_ref &cvx_pattern,
 ///
 /// drop literals from a until b && \not a is unsat. Each time a sat answer is
 /// obtained, use a model to choose which literals to drop next
-bool lemma_global_generalizer::over_approximate(expr_ref_vector &a,
-                                                const expr_ref b) {
+bool lemma_global_generalizer::subsumer::over_approximate(expr_ref_vector &a,
+                                                          const expr_ref b) {
     expr_ref tag(m);
     expr_ref_vector tags(m), assump_a(m);
     expr_ref_buffer new_a(m), new_tags(m);
@@ -774,7 +786,7 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
     // subsume might introduce new bindings
     app_ref_vector bindings(m);
     bindings.append(lemma->get_bindings());
-    if (subsume(lc, subsume_gen, bindings)) {
+    if (m_subsumer.subsume(lc, subsume_gen, bindings)) {
         n->set_subsume_pob(subsume_gen);
         n->set_subsume_bindings(bindings);
         n->set_may_pob_lvl(pt_cls->get_min_lvl() + 1);
@@ -791,8 +803,8 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
 }
 
 /// Replace bound vars in \p fml with uninterpreted constants
-void lemma_global_generalizer::ground_free_vars(expr *pattern,
-                                                expr_ref &rw_pattern) {
+void lemma_global_generalizer::subsumer::ground_free_vars(
+    expr *pattern, expr_ref &rw_pattern) {
     SASSERT(!is_ground(pattern));
     expr_safe_replace s(m);
     obj_map<expr, expr *> sub;
@@ -808,7 +820,7 @@ void lemma_global_generalizer::ground_free_vars(expr *pattern,
 }
 
 // convert all LIA constants in m_dim_frsh_cnsts to LRA constants using to_real
-void lemma_global_generalizer::to_real_cnsts() {
+void lemma_global_generalizer::subsumer::to_real_cnsts() {
     app_ref var_app(m);
     for (unsigned i = 0; i < m_dim_frsh_cnsts.size(); i++) {
         if (m_arith.is_real(m_dim_frsh_cnsts.get(i))) continue;
@@ -817,15 +829,19 @@ void lemma_global_generalizer::to_real_cnsts() {
     }
 }
 
+void lemma_global_generalizer::subsumer::collect_statistics(
+    statistics &st) const {
+    st.update("SPACER num no over approximate", m_st.m_num_no_ovr_approx);
+    st.update("SPACER num sync cvx cls", m_st.m_num_syn_cls);
+    st.update("SPACER num mbp failed", m_st.m_num_mbp_failed);
+    m_cvx_cls.collect_statistics(st);
+}
+
 void lemma_global_generalizer::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.gen.global", m_st.watch.get_seconds());
     st.update("SPACER cluster out of gas", m_st.m_num_cls_ofg);
-    st.update("SPACER num sync cvx cls", m_st.m_num_syn_cls);
-    st.update("SPACER num mbp failed", m_st.m_num_mbp_failed);
     st.update("SPACER num non lin", m_st.m_num_non_lin);
-    st.update("SPACER num no over approximate", m_st.m_num_no_ovr_approx);
     st.update("SPACER num cant abstract", m_st.m_num_cant_abs);
-    m_cvx_cls.collect_statistics(st);
 }
 
 } // namespace spacer
