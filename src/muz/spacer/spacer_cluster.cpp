@@ -36,10 +36,9 @@ namespace spacer {
 lemma_cluster_finder::lemma_cluster_finder(ast_manager &am)
     : m(am), m_arith(m), m_bv(m) {}
 
-// returns whether formulas differ only in interpreted constants
-bool lemma_cluster_finder::is_intrp_diff(expr_ref antiU_result,
-                                         substitution &s1, substitution &s2) {
-    SASSERT(s1.get_num_bindings() == s2.get_num_bindings());
+/// Check whether the \p s1 and \p s2 are of the same size and map to interpreted constants
+bool lemma_cluster_finder::is_intrp_diff(substitution &s1, substitution &s2) {
+    if (s1.get_num_bindings() != s2.get_num_bindings()) return  false;
     expr_ref e(m), e2(m);
     expr_offset r1, r2;
     var_offset v1, v2;
@@ -55,22 +54,26 @@ bool lemma_cluster_finder::is_intrp_diff(expr_ref antiU_result,
     return true;
 }
 
-// TODO: handle non-ground lemmas
+/// Check whether \p cube and \p lcube differ only in interpreted constants
 bool lemma_cluster_finder::are_neighbours(const expr_ref &cube,
                                           const expr_ref &lcube) {
+    SASSERT(is_ground(cube) && is_ground(lcube));
     anti_unifier anti(m);
     expr_ref pat(m);
     substitution sub1(m), sub2(m);
     anti(cube, lcube, pat, sub1, sub2);
-    return is_intrp_diff(pat, sub1, sub2);
+    return is_intrp_diff(sub1, sub2);
 }
 
-// Compute antiunification of cube with all formulas in fmls. should return
-// \exist res (\forall f \in fmls (\exist i_sub res[i_sub] == f)) however, the
-// algorithm is incomplete: it returns such a res iff the res \in {antiU(cube,
-// e) | e \in fmls}
-// TODO: do complete n-ary anti-unification. Not done now
-// because anti_unifier does not support free variables
+/// Compute antiunification of \p cube with all formulas in \p fmls.
+///
+/// Should return
+///         \exist res (\forall f \in fmls (\exist i_sub res[i_sub] == f))
+/// however, the algorithm is incomplete: it returns such a res iff
+///         res \in {antiU(cube,  e) | e \in fmls}
+/// Returns true if res is found
+/// TODO: do complete n-ary anti-unification. Not done now
+/// because anti_unifier does not support free variables
 bool lemma_cluster_finder::anti_unify_n_intrp(expr_ref &cube,
                                               expr_ref_vector &fmls,
                                               expr_ref &res) {
@@ -102,7 +105,6 @@ bool lemma_cluster_finder::anti_unify_n_intrp(expr_ref &cube,
     sem_matcher matcher(m);
     unsigned n_vars_pat = 0;
     for (expr *e : patterns) {
-
         TRACE("cluster_stats_verb",
               tout << "Checking pattern " << mk_pp(e, m) << "\n";);
         is_general_pattern = true;
@@ -134,6 +136,8 @@ bool lemma_cluster_finder::anti_unify_n_intrp(expr_ref &cube,
     return false;
 }
 
+/// Add \p lemma to a cluster. Attempt to create a new cluster if lemma does not
+/// belong to any existing clusters
 void lemma_cluster_finder::cluster(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
     pred_transformer &pt = (lemma->get_pob())->pt();
