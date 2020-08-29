@@ -17,7 +17,7 @@
 
    Notes:
 
-   --*/
+--*/
 
 #include "ast/for_each_expr.h"
 
