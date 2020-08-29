@@ -3,7 +3,7 @@
 
    Module Name:
 
-   spacer_abstraction.cpp
+   spacer_conjecture.cpp
 
    Abstract:
 
@@ -25,17 +25,21 @@
 #include "muz/spacer/spacer_util.h"
 
 namespace spacer {
-
+/// Check whether \p pattern contains a single variable and is in LA or linear
+/// fragment of BV
 bool is_mono_var(expr *pattern, ast_manager &m, arith_util &a_util) {
     expr *e;
     bv_util bv(m);
     if (m.is_not(pattern, e)) return is_mono_var(e, m, a_util);
-    if (a_util.is_arith_expr(to_app(pattern)) || bv.is_bv_ule(pattern) || bv.is_bv_sle(pattern)) {
+    if (a_util.is_arith_expr(to_app(pattern)) || bv.is_bv_ule(pattern) ||
+        bv.is_bv_sle(pattern)) {
         return get_num_vars(pattern) == 1 && !has_nonlinear_var_mul(pattern, m);
     }
     return false;
 }
 
+/// Syntactic check to test whether the cluster with \p pattern contains a
+/// single strongest element.
 bool should_conjecture(const expr_ref &pattern, expr_ref &leq_lit) {
     if (get_num_vars(pattern) != 1) return false;
     ast_manager &m = leq_lit.m();
@@ -70,6 +74,9 @@ bool is_numeric_sub(substitution &s) {
     return true;
 }
 
+/// Drop all literals that numerically match \p lit, from \p fml_vec.
+///
+/// \p abs_fml holds the result. Returns true if any literal has been dropped
 bool drop_lit(expr_ref_vector &fml_vec, expr_ref &lit,
               expr_ref_vector &abs_fml) {
     abs_fml.reset();
