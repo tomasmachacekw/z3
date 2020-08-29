@@ -335,8 +335,9 @@ void concretize::concretize_term(model_ref &model, expr_ref term,
         rational nw_bnd;
         m_arith.is_numeral(val, nw_bnd);
         if (change > 0) {
-            ub.insert_if_not_there(var, nw_bnd);
-            if (nw_bnd < ub[var])
+            if (!ub.contains(var))
+                ub.insert(var, nw_bnd);
+            else if (nw_bnd < ub[var])
                 ub[var] = nw_bnd;
             TRACE("concretize_verb", tout << "upper bounds for "
                                           << mk_pp(var, m) << " is " << ub[var]
@@ -344,8 +345,9 @@ void concretize::concretize_term(model_ref &model, expr_ref term,
         }
 
         if (change < 0) {
-            lb.insert_if_not_there(var, nw_bnd);
-            if (nw_bnd > lb[var])
+            if (!lb.contains(var))
+                lb.insert(var, nw_bnd);
+            else if (nw_bnd > lb[var])
                 lb[var] = nw_bnd;
             TRACE("concretize_verb", tout << "lower bounds for "
                                           << mk_pp(var, m) << " is " << lb[var]
