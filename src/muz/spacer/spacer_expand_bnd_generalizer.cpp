@@ -36,7 +36,9 @@ bool is_ineq(ast_manager &m, const expr *fml, rational &val) {
 void substitute(rational n, const expr *fml, expr_ref &res) {
     SASSERT(is_app(fml));
     ast_manager &m = res.get_manager();
-    SASSERT(is_ineq(m, fml, rational()));
+    rational val;
+    (void)val;
+    SASSERT(is_ineq(m, fml, val));
     arith_util m_arith(m);
     expr *not_fml;
     if (m.is_not(fml, not_fml)) {
