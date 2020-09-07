@@ -508,29 +508,18 @@ class pred_transformer {
         cluster_db() : m_max_cluster_size(0) {}
         unsigned get_max_cluster_size() const { return m_max_cluster_size; }
 
-        bool add_to_cluster(const lemma_ref &lemma) {
-            bool found = false;
-            for (auto *c : m_clusters) {
-                if (c->add_lemma(lemma, true)) {
-                    found = true;
-                    // exiting on the first cluster to which the lemma belongs
-                    // to.
-                    break;
-                }
-            }
-            // Due to subsumption check, cluster sizes could have decreased
-            for (auto *c : m_clusters) {
-                m_max_cluster_size =
-                    std::max(m_max_cluster_size, c->get_size());
-            }
-            return found;
-        }
-
         lemma_cluster *can_contain(const lemma_ref &lemma) {
             for (auto *c : m_clusters) {
                 if (c->can_contain(lemma)) { return c; }
             }
             return nullptr;
+        }
+
+        bool contains(const lemma_ref &lemma) {
+            for (auto *c : m_clusters) {
+                if (c->contains(lemma)) { return true; }
+            }
+            return false;
         }
 
         lemma_cluster *mk_cluster(const expr_ref &pattern) {
@@ -769,13 +758,16 @@ public:
         return m_cluster_db.mk_cluster(pattern);
     }
 
-    bool add_to_cluster(const lemma_ref &lemma) {
-        return m_cluster_db.add_to_cluster(lemma);
     }
 
     // checks whether lemma CAN belong to any existing cluster
     lemma_cluster *clstr_match(const lemma_ref &lemma) {
         return m_cluster_db.can_contain(lemma);
+    }
+
+    // Checks whether \p lemma is in any existing cluster
+    bool clstr_contains(const lemma_ref &lemma) {
+        return m_cluster_db.contains(lemma);
     }
 
     lemma_cluster *get_cluster(const lemma_ref &lemma) {
