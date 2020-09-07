@@ -770,13 +770,6 @@ public:
         return m_cluster_db.mk_cluster(pattern);
     }
 
-    }
-
-    // checks whether lemma CAN belong to any existing cluster
-    lemma_cluster *clstr_match(const lemma_ref &lemma) {
-        return m_cluster_db.can_contain(lemma);
-    }
-
     // Checks whether \p lemma is in any existing cluster
     bool clstr_contains(const lemma_ref &lemma) {
         return m_cluster_db.contains(lemma);
