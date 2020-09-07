@@ -31,6 +31,7 @@ Author:
 #include "util/mpq.h"
 #include "util/vector.h"
 
+#define MAX_CLUSTER_SIZE 5
 using namespace spacer;
 namespace spacer {
 lemma_cluster_finder::lemma_cluster_finder(ast_manager &am)
@@ -130,17 +131,17 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
 
     // if the lemma matches a pattern of one of the clusters, but is not in it,
     // add it.
-    if (pt.clstr_match(lemma)) {
+    lemma_cluster *clstr = pt.clstr_match(lemma);
+    if (clstr && clstr->get_size() <= MAX_CLUSTER_SIZE) {
         TRACE("cluster_stats_verb", tout << "Trying to add lemma "
-                                         << lemma->get_cube()
-                                         << " to existing clusters\n";);
-        pt.add_to_cluster(lemma);
-
-        // avoid creating clusters with lemmas that can't be added to existing
-        // clusters
+              << lemma->get_cube()
+              << " to existing cluster ";
+              for (auto l
+                       : clstr->get_lemmas()) tout
+                                                  << l.get_lemma()->get_cube() << "\n";);
+        clstr->add_lemma(lemma);
         return;
     }
-
     // Check whether a new cluster can be formed
     lemma_ref_vector all_lemmas;
     pt.get_all_lemmas(all_lemmas, false);
@@ -156,7 +157,8 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
         cube.reset();
         cube = mk_and(l->get_cube());
         normalize_order(cube, cube);
-        if (are_neighbours(lcube, cube) && cube != lcube) {
+        // make sure that l is not in any other clusters
+        if (are_neighbours(lcube, cube) && cube != lcube && !pt.clstr_contains(l)) {
             neighbours.push_back(l);
             lma_cubes.push_back(cube);
         }
