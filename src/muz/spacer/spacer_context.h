@@ -770,10 +770,14 @@ public:
         return m_cluster_db.contains(lemma);
     }
 
-    lemma_cluster *get_cluster(const lemma_ref &lemma) {
-        return m_cluster_db.get_cluster(lemma);
+    /// Checks whether \p lemma matches any cluster
+    lemma_cluster *clstr_match(const lemma_ref &lemma) {
+        lemma_cluster *res = m_cluster_db.get_cluster(lemma);
+        if (!res) res = m_cluster_db.can_contain(lemma);
+        return res;
     }
 
+    /// Returns a cluster with pattern \p pattern
     lemma_cluster *get_cluster(const expr *pattern) {
         return m_cluster_db.get_cluster(pattern);
     }

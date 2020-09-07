@@ -126,7 +126,7 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
     pred_transformer &pt = (lemma->get_pob())->pt();
 
     // check whether lemmas has already been added
-    if (pt.get_cluster(lemma) != nullptr) return;
+    if (pt.clstr_contains(lemma)) return;
 
     // if the lemma matches a pattern of one of the clusters, but is not in it,
     // add it.

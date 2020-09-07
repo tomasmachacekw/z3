@@ -713,7 +713,7 @@ bool lemma_global_generalizer::do_conjecture(pob_ref n, expr_ref lit,
 // Decide global guidance based on lemma
 void lemma_global_generalizer::core(lemma_ref &lemma) {
     pob_ref n = lemma->get_pob();
-    lemma_cluster *pt_cls = (&*lemma->get_pob())->pt().clstr_match(lemma);
+    lemma_cluster *pt_cls = n->pt().clstr_match(lemma);
     /// Lemma does not belong to any cluster. return
     if (pt_cls == nullptr) return;
 
