@@ -508,11 +508,17 @@ class pred_transformer {
         cluster_db() : m_max_cluster_size(0) {}
         unsigned get_max_cluster_size() const { return m_max_cluster_size; }
 
+        /// Return the smallest cluster than can contain \p lemma
         lemma_cluster *can_contain(const lemma_ref &lemma) {
+            unsigned sz = UINT_MAX;
+            lemma_cluster *res = nullptr;
             for (auto *c : m_clusters) {
-                if (c->can_contain(lemma)) { return c; }
+                if (c->get_size() < sz && c->can_contain(lemma)) {
+                    res = c;
+                    sz = res->get_size();
+                }
             }
-            return nullptr;
+            return res;
         }
 
         bool contains(const lemma_ref &lemma) {
@@ -527,11 +533,17 @@ class pred_transformer {
             return m_clusters.back();
         }
 
+        /// Return the smallest cluster containing \p lemma
         lemma_cluster *get_cluster(const lemma_ref &lemma) {
+            unsigned sz = UINT_MAX;
+            lemma_cluster *res = nullptr;
             for (lemma_cluster *lc : m_clusters) {
-                if (lc->contains(lemma)) return lc;
+                if (lc->get_size() < sz && lc->contains(lemma)) {
+                    res = lc;
+                    sz = res->get_size();
+                }
             }
-            return nullptr;
+            return res;
         }
 
         lemma_cluster *get_cluster(const expr *pattern) {
