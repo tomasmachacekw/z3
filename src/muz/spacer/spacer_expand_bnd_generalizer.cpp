@@ -77,6 +77,7 @@ void lemma_expand_bnd_generalizer::operator()(lemma_ref &lemma) {
         for (unsigned i = 0; i < conj.size(); i++) {
             bnd = conj.get(i);
             if (!is_ineq(m, bnd, val)) continue;
+            if (!updt_conj.contains(bnd)) continue;
             TRACE("expand_bnd", tout << "Attempting to expand " << bnd
                                      << " inside " << conj << "\n";);
             for (rational n : m_values) {
