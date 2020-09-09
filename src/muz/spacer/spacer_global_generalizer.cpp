@@ -681,6 +681,8 @@ bool lemma_global_generalizer::do_conjecture(pob_ref n, expr_ref lit,
                                              unsigned lvl, unsigned gas) {
     expr_ref_vector conj(m), fml_vec(m);
     expr_ref n_pob = expr_ref(n->post(), m);
+    normalize_order(n_pob, n_pob);
+    fml_vec.push_back(n_pob);
     flatten_and(fml_vec);
     bool is_smaller = drop_lit(fml_vec, lit, conj);
     SASSERT(gas > 0 && gas < UINT_MAX);
@@ -696,7 +698,7 @@ bool lemma_global_generalizer::do_conjecture(pob_ref n, expr_ref lit,
         // The literal to be abstracted is not in the pob
         TRACE("global", tout << "cannot conjecture on " << n_pob << " with lit "
                              << lit << "\n";);
-        // TODO: Should we stop local generalization at this point ?
+        n->stop_local_gen();
         m_st.m_num_cant_abs++;
         return false;
     }
@@ -705,6 +707,7 @@ bool lemma_global_generalizer::do_conjecture(pob_ref n, expr_ref lit,
     n->set_expand_bnd();
     n->set_may_pob_lvl(lvl);
     n->set_gas(gas);
+    n->stop_local_gen();
     TRACE("global", tout << "set conjecture " << conj << " at level "
                          << n->get_may_pob_lvl() << "\n";);
     return true;
