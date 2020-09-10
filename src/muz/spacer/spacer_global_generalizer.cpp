@@ -801,6 +801,7 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
         // This decision is hard to explain. I believe this helped in solving an
         // instance
         n->stop_local_gen();
+        pt_cls->dec_gas();
     }
     return;
 }
