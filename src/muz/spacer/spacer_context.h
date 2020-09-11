@@ -513,7 +513,7 @@ class pred_transformer {
             unsigned sz = UINT_MAX;
             lemma_cluster *res = nullptr;
             for (auto *c : m_clusters) {
-                if (c->get_size() < sz && c->can_contain(lemma)) {
+                if (c->get_gas() > 0 && c->get_size() < sz && c->can_contain(lemma)) {
                     res = c;
                     sz = res->get_size();
                 }
