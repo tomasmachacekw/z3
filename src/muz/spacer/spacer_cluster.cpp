@@ -34,8 +34,8 @@ Author:
 #define MAX_CLUSTER_SIZE 5
 using namespace spacer;
 namespace spacer {
-lemma_cluster_finder::lemma_cluster_finder(ast_manager &am)
-    : m(am), m_arith(m), m_bv(m) {}
+lemma_cluster_finder::lemma_cluster_finder(ast_manager &_m)
+    : m(_m), m_arith(m), m_bv(m) {}
 
 /// Check whether \p cube and \p lcube differ only in interpreted constants
 bool lemma_cluster_finder::are_neighbours(const expr_ref &cube,
@@ -53,7 +53,7 @@ bool lemma_cluster_finder::are_neighbours(const expr_ref &cube,
 ///
 /// Should return
 ///         \exist res (\forall f \in fmls (\exist i_sub res[i_sub] == f))
-/// however, the algorithm is incomplete: it returns such a res iff
+/// However, the algorithm is incomplete: it returns such a res iff
 ///         res \in {antiU(cube,  e) | e \in fmls}
 /// Returns true if res is found
 /// TODO: do complete n-ary anti-unification. Not done now
@@ -120,8 +120,9 @@ bool lemma_cluster_finder::anti_unify_n_intrp(expr_ref &cube,
     return false;
 }
 
-/// Add \p lemma to a cluster. Attempt to create a new cluster if lemma does not
-/// belong to any existing clusters
+/// Add a new lemma \p lemma to a cluster
+///
+/// Creates a new cluster for the lemma if necessary
 void lemma_cluster_finder::cluster(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
     pred_transformer &pt = (lemma->get_pob())->pt();
@@ -129,19 +130,23 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
     // check whether lemmas has already been added
     if (pt.clstr_contains(lemma)) return;
 
-    // if the lemma matches a pattern of one of the clusters, but is not in it,
-    // add it.
+    /// Add the lemma to a cluster it is matched against
     lemma_cluster *clstr = pt.clstr_match(lemma);
     if (clstr && clstr->get_size() <= MAX_CLUSTER_SIZE) {
-        TRACE("cluster_stats_verb", tout << "Trying to add lemma "
-              << lemma->get_cube()
-              << " to existing cluster ";
-              for (auto l
-                       : clstr->get_lemmas()) tout
-                                                  << l.get_lemma()->get_cube() << "\n";);
+        TRACE("cluster_stats_verb", {
+            tout << "Trying to add lemma " << lemma->get_cube()
+                 << " to an existing cluster ";
+            for (auto l : clstr->get_lemmas())
+                tout << l.get_lemma()->get_cube() << "\n";
+        });
         clstr->add_lemma(lemma);
         return;
     }
+
+    // AG: Not clear what happens if there is a cluster for lemma but
+    // AG: it is larger than MAX_CLUSTER_SIZE. I expect the code to exit
+    // AG: early. However, it seems to try to create a new cluster...
+
     // Check whether a new cluster can be formed
     lemma_ref_vector all_lemmas;
     pt.get_all_lemmas(all_lemmas, false);
@@ -158,7 +163,8 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
         cube = mk_and(l->get_cube());
         normalize_order(cube, cube);
         // make sure that l is not in any other clusters
-        if (are_neighbours(lcube, cube) && cube != lcube && !pt.clstr_contains(l)) {
+        if (are_neighbours(lcube, cube) && cube != lcube &&
+            !pt.clstr_contains(l)) {
             neighbours.push_back(l);
             lma_cubes.push_back(cube);
         }
@@ -173,6 +179,8 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
     // no general pattern
     if (!is_cluster || get_num_vars(pattern) == 0) return;
 
+    // AG: this cluster might be larger than MAX_CLUSTER_SIZE
+    // AG: is that intentional?
     lemma_cluster *cluster = pt.mk_cluster(pattern);
 
     TRACE("cluster_stats",
@@ -199,9 +207,10 @@ void lemma_cluster_finder::collect_statistics(statistics &st) const {
     st.update("time.spacer.solve.reach.cluster", m_st.watch.get_seconds());
 }
 
-/// Removes subsumed lemmas in the cluster. \p removed_lemmas is the list of
-/// removed lemmas
-void lemma_cluster ::rm_subsumed(lemma_info_vector &removed_lemmas) {
+/// Removes subsumed lemmas in the cluster
+///
+/// Removed lemmas are placed into \p removed_lemmas
+void lemma_cluster::rm_subsumed(lemma_info_vector &removed_lemmas) {
     removed_lemmas.reset();
     if (m_lemma_vec.size() <= 1) return;
     // set up and run the simplifier
@@ -211,7 +220,6 @@ void lemma_cluster ::rm_subsumed(lemma_info_vector &removed_lemmas) {
     for (auto l : m_lemma_vec) { g->assert_expr(l.get_lemma()->get_expr()); }
     (*simplifier)(g, result);
     SASSERT(result.size() == 1);
-
 
     goal *r = result[0];
     // nothing removed
@@ -241,51 +249,64 @@ void lemma_cluster ::rm_subsumed(lemma_info_vector &removed_lemmas) {
     m_lemma_vec.append(non_subsumd_lemmas);
 }
 
-/// Checks whether \p e matches m_pattern.
-/// If so, returns the substitution that gets e from pattern
+/// Checks whether \p e matches the pattern of the cluster
+/// Returns true on success and set \p sub to the corresponding substitution
 bool lemma_cluster::match(const expr_ref &e, substitution &sub) {
-    m_matcher.reset();
     bool pos;
-    bool is_match = m_matcher(m_pattern.get(), e.get(), sub, pos);
-    unsigned n_binds = sub.get_num_bindings();
     std::pair<unsigned, unsigned> var;
     expr_offset r;
     arith_util a_util(m);
     bv_util bv(m);
+
+    m_matcher.reset();
+    bool is_match = m_matcher(m_pattern.get(), e.get(), sub, pos);
     if (!(is_match && pos)) return false;
+
+    unsigned n_binds = sub.get_num_bindings();
+    auto is_numeral = [&](expr *e) {
+        return a_util.is_numeral(e) || bv.is_numeral(e);
+    };
     // All the matches should be numerals
     for (unsigned i = 0; i < n_binds; i++) {
         sub.get_binding(i, var, r);
-        if (!(a_util.is_numeral(r.get_expr()) || bv.is_numeral(r.get_expr())))
-            return false;
+        if (!is_numeral(r.get_expr())) return false;
     }
     return true;
 }
 
-/// Try to add \p lemma to cluster. Remove subsumed lemmas if \p subs_check is true
+/// A a lemma to a cluster
 ///
-/// Returns false if lemma does not match the pattern or if it is already in the cluster
-/// Repetition of lemmas is avoided by doing a linear scan over the lemmas in the
-/// cluster. Adding a lemma can reduce the size of the cluster due to subs_check
+/// Removes subsumed lemmas if \p subs_check is true
+///
+/// Returns false if lemma does not match the pattern or if it is already in the
+/// cluster. Repetition of lemmas is avoided by doing a linear scan over the
+/// lemmas in the cluster. Adding a lemma can reduce the size of the cluster due
+/// to subsumption reduction.
 bool lemma_cluster::add_lemma(const lemma_ref &lemma, bool subs_check) {
     substitution sub(m);
-    sub.reserve(1, get_num_vars(m_pattern.get()));
     expr_ref cube(m);
+
+    sub.reserve(1, get_num_vars(m_pattern.get()));
     cube = mk_and(lemma->get_cube());
     normalize_order(cube, cube);
+
     if (!match(cube, sub)) return false;
+
     // cluster already contains the lemma
     if (contains(lemma)) return false;
+
     TRACE("cluster_stats_verb",
           tout << "Trying to add lemma " << lemma->get_cube() << "\n";);
-    lemma_info l_i(lemma, sub);
-    m_lemma_vec.push_back(l_i);
+
+    lemma_info li(lemma, sub);
+    m_lemma_vec.push_back(li);
+
     if (subs_check) {
         lemma_info_vector removed_lemmas;
         rm_subsumed(removed_lemmas);
-        for (auto r_l : removed_lemmas) {
+        for (auto rl_li : removed_lemmas) {
             // There is going to atmost one subsumed lemma that matches l_i
-            if (r_l.get_lemma() == l_i.get_lemma()) return false;
+            if (rl_li.get_lemma() == li.get_lemma()) return false;
         }
     }
     TRACE("cluster_stats", tout << "Added lemma " << lemma->get_cube()
