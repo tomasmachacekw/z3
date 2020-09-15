@@ -203,11 +203,8 @@ class sage_arith_kernel_plugin : public spacer_arith_kernel::plugin {
         st.update("time.spacer.sage", m_st.watch.get_seconds());
         st.update("SPACER sage calls", m_st.m_sage_calls);
     }
-    virtual void reset_statistics() override {
-        m_st.reset(); }
-    virtual void reset() override {
-        m_sage = alloc(Sage);
-    }
+    virtual void reset_statistics() override { m_st.reset(); }
+    virtual void reset() override { m_sage = alloc(Sage); }
 };
 
 std::string

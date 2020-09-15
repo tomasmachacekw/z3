@@ -29,7 +29,7 @@ namespace spacer {
 class spacer_arith_kernel {
   public:
     class plugin {
-    public:
+      public:
         virtual ~plugin() {}
         virtual bool compute_kernel(const spacer_matrix &in_matrix,
                                     spacer_matrix &out_kernel) = 0;
@@ -48,6 +48,7 @@ class spacer_arith_kernel {
 
     /// Input matrix for which kernel is to be computed
     const spacer_matrix &m_matrix;
+
     /// Output matrix representing the kernel
     spacer_matrix m_kernel;
 
@@ -63,12 +64,16 @@ class spacer_arith_kernel {
 
     /// Computes kernel of a matrix
     /// returns true if the computation was successful
-    /// use spacer_arith_kernel::get_kernel() to get the kernel
+    /// use \p spacer_arith_kernel::get_kernel() to get the kernel
     bool compute_kernel();
     bool operator()() { return compute_kernel(); }
+
     const spacer_matrix &get_kernel() const { return m_kernel; }
 
-    void reset() { m_kernel = spacer_matrix(0, 0); if (m_plugin) m_plugin->reset();}
+    void reset() {
+        m_kernel = spacer_matrix(0, 0);
+        if (m_plugin) m_plugin->reset();
+    }
 
     virtual void collect_statistics(statistics &st) const {
         st.update("SPACER arith kernel failed", m_st.m_failed);
