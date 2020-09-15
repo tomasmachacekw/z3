@@ -53,19 +53,6 @@ public:
                      substitution &s1, substitution &s2);
 };
 
-class naive_convex_closure
-{
-public:
-    static bool compute_closure(anti_unifier& au, ast_manager& m,
-                                expr_ref& result);
-
-private:
-    static bool get_range(vector<unsigned>& v, unsigned& lower_bound,
-                          unsigned& upper_bound);
-    static void substitute_vars_by_const(ast_manager& m, expr* t, expr* c,
-                                         expr_ref& res);
-};
-
 /// Abstracts numbers in the given ground expression by variables
 /// Returns the created pattern and the corresponding substitution.
 void mk_num_pat(expr *e, expr_ref &result, app_ref_vector &subs);
