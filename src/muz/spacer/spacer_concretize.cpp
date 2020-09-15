@@ -25,11 +25,11 @@ bool is_bin_op(expr *f, expr *&lhs, expr *&rhs, ast_manager &m) {
 
     if (!is_app(f)) return false;
     if (m.is_not(f, e)) return is_bin_op(e, lhs, rhs, m);
-    app *f_app = to_app(f);
-    if (f_app->get_num_args() != 2) return false;
+    app *fapp = to_app(f);
+    if (fapp->get_num_args() != 2) return false;
 
-    lhs = f_app->get_arg(0);
-    rhs = f_app->get_arg(1);
+    lhs = fapp->get_arg(0);
+    rhs = fapp->get_arg(1);
     return true;
 }
 } // anonymous namespace
@@ -53,7 +53,7 @@ struct proc {
 
 namespace spacer {
 
-// Checks whether the uninterp_const in term has a var coeff in pattern
+/// Checks whether the uninterp_const in term has a var coeff in pattern
 bool concretize::should_partition(expr *pattern, expr *term) {
     expr_ref_vector uc(m);
     get_uninterp_consts(term, uc);
@@ -70,61 +70,60 @@ bool concretize::should_partition(expr *pattern, expr *term) {
 
 /// Concretize formula \p f using literals of dim 1
 /// returns false if \p f is not an arithmetic fml
-bool concretize::mk_concr(expr_ref f, model_ref &model,
-                          expr_ref_vector &concr_vec, expr_ref pattern) {
+bool concretize::mk_concr(expr_ref f, model_ref &model, expr_ref_vector &res,
+                          expr_ref pattern) {
     SASSERT(is_app(f));
+    SASSERT(pattern.get());
 
     expr_ref_vector u_consts(m);
     get_uninterp_consts(f, u_consts);
 
-    expr_ref_vector conj(m), conj_la(m);
+    expr_ref_vector conj(m), todo(m);
     flatten_and(f, conj);
 
     for (auto *e : conj) {
         // separate out boolean u_c
         if (not_handled(e))
-            concr_vec.push_back(e);
+            res.push_back(e);
         else
-            conj_la.push_back(e);
+            todo.push_back(e);
     }
 
-    expr *e_not;
-    // if the literals are not in arithmetic, return false
-    for (auto e : conj_la) {
+    expr *e1;
+    // AG: why not check when literal is added to the todo list?
+
+    // bail out if at least one of the todo literals is not arithmetic
+    for (auto e : todo) {
         TRACE("concretize_verb", tout << "Literal is " << mk_pp(e, m););
         if (!(m_arith.is_arith_expr(e) ||
-              (m.is_not(e, e_not) && m_arith.is_arith_expr(e_not))))
+              (m.is_not(e, e1) && m_arith.is_arith_expr(e1))))
             return false;
     }
 
-    SASSERT(pattern.get() != nullptr);
-
-    partition_and_concretize(conj_la, pattern, model, concr_vec);
+    partition_and_concretize(todo, pattern, model, res);
 
     TRACE("concretize",
-          tout << "produced a concretization : " << mk_and(concr_vec) << "\n";);
-    SASSERT(!concr_vec.empty());
+          tout << "produced a concretization : " << mk_and(res) << "\n";);
+    SASSERT(!res.empty());
     return true;
 }
 
 /// Partition terms of \p cube using the method partition_terms.
 /// Then find bounds \p lb and \p ub such that
 ///            \Land_{p \in partitions} (lb[t] <= t <= ub[t]) ==> cube
-void concretize::partition_and_concretize(const expr_ref_vector &cube, expr_ref pattern,
-                                model_ref &model, expr_ref_vector &concr_cube) {
-    expr_ref_vector grps(m);
+void concretize::partition_and_concretize(const expr_ref_vector &cube,
+                                          expr_ref pattern, model_ref &model,
+                                          expr_ref_vector &concr_cube) {
+    expr_ref_vector groups(m);
     expr_ref_vector sub_term(m);
     expr_ref_vector non_lit_cube(m);
     TRACE("concretize", tout << "grouping an arithmetic pob : ";
           tout << mk_and(cube) << " and pattern " << mk_pp(pattern, m)
                << " \n";);
     for (auto lit : cube) {
-        partition_terms(pattern, expr_ref(lit, m), grps, sub_term);
+        partition_terms(pattern, expr_ref(lit, m), groups, sub_term);
     }
-    TRACE("concretize", tout << "groups are : "; for (expr *e
-                                                      : grps) tout
-                                                 << mk_pp(e, m) << " ";
-          tout << "\n";);
+    TRACE("concretize", tout << "groups are : " << groups << "\n";);
 
     expr_ref sub_fml(m);
     // TODO ensure union of groups has all the variables
@@ -132,7 +131,7 @@ void concretize::partition_and_concretize(const expr_ref_vector &cube, expr_ref 
     expr_ref_vector variables(m);
     expr_expr_map sub(m);
     expr_ref_vector fresh_consts(m);
-    for (expr *grp : grps) {
+    for (expr *grp : groups) {
         expr_ref eval_ref = (*model)(&(*grp));
         SASSERT(m_arith.is_numeral(eval_ref));
         fresh_consts.push_back(m.mk_fresh_const("sub_temp", m.get_sort(grp)));
@@ -172,7 +171,8 @@ void concretize::partition_and_concretize(const expr_ref_vector &cube, expr_ref 
 /// term in \p sub_term.
 /// If there are n non linear multiplications in pattern, there are n + 1 axis.
 void concretize::partition_terms(expr_ref pattern, expr_ref formula,
-                           expr_ref_vector &out, expr_ref_vector &sub_term) {
+                                 expr_ref_vector &out,
+                                 expr_ref_vector &sub_term) {
     expr *t, *c;
     expr_ref_vector rw_formula(m);
     if (!is_bin_op(formula, t, c, m)) return;
@@ -307,13 +307,14 @@ int concretize::change_with_var(expr_ref l, expr_ref var) {
 }
 
 /// Tighten bounds \p lb and \p ub such that
-///     \forall x \in uninterp_consts(term) (lb[x] <= x <= ub[x]) ==> term <= model(term)
+///     \forall x \in uninterp_consts(term) (lb[x] <= x <= ub[x]) ==> term <=
+///     model(term)
 ///
 /// NOTE: optimize using bg if we need better bounds. In this
 /// case, should update background as bounds are discovered!!!!
 void concretize::concretize_term(model_ref &model, expr_ref term,
-                                expr_rat_map &lb, expr_rat_map &ub,
-                                expr_expr_map *sub) {
+                                 expr_rat_map &lb, expr_rat_map &ub,
+                                 expr_expr_map *sub) {
     expr_ref val(m);
 
     expr_ref_vector dims(m);
