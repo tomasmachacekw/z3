@@ -29,6 +29,7 @@ Notes:
 
 namespace spacer {
 
+/// Computes a convex closure of a set of points
 class convex_closure {
     struct stats {
         unsigned m_num_reductions;
@@ -72,7 +73,7 @@ class convex_closure {
 
     // Free variables introduced by syntactic convex closure
     // These variables are always of sort Real
-    var_ref_vector m_nw_vars;
+    var_ref_vector m_new_vars;
 
     // m_lcm is a hack to allow convex_closure computation of rational matrices
     // as well. Let A be a real matrix. m_lcm is the lcm of all denominators in
@@ -80,36 +81,41 @@ class convex_closure {
     // TODO: m_lcm should be maintained by the client
     rational m_lcm;
 
-    // AG: Needs better comment
-    // call m_kernel to reduce dimensions of m_data
-    // return the rank of m_data
+    /// Reduces dimension of \p m_data and returns its rank
     unsigned reduce_dim();
 
-    // For row \p row in m_kernel, construct the equality:
-    //
-    // row * m_dim_vars = 0
-    //
-    // In the equality, exactly one variable from  m_dim_vars is on the lhs
-    void generate_lin_deps_for_row(const vector<rational> &row, expr_ref &res);
+    /// Constructs an equality corresponding to a given row in the kernel
+    ///
+    /// The equality is conceptually corresponds to
+    ///    row * m_dim_vars = 0
+    /// where row is a row vector and m_dim_vars is a column vector.
+    /// However, the equality is put in a form so that exactly one variable from
+    /// \p m_dim_vars is on the LHS
+    void generate_equality_for_row(const vector<rational> &row, expr_ref &out);
 
     /// Construct all linear equations implied by points in \p m_data
-    // This is defined by \p m_kernel * m_dim_vars = 0
-    void generate_lin_deps(expr_ref_vector &res);
+    /// This is defined by \p m_kernel * m_dim_vars = 0
+    void generate_implied_equalities(expr_ref_vector &out);
 
     /// Compute syntactic convex closure of \p m_data
-    void syn_cls(expr_ref_vector &res_vec);
+    void syntactic_convex_closure(expr_ref_vector &out);
 
-    /// Construct the equality ((m_nw_vars . m_data[*][j]) = m_dim_vars[j]) and
-    /// add to res_vec. Where m_data[*][j] is the jth column of m_data
-    void add_sum_cnstr(unsigned j, expr_ref_vector &res_vec);
+    /// Construct the equality ((m_nw_vars . m_data[*][j]) = m_dim_vars[j])
+    ///
+    /// \p m_data[*][j] is the jth column of m_data
+    /// The equality is added to \p out.
+    void add_sum_cnstr(unsigned j, expr_ref_vector &out);
 
-    /// Compute one dimensional convex closure. \p var is the dimension over
-    /// which convex closure is computed and \p res stores the convex
-    /// closure
-    void do_one_dim_cls(expr_ref var, expr_ref_vector &res);
+    /// Compute one dimensional convex closure over \p var
+    ///
+    /// \p var is the dimension over  which convex closure is computed
+    /// Result is stored in \p out
+    void do_1dim_convex_closure(expr_ref var, expr_ref_vector &out);
 
-    /// Finds the largest numbers \p m and \p d such that \p m_data[i] mod m
-    /// = d Returns true if successful
+    /// Computes div constraint implied by a set of data points
+    ///
+    /// Finds the largest numbers \p m, \p d such that \p m_data[i] mod m = d
+    /// Returns true if successful
     bool compute_div_constraint(const vector<rational> &data, rational &m,
                                 rational &d);
 
@@ -120,15 +126,19 @@ class convex_closure {
     convex_closure(ast_manager &manager, bool use_sage)
         : m(manager), m_arith(m), m_bv(m), m_bv_sz(0), m_do_syn_cls(true),
           m_is_arith(true), m_dim(0), m_data(0, 0), m_dim_vars(m),
-          m_kernel(m_data), m_nw_vars(m) {
+          m_kernel(m_data), m_new_vars(m) {
 
         if (use_sage) m_kernel.set_plugin(mk_sage_plugin());
     }
 
+    /// Resets all data points
+    ///
+    /// n_cols is the number of dimensions of new expected data points
     void reset(unsigned n_cols);
 
-    /// Turn support for fixed sized bit-vectors of size \p sz. This disable
-    /// syntactic convex closure as well
+    /// Turn support for fixed sized bit-vectors of size \p sz
+    ///
+    /// Disables syntactic convex closure as a side-effect 
     void set_bv(unsigned sz) {
         SASSERT(sz > 0);
         m_is_arith = false;
@@ -136,7 +146,7 @@ class convex_closure {
         m_do_syn_cls = false;
     }
 
-    /// \brief Name dimension \p i by variable \p v.
+    /// \brief Name dimension \p i with a variable \p v.
     void set_dimension(unsigned i, var *v) {
         SASSERT(i < dims());
         SASSERT(m_dim_vars[i] == nullptr);
@@ -146,8 +156,8 @@ class convex_closure {
     /// \brief Return number of dimensions of each point
     unsigned dims() const { return m_dim; }
 
-    /// \brief Return constants introduced by the syntactic convex closure
-    const var_ref_vector &get_nw_vars() const { return m_nw_vars; }
+    /// \brief Return variables introduced by the syntactic convex closure
+    const var_ref_vector &get_new_vars() const { return m_new_vars; }
 
     /// \brief Add a one-dimensional point to convex closure
     void push_back(rational x) {
@@ -174,13 +184,11 @@ class convex_closure {
 
     /// \brief Compute convex closure of the current set of points
     ///
-    /// Returns true if successful and \p res is an exact convex closure
-    /// Returns false if \p res is an over-approximation of the convex
-    /// closure
-    bool closure(expr_ref_vector &res);
+    /// Returns true if successful and \p out is an exact convex closure
+    /// Returns false if \p out is an over-approximation
+    bool closure(expr_ref_vector &out);
 
     void collect_statistics(statistics &st) const;
-
     void reset_statistics() { m_st.reset(); }
 
     /// Set the least common multiple of \p m_data

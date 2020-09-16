@@ -491,7 +491,7 @@ void lemma_global_generalizer::subsumer::setup_subsume(
 
 /// Add variables introduced by cvx_cls to the list of variables
 void lemma_global_generalizer::subsumer::add_cvx_cls_vars() {
-    const var_ref_vector &vars = m_cvx_cls.get_nw_vars();
+    const var_ref_vector &vars = m_cvx_cls.get_new_vars();
     app_ref var_app(m);
     for (auto v : vars) {
         m_dim_vars.push_back(v);
