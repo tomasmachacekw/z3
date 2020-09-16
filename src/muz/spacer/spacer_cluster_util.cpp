@@ -214,10 +214,8 @@ void normalize_order(expr *e, expr_ref &out) {
 /// Under approximate arithmetic inequality
 ///
 /// Returns true if there are \p t and \p c such that (t <= c) ==> lit
+/// Supports both Reals and Ints
 bool under_approx_using_le(expr *lit, expr_ref &t, expr_ref &c) {
-    // AG: I do not see where the *under-approximation* happens
-    // AG: Seems more like is_le(lit, t, c)
-    // AG: Maybe I missed something in refactoring
     ast_manager &m = t.get_manager();
     arith_util m_arith(m);
 
@@ -235,12 +233,10 @@ bool under_approx_using_le(expr *lit, expr_ref &t, expr_ref &c) {
     if ((!is_not && m_arith.is_le(e0)) || (is_not && m_arith.is_gt(e0)))
         c = e2;
     else if ((!is_not && m_arith.is_lt(e0)) || (is_not && m_arith.is_ge(e0))) {
-        if (!is_int) return false;
         // t < n ==> t <= (n-1)
         c = m_arith.mk_numeral(n - 1, is_int);
     } else if ((!is_not && m_arith.is_gt(e0)) ||
                (is_not && m_arith.is_le(e0))) {
-        if (!is_int) return false;
         // t > n ==> -t <= -n - 1
         mul_by_rat(t, rational::minus_one());
         c = m_arith.mk_numeral(-n - 1, is_int);
