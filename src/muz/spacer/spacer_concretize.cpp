@@ -231,26 +231,22 @@ bool concretize::is_sop(expr *e) {
     if (!is_app(e)) return false;
 
     expr *e1, *e2;
-    // cannot have a top level operand other than plus
-    if (!m_arith.is_add(e)) {
-        // all arguments for the product should be constants.
-        if (!(m_arith.is_mul(e, e1, e2) && is_constant(e1) && is_constant(e2)))
-            return false;
-        // AG: looks like this should return true on a multiplication
+    if (m_arith.is_mul(e, e1, e2)) {
+        if (is_constant(e1) && is_constant(e2)) return true;
+        return false;
     }
+    // cannot have a top level operand other than plus
+    if (!m_arith.is_add(e)) return false;
 
     // all terms inside have to be either a constant or a product of
     // constants
     for (expr *term : *to_app(e)) {
-        // all arguments for the product should be constants.
         if (is_constant(term))
             continue;
-        else if (m_arith.is_mul(term, e1, e2)) {
-            if (!is_constant(e1) || !is_constant(e2)) return false;
-        } else {
-            // -- unexpected term
+        else if (m_arith.is_mul(term, e1, e2) && is_constant(e1) && is_constant(e2))
+            continue;
+        else
             return false;
-        }
     }
     return true;
 }
