@@ -128,6 +128,7 @@ static rational get_lcm(expr *e, ast_manager &m) {
     return g.m_val;
 }
 
+// clang-format off
 /// Removes all occurrences of (to_real t) from \p fml where t is a constant
 ///
 /// Applies the following rewrites upto depth \p depth
@@ -141,6 +142,7 @@ static rational get_lcm(expr *e, ast_manager &m) {
 ///                                                                    arithmetic operation
 /// on all other formulas, do nothing
 /// NOTE: cannot use a rewriter since we change the sort of fml
+// clang-format on
 static void strip_to_real(expr_ref &fml, unsigned depth = 3) {
     ast_manager &m = fml.get_manager();
     arith_util arith(m);
@@ -217,6 +219,7 @@ static void to_int(expr_ref &fml) {
     fml = mk_and(new_fml);
 }
 
+// clang-format off
 /// Wrap integer uninterpreted constants in expression \p fml with (to_real)
 ///
 /// only supports arithmetic expressions
@@ -234,6 +237,7 @@ static void to_int(expr_ref &fml) {
 ///                                                                operation
 /// on all other formulas, do nothing
 /// NOTE: cannot use a rewriter since we change the sort of fml
+// clang-format on
 static void to_real_term(expr_ref &fml, unsigned depth = 3) {
     ast_manager &m = fml.get_manager();
     arith_util arith(m);
@@ -397,7 +401,8 @@ void lemma_global_generalizer::subsumer::reset(unsigned n_vars) {
 
 /// Find a representative for \p c
 // TODO: replace with a symbolic representative
-expr * lemma_global_generalizer::subsumer::find_repr(const model_ref &mdl, const app_ref &c) {
+expr *lemma_global_generalizer::subsumer::find_repr(const model_ref &mdl,
+                                                    const app_ref &c) {
     return mdl->get_const_interp(c->get_decl());
 }
 
@@ -715,66 +720,66 @@ bool lemma_global_generalizer::do_conjecture(pob_ref n, expr_ref lit,
 
 // Decide global guidance based on lemma
 void lemma_global_generalizer::core(lemma_ref &lemma) {
-    pob_ref n = lemma->get_pob();
-    lemma_cluster *pt_cls = n->pt().clstr_match(lemma);
+    // -- pob that the lemma blocks
+    pob_ref pob = lemma->get_pob();
+    // -- cluster that the lemma belongs to
+    lemma_cluster *cluster = pob->pt().clstr_match(lemma);
+
     /// Lemma does not belong to any cluster. return
-    if (pt_cls == nullptr) return;
+    if (!cluster) return;
 
     // if the cluster does not have enough gas, stop local generalization and
     // return
-    if (pt_cls->get_gas() == 0) {
+    if (cluster->get_gas() == 0) {
         m_st.m_num_cls_ofg++;
-        n->stop_local_gen();
+        pob->stop_local_gen();
         TRACE("global", tout << "stop local generalization on pob "
-                             << mk_pp(n->post(), m) << " id is "
-                             << n->post()->get_id() << "\n";);
+                             << mk_pp(pob->post(), m) << " id is "
+                             << pob->post()->get_id() << "\n";);
         return;
     }
 
-    // the lemma has not been added to the cluster yet since the lemma has not
-    // been added to spacer yet. So we create a local copy of the cluster and
-    // add the lemma to it.
-    lemma_cluster lc(*pt_cls);
-    // add lemma to lc, remove all subsumed lemmas in lc
+    // -- local cluster that includes the new lemma
+    lemma_cluster lc(*cluster);
     lc.add_lemma(lemma, true);
 
-    const expr_ref &pattern = lc.get_pattern();
+    const expr_ref &pat = lc.get_pattern();
     expr_ref lit(m);
 
-    TRACE("global",
-          tout << "Start global generalization of lemma : " << lemma->get_cube()
-               << "\n Discovered cluster: " << pattern << "\n and lemmas ";
-          for (const lemma_info &lemma
-               : lc.get_lemmas()) {
-              tout << "\n \t" << lemma.get_lemma()->get_cube();
-          });
+    TRACE("global", {
+        tout << "Start global generalization of lemma : " << lemma->get_cube()
+             << "\n Discovered cluster: " << pat << "\n and lemmas ";
+        for (const lemma_info &lemma : lc.get_lemmas()) {
+            tout << "\n \t" << lemma.get_lemma()->get_cube();
+        }
+    });
 
     // Concretize
-    if (has_nonlinear_var_mul(pattern, m)) {
+    if (has_nonlinear_var_mul(pat, m)) {
         m_st.m_num_non_lin++;
 
         TRACE("global",
               tout << "Found non linear pattern. Marked to concretize \n";);
         // not constructing the concrete pob here since we need a model for
         // n->post()
-        n->set_concr_pat(pattern);
-        n->set_concretize();
-        n->set_gas(pt_cls->get_pob_gas());
-        pt_cls->dec_gas();
+        pob->set_concr_pat(pat);
+        pob->set_concretize();
+        pob->set_gas(cluster->get_pob_gas());
+        cluster->dec_gas();
         return;
     }
 
     // Conjecture
-    if (should_conjecture(pattern, lit)) {
+    if (should_conjecture(pat, lit)) {
         // Create a conjecture by dropping literal from pob.
-        TRACE("global", tout << "Conjecture with pattern " << mk_pp(pattern, m)
-                             << " with gas " << pt_cls->get_gas() << "\n";);
-        unsigned gas = pt_cls->get_pob_gas();
-        unsigned lvl = pt_cls->get_min_lvl() + 1;
-        if (do_conjecture(n, lit, lvl, gas)) {
+        TRACE("global", tout << "Conjecture with pattern " << mk_pp(pat, m)
+                             << " with gas " << cluster->get_gas() << "\n";);
+        unsigned gas = cluster->get_pob_gas();
+        unsigned lvl = cluster->get_min_lvl() + 1;
+        if (do_conjecture(pob, lit, lvl, gas)) {
             // decrease the number of times this cluster is going to be used for
             // conjecturing
-            pt_cls->dec_gas();
+            cluster->dec_gas();
             return;
         }
         // if conjecture failed, try subsume
@@ -784,42 +789,44 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
     // generalize
     if (lc.get_size() < 2) return;
 
-    // Subsume
-    expr_ref_vector subsume_gen(m);
-    // subsume might introduce new bindings
+    // -- new pob that is blocked by generalized lemma
+    expr_ref_vector new_pob(m);
+    // -- bindings for free variables of new_pob
+    // -- subsumer might introduce extra free variables
     app_ref_vector bindings(m);
     bindings.append(lemma->get_bindings());
-    if (m_subsumer.subsume(lc, subsume_gen, bindings)) {
-        n->set_subsume_pob(subsume_gen);
-        n->set_subsume_bindings(bindings);
-        n->set_may_pob_lvl(pt_cls->get_min_lvl() + 1);
-        n->set_gas(pt_cls->get_pob_gas() + 1);
-        n->set_expand_bnd();
-        TRACE("global", tout << "subsume pob " << mk_and(subsume_gen)
-                             << " at level " << pt_cls->get_min_lvl() + 1
-                             << " set on pob " << mk_pp(n->post(), m) << "\n";);
-        // This decision is hard to explain. I believe this helped in solving an
-        // instance
-        n->stop_local_gen();
-        pt_cls->dec_gas();
+
+    if (m_subsumer.subsume(lc, new_pob, bindings)) {
+        pob->set_subsume_pob(new_pob);
+        pob->set_subsume_bindings(bindings);
+        pob->set_may_pob_lvl(cluster->get_min_lvl() + 1);
+        pob->set_gas(cluster->get_pob_gas() + 1);
+        pob->set_expand_bnd();
+        TRACE("global", tout << "subsume pob " << mk_and(new_pob)
+                             << " at level " << cluster->get_min_lvl() + 1
+                             << " set on pob " << mk_pp(pob->post(), m)
+                             << "\n";);
+        // -- stop local generalization
+        // -- maybe not the best choice in general. Helped with one instance on
+        // -- our benchmarks
+        pob->stop_local_gen();
+        cluster->dec_gas();
     }
-    return;
 }
 
 /// Replace bound vars in \p fml with uninterpreted constants
-void lemma_global_generalizer::subsumer::ground_free_vars(
-    expr *pattern, expr_ref &rw_pattern) {
-    SASSERT(!is_ground(pattern));
+void lemma_global_generalizer::subsumer::ground_free_vars(expr *pat,
+                                                          expr_ref &out) {
+    SASSERT(!is_ground(pat));
     expr_safe_replace s(m);
     obj_map<expr, expr *> sub;
     for (unsigned i = 0; i < m_dim_vars.size(); i++) {
         s.insert(m_dim_vars.get(i), to_expr(m_dim_frsh_cnsts.get(i)));
     }
-    s(pattern, rw_pattern);
+    s(pat, out);
     TRACE("subsume_verb", tout << "Rewrote all vars into u_consts "
-                               << mk_pp(pattern, m) << " into " << rw_pattern
-                               << "\n";);
-    SASSERT(is_ground(rw_pattern));
+                               << mk_pp(pat, m) << " into " << out << "\n";);
+    SASSERT(is_ground(out));
     return;
 }
 

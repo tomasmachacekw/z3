@@ -23,7 +23,12 @@ Author:
 
 namespace spacer {
 
+/// Global guided generalization
+///
+/// See Hari Govind et al. Global Guidance for Local Generalization in Model
+/// Checking. CAV 2020
 class lemma_global_generalizer : public lemma_generalizer {
+    /// Subsumption strategy
     class subsumer {
         struct stats {
             unsigned m_num_syn_cls;
@@ -40,26 +45,31 @@ class lemma_global_generalizer : public lemma_generalizer {
             }
         };
         stats m_st;
+
         ast_manager &m;
         arith_util m_arith;
         bv_util m_bv;
 
         // convex closure interface
         convex_closure m_cvx_cls;
+
         // save fresh constants for mbp
         app_ref_vector m_dim_frsh_cnsts;
+
         // save vars from cluster pattern
         var_ref_vector m_dim_vars;
+
         // create pob without free vars
         bool m_ground_pob;
-        // solver to get model for computing mbp and to check whether
+
+        // Local solver to get model for computing mbp and to check whether
         // cvx_cls  ==> mbp
         ref<solver> m_solver;
 
         /// Prepare internal state for computing subsumption
         void setup_subsume(const lemma_cluster &lc);
 
-        /// Returns false if subsumption is not supported for \p lc
+        /// Returns false if subsumption is not supported for given cluster
         bool is_handled(const lemma_cluster &lc);
 
         /// Find a representative for \p c
@@ -70,6 +80,7 @@ class lemma_global_generalizer : public lemma_generalizer {
         /// \p cnsts is appended with ground terms from \p mdl
         void skolemize(expr_ref &f, app_ref_vector &cnsts,
                        const model_ref &mdl);
+
         /// Create new vars to compute convex cls
         void add_dim_vars(const lemma_cluster &lc);
 
@@ -83,8 +94,9 @@ class lemma_global_generalizer : public lemma_generalizer {
         void populate_cvx_cls(const lemma_cluster &lc);
 
         void reset(unsigned n_vars);
-        /// Make \p fml ground using m_dim_frsh_cnsts. Store result in \p rw_fml
-        void ground_free_vars(expr *fml, expr_ref &rw_fml);
+
+        /// Make \p fml ground using m_dim_frsh_cnsts. Store result in \p out
+        void ground_free_vars(expr *fml, expr_ref &out);
 
         /// Weaken \p a such that (and a) overapproximates \p b
         bool over_approximate(expr_ref_vector &a, const expr_ref b);
@@ -109,7 +121,9 @@ class lemma_global_generalizer : public lemma_generalizer {
 
       public:
         subsumer(ast_manager &m, bool use_sage, bool ground_pob);
+
         void collect_statistics(statistics &st) const;
+
         /// Compute a cube \p res such that \neg p subsumes all the lemmas in \p
         /// lc
         ///
@@ -118,6 +132,7 @@ class lemma_global_generalizer : public lemma_generalizer {
         bool subsume(const lemma_cluster &lc, expr_ref_vector &res,
                      app_ref_vector &cnsts);
     };
+
     struct stats {
         unsigned m_num_cls_ofg;
         unsigned m_num_syn_cls;
@@ -155,7 +170,9 @@ class lemma_global_generalizer : public lemma_generalizer {
   public:
     lemma_global_generalizer(context &ctx);
     ~lemma_global_generalizer() override {}
+
     void operator()(lemma_ref &lemma) override;
+
     void collect_statistics(statistics &st) const override;
     void reset_statistics() override { m_st.reset(); }
 };
