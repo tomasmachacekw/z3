@@ -143,11 +143,9 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
         return;
     }
 
-    // AG: Not clear what happens if there is a cluster for lemma but
-    // AG: it is larger than MAX_CLUSTER_SIZE. I expect the code to exit
-    // AG: early. However, it seems to try to create a new cluster...
-
-    // Check whether a new cluster can be formed
+    // Try to create a new cluster with lemma even if it can belong to an
+    // oversized cluster. The new cluster will not contain any lemma that is
+    // already in another cluster.
     lemma_ref_vector all_lemmas;
     pt.get_all_lemmas(all_lemmas, false);
 
@@ -179,8 +177,14 @@ void lemma_cluster_finder::cluster(lemma_ref &lemma) {
     // no general pattern
     if (!is_cluster || get_num_vars(pattern) == 0) return;
 
-    // AG: this cluster might be larger than MAX_CLUSTER_SIZE
-    // AG: is that intentional?
+    // When creating a cluster, its size can be more than MAX_CLUSTER_SIZE. The
+    // size limitation is only for adding new lemmas to the cluster. The size is
+    // just an arbitrary number.
+    // What matters is that we do not allow a cluster to grow indefinitely.
+    // for example, given a cluster in which one lemma subsumes all other
+    // lemmas. No matter how big the cluster is, GSpacer is going to produce the
+    // exact same pob on this cluster. This can lead to divergence. The
+    // subsumption check we do is based on unit propagation, it is not complete.
     lemma_cluster *cluster = pt.mk_cluster(pattern);
 
     TRACE("cluster_stats",
