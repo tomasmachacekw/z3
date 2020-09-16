@@ -255,47 +255,39 @@ bool concretize::is_sop(expr *e) {
     return true;
 }
 
-/// Find the coeff of \p v in \p t
+/// Find the coeff of \p v in term \p t
 ///
-/// Assumes that t is in LA and in SOP or -1*SOP form
-bool concretize::find_coeff(expr_ref t, expr_ref v, rational &k) {
+/// Returns false if t is not in LA, does not contain \p v, or not in SOP or
+/// -1*SOP form. If \p v appears multiple times, the coefficient in first
+/// linear term is returned.
+bool concretize::find_coeff(expr_ref t, expr_ref v, rational &k,
+                            unsigned depth) {
     if (t == v) {
         k = rational::one();
         return true;
     }
+    if (depth == 0) return false;
 
     expr *e1 = nullptr, *e2 = nullptr;
     rational coeff;
-    if (m_arith.is_add(t)) {
-        for (expr *e : *to_app(t)) {
-            if (e == v) {
-                k = rational::one();
-                return true;
-            } else if (m_arith.is_mul(e, e1, e2) &&  (e2 == v || e1 == v)) {
-                e1 = e1 == v ? e2 : e1;
-                if (m_arith.is_numeral(e1, coeff)) {
-                    k = coeff;
-                    return true;
-                } else {
-                    return false;
-                }
-            }
-        }
-        // -- v is not in t, so use coefficient of 0
-        k = rational::zero();
+    expr_ref kid(m);
+    if (m_arith.is_mul(t, e1, e2)) {
+        if (!m_arith.is_numeral(e1, coeff) && !m_arith.is_numeral(e2, coeff))
+            return false;
+        kid = m_arith.is_numeral(e1) ? e2 : e1;
+        if (!find_coeff(kid, v, k, depth - 1)) return false;
+        k = k * coeff;
         return true;
     }
 
-    if (m_arith.is_mul(t, e1, e2)) {
-        // AG: what a mess ...
-        m_arith.is_numeral(e1, coeff);
-        SASSERT(coeff == rational::minus_one());
-        // Depth of recursion is atmost 1
-        SASSERT(m_arith.is_add(e2) || is_uninterp_const(e2));
-        find_coeff(expr_ref(e2, m), v, k);
-        k = k * rational::minus_one();
-        return true;
+    if (m_arith.is_add(t)) {
+        for (expr *e : *to_app(t)) {
+            kid = e;
+            if (find_coeff(kid, v, k, depth - 1)) { return true; }
+        }
+        return false;
     }
+
     return false;
 }
 
@@ -306,15 +298,18 @@ bool concretize::find_coeff(expr_ref t, expr_ref v, rational &k) {
 int concretize::change_with_var(expr_ref l, expr_ref var) {
     rational coeff;
     // lhs is in the sum of products form (ax + by)
-    find_coeff(l, var, coeff);
+    bool found = find_coeff(l, var, coeff);
 
     TRACE("concretize_verb", tout << "coefficient of " << mk_pp(var, m)
                                   << " in term " << mk_pp(l, m) << " is "
                                   << coeff << "\n";);
+    if (!found) return 0;
+    SASSERT(!coeff.is_zero());
     if (coeff.is_pos())
         return 1;
     else if (coeff.is_neg())
         return -1;
+    // to silence the compiler
     else
         return 0;
 }

@@ -37,7 +37,7 @@ class concretize {
     /// Find the coeff of \p v in \p t
     ///
     /// Assumes that t is in LA and in SOP or -1*SOP form
-    bool find_coeff(expr_ref t, expr_ref v, rational &k);
+    bool find_coeff(expr_ref t, expr_ref v, rational &k, unsigned depth = 2);
 
     /// Returns whether the value of \p lit increases(1), decreases(-1) or
     /// doesn't change(0) with \p var
