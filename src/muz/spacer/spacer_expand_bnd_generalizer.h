@@ -37,19 +37,23 @@ class lemma_expand_bnd_generalizer : public lemma_generalizer {
     stats m_st;
     ast_manager &m;
     arith_util m_arith;
+
     /// A set of numeral values that can be used to expand bound
     vector<rational> m_values;
 
   public:
     lemma_expand_bnd_generalizer(context &ctx);
     ~lemma_expand_bnd_generalizer() override {}
+
     void operator()(lemma_ref &lemma) override;
+
     void collect_statistics(statistics &st) const override;
     void reset_statistics() override { m_st.reset(); }
 
   private:
     /// Check whether \p n can be used to weaken lit
     bool should_apply(const expr *lit, rational n);
+
     /// Check whether lit ==> lit[val |--> n] (barring special cases). That is,
     /// whether \p lit becomes weaker if \p val is replaced with \p n
     ///
