@@ -69,6 +69,7 @@ bool concretize::should_partition(expr *pattern, expr *term) {
 }
 
 /// Concretize formula \p f using literals of dim 1
+///
 /// returns false if \p f is not an arithmetic fml
 bool concretize::mk_concr(expr_ref f, model_ref &model, expr_ref_vector &res,
                           expr_ref pattern) {
@@ -81,23 +82,17 @@ bool concretize::mk_concr(expr_ref f, model_ref &model, expr_ref_vector &res,
     expr_ref_vector conj(m), todo(m);
     flatten_and(f, conj);
 
+    expr *e1;
     for (auto *e : conj) {
         // separate out boolean u_c
         if (not_handled(e))
             res.push_back(e);
-        else
-            todo.push_back(e);
-    }
-
-    expr *e1;
-    // AG: why not check when literal is added to the todo list?
-
-    // bail out if at least one of the todo literals is not arithmetic
-    for (auto e : todo) {
-        TRACE("concretize_verb", tout << "Literal is " << mk_pp(e, m););
-        if (!(m_arith.is_arith_expr(e) ||
-              (m.is_not(e, e1) && m_arith.is_arith_expr(e1))))
+        else if (!(m_arith.is_arith_expr(e) ||
+                   (m.is_not(e, e1) && m_arith.is_arith_expr(e1)))) {
+            TRACE("concretize_verb", tout << "Literal cannot be concretized " << mk_pp(e, m););
             return false;
+        } else
+            todo.push_back(e);
     }
 
     partition_and_concretize(todo, pattern, model, res);
