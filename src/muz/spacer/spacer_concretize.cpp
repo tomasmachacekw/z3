@@ -174,15 +174,17 @@ void concretize::partition_terms(expr_ref pattern, expr_ref formula,
                                  expr_ref_vector &out,
                                  expr_ref_vector &sub_term) {
     expr *t, *c;
-    expr_ref_vector rw_formula(m);
     if (!is_bin_op(formula, t, c, m)) return;
-    expr_ref_vector other_trms(m);
+
+    expr_ref_vector rw_formula(m);
+    expr_ref_vector others(m);
     // If the literal cannot be split, just make it a whole group
     if (is_constant(t) || m_arith.is_mul(t)) {
         sub_term.push_back(formula);
         out.push_back(t);
         return;
     }
+
     SASSERT(is_app(t));
     TRACE("concretize_verb",
           tout << "computing groups in " << formula << "\n";);
@@ -195,11 +197,11 @@ void concretize::partition_terms(expr_ref pattern, expr_ref formula,
             }
             rw_formula.push_back(term);
         } else
-            other_trms.push_back(term);
+            others.push_back(term);
     }
-    if (other_trms.size() > 0) {
+    if (others.size() > 0) {
         expr_ref sum_term(m);
-        sum_term = m_arith.mk_add(other_trms.size(), other_trms.c_ptr());
+        sum_term = m_arith.mk_add(others.size(), others.c_ptr());
         if (!out.contains(sum_term)) {
             TRACE("concretize_verb",
                   tout << "adding " << sum_term << " to groups\n";);
@@ -226,6 +228,7 @@ void concretize::partition_terms(expr_ref pattern, expr_ref formula,
 bool concretize::is_sop(expr *e) {
     if (is_constant(e)) return true;
     if (!m_arith.is_arith_expr(e)) return false;
+    if (!is_app(e)) return false;
 
     expr *e1, *e2;
     // cannot have a top level operand other than plus
@@ -233,16 +236,21 @@ bool concretize::is_sop(expr *e) {
         // all arguments for the product should be constants.
         if (!(m_arith.is_mul(e, e1, e2) && is_constant(e1) && is_constant(e2)))
             return false;
+        // AG: looks like this should return true on a multiplication
     }
-    if (!is_app(e)) return false;
+
     // all terms inside have to be either a constant or a product of
     // constants
     for (expr *term : *to_app(e)) {
         // all arguments for the product should be constants.
-        if (!((m_arith.is_mul(term, e1, e2) && is_constant(e1) &&
-               is_constant(e2)) ||
-              is_constant(term)))
+        if (is_constant(term))
+            continue;
+        else if (m_arith.is_mul(term, e1, e2)) {
+            if (!is_constant(e1) || !is_constant(e2)) return false;
+        } else {
+            // -- unexpected term
             return false;
+        }
     }
     return true;
 }
@@ -250,10 +258,10 @@ bool concretize::is_sop(expr *e) {
 /// Find the coeff of \p v in \p t
 ///
 /// Assumes that t is in LA and in SOP or -1*SOP form
-void concretize::find_coeff(expr_ref t, expr_ref v, rational &k) {
+bool concretize::find_coeff(expr_ref t, expr_ref v, rational &k) {
     if (t == v) {
         k = rational::one();
-        return;
+        return true;
     }
 
     expr *e1 = nullptr, *e2 = nullptr;
@@ -262,28 +270,33 @@ void concretize::find_coeff(expr_ref t, expr_ref v, rational &k) {
         for (expr *e : *to_app(t)) {
             if (e == v) {
                 k = rational::one();
-                return;
-            } else if (m_arith.is_mul(e, e1, e2) && e2 == v) {
-                m_arith.is_numeral(e1, coeff);
-                SASSERT(m_arith.is_numeral(e1, coeff));
-                k = coeff;
-                return;
+                return true;
+            } else if (m_arith.is_mul(e, e1, e2) &&  (e2 == v || e1 == v)) {
+                e1 = e1 == v ? e2 : e1;
+                if (m_arith.is_numeral(e1, coeff)) {
+                    k = coeff;
+                    return true;
+                } else {
+                    return false;
+                }
             }
         }
+        // -- v is not in t, so use coefficient of 0
         k = rational::zero();
-        return;
+        return true;
     }
 
     if (m_arith.is_mul(t, e1, e2)) {
+        // AG: what a mess ...
         m_arith.is_numeral(e1, coeff);
         SASSERT(coeff == rational::minus_one());
         // Depth of recursion is atmost 1
         SASSERT(m_arith.is_add(e2) || is_uninterp_const(e2));
         find_coeff(expr_ref(e2, m), v, k);
         k = k * rational::minus_one();
-        return;
+        return true;
     }
-    UNREACHABLE();
+    return false;
 }
 
 /// Returns whether the value of \p lit increases(1), decreases(-1) or doesn't
