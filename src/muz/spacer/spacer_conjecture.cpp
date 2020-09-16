@@ -25,48 +25,50 @@
 #include "muz/spacer/spacer_util.h"
 
 namespace spacer {
-/// Check whether \p pattern contains a single variable and is in LA or linear
-/// fragment of BV
-bool is_mono_var(expr *pattern, ast_manager &m, arith_util &a_util) {
+/// Returns true if \p pat has a single variable and is in LA or LA_BV
+bool is_mono_var(expr *pat, ast_manager &m) {
     expr *e;
     bv_util bv(m);
-    if (m.is_not(pattern, e)) return is_mono_var(e, m, a_util);
-    if (a_util.is_arith_expr(to_app(pattern)) || bv.is_bv_ule(pattern) ||
-        bv.is_bv_sle(pattern)) {
-        return get_num_vars(pattern) == 1 && !has_nonlinear_var_mul(pattern, m);
+    arith_util a_util(m);
+    if (m.is_not(pat, e)) return is_mono_var(e, m);
+    if (a_util.is_arith_expr(to_app(pat)) || bv.is_bv_ule(pat) ||
+        bv.is_bv_sle(pat)) {
+        return get_num_vars(pat) == 1 && !has_nonlinear_var_mul(pat, m);
     }
     return false;
 }
 
-/// Syntactic check to test whether the cluster with \p pattern contains a
-/// single strongest element.
-bool should_conjecture(const expr_ref &pattern, expr_ref &leq_lit) {
-    if (get_num_vars(pattern) != 1) return false;
+/// Returns true if cluster with a patter \p pat has a single strongest
+/// element.
+bool should_conjecture(const expr_ref &pat, expr_ref &leq_lit) {
+    if (get_num_vars(pat) != 1) return false;
     ast_manager &m = leq_lit.m();
-    arith_util a_util(m);
+
     // if the pattern has multiple literals, check whether exactly one of them
     // is leq
-    expr_ref_vector pattern_and(m);
-    pattern_and.push_back(pattern);
-    flatten_and(pattern_and);
+    expr_ref_vector conj(m);
+    conj.push_back(pat);
+    flatten_and(conj);
     unsigned count = 0;
-    for (auto *lit : pattern_and) {
-        if (is_mono_var(lit, m, a_util)) {
+    for (auto *lit : conj) {
+        if (is_mono_var(lit, m)) {
+            if (count) return false;
             leq_lit = lit;
             count++;
         }
     }
+    SASSERT(count <= 1);
     return count == 1;
 }
 
-/// Returns true if range of s is numeric
+/// Returns true if the range of substitution \p s is numeric
 bool is_numeric_sub(substitution &s) {
     ast_manager &m(s.get_manager());
     arith_util arith(m);
     bv_util bv(m);
     std::pair<unsigned, unsigned> var;
     expr_offset r;
-    for (unsigned i = 0; i < s.get_num_bindings(); i++) {
+    for (unsigned i = 0, sz = s.get_num_bindings(); i < sz; ++i) {
         s.get_binding(i, var, r);
         if (!(bv.is_numeral(r.get_expr()) || arith.is_numeral(r.get_expr())))
             return false;
@@ -74,29 +76,28 @@ bool is_numeric_sub(substitution &s) {
     return true;
 }
 
-/// Drop all literals that numerically match \p lit, from \p fml_vec.
+/// Drop all literals that numerically match \p lit, from \p fml
 ///
-/// \p abs_fml holds the result. Returns true if any literal has been dropped
-bool drop_lit(expr_ref_vector &fml_vec, expr_ref &lit,
-              expr_ref_vector &abs_fml) {
-    abs_fml.reset();
-    bool is_smaller = false;
-    ast_manager &m = fml_vec.get_manager();
+/// \p out holds the result. Returns true if any literal has been dropped
+bool drop_lit(expr_ref_vector &fml, expr_ref &lit, expr_ref_vector &out) {
+    ast_manager &m = fml.get_manager();
+    bool dirty = false, pos = false;
     sem_matcher m_matcher(m);
     substitution sub(m);
+
+    out.reset();
     sub.reserve(1, get_num_vars(lit.get()));
-    bool pos;
     SASSERT(!(m.is_not(lit) && m.is_eq(to_app(lit)->get_arg(0))));
-    for (auto &c : fml_vec) {
+    for (auto &c : fml) {
         m_matcher.reset();
         if (m_matcher(lit, c, sub, pos) && pos) {
             if (is_numeric_sub(sub)) {
-                is_smaller = true;
+                dirty = true;
                 continue;
             }
         }
-        abs_fml.push_back(c);
+        out.push_back(c);
     }
-    return is_smaller;
+    return dirty;
 }
 } // namespace spacer
