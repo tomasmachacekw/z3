@@ -28,7 +28,7 @@ bool is_ineq(ast_manager &m, const expr *fml, rational &val) {
     // AG: why is strict inequality not handled?
     // AG: why not handle bv case as well?
     if (m_arith.is_le(fml, e1, e2) || m_arith.is_ge(fml, e1, e2))
-        return m_arith.is_numeral(e1, val);
+        return m_arith.is_numeral(e2, val);
     return false;
 }
 
