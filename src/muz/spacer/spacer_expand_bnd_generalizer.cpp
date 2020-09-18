@@ -24,10 +24,10 @@ namespace {
 bool is_ineq(ast_manager &m, const expr *fml, rational &val) {
     arith_util m_arith(m);
     expr *e1, *e2;
+    // TODO: Handle BV
     if (m.is_not(fml, e1)) return is_ineq(m, e1, val);
-    // AG: why is strict inequality not handled?
-    // AG: why not handle bv case as well?
-    if (m_arith.is_le(fml, e1, e2) || m_arith.is_ge(fml, e1, e2))
+    if (m_arith.is_le(fml, e1, e2) || m_arith.is_ge(fml, e1, e2) ||
+        m_arith.is_lt(fml, e1, e2) || m_arith.is_gt(fml, e1, e2))
         return m_arith.is_numeral(e2, val);
     return false;
 }
