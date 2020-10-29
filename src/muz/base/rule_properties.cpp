@@ -215,25 +215,26 @@ void rule_properties::operator()(app* n) {
     else if (is_uninterp(n) && !m_dl.is_rule_sort(f->get_range())) {
         m_uninterp_funs.insert(f, m_rule);
     }
-    else if (m_dt.is_accessor(n)) {
-        sort* s = m.get_sort(n->get_arg(0));
-        SASSERT(m_dt.is_datatype(s));
-        if (m_dt.get_datatype_constructors(s)->size() > 1) {
-            bool found = false;
-            func_decl * c = m_dt.get_accessor_constructor(f);
-            unsigned ut_size = m_rule->get_uninterpreted_tail_size();
-            unsigned t_size  = m_rule->get_tail_size();  
-            for (unsigned i = ut_size; !found && i < t_size; ++i) {
-                app* t = m_rule->get_tail(i);
-                if (m_dt.is_recognizer(t) && t->get_arg(0) == n->get_arg(0) && m_dt.get_recognizer_constructor(t->get_decl()) == c) {
-                    found = true;
-                }
-            }
-            if (!found) {
-                m_uninterp_funs.insert(f, m_rule);
-            }
-        }
-    }
+    // For some reason, Z3 throws a parser error on testers like ((_ is insert) x). Maybe I am missing something
+    // else if (m_dt.is_accessor(n)) {
+    //     sort* s = m.get_sort(n->get_arg(0));
+    //     SASSERT(m_dt.is_datatype(s));
+    //     if (m_dt.get_datatype_constructors(s)->size() > 1) {
+    //         bool found = false;
+    //         func_decl * c = m_dt.get_accessor_constructor(f);
+    //         unsigned ut_size = m_rule->get_uninterpreted_tail_size();
+    //         unsigned t_size  = m_rule->get_tail_size();  
+    //         for (unsigned i = ut_size; !found && i < t_size; ++i) {
+    //             app* t = m_rule->get_tail(i);
+    //             if (m_dt.is_recognizer(t) && t->get_arg(0) == n->get_arg(0) && m_dt.get_recognizer_constructor(t->get_decl()) == c) {
+    //                 found = true;
+    //             }
+    //         }
+    //         if (!found) {
+    //             m_uninterp_funs.insert(f, m_rule);
+    //         }
+    //     }
+    // }
     else if (m_a.is_considered_uninterpreted(f, n->get_num_args(), n->get_args(), f_out)) {
         m_uninterp_funs.insert(f, m_rule);
     }
@@ -242,9 +243,10 @@ void rule_properties::operator()(app* n) {
              && (!evaluates_to_numeral(n2, r) || r.is_zero())) {
         m_uninterp_funs.insert(f, m_rule);
     }
-    else if (m_rec.is_defined(f)) {
-        m_uninterp_funs.insert(f, m_rule);
-    }
+    // We are going to support recursive functions
+    // else if (m_rec.is_defined(f)) {
+    //     m_uninterp_funs.insert(f, m_rule);
+    // }
     check_sort(m.get_sort(n));
 }
 
