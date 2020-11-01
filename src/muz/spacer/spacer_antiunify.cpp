@@ -131,6 +131,7 @@ void anti_unifier::operator()(expr *e1, expr *e2, expr_ref &res,
         unsigned num_arg1 = n1->get_num_args();
         unsigned num_arg2 = n2->get_num_args();
         if (n1->get_decl() != n2->get_decl() || num_arg1 != num_arg2) {
+            SASSERT(!m_cache.contains(n1, n2));
             expr_ref v(m);
             v = m.mk_var(m_subs.size(), get_sort(n1));
             m_pinned.push_back(v);
@@ -145,8 +146,11 @@ void anti_unifier::operator()(expr *e1, expr *e2, expr_ref &res,
                 expr *arg1 = n1->get_arg(i);
                 expr *arg2 = n2->get_arg(i);
                 if (arg1 == arg2) {kids.push_back(arg1);}
-                else if (m_cache.find(arg1, arg2, tmp)) {kids.push_back(tmp);}
-                else {m_todo.push_back(expr_pair(arg1, arg2));}
+                else if (m_cache.find(arg1, arg2, tmp)) {kids.push_back(tmp);
+                } else {
+                    m_todo.push_back(expr_pair(arg1, arg2));
+                    break;
+                }
             }
             if (m_todo.size() > todo_sz) {continue;}
 
