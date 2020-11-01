@@ -270,7 +270,7 @@ void mul_by_rat(expr_ref &fml, rational num) {
     }
     else if (m_bv.is_bv(fml)) {
         unsigned sz = m_bv.get_bv_size(fml);
-        e = m_bv.mk_bv_mul(m_bv.mk_numeral(num, sz), e);
+        e = m_bv.mk_bv_mul(m_bv.mk_numeral(num, sz), fml);
     }
     params_ref params;
     // poly_rewriter
