@@ -241,10 +241,11 @@ void flatten_add(expr *t1, expr_ref_vector &res) {
 }
 
 void mk_add(expr *t1, expr *t2, expr_ref &res) {
-    expr_ref_vector f(res.get_manager());
-    flatten_add(t1, f);
-    flatten_add(t2, f);
-    mk_add(f, res);
+  SASSERT(t1 || t2);
+  expr_ref_vector f(res.get_manager());
+  flatten_add(t1, f);
+  flatten_add(t2, f);
+  mk_add(f, res);
 }
 
 bool unhandled(expr *f, expr *var, ast_manager &m) {
@@ -255,6 +256,8 @@ bool unhandled(expr *f, expr *var, ast_manager &m) {
     if (u.is_bv_smod(f) || u.is_bv_smodi(f) || u.is_bv_smod0(f)) return true;
     if (u.is_bv_urem(f) || u.is_bv_urem0(f) || u.is_bv_uremi(f)) return true;
     if (u.is_extract(f) || u.is_concat(f)) return true;
+    if (u.is_bvredor(f) || u.is_bvredand(f))
+      return true;
     for (auto a : *(to_app(f))) {
         if (!contains(a, var)) continue;
         return unhandled(a, var, m);
