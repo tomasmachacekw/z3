@@ -408,9 +408,9 @@ class eq : public rw_rule {
     bool apply(expr *e, expr_ref_vector &out) override {
         expr *lhs, *rhs;
         expr_ref b1(m), b2(m);
-        if (!(m.is_eq(e, lhs, rhs) &&
+        if (!(m.is_eq(e, lhs, rhs) && m_bv.is_bv(lhs) &&
               (contains(lhs, m_var) || contains(rhs, m_var))))
-            return false;
+          return false;
         b1 = m_bv.mk_ule(rhs, lhs);
         b2 = m_bv.mk_ule(lhs, rhs);
         if (m_mdl->is_true(b1) && m_mdl->is_true(b2)) {
@@ -428,9 +428,9 @@ class neq1 : public rw_rule {
     neq1(ast_manager &m) : rw_rule(m) {}
     bool apply(expr *e, expr_ref_vector &out) override {
         expr *f, *lhs, *rhs;
-        if (!(m.is_not(e, f) && m.is_eq(f, lhs, rhs) &&
+        if (!(m.is_not(e, f) && m.is_eq(f, lhs, rhs) && m_bv.is_bv(lhs) &&
               (contains(lhs, m_var) || contains(rhs, m_var))))
-            return false;
+          return false;
         expr_ref b1(m);
         b1 = m.mk_not(m_bv.mk_ule(rhs, lhs));
         if (m_mdl->is_true(b1)) {
@@ -447,9 +447,9 @@ class neq2 : public rw_rule {
     neq2(ast_manager &m) : rw_rule(m) {}
     bool apply(expr *e, expr_ref_vector &out) override {
         expr *f, *lhs, *rhs;
-        if (!((m.is_not(e, f)) && m.is_eq(f, lhs, rhs) &&
+        if (!((m.is_not(e, f)) && m.is_eq(f, lhs, rhs) && m_bv.is_bv(lhs) &&
               (contains(lhs, m_var) || contains(rhs, m_var))))
-            return false;
+          return false;
         expr_ref b1(m), nt(m);
         nt = m_bv.mk_ule(lhs, rhs);
         b1 = m.mk_not(nt);
