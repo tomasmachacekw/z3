@@ -21,7 +21,7 @@ Notes:
 #include "solver/solver_na2as.h"
 #include "ast/proofs/proof_utils.h"
 #include "ast/ast_util.h"
-
+#include "model/model_pp.h"
 class pool_solver : public solver_na2as {
     solver_pool&       m_pool;
     app_ref            m_pred;
@@ -148,6 +148,10 @@ public:
         stopwatch sw;
         sw.start();
         internalize_assertions();
+        expr_ref_vector cube(m, num_assumptions, assumptions);
+        vector<expr_ref_vector> clauses;
+        dump_benchmark(cube, clauses, l_undef, sw.get_seconds());
+
         lbool res = m_base->check_sat(num_assumptions, assumptions);
         sw.stop();
         switch (res) {
@@ -182,12 +186,27 @@ public:
         stopwatch sw;
         sw.start();
         internalize_assertions();
+        dump_benchmark(cube, clauses, l_undef, sw.get_seconds());
+
         lbool res = m_base->check_sat_cc(cube, clauses);
         sw.stop();
+        model_ref mdl;
+        std::stringstream name;
+        name << "vsolver#1";
+        symbol tmp = symbol(name.str());
         switch (res) {
         case l_true:
             m_pool.m_check_sat_watch.add(sw);
             m_pool.m_stats.m_num_sat_checks++;
+            TRACE("spacer.ind_gen", m_base->get_model(mdl);
+                  model_pp(tout, *mdl););
+            if (m_dump_counter == 6 && m_pred->get_decl()->get_name() == tmp) {
+              IF_VERBOSE(
+                  1, verbose_stream()
+                         << "This instance should have been UNSAT/UNKNOWN\n";);
+              TRACE("spacer.ind_gen", tout << "This instance should have been UNSAT/UNKNOWN\n";);
+              SASSERT(false);
+            }
             break;
         case l_undef:
             m_pool.m_check_undef_watch.add(sw);
