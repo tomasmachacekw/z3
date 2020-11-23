@@ -562,11 +562,25 @@ namespace datalog {
                 if (parameter_vars.contains(i)) {
                   m_var_is_sliceable[i] = false;
                 }
-                if (r.get_uninterpreted_tail_size() == 1 &&
-                    positions_differ(r.get_tail(0), r.get_head(), i)) {
-                  m_var_is_sliceable[i] = false;
-                  TRACE("dl", tout << "Cannot slice " << i
-                                   << " as argument positions differ\n";);
+
+                uint_set vars;
+                for (unsigned j = 0; j < r.get_uninterpreted_tail_size(); j++) {
+                  app *pred = r.get_tail(j);
+                  vars.reset();
+                  add_free_vars(vars, pred);
+                  if (pred->get_decl() != r.get_head()->get_decl() &&
+                      vars.contains(i)) {
+                    m_var_is_sliceable[i] = false;
+                    TRACE("dl", tout << "Cannot slice " << i
+                                     << " as argument appears in different "
+                                        "predicates\n";);
+                  }
+                  if (pred->get_decl() == r.get_head()->get_decl() &&
+                      positions_differ(pred, r.get_head(), i)) {
+                    m_var_is_sliceable[i] = false;
+                    TRACE("dl", tout << "Cannot slice " << i
+                                     << " as argument positions differ\n";);
+                  }
                 }
             }
             else if (is_output) {
