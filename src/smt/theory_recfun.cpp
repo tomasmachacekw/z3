@@ -30,7 +30,8 @@ namespace smt {
     theory_recfun::theory_recfun(context& ctx)
         : theory(ctx, ctx.get_manager().mk_family_id("recfun")), 
           m_plugin(*reinterpret_cast<recfun::decl::plugin*>(m.get_plugin(get_family_id()))),
-          m_util(m_plugin.u()), 
+          m_util(m_plugin.u()),
+          m_params(ctx.get_fparams()),
           m_disabled_guards(m),
           m_enabled_guards(m),
           m_preds(m),

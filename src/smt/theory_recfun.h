@@ -18,11 +18,11 @@ Revision History:
 --*/
 #pragma once
 
-#include "smt/smt_theory.h"
-#include "smt/smt_context.h"
 #include "ast/ast_pp.h"
 #include "ast/recfun_decl_plugin.h"
-
+#include "smt/smt_context.h"
+#include "smt/smt_theory.h"
+#include "smt/params/theory_recfun_params.h"
 namespace smt {
 
     class theory_recfun : public theory {
@@ -91,6 +91,7 @@ namespace smt {
         recfun::decl::plugin&   m_plugin;
         recfun::util&           m_util;
         stats                   m_stats;
+        theory_recfun_params&   m_params;
 
         // book-keeping for depth of predicates
         expr_ref_vector          m_disabled_guards;
