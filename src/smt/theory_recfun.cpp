@@ -57,7 +57,7 @@ namespace smt {
     bool theory_recfun::internalize_atom(app * atom, bool gate_ctx) {
         force_push();
         TRACEFN(mk_pp(atom, m));
-        if (!u().has_defs()) {
+        if (!u().has_defs() || m_params.m_weaken) {
             return false;
         }
         for (expr * arg : *atom) {
@@ -78,8 +78,8 @@ namespace smt {
 
     bool theory_recfun::internalize_term(app * term) {
         force_push();
-        if (!u().has_defs()) {
-            return false;
+        if (!u().has_defs() || m_params.m_weaken) {
+          return false;
         }
         for (expr* e : *term) {
             ctx.internalize(e, false);
@@ -128,7 +128,7 @@ namespace smt {
     void theory_recfun::relevant_eh(app * n) {
         SASSERT(ctx.relevancy());
         TRACEFN("relevant_eh: (defined) " <<  u().is_defined(n) << " " << mk_pp(n, m));        
-        if (u().is_defined(n) && u().has_defs()) {
+        if (u().is_defined(n) && u().has_defs() && !m_params.m_weaken) {
             push_case_expand(alloc(case_expansion, u(), n));
         }
     }
