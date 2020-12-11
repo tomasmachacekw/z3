@@ -3606,7 +3606,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         m_stats.m_num_reuse_reach += num_reuse_reach;
 
         // must-reachable
-        if (is_concrete && check_mdl(n, r, *model)) {
+        if (is_concrete) {
             // -- update must summary
             CTRACE("spacer_sat", r,
                    tout << "Concrete reachable with a rule:\n";
