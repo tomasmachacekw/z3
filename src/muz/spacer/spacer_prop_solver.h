@@ -159,7 +159,8 @@ public:
             params_ref p;
             p.set_bool("arith.ignore_int", weakness < 1);
             p.set_bool("array.weak",  weakness < 2);
-            p.set_bool("recfun.weak", weakness < 10);
+            p.set_bool("recfun.weak", true);
+            p.set_uint("recfun.max_rounds", 10*weakness);
             sol->updt_params(p);
         }
         ~scoped_weakness() {if (sol) {sol->pop_params();}}
