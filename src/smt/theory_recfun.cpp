@@ -500,7 +500,6 @@ namespace smt {
             }
         }
         if (found) {
-            m_unrolls++;
             m_num_rounds++;
             if (to_delete) {
                 m_disabled_guards.erase(to_delete);
@@ -509,7 +508,9 @@ namespace smt {
                 IF_VERBOSE(1, verbose_stream() << "(smt.recfun :enable-guard " << mk_pp(to_delete, m) << ")\n");
             }
             else {
-                IF_VERBOSE(1, verbose_stream() << "(smt.recfun :increment-round)\n");
+              m_unrolls++;
+              IF_VERBOSE(1, verbose_stream()
+                                << "(smt.recfun :increment-round)\n");
             }
         }
         return found;
