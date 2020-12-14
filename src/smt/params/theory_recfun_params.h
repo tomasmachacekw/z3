@@ -21,7 +21,8 @@
 
 struct theory_recfun_params {
     bool m_weaken;
-theory_recfun_params() : m_weaken(false) {}
+    unsigned m_max_rounds;
+theory_recfun_params() : m_weaken(false), m_max_rounds(0) {}
     void updt_params(params_ref const &_p);
     void display(std::ostream &out) const;
 };

@@ -36,7 +36,8 @@ namespace smt {
           m_enabled_guards(m),
           m_preds(m),
           m_num_rounds(0),
-          m_q_case_expand(), 
+          m_unrolls(0),
+          m_q_case_expand(),
           m_q_body_expand() {
         m_num_rounds = 0;
         }
@@ -57,7 +58,7 @@ namespace smt {
     bool theory_recfun::internalize_atom(app * atom, bool gate_ctx) {
         force_push();
         TRACEFN(mk_pp(atom, m));
-        if (!u().has_defs() || m_params.m_weaken) {
+        if (!u().has_defs() || (m_params.m_weaken && m_unrolls > m_params.m_max_rounds)) {
             return false;
         }
         for (expr * arg : *atom) {
@@ -78,7 +79,7 @@ namespace smt {
 
     bool theory_recfun::internalize_term(app * term) {
         force_push();
-        if (!u().has_defs() || m_params.m_weaken) {
+        if (!u().has_defs() || (m_params.m_weaken && m_unrolls > m_params.m_max_rounds)) {
           return false;
         }
         for (expr* e : *term) {
@@ -128,7 +129,7 @@ namespace smt {
     void theory_recfun::relevant_eh(app * n) {
         SASSERT(ctx.relevancy());
         TRACEFN("relevant_eh: (defined) " <<  u().is_defined(n) << " " << mk_pp(n, m));        
-        if (u().is_defined(n) && u().has_defs() && !m_params.m_weaken) {
+        if (u().is_defined(n) && u().has_defs() && !(m_params.m_weaken && m_unrolls > m_params.m_max_rounds)) {
             push_case_expand(alloc(case_expansion, u(), n));
         }
     }
@@ -458,7 +459,12 @@ namespace smt {
             propagate();
             return FC_CONTINUE;
         }
+        if (m_params.m_weaken && m_unrolls > m_params.m_max_rounds) return FC_GIVEUP;
         return FC_DONE;
+    }
+
+    void theory_recfun::setup() {
+        m_unrolls = 0;
     }
 
     void theory_recfun::add_theory_assumptions(expr_ref_vector & assumptions) {
@@ -494,6 +500,7 @@ namespace smt {
             }
         }
         if (found) {
+            m_unrolls++;
             m_num_rounds++;
             if (to_delete) {
                 m_disabled_guards.erase(to_delete);

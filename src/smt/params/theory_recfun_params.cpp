@@ -22,6 +22,7 @@
 void theory_recfun_params::updt_params(params_ref const &_p) {
   smt_params_helper p(_p);
   m_weaken = p.recfun_weak();
+  m_max_rounds = p.recfun_max_rounds();
 }
 
 #define DISPLAY_PARAM(X) out << #X "=" << X << std::endl;

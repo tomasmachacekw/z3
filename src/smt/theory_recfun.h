@@ -101,6 +101,7 @@ namespace smt {
         expr_ref_vector          m_preds;
         unsigned_vector          m_preds_lim;
         unsigned                 m_num_rounds;
+        unsigned                 m_unrolls;
 
         ptr_vector<case_expansion> m_q_case_expand;
         ptr_vector<body_expansion> m_q_body_expand;
@@ -163,6 +164,7 @@ namespace smt {
         ~theory_recfun() override;
         theory * mk_fresh(context * new_ctx) override;
         void init_search_eh() override;
+        void setup() override;
         void display(std::ostream & out) const override;
         void collect_statistics(::statistics & st) const override;
     };
