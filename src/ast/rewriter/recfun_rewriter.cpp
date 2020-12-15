@@ -33,7 +33,7 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
             return BR_FAILED;
         var_subst sub(m);
         result = sub(d.get_rhs(), num_args, args);
-        return BR_REWRITE_FULL;
+        return BR_REWRITE1;
     }
     else {
         return BR_FAILED;
