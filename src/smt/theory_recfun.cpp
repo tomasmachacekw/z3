@@ -177,6 +177,14 @@ namespace smt {
     
     void theory_recfun::propagate() {
 
+        if (m_params.m_weaken && m_unrolls > m_params.m_max_rounds) {
+            m_q_guards.reset();
+            m_q_clauses.clear();
+            m_q_case_expand.reset();
+            m_q_body_expand.reset();
+            return;
+        }
+
         for (expr* g : m_q_guards) {
             expr* ng = nullptr;
             VERIFY(m.is_not(g, ng));
@@ -380,6 +388,7 @@ namespace smt {
             else if (!is_enabled_guard(pred_applied)) {
                 disable_guard(pred_applied, guards);
                 max_depth = std::max(depth, max_depth);
+                m_unrolls++;
                 continue;
             }
             activate_guard(pred_applied, guards);
@@ -459,12 +468,12 @@ namespace smt {
             propagate();
             return FC_CONTINUE;
         }
-        if (m_params.m_weaken && m_unrolls > m_params.m_max_rounds) return FC_GIVEUP;
-        return FC_DONE;
-    }
-
-    void theory_recfun::setup() {
+        if (m_params.m_weaken && m_unrolls > m_params.m_max_rounds) {
+          m_unrolls = 0;
+          return FC_GIVEUP;
+        }
         m_unrolls = 0;
+        return FC_DONE;
     }
 
     void theory_recfun::add_theory_assumptions(expr_ref_vector & assumptions) {
@@ -508,7 +517,6 @@ namespace smt {
                 IF_VERBOSE(1, verbose_stream() << "(smt.recfun :enable-guard " << mk_pp(to_delete, m) << ")\n");
             }
             else {
-              m_unrolls++;
               IF_VERBOSE(1, verbose_stream()
                                 << "(smt.recfun :increment-round)\n");
             }

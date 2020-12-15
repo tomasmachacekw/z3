@@ -164,7 +164,6 @@ namespace smt {
         ~theory_recfun() override;
         theory * mk_fresh(context * new_ctx) override;
         void init_search_eh() override;
-        void setup() override;
         void display(std::ostream & out) const override;
         void collect_statistics(::statistics & st) const override;
     };
