@@ -53,6 +53,14 @@ namespace smt {
     }
 
     void theory_recfun::init_search_eh() {
+        //reset m_unrolls if we are starting a new run.
+
+        //m_unrolls is increased while searching (inside the search() method).
+        //Once m_unrolls > m_max_rounds, search() returns with FC_GIVEUP, which
+        //makes the current call to check_sat return l_undef. Therefore, if
+        //m_unrolls > m_max_rounds before start of a search, it must mean that
+        //we are in a fresh call to check_sat.
+        if (m_unrolls > m_params.m_max_rounds) m_unrolls = 0;
     }
 
     bool theory_recfun::internalize_atom(app * atom, bool gate_ctx) {
@@ -469,10 +477,8 @@ namespace smt {
             return FC_CONTINUE;
         }
         if (m_params.m_weaken && m_unrolls > m_params.m_max_rounds) {
-          m_unrolls = 0;
           return FC_GIVEUP;
         }
-        m_unrolls = 0;
         return FC_DONE;
     }
 
