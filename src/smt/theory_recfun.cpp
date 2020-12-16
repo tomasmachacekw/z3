@@ -52,21 +52,12 @@ namespace smt {
         return alloc(theory_recfun, *new_ctx);
     }
 
-    void theory_recfun::init_search_eh() {
-        //reset m_unrolls if we are starting a new run.
-
-        //m_unrolls is increased while searching (inside the search() method).
-        //Once m_unrolls > m_max_rounds, search() returns with FC_GIVEUP, which
-        //makes the current call to check_sat return l_undef. Therefore, if
-        //m_unrolls > m_max_rounds before start of a search, it must mean that
-        //we are in a fresh call to check_sat.
-        if (m_unrolls > m_params.m_max_rounds) m_unrolls = 0;
-    }
+    void theory_recfun::init_search_eh() { }
 
     bool theory_recfun::internalize_atom(app * atom, bool gate_ctx) {
         force_push();
         TRACEFN(mk_pp(atom, m));
-        if (!u().has_defs() || (m_params.m_weaken && m_unrolls > m_params.m_max_rounds)) {
+        if (!u().has_defs()) {
             return false;
         }
         for (expr * arg : *atom) {
@@ -87,7 +78,7 @@ namespace smt {
 
     bool theory_recfun::internalize_term(app * term) {
         force_push();
-        if (!u().has_defs() || (m_params.m_weaken && m_unrolls > m_params.m_max_rounds)) {
+        if (!u().has_defs()) {
           return false;
         }
         for (expr* e : *term) {
@@ -123,6 +114,7 @@ namespace smt {
         m_disabled_guards.reset();
         m_enabled_guards.reset();
         m_q_guards.reset();
+        m_unrolls = 0;
         for (auto & kv : m_guard2pending) {
             dealloc(kv.m_value);
         }
@@ -137,7 +129,7 @@ namespace smt {
     void theory_recfun::relevant_eh(app * n) {
         SASSERT(ctx.relevancy());
         TRACEFN("relevant_eh: (defined) " <<  u().is_defined(n) << " " << mk_pp(n, m));        
-        if (u().is_defined(n) && u().has_defs() && !(m_params.m_weaken && m_unrolls > m_params.m_max_rounds)) {
+        if (u().is_defined(n) && u().has_defs()) {
             push_case_expand(alloc(case_expansion, u(), n));
         }
     }
@@ -176,22 +168,17 @@ namespace smt {
     }
      
     bool theory_recfun::can_propagate() {
-        return 
-            !m_q_case_expand.empty() ||
-            !m_q_body_expand.empty() ||
-            !m_q_clauses.empty() ||
-            !m_q_guards.empty();
+      return (!m_params.m_weaken ||
+              m_unrolls <= m_params.m_max_rounds) &&
+          (!m_q_case_expand.empty() ||
+           !m_q_body_expand.empty() ||
+           !m_q_clauses.empty() ||
+           !m_q_guards.empty());
     }
     
     void theory_recfun::propagate() {
 
-        if (m_params.m_weaken && m_unrolls > m_params.m_max_rounds) {
-            m_q_guards.reset();
-            m_q_clauses.clear();
-            m_q_case_expand.reset();
-            m_q_body_expand.reset();
-            return;
-        }
+        if (!can_propagate()) return;
 
         for (expr* g : m_q_guards) {
             expr* ng = nullptr;

@@ -166,6 +166,8 @@ namespace smt {
         void init_search_eh() override;
         void display(std::ostream & out) const override;
         void collect_statistics(::statistics & st) const override;
+        // HG: Hack to reset m_unrolls when check_sat_starts
+        void reset_unrolls() { m_unrolls = 0;}
     };
 }
 
