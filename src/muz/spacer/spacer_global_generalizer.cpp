@@ -60,17 +60,14 @@ bool contains_real_cnsts(app_ref_vector &c) {
     return false;
 }
 // check whether there is an equivalent of function \p f in LRA
-// TODO: reimplement. Its is too roundabout right now
 bool exists_lra_equiv(expr_ref &f) {
     ast_manager &m = f.m();
-    array_util array(m);
-    datatype_util datatype(m);
+    arith_util a(m);
+    //uninterpreted constants do not have arguments. So equivalent function exists.
+    if (is_uninterp_const(f)) return true;
     SASSERT(is_app(f));
-    if (array.is_select(f) || array.is_store(f)) return false;
     func_decl *f_decl = to_app(f)->get_decl();
-    if (datatype.is_constructor(f_decl) || datatype.is_accessor(f_decl))
-        return false;
-    return true;
+    return f_decl->get_family_id() == a.get_family_id();
 }
 // Check whether there are Int constants in \p c
 bool contains_int_cnsts(app_ref_vector &c) {
