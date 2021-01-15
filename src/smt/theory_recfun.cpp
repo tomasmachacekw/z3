@@ -169,7 +169,7 @@ namespace smt {
      
     bool theory_recfun::can_propagate() {
       return (!m_params.m_weaken ||
-              m_unrolls <= m_params.m_max_rounds) &&
+              m_unrolls < m_params.m_max_rounds) &&
           (!m_q_case_expand.empty() ||
            !m_q_body_expand.empty() ||
            !m_q_clauses.empty() ||
@@ -463,7 +463,7 @@ namespace smt {
             propagate();
             return FC_CONTINUE;
         }
-        if (m_params.m_weaken && m_unrolls > m_params.m_max_rounds) {
+        if (m_params.m_weaken && m_unrolls >= m_params.m_max_rounds) {
           return FC_GIVEUP;
         }
         return FC_DONE;
