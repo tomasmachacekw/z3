@@ -383,6 +383,7 @@ namespace smt {
             else if (!is_enabled_guard(pred_applied)) {
                 disable_guard(pred_applied, guards);
                 max_depth = std::max(depth, max_depth);
+                m_unrolls++;
                 continue;
             }
             activate_guard(pred_applied, guards);
@@ -509,7 +510,6 @@ namespace smt {
                 IF_VERBOSE(1, verbose_stream() << "(smt.recfun :enable-guard " << mk_pp(to_delete, m) << ")\n");
             }
             else {
-              m_unrolls++;
               IF_VERBOSE(1, verbose_stream()
                                 << "(smt.recfun :increment-round)\n");
             }
