@@ -4195,4 +4195,8 @@ inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
 
 
 
+void pred_transformer::extract_nums(vector<rational> &res) const {
+    spacer::extract_nums(m_init, res);
+    spacer::extract_nums(m_transition, res);
+}
 }
