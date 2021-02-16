@@ -719,6 +719,8 @@ public:
         return m_pobs.mk_pob(parent, level, depth, post);
     }
 
+    // extract all the numerals appearing in the init and transition relations
+    void extract_nums(vector<rational> &res) const;
     lbool is_reachable(pob& n, expr_ref_vector* core, model_ref *model,
                        unsigned& uses_level, bool& is_concrete,
                        datalog::rule const*& r,
