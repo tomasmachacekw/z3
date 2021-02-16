@@ -723,7 +723,7 @@ public:
                        unsigned& uses_level, bool& is_concrete,
                        datalog::rule const*& r,
                        bool_vector& reach_pred_used,
-                       unsigned& num_reuse_reach);
+                       unsigned& num_reuse_reach, bool use_iuc = true);
     bool is_invariant(unsigned level, lemma* lem,
                       unsigned& solver_level,
                       expr_ref_vector* core = nullptr);
@@ -756,7 +756,7 @@ public:
     app* extend_initial (expr *e);
 
     /// \brief Returns true if the obligation is already blocked by current lemmas
-    bool is_blocked (pob &n, unsigned &uses_level);
+    bool is_blocked(pob &n, unsigned &uses_level, model_ref *model);
     /// \brief Returns true if the obligation is already blocked by current quantified lemmas
     bool is_qblocked (pob &n);
 
