@@ -764,6 +764,8 @@ void pred_transformer::collect_statistics(statistics& st) const
                m_must_reachable_watch.get_seconds ());
     st.update("time.spacer.ctp", m_ctp_watch.get_seconds());
     st.update("time.spacer.mbp", m_mbp_watch.get_seconds());
+    // -- Max cluster size can decrease during run
+    st.update("SPACER max cluster size", m_cluster_db.get_max_cluster_size());
 }
 
 void pred_transformer::reset_statistics()
@@ -1415,9 +1417,10 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
             r = find_rule(**model, is_concrete, reach_pred_used, num_reuse_reach);
             TRACE("spacer", 
                   tout << "reachable is_sat: " << is_sat << " "
-                  << r << " is_concrete " << is_concrete << " rused: " << reach_pred_used << "\n";
-                  ctx.get_datalog_context().get_rule_manager().display_smt2(*r, tout) << "\n";
-                  );
+                  << r << " is_concrete " << is_concrete << " rused: " << reach_pred_used << "\n";);
+            CTRACE("spacer", r,
+                   ctx.get_datalog_context().get_rule_manager().display_smt2(*r, tout);
+                   tout << "\n";);
             TRACE("spacer_sat", tout << "model is:\n" << **model << "\n";);
         }
 
@@ -3098,6 +3101,8 @@ void context::log_expand_pob(pob &n) {
         if (n.parent()) pob_id = std::to_string(n.parent()->post()->get_id());
 
         *m_trace_stream << "** expand-pob: " << n.pt().head()->get_name()
+                        << (n.is_conj() ? "CONJ" : "")
+                        << (n.is_subsume_pob() ? " SUBS" : "")
                         << " level: " << n.level()
                         << " depth: " << (n.depth() - m_pob_queue.min_depth())
                         << " exprID: " << n.post()->get_id() << " pobID: " << pob_id << "\n"
@@ -3105,13 +3110,18 @@ void context::log_expand_pob(pob &n) {
     }
 
     TRACE("spacer", tout << "expand-pob: " << n.pt().head()->get_name()
+                         << (n.is_conj() ? "CONJ" : "")
+                         << (n.is_subsume_pob() ? " SUBS" : "")
                          << " level: " << n.level()
                          << " depth: " << (n.depth() - m_pob_queue.min_depth())
-                         << " fvsz: " << n.get_free_vars_size() << "\n"
+                         << " fvsz: " << n.get_free_vars_size()
+                         << " gas: " << n.get_gas() << "\n"
                          << mk_pp(n.post(), m) << "\n";);
 
     STRACE("spacer_progress",
            tout << "** expand-pob: " << n.pt().head()->get_name()
+                << (n.is_conj() ? "CONJ" : "")
+                << (n.is_subsume_pob() ? " SUBS" : "")
                 << " level: " << n.level()
                 << " depth: " << (n.depth() - m_pob_queue.min_depth()) << "\n"
                 << mk_epp(n.post(), m) << "\n\n";);
@@ -3482,14 +3492,15 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     log_expand_pob(n);
 
     stopwatch watch;
-    IF_VERBOSE (1, verbose_stream () << "expand: " << n.pt ().head ()->get_name ()
-                << " (" << n.level () << ", "
+    IF_VERBOSE(1, verbose_stream()
+                      << "expand: " << n.pt().head()->get_name() << " ("
+                      << n.level() << ", "
                 << (n.depth () - m_pob_queue.min_depth ()) << ") "
                 << (n.use_farkas_generalizer () ? "FAR " : "SUB ")
-                << " w(" << n.weakness() << ") "
-                << n.post ()->get_id ();
-                verbose_stream().flush ();
-                watch.start (););
+                      << (n.is_conj() ? "CONJ " : "")
+                      << (n.is_subsume_pob() ? " SUBS" : "") << " w("
+                      << n.weakness() << ") " << n.post()->get_id();
+               verbose_stream().flush(); watch.start(););
 
     // used in case n is unreachable
     unsigned uses_level = infty_level ();
@@ -3612,7 +3623,18 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
                     out.push_back (next);
                 }
             }
+            if(n.is_subsume_pob())
+                m_stats.m_num_subsume_pob_reachable++;
+            if(n.is_conj())
+                m_stats.m_num_conj_failed++;
 
+            CTRACE("global", n.is_conj(),
+                   tout << "Failed to block conjecture "
+                   << n.post()->get_id() << "\n";);
+
+            CTRACE("global", n.is_subsume_pob(),
+                   tout << "Failed to block subsume generalization "
+                        << mk_pp(n.post(), m) << "\n";);
 
             IF_VERBOSE(1, verbose_stream () << (next ? " X " : " T ")
                        << std::fixed << std::setprecision(2)
@@ -4150,6 +4172,17 @@ void context::collect_statistics(statistics& st) const
     st.update("SPACER num lemmas", m_stats.m_num_lemmas);
     // -- number of restarts taken
     st.update("SPACER restarts", m_stats.m_num_restarts);
+    // -- number of time pob abstraction was invoked
+    st.update("SPACER conj", m_stats.m_num_conj);
+    st.update("SPACER conj success", m_stats.m_num_conj_success);
+    st.update("SPACER conj failed",
+              m_stats.m_num_conj_failed);
+    st.update("SPACER pob out of gas", m_stats.m_num_pob_ofg);
+    st.update("SPACER subsume pob", m_stats.m_num_subsume_pobs);
+    st.update("SPACER subsume success", m_stats.m_num_subsume_pob_reachable);
+    st.update("SPACER subsume failed", m_stats.m_num_subsume_pob_blckd);
+    st.update("SPACER concretize", m_stats.m_num_concretize);
+    st.update("SPACER non local gen", m_stats.m_non_local_gen);
 
     // -- time to initialize the rules
     st.update ("time.spacer.init_rules", m_init_rules_watch.get_seconds ());
@@ -4170,6 +4203,7 @@ void context::collect_statistics(statistics& st) const
     for (unsigned i = 0; i < m_lemma_generalizers.size(); ++i) {
         m_lemma_generalizers[i]->collect_statistics(st);
     }
+    m_lmma_cluster->collect_statistics(st);
 }
 
 void context::reset_statistics()
@@ -4187,6 +4221,7 @@ void context::reset_statistics()
         m_lemma_generalizers[i]->reset_statistics();
     }
 
+    m_lmma_cluster->reset_statistics();
     m_init_rules_watch.reset ();
     m_solve_watch.reset ();
     m_propagate_watch.reset ();
