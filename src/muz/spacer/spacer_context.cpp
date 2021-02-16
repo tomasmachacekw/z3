@@ -50,6 +50,7 @@ Notes:
 #include "muz/base/dl_rule_set.h"
 #include "muz/transforms/dl_mk_rule_inliner.h"
 #include "muz/spacer/spacer_qe_project.h"
+#include "muz/spacer/spacer_cluster.h"
 #include "muz/spacer/spacer_sat_answer.h"
 
 #define WEAKNESS_MAX 65535
