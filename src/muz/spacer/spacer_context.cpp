@@ -1259,12 +1259,12 @@ void pred_transformer::get_pred_bg_invs(expr_ref_vector& out) {
 
 
 /// \brief Returns true if the obligation is already blocked by current lemmas
-bool pred_transformer::is_blocked (pob &n, unsigned &uses_level)
-{
+bool pred_transformer::is_blocked(pob &n, unsigned &uses_level,
+                                  model_ref *model = nullptr) {
     ensure_level (n.level ());
     prop_solver::scoped_level _sl (*m_solver, n.level ());
     m_solver->set_core (nullptr);
-    m_solver->set_model (nullptr);
+    m_solver->set_model(model);
 
     expr_ref_vector post(m), _aux(m);
     post.push_back (n.post ());
@@ -1336,7 +1336,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
                                      model_ref* model, unsigned& uses_level,
                                      bool& is_concrete, datalog::rule const*& r,
                                      bool_vector& reach_pred_used,
-                                     unsigned& num_reuse_reach)
+                                     unsigned& num_reuse_reach, bool use_iuc)
 {
     TRACE("spacer",
           tout << "is-reachable: " << head()->get_name() << " level: "
@@ -1350,7 +1350,8 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
 
     // prepare the solver
     prop_solver::scoped_level _sl(*m_solver, n.level());
-    prop_solver::scoped_subset_core _sc (*m_solver, !n.use_farkas_generalizer ());
+    prop_solver::scoped_subset_core _sc(
+        *m_solver, !(use_iuc && n.use_farkas_generalizer()));
     prop_solver::scoped_weakness _sw(*m_solver, 0,
                                      ctx.weak_abs() ? n.weakness() : UINT_MAX);
     m_solver->set_core(core);
