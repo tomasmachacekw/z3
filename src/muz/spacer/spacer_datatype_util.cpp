@@ -26,42 +26,34 @@
 
 namespace spacer {
 
+// get axioms that make all selectors for all datatypes in \p sorts, total
 void get_selector_total_axioms(ast_manager &m, const sort_ref_vector &sorts,
                                expr_ref_vector &res) {
-    datatype_util u(m);
-    for (auto s : sorts) {
-        SASSERT(u.is_datatype(s));
+    for (auto s : sorts)
         get_selector_total_axioms(m, s, res);
-    }
 }
 
+// get axioms that make all selectors for sort \p s total
 void get_selector_total_axioms(ast_manager &m, sort *s, expr_ref_vector &res) {
     datatype_util u(m);
-    unsigned sz = u.get_datatype_num_constructors(s);
-    // if (u.datatype_params(s).size() > 0) NOT_IMPLEMENTED_YET();
+    SASSERT(u.is_datatype(s));
     ptr_vector<func_decl> const *cnstrs = u.get_datatype_constructors(s);
-    for (unsigned i = 0; i < sz; i++) {
-        func_decl *cnstr = cnstrs->get(i);
+    for (auto cnstr : *cnstrs)
         get_selector_total_axioms(m, s, cnstr, res);
-    }
 }
 
+// get axioms that make all selectors for constructor \p cnstr total
 void get_selector_total_axioms(ast_manager &m, sort *s, func_decl *cnstr,
                                expr_ref_vector &res) {
     datatype_util u(m);
     ptr_vector<func_decl> const *accessors = u.get_constructor_accessors(cnstr);
     ptr_vector<func_decl> const *cnstrs = u.get_datatype_constructors(s);
-    unsigned num_sel = cnstr->get_arity();
-    unsigned sz = u.get_datatype_num_constructors(s);
-    func_decl *o_cnstr, *accessor;
-    for (unsigned i = 0; i < num_sel; i++) {
-        accessor = accessors->get(i);
-        for (unsigned j = 0; j < sz; j++) {
-            o_cnstr = cnstrs->get(j);
+    for (auto accessor : *accessors) {
+        for (auto o_cnstr : *cnstrs) {
             if (u.get_accessor_constructor(accessor) == o_cnstr) continue;
-            if (o_cnstr->get_arity() != 0) mk_non_null_axiom(o_cnstr, accessor, m, res);
-            else mk_null_axiom(o_cnstr, accessor, m, res);
-           }
+            if (o_cnstr->get_arity() == 0) mk_null_axiom(o_cnstr, accessor, m, res);
+            else mk_non_null_axiom(o_cnstr, accessor, m, res);
+        }
     }
 }
 
@@ -70,8 +62,9 @@ void get_selector_total_axioms(ast_manager &m, sort *s, func_decl *cnstr,
 void mk_null_axiom(func_decl* cnstr, func_decl* accessor, ast_manager& m, expr_ref_vector& res) {
     SASSERT(cnstr->get_arity() == 0);
     expr_ref sel_app(m), eq(m), rhs(m);
+    sort *r;
     sel_app = m.mk_app(accessor, to_expr(m.mk_const(cnstr)));
-    sort *r = accessor->get_range();
+    r = accessor->get_range();
     rhs = m.get_some_value(r);
     eq = m.mk_eq(sel_app, rhs);
     res.push_back(eq);
@@ -82,13 +75,12 @@ void mk_null_axiom(func_decl* cnstr, func_decl* accessor, ast_manager& m, expr_r
 void mk_non_null_axiom(func_decl *cnstr, func_decl *accessor, ast_manager &m,
                    expr_ref_vector &res) {
     SASSERT(cnstr->get_arity() != 0);
-    expr_ref sel_app(m), eq(m), rhs(m), cnstr_app(m), q_body(m), q_app(m);
-    unsigned sz = cnstr->get_arity();
+    expr_ref sel_app(m), eq(m), rhs(m), cnstr_app(m), q_body(m), q_app(m), var(m);
+    sort* s, *r;
     ptr_buffer<sort> sorts;
-    sort* s;
     svector<symbol> names;
     expr_ref_vector vars(m);
-    expr* var;
+    unsigned sz = cnstr->get_arity();
     for(unsigned i = 0; i < sz; i++) {
         s = cnstr->get_domain(i);
         sorts.push_back(s);
@@ -98,12 +90,13 @@ void mk_non_null_axiom(func_decl *cnstr, func_decl *accessor, ast_manager &m,
     }
     cnstr_app = m.mk_app(cnstr, vars);
     sel_app = m.mk_app(accessor, cnstr_app);
-    sort *r = accessor->get_range();
+    r = accessor->get_range();
     rhs = m.get_some_value(r);
     eq = m.mk_eq(sel_app, rhs);
     q_body = expr_abstract(m, 0, vars.size(), vars.c_ptr(), eq);
     q_app = m.mk_forall(sz, sorts.c_ptr(), names.c_ptr(), q_body);
     res.push_back(q_app);
+    TRACE("datatype", tout << "Adding ADT axiom " << q_app << "\n";);
 }
 
 namespace get_dt_ns {
