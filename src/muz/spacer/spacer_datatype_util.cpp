@@ -23,6 +23,7 @@
 #include "ast/datatype_decl_plugin.h"
 #include "ast/expr_abstract.h"
 #include "ast/for_each_expr.h"
+#include "ast/recfun_decl_plugin.h"
 
 namespace spacer {
 
@@ -97,6 +98,54 @@ void mk_non_null_axiom(func_decl *cnstr, func_decl *accessor, ast_manager &m,
     q_app = m.mk_forall(sz, sorts.c_ptr(), names.c_ptr(), q_body);
     res.push_back(q_app);
     TRACE("datatype", tout << "Adding ADT axiom " << q_app << "\n";);
+}
+
+// remove all literals rf(t_1) = t_2 in \p res;
+void drop_rf_app(expr_ref_vector &res) {
+    if (res.empty()) return;
+    ast_manager &m(res.m());
+    recfun::util recfun(m);
+    expr *arg1, *arg2, *e;
+    unsigned i = 0, j = res.size() - 1;
+    for (; i <= j;) {
+        e = res.get(i);
+        if (!m.is_eq(e, arg1, arg2) || !recfun.is_defined(arg1))
+            i++;
+        else {
+            res.set(i, res.get(j));
+            j--;
+        }
+    }
+    res.shrink(i);
+}
+
+namespace contains_rf_ns {
+struct found {};
+struct contains_rf_proc {
+    ast_manager &m;
+    recfun::util m_recfun;
+    contains_rf_proc(ast_manager &a_m) : m(a_m), m_recfun(m) {}
+    void operator()(expr *n) const {}
+    void operator()(app *n) {
+        if (m_recfun.has_def(n->get_decl())) throw found();
+    }
+};
+} // namespace contains_rf_ns
+
+// check whether \p e contains a recfun term
+bool contains_rf_app(expr *e, ast_manager &m) {
+    contains_rf_ns::contains_rf_proc t(m);
+    try {
+        for_each_expr(t, e);
+        return false;
+    } catch (const contains_rf_ns::found &) { return true; }
+}
+
+// check whether \p cube contains a recfun term
+bool contains_rf_app(expr_ref_vector &cube) {
+    for (auto a : cube)
+        if (contains_rf_app(a, cube.m())) return true;
+    return false;
 }
 
 namespace get_dt_ns {

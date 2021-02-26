@@ -44,4 +44,13 @@ void mk_null_axiom(func_decl *cnstr, func_decl *accessor, ast_manager &m,
 void mk_non_null_axiom(func_decl *cnstr, func_decl *accessor, ast_manager &m,
                    expr_ref_vector &res);
 
+// check whether \p e contains a recfun term
+bool contains_rf_app(expr *e, ast_manager &m);
+
+// check whether \p cube contains a recfun term
+bool contains_rf_app(expr_ref_vector &cube);
+
+// remove all applications of rf in \p res;
+void drop_rf_app(expr_ref_vector &res);
+
 } // namespace spacer
