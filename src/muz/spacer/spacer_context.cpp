@@ -2607,7 +2607,14 @@ bool context::validate() {
                 lbool res = sol->check_sat(0, nullptr);
                 if (res != l_false) {
                     msg << "rule validation failed when checking: "
-                        << mk_pp(tmp, m);
+                        << mk_pp(tmp, m) << res << sol->reason_unknown();
+                    // HACK to make Spacer compatible with par-or tactic
+                    // Don't throw exception if solver returned unknown because
+                    // of pthread kill
+                    if (res == l_undef &&
+                        (sol->reason_unknown() == "canceled" ||
+                         sol->reason_unknown() == "unknown"))
+                        return true;
                     IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
                     throw default_exception(msg.str());
                     return false;
