@@ -71,7 +71,7 @@ pob::pob(pob *parent, pred_transformer &pt, unsigned level, unsigned depth,
       m_conj_pattern(m_pt.get_ast_manager()), m_local_gen(true),
       m_shd_concr(false), m_concr_pat(m_pt.get_ast_manager()),
       m_subsume_pob(m_pt.get_ast_manager()), m_subsume_bindings(m_pt.get_ast_manager()), m_is_subsume_pob(false),
-      m_expand_bnd(false), m_gas(0) {
+      m_expand_bnd(false), m_gas(20) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -363,6 +363,10 @@ pob *derivation::create_next_child(model &mdl) {
     pob *n = m_premises[m_active].pt().mk_pob(&m_parent,
                                               prev_level (m_parent.level ()),
                                               m_parent.depth (), post, vars);
+    if (may_pob) {
+        n->set_subsume_pob();
+        n->set_gas(10);
+    }
     IF_VERBOSE (1, verbose_stream ()
                 << "\n\tcreate_child: " << n->pt ().head ()->get_name ()
                 << " (" << n->level () << ", " << n->depth () << ") "
