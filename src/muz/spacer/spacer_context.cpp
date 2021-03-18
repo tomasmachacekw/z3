@@ -328,6 +328,30 @@ pob *derivation::create_next_child(model &mdl) {
         exist_skolemize(post.get(), vars, post);
     }
 
+    bool may_pob = false;
+    unsigned gas = m_parent.get_gas();
+    datatype_util dt(m);
+    expr_ref_vector post_vars(m);
+    app_ref_vector dt_vars(m);
+    get_uninterp_consts(post, post_vars);
+    for(auto a : post_vars) {
+        sort* s = m.get_sort(a);
+        if (dt.is_datatype(s))
+                dt_vars.push_back(to_app(a));
+    }
+
+    if (gas > 0 && !dt_vars.empty()) {
+        expr_ref tmp(m);
+        tmp = post;
+        pt().mbp(dt_vars, tmp, mdl, true, true);
+        if (!m.is_true(tmp)) {
+            gas--;
+            may_pob = true;
+            post = tmp;
+            m_parent.set_gas(gas);
+        }
+    }
+
     get_manager ().formula_o2n (post.get (), post,
                                 m_premises [m_active].get_oidx (),
                                 vars.empty());
