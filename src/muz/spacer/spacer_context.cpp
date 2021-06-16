@@ -3619,17 +3619,17 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         pob *f = n.pt().find_pob(n.parent(), mk_and(new_pob));
         // skip if new pob is already in the queue
         if (!f && num_removed > 0 && new_pob.size() > 0){
-                pob *tmppob = n.pt().mk_pob(n.parent(), n.level(), n.depth(),
-                                            mk_and(new_pob), n.get_binding());
-                TRACE("spacer", tout << "removed all DT from a pob to get " << new_pob << "\n";);
-                n.set_gas(n.get_gas() - 1);
-                tmppob->set_gas(n.get_gas() - 1);
-                tmppob->set_conj();
-                out.push_back(&(*tmppob));
-                out.push_back(&n);
-                return l_undef;
-            }
+            pob *tmppob = n.pt().mk_pob(n.parent(), n.level(), n.depth(),
+                                        mk_and(new_pob), n.get_binding());
+            TRACE("spacer", tout << "removed all DT from a pob to get " << new_pob << "\n";);
+            n.set_gas(n.get_gas() - 1);
+            tmppob->set_gas(n.get_gas() - 1);
+            tmppob->set_conj();
+            out.push_back(&(*tmppob));
+            out.push_back(&n);
+            return l_undef;
         }
+    }
     lbool res =
         n.pt().is_reachable(n, &cube, &model, uses_level, is_concrete, r,
                             reach_pred_used, num_reuse_reach, m_use_iuc);
