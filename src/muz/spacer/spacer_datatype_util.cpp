@@ -101,6 +101,7 @@ void mk_non_null_axiom(func_decl *cnstr, func_decl *accessor, ast_manager &m,
 }
 
 // remove all literals rf(t_1) = t_2 in \p res;
+// changes order of literals in res. TODO: rewrite
 void drop_rf_app(expr_ref_vector &res) {
     if (res.empty()) return;
     ast_manager &m(res.m());
@@ -109,7 +110,7 @@ void drop_rf_app(expr_ref_vector &res) {
     unsigned i = 0, j = res.size() - 1;
     for (; i <= j;) {
         e = res.get(i);
-        if (!m.is_eq(e, arg1, arg2) || !recfun.is_defined(arg1))
+        if (!((m.is_eq(e, arg1, arg2) && recfun.is_defined(arg1)) || recfun.is_defined(e) || (m.is_not(e, arg1) && recfun.is_defined(arg1))))
             i++;
         else {
             res.set(i, res.get(j));
