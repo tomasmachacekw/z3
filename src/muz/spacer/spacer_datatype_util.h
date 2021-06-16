@@ -47,6 +47,9 @@ void mk_non_null_axiom(func_decl *cnstr, func_decl *accessor, ast_manager &m,
 // check whether \p e contains a recfun term
 bool contains_rf_app(expr *e, ast_manager &m);
 
+// check whether \p lit contains a datatype sort
+bool contains_datatype(expr_ref lit);
+
 // check whether \p cube contains a recfun term
 bool contains_rf_app(expr_ref_vector &cube);
 

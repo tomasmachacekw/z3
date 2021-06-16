@@ -168,4 +168,11 @@ void get_datatype_sorts(expr_ref e, sort_ref_vector &s) {
     get_dt_ns::get_dt_proc t(e.get_manager(), s);
     for_each_expr(t, e);
 }
+
+bool contains_datatype(expr_ref lit) {
+    sort_ref_vector s(lit.get_manager());
+    get_datatype_sorts(lit, s);
+    return s.size() > 0;
+}
+
 } // namespace spacer
