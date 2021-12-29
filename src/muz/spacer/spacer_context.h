@@ -1280,6 +1280,7 @@ class context {
     bool                 m_global;
     bool                 m_expand_bnd;
     bool                 m_conjecture;
+    bool                 m_subsume;
     bool                 m_use_sage;
     bool                 m_concretize;
     bool                 m_use_iuc;
@@ -1384,6 +1385,7 @@ public:
     bool elim_aux() const {return m_elim_aux;}
     bool reach_dnf() const {return m_reach_dnf;}
     bool use_bg_invs() const {return m_use_bg_invs;}
+    bool do_subsume() const {return m_subsume;}
 
     ast_manager&      get_ast_manager() const {return m;}
     manager&          get_manager() {return m_pm;}
