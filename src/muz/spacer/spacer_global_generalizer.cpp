@@ -121,7 +121,7 @@ lemma_global_generalizer::subsumer::subsumer(ast_manager &a_m, bool use_sage,
 
 lemma_global_generalizer::lemma_global_generalizer(context &ctx)
     : lemma_generalizer(ctx), m(ctx.get_ast_manager()),
-      m_subsumer(m, ctx.use_sage(), ctx.use_ground_pob()) {}
+      m_subsumer(m, ctx.use_sage(), ctx.use_ground_pob()), m_do_subsume(ctx.do_subsume()) {}
 
 void lemma_global_generalizer::operator()(lemma_ref &lemma) {
     scoped_watch _w_(m_st.watch);
@@ -805,7 +805,7 @@ void lemma_global_generalizer::core(lemma_ref &lemma) {
     app_ref_vector bindings(m);
     bindings.append(lemma->get_bindings());
 
-    if (m_subsumer.subsume(lc, new_pob, bindings)) {
+    if (m_do_subsume && m_subsumer.subsume(lc, new_pob, bindings)) {
         pob->set_subsume_pob(new_pob);
         pob->set_subsume_bindings(bindings);
         pob->set_may_pob_lvl(cluster->get_min_lvl());

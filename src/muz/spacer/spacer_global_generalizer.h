@@ -167,6 +167,8 @@ class lemma_global_generalizer : public lemma_generalizer {
     /// the conjecture pob returns true if conjecture is set
     bool do_conjecture(pob_ref n, expr_ref lit, unsigned lvl, unsigned gas);
 
+    /// Enable/disable subsume rule
+    bool m_do_subsume;
   public:
     lemma_global_generalizer(context &ctx);
     ~lemma_global_generalizer() override {}
