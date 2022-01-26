@@ -168,18 +168,18 @@ struct term_ordered_rpp : public default_rewriter_cfg {
         if (is_add(f)) {
             ptr_buffer<expr> kids;
             kids.append(num, args);
-            std::stable_sort(kids.c_ptr(), kids.c_ptr() + kids.size(),
+            std::stable_sort(kids.data(), kids.data() + kids.size(),
                              m_add_less);
-            result = m_arith.mk_add(num, kids.c_ptr());
+            result = m_arith.mk_add(num, kids.data());
             return BR_DONE;
         }
 
         if (m.is_and(f)) {
             ptr_buffer<expr> kids;
             kids.append(num, args);
-            std::stable_sort(kids.c_ptr(), kids.c_ptr() + kids.size(),
+            std::stable_sort(kids.data(), kids.data() + kids.size(),
                              m_and_less);
-            result = m.mk_and(num, kids.c_ptr());
+            result = m.mk_and(num, kids.data());
             return BR_DONE;
         }
         return st;

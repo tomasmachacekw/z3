@@ -182,7 +182,7 @@ static void strip_to_real(expr_ref &fml, unsigned depth = 3) {
         new_args.push_back(child);
     }
     fml = m.mk_app(f_app->get_family_id(), f_app->get_decl_kind(),
-                   new_args.size(), new_args.c_ptr());
+                   new_args.size(), new_args.data());
     return;
 }
 
@@ -296,7 +296,7 @@ static void to_real_term(expr_ref &fml, unsigned depth = 3) {
         // The mk_app method selects the function sort based on the sort of
         // new_args
         fml = m.mk_app(fml_app->get_family_id(), fml_app->get_decl_kind(),
-                       new_args.size(), new_args.c_ptr());
+                       new_args.size(), new_args.data());
     }
     return;
 }
@@ -324,7 +324,7 @@ static void to_real(expr_ref &fml) {
         // use this api to change sorts in domain of f
         else
             new_f = m.mk_app(f_app->get_family_id(), f_app->get_decl_kind(),
-                             new_args.size(), new_args.c_ptr());
+                             new_args.size(), new_args.data());
         new_fml.push_back(new_f);
     }
     fml = mk_and(new_fml);
@@ -463,11 +463,11 @@ bool lemma_global_generalizer::subsumer::maxsat_with_model(const expr_ref a,
         assump_b = m.mk_implies(tag, b);
         m_solver->assert_expr(assump_b);
     }
-    res = m_solver->check_sat(tmp.size(), tmp.c_ptr());
+    res = m_solver->check_sat(tmp.size(), tmp.data());
     if (res != l_true && tmp.size() > 0) {
         tmp.pop_back();
         tmp.push_back(m.mk_not(tag));
-        res = m_solver->check_sat(tmp.size(), tmp.c_ptr());
+        res = m_solver->check_sat(tmp.size(), tmp.data());
     }
     if (res != l_true) return false;
     m_solver->get_model(mdl);
@@ -645,7 +645,7 @@ bool lemma_global_generalizer::subsumer::over_approximate(expr_ref_vector &a,
     m_solver->assert_expr(b);
     m_solver->assert_expr(neg_a);
     while (!all_tags_disabled) {
-        res = m_solver->check_sat(tags.size(), tags.c_ptr());
+        res = m_solver->check_sat(tags.size(), tags.data());
         if (res == l_false) { break; }
         // remove satisfied literals
         model_ref rslt;
