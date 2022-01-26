@@ -165,8 +165,8 @@ void convex_closure::generate_equality_for_row(const vector<rational> &row,
         return;
     }
 
-    out = m_is_arith ? m_arith.mk_add(rhs.size(), rhs.c_ptr())
-                     : mk_bvadd(m, rhs.size(), rhs.c_ptr());
+    out = m_is_arith ? m_arith.mk_add(rhs.size(), rhs.data())
+                     : mk_bvadd(m, rhs.size(), rhs.data());
     expr_ref pv_var(m);
     pv_var = m_dim_vars.get(pv);
     mul_by_rat(pv_var, coeff * m_lcm);
@@ -210,9 +210,9 @@ void convex_closure::add_sum_cnstr(unsigned i, expr_ref_vector &out) {
     v = m_arith.mk_to_real(m_dim_vars.get(i));
     mul_by_rat(v, m_lcm);
     if (m_is_arith)
-        out.push_back(m.mk_eq(m_arith.mk_add(sum.size(), sum.c_ptr()), v));
+        out.push_back(m.mk_eq(m_arith.mk_add(sum.size(), sum.data()), v));
     else
-        out.push_back(m.mk_eq(mk_bvadd(m, sum.size(), sum.c_ptr()), v));
+        out.push_back(m.mk_eq(mk_bvadd(m, sum.size(), sum.data()), v));
 }
 
 void convex_closure::syntactic_convex_closure(expr_ref_vector &out) {
@@ -236,7 +236,7 @@ void convex_closure::syntactic_convex_closure(expr_ref_vector &out) {
     }
 
     //(\Sum j . m_new_vars[j]) = 1
-    out.push_back(m.mk_eq(m_arith.mk_add(m_new_vars.size(), exprs.c_ptr()),
+    out.push_back(m.mk_eq(m_arith.mk_add(m_new_vars.size(), exprs.data()),
                           m_arith.mk_real(rational::one())));
 }
 

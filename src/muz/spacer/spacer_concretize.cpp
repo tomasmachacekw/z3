@@ -196,7 +196,7 @@ void concretize::partition_terms(expr_ref pattern, expr_ref formula,
     }
     if (others.size() > 0) {
         expr_ref sum_term(m);
-        sum_term = m_arith.mk_add(others.size(), others.c_ptr());
+        sum_term = m_arith.mk_add(others.size(), others.data());
         if (!out.contains(sum_term)) {
             TRACE("concretize_verb",
                   tout << "adding " << sum_term << " to groups\n";);
@@ -210,11 +210,11 @@ void concretize::partition_terms(expr_ref pattern, expr_ref formula,
     if (m.is_not(formula, e))
         t_sub = m.mk_not(
             m.mk_app(to_app(e)->get_decl(),
-                     m_arith.mk_add(rw_formula.size(), rw_formula.c_ptr()), c));
+                     m_arith.mk_add(rw_formula.size(), rw_formula.data()), c));
     else
         t_sub =
             m.mk_app(to_app(formula)->get_decl(),
-                     m_arith.mk_add(rw_formula.size(), rw_formula.c_ptr()), c);
+                     m_arith.mk_add(rw_formula.size(), rw_formula.data()), c);
     TRACE("concretize_verb", tout << "re-wrote " << formula << " into " << t_sub
                                   << " for substitution\n";);
     sub_term.push_back(t_sub);
