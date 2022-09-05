@@ -24,6 +24,7 @@ z3_add_component(sat
     sat_local_search.cpp
     sat_lookahead.cpp
     sat_lut_finder.cpp
+    sat_mod_sat.cpp
     sat_model_converter.cpp
     sat_mus.cpp
     sat_npn3_finder.cpp

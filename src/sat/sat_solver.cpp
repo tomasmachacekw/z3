@@ -387,7 +387,7 @@ namespace sat {
             m_stats.m_del_clause++;
     }
 
-    void solver::drat_explain_conflict() {
+    void solver::drat_explain_conflict() {      
         if (m_config.m_drat && m_ext) {
             extension::scoped_drating _sd(*m_ext);
             bool unique_max;
@@ -1023,6 +1023,7 @@ namespace sat {
     bool solver::propagate_core(bool update) {
         while (m_qhead < m_trail.size() && !m_inconsistent) {
             do {
+	      TRACE("sat", tout << "propagating ...\n";);
                 checkpoint();
                 m_cleaner.dec();
                 literal l = m_trail[m_qhead];
@@ -2517,6 +2518,14 @@ namespace sat {
                 break;
             }
             case justification::EXT_JUSTIFICATION: {
+	      if(true) {
+		TRACE("satmodsat", tout << "resolving " << consequent;);
+		clause* c = reasonFromOther(consequent);
+		js = m_justification[consequent.var()];
+		TRACE("satmodsat", tout << "clause " << *c;);
+		continue;
+	      }
+	      else {
                 fill_ext_antecedents(consequent, js, false);
                 TRACE("sat", tout << "ext antecedents: " << m_ext_antecedents << "\n";);
                 for (literal l : m_ext_antecedents) 
@@ -2531,6 +2540,7 @@ namespace sat {
                 }
 #endif
                 break;
+	      }
             }
             default:
                 UNREACHABLE();
