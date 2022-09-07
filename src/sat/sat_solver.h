@@ -246,7 +246,7 @@ namespace sat {
         // -----------------------
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
-      virtual clause* reasonFromOther(literal l) {return nullptr;}
+        virtual clause* reason_from_other(literal l) {return nullptr;}
         // collect statistics from sat solver
         void collect_statistics(statistics & st) const;
         void reset_statistics();

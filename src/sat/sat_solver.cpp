@@ -2520,7 +2520,7 @@ namespace sat {
             case justification::EXT_JUSTIFICATION: {
 	      if(true) {
 		TRACE("satmodsat", tout << "resolving " << consequent;);
-		clause* c = reasonFromOther(consequent);
+		clause* c = reason_from_other(consequent);
 		js = m_justification[consequent.var()];
 		TRACE("satmodsat", tout << "clause " << *c;);
 		continue;
