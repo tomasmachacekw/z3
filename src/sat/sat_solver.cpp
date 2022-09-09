@@ -946,14 +946,14 @@ namespace sat {
     void solver::assign_core(literal l, justification j) {
         SASSERT(value(l) == l_undef);
         TRACE("sat_assign_core", tout << l << " " << j << "\n";);
-        if (j.level() == 0) {
-            if (m_config.m_drat) 
-                drat_log_unit(l, j);
-            j = justification(0); // erase justification for level 0
-        }
-        else {
-            VERIFY(!at_base_lvl());
-        }
+        // if (j.level() == 0) {
+        //     if (m_config.m_drat) 
+        //         drat_log_unit(l, j);
+        //     j = justification(0); // erase justification for level 0
+        // }
+        // else {
+        //     VERIFY(!at_base_lvl());
+        // }
         m_assignment[l.index()]    = l_true;
         m_assignment[(~l).index()] = l_false;
         bool_var v = l.var();
