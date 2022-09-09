@@ -6,7 +6,9 @@ using namespace sat;
 void sat_mod_sat::solve(expr_ref A, expr_ref B, expr_ref_vector& shared) {
   TRACE("satmodsat", tout << "A: " << mk_pp(A, m) << " B: " << mk_pp(B, m) << "\n";);
   init(A, B, shared);
-  m_solver.solve();
+  bool res = m_solver.solve();
+  const char* s = res? "satisfiable" : "unsatisfiable";
+  TRACE("satmodsat", tout << "final result is " << s;);
 }
 
 // Ensures that all shared variables have the same index in both solvers.
@@ -27,11 +29,11 @@ void sat_mod_sat::init(expr_ref A, expr_ref B, expr_ref_vector const & shared) {
 void smssolver::assign_from_other(literal_vector const& t, size_t lvl) {
   for(literal l : t) {
     if(value(l) == l_undef) {
-      TRACE("satmodsat", tout << "propagating from other " << m_idx << " " << l  << "\n";);
+      dbg_print_lit("propagating from other", l);
       assign_core(l, justification::mk_ext_justification(scope_lvl(), lvl));
     }
   }
-  TRACE("satmodsat", tout << m_idx << " qhead " << m_qhead << "\n"; for(unsigned i = 0; i < m_qhead; i++) { tout << m_trail[i] << " "; }  tout << "\n";);
+  dbg_print_state();
 }
 
 bool smssolver::modular_solve() {
@@ -39,17 +41,25 @@ bool smssolver::modular_solve() {
   while(true) {
     bool c = propagate_all();
     if (!c) {
+      //TODO: learn lemma from propagations at dl0
       if (m_conflict_lvl == 0)
 	return false;
+	    
+      // resolve conflicting literals and put the result into m_lemma
+      // uses reason_from_other to resolve literals propagated by other solvers
       resolve_conflict_core();
+      
       // undo propagations in m_pSolver
+      // this step is missing in the sat modulo sat paper. because
+      // m_pSolver does not make any decisions when this solver is solving
       if (m_pSolver) {
 	unsigned backjump_lvl = 0;
-	for (unsigned i = m_lemma.size(); i-- > 1;) {
-	  unsigned level = lvl(~m_lemma[i]);
+	for (unsigned i = m_lemma.size(); i-- > 0;) {
+	  unsigned level = lvl(m_lemma[i]);
 	  backjump_lvl = std::max(level, backjump_lvl);
 	}
-	for(unsigned i = m_scopes[backjump_lvl].m_trail_lim; i < m_trail.size(); i++) {
+	SASSERT(backjump_lvl > 0);
+	for(unsigned i = m_scopes[backjump_lvl - 1].m_trail_lim; i < m_trail.size(); i++) {
 	  if (m_shared[m_trail[i].var()]) {
 	    literal l = m_trail[i];
 	    m_pSolver->undo_lit(l);
@@ -66,20 +76,26 @@ bool smssolver::modular_solve() {
 	return true;
       if (m_pSolver->modular_solve())
 	return true;
+      // Previous solver hit a conflict without this solver making any decisions
+      if (m_scope_lvl == 0)
+	return false;
       literal_vector lc;
+      TRACE("satmodsat", tout << "rh";);
       m_pSolver->get_reason_final(lc);
       unsigned dl = 0;
       literal pop_lit;
-      literal_vector cls;
       for(literal l : lc) {
 	if (lvl(l) > dl) {
-	  pop_lit = l;
+	  pop_lit = ~l;
 	}
 	dl = std::max(lvl(l), dl);
-	cls.push_back(~l);
       }
-      mk_clause_core(cls.size(), cls.data(), sat::status::redundant());
+      itp.push_back(lc);
+      dbg_print_lv("learning clause", lc);
+      mk_clause_core(lc.size(), lc.data(), sat::status::redundant());
       pop_reinit(m_scope_lvl - dl);
+      undo_lit(pop_lit);
+      dbg_print_state();
       m_pSolver->do_restart(true);
     }
   } 
@@ -101,15 +117,16 @@ bool smssolver::propagate_all() {
     m_pSolver->assign_from_other(th, m_tx_idx);
     c = m_pSolver->propagate_and_share(tp);
     if (!c) {
+      TRACE("satmodsat", tout << "reached here";);
       tp.clear();
       m_pSolver->get_reason_final(tp);
-      literal_vector cls;
       unsigned dl = 0;
       for(literal l : tp) {
-	cls.push_back(~l);
 	dl = std::max(dl, lvl(l));
       }
-      mk_clause_core(cls.size(), cls.data(), sat::status::redundant());
+      dbg_print_lv("learning clause after prop hit conflict in other solver", tp);
+      itp.push_back(tp);
+      mk_clause_core(tp.size(), tp.data(), sat::status::redundant());
       // backtrack till the highest decision level to try and force a conflict
       pop_reinit(m_scope_lvl - dl);
       tp.reset();
@@ -127,7 +144,7 @@ bool smssolver::propagate_all() {
 bool smssolver::propagate_and_share(literal_vector & t) {
   t.reset();
   unsigned qhead = m_qhead;
-  TRACE("satmodsat", tout << m_idx << " " << qhead << " " << m_trail.size() << "\n";);
+  dbg_print_state();
   bool r = propagate(false);
   if(!r) return false;
   for(unsigned i = qhead; i < m_trail.size(); i++) {
@@ -141,7 +158,7 @@ bool smssolver::propagate_and_share(literal_vector & t) {
   Conflict analysis
  */
 void smssolver::get_reason(literal l, literal_vector& rc) {
-  TRACE("satmodsat", tout << m_idx << " Fetching reason for " << l ;);
+  dbg_print_lit("Fetching reason for", l);
   literal_vector todo;
   todo.push_back(l);
   rc.reset();
@@ -152,15 +169,16 @@ void smssolver::get_reason(literal l, literal_vector& rc) {
     TRACE("satmodsat", display_justification(tout, js););
     switch(js.get_kind()) {
     case justification::NONE:
-      SASSERT(js.level() == 0);
-      rc.push_back(t);
+      SASSERT(false);
+      // SASSERT(js.level() == 0);
+      // rc.push_back(t);
       break;
     case justification::BINARY:
-      todo.push_back(js.get_literal());
+      todo.push_back(~js.get_literal());
       break;
     case justification::TERNARY:
-      todo.push_back(js.get_literal1());
-      todo.push_back(js.get_literal2());
+      todo.push_back(~js.get_literal1());
+      todo.push_back(~js.get_literal2());
       break;
     case justification::CLAUSE: {
       clause & c = get_clause(js);
@@ -170,17 +188,17 @@ void smssolver::get_reason(literal l, literal_vector& rc) {
       }
       else {
 	SASSERT(c[1].var() == t.var());
-	todo.push_back(c[0]);
+	todo.push_back(~c[0]);
 	i = 2;
       }
       unsigned sz = c.size();
       for (; i < sz; i++) {
-	todo.push_back(c[i]);
+	todo.push_back(~c[i]);
       }
       break;
     }
     case justification::EXT_JUSTIFICATION: {
-      rc.push_back(t);
+      rc.push_back(~t);
       break;
     }
     default:
@@ -191,12 +209,14 @@ void smssolver::get_reason(literal l, literal_vector& rc) {
 }
 
 clause* smssolver::reason_from_other(literal l) {
+  dbg_print_state();
   literal_vector c;
   SASSERT(m_pSolver || m_nSolver);
   if (m_pSolver)
-    m_pSolver->get_reason(l, c);
+    m_pSolver->get_reason(~l, c);
   else
-    m_nSolver->get_reason(l, c);
+    m_nSolver->get_reason(~l, c);
+  itp.push_back(c);
   // is asserted the right status here?
   clause* lemma = mk_clause_core(c.size(), c.data(), sat::status::redundant());
   unsigned dl = 0;
@@ -211,16 +231,28 @@ clause* smssolver::reason_from_other(literal l) {
 
 //Get all literals from other solver that caused the current conflict
 void smssolver::get_reason_final(literal_vector &t) {
-  // SASSERT(inconsistent());
-  get_reason(m_trail[skip_literals_above_conflict_level()], t);
+  SASSERT(inconsistent());
+  get_reason(m_not_l, t);
+  dbg_print_lv("reason final", t);
 }
 
 /*
   backjumping
  */
 void smssolver::undo_lit(literal l) {
+  dbg_print_lit("undoing", l);
+  dbg_print_state();
   unsigned dl = lvl(l);
   pop_reinit(m_scope_lvl - dl);
+  SASSERT(dl > 0);
+  // if level is zero, trail has to be cleared till this literal is unassigned
+  unsigned i = m_scopes[dl - 1].m_trail_lim + 1;
+  for(;i-- > 0;)
+    if(m_trail[i] == l) {
+      unassign_vars(i, m_scope_lvl - dl);
+      break;
+    }
+  dbg_print_state();
 }
 
 /*

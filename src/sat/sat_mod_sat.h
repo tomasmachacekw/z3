@@ -1,7 +1,51 @@
 #include "ast/ast_util.h"
 #include "ast/ast.h"
+#include "ast/ast_pp.h"
 #include "sat/sat_solver.h"
 namespace sat {
+
+#define dbg_print_lit(s, l)					\
+  {								\
+    TRACE("satmodsat",						\
+	  tout << "solver" << m_idx << " " << s;			\
+	if (l.sign()) {						\
+	  tout <<  " -" << expr_ref(get_expr(l.var()), m);	\
+	}							\
+	else {							\
+	  tout <<  " " << expr_ref(get_expr(l.var()), m);	\
+	};);							\
+  }
+
+#define dbg_print_lv(s, lv)					\
+  {								\
+    TRACE("satmodsat",						\
+	  tout << "solver" <<  m_idx << " " << s;		\
+	  for (literal l : lv) {				\
+	    if (l.sign()) {					\
+	      tout <<  " -" << expr_ref(get_expr(l.var()), m);	\
+	    }							\
+	    else {						\
+	      tout <<  " " << expr_ref(get_expr(l.var()), m);	\
+	    }							\
+	  };);							\
+  }
+
+#define dbg_print_state()						\
+  {									\
+    TRACE("satmodsat", tout << "solver" << m_idx			\
+	  << " printing stats qhead " << m_qhead << " trail size "	\
+	  << m_trail.size() << " scope level " << m_scope_lvl		\
+	  << " trail";							\
+	  for(literal l: m_trail) {					\
+	    if (l.sign()) {						\
+	      tout <<  " -" << expr_ref(get_expr(l.var()), m);		\
+	    }								\
+	    else {							\
+	      tout <<  " " << expr_ref(get_expr(l.var()), m);		\
+	    }								\
+	  }								\
+	  ;);								\
+  }
   class smssolver : public solver {
     ast_manager &m;
     obj_map<expr, unsigned> m_expr2var;
@@ -15,16 +59,21 @@ namespace sat {
     //Keep track of how many times literals have been exchanged.
     //Might be useful for conflict analysis
     size_t m_tx_idx;
+    vector<literal_vector> itp;
     bool_var addVar(expr* n) {
       expr_ref e(n, m);
       unsigned v;
-      assert(!m_expr2var.find(n, v));
+      SASSERT(!m_expr2var.find(n, v));
       v = add_var(false);
+      TRACE("satmodsat", tout << "adding var " << v << " for expr " << expr_ref(n, m););
       m_expr2var.insert(n, v);
       if (m_var2expr.size() <= v) {
 	m_var2expr.resize(v + 1);
       }
-      m_var2expr[v] = e;      
+      m_var2expr[v] = e;
+      if (m_shared.size() <= v)
+	m_shared.resize(v + 1);
+      m_shared[v] = false;
       return v;
     }
     bool_var boolVar(expr* n) {
@@ -50,10 +99,22 @@ namespace sat {
       unsigned v;
       for(expr* e: vars) {
 	v = boolVar(e);
-	if (m_shared.size() <= v)
-	  m_shared.resize(v + 1);
 	m_shared[v] = true;
       }
+    }
+    void print_itp() {
+      TRACE("satmodsat", tout << "Interpolant is \n";
+	    for(literal_vector const& lv : itp) {
+	      for(literal l : lv) {
+		if (l.sign()) {						
+		  tout <<  " -" << expr_ref(get_expr(l.var()), m);	
+		}						       
+		else {							
+		  tout <<  " " << expr_ref(get_expr(l.var()), m);      
+		}	
+	      }
+	      tout << "\n";
+	    };);
     }
     bool_var get_var(expr* e) {
       bool_var v;
@@ -64,6 +125,11 @@ namespace sat {
     expr* get_expr(bool_var v) {
       assert(m_var2expr.size() > v);
       return m_var2expr[v].get();
+    }
+    void print_var_map() {
+      TRACE("satmodsat", for(unsigned i = 0; i < m_var2expr.size(); i++) {
+	  tout << "expr " << expr_ref(m_var2expr[i].get(), m) << " var " << i << "\n";	  
+	};);
     }
   };
   
@@ -81,6 +147,8 @@ public:
     for(expr* e : vars) {
       SASSERT(m_solverA->get_var(e) == m_solverB->get_var(e));
     }
+    m_solverA->print_var_map();
+    m_solverB->print_var_map();
   }
   satmodsatcontext(ast_manager& am): m(am) {
     params_ref p;
@@ -90,7 +158,11 @@ public:
     m_solverB->set_pSolver(m_solverA.get());
   }
   bool solve() {
-    return m_solverB->modular_solve();
+    if(!m_solverB->modular_solve()) {      
+      m_solverB->print_itp();
+      return false;
+    }
+    return true;
   }
 };
 
