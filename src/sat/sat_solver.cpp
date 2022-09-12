@@ -2836,8 +2836,9 @@ namespace sat {
                 level = update_max_level(l, level, unique_max);
             return level;
         case justification::EXT_JUSTIFICATION:
+	  return level;
             if (not_l != null_literal) 
-                not_l.neg();
+                not_l.neg();	    
             fill_ext_antecedents(not_l, js, true);
             for (literal l : m_ext_antecedents) 
                 level = update_max_level(l, level, unique_max);
@@ -2896,7 +2897,8 @@ namespace sat {
        \brief js is an external justification. Collect its antecedents and store at m_ext_antecedents.
     */
     void solver::fill_ext_antecedents(literal consequent, justification js, bool probing) {
-        SASSERT(js.is_ext_justification());
+      return;
+      SASSERT(js.is_ext_justification());
         SASSERT(m_ext);
         auto idx = js.get_ext_justification_idx();
         m_ext_antecedents.reset();

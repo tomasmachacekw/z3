@@ -41,34 +41,44 @@ bool smssolver::modular_solve() {
   while(true) {
     bool c = propagate_all();
     if (!c) {
+      bool unique_max;
+      m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);
       //TODO: learn lemma from propagations at dl0
-      if (m_conflict_lvl == 0)
+      if (m_conflict_lvl == 0) {
 	return false;
+      }
 	    
       // resolve conflicting literals and put the result into m_lemma
       // uses reason_from_other to resolve literals propagated by other solvers
+      // learns lemma and backjumps
       resolve_conflict_core();
       
       // undo propagations in m_pSolver
-      // this step is missing in the sat modulo sat paper. because
-      // m_pSolver does not make any decisions when this solver is solving
+      // this step is missing in the sat modulo sat paper
       if (m_pSolver) {
-	unsigned backjump_lvl = 0;
-	for (unsigned i = m_lemma.size(); i-- > 0;) {
-	  unsigned level = lvl(m_lemma[i]);
-	  backjump_lvl = std::max(level, backjump_lvl);
-	}
-	SASSERT(backjump_lvl > 0);
-	for(unsigned i = m_scopes[backjump_lvl - 1].m_trail_lim; i < m_trail.size(); i++) {
+	dbg_print_state();
+	bool no_shared_in_trail = true;
+	for(unsigned i = m_qhead; i-- > 0;) {
 	  if (m_shared[m_trail[i].var()]) {
 	    literal l = m_trail[i];
+	    // The problem here is that the literal l is also undone
+	    // we should undo all literals above l
 	    m_pSolver->undo_lit(l);
+	    literal_vector tmp;
+	    tmp.push_back(l);
+	    m_pSolver->assign_from_other(tmp, m_tx_idx);
+	    no_shared_in_trail = false;	    
 	    break;
 	  }
 	}
+	if (no_shared_in_trail) {
+	  m_pSolver->do_restart(true);
+	  m_pSolver->undo_ext_prop();
+	}
       }
-      learn_lemma_and_backjump();
+      continue;
     }
+    dbg_print_state();
     d = decide();
     if (!d) {
       // All literals assigned
@@ -80,7 +90,6 @@ bool smssolver::modular_solve() {
       if (m_scope_lvl == 0)
 	return false;
       literal_vector lc;
-      TRACE("satmodsat", tout << "rh";);
       m_pSolver->get_reason_final(lc);
       unsigned dl = 0;
       literal pop_lit;
@@ -117,7 +126,6 @@ bool smssolver::propagate_all() {
     m_pSolver->assign_from_other(th, m_tx_idx);
     c = m_pSolver->propagate_and_share(tp);
     if (!c) {
-      TRACE("satmodsat", tout << "reached here";);
       tp.clear();
       m_pSolver->get_reason_final(tp);
       unsigned dl = 0;
@@ -146,6 +154,7 @@ bool smssolver::propagate_and_share(literal_vector & t) {
   unsigned qhead = m_qhead;
   dbg_print_state();
   bool r = propagate(false);
+  dbg_print_state();
   if(!r) return false;
   for(unsigned i = qhead; i < m_trail.size(); i++) {
     if(m_shared[m_trail[i].var()])
@@ -244,14 +253,38 @@ void smssolver::undo_lit(literal l) {
   dbg_print_state();
   unsigned dl = lvl(l);
   pop_reinit(m_scope_lvl - dl);
-  SASSERT(dl > 0);
   // if level is zero, trail has to be cleared till this literal is unassigned
-  unsigned i = m_scopes[dl - 1].m_trail_lim + 1;
+  unsigned i = dl == 0 ? m_trail.size() : m_scopes[dl - 1].m_trail_lim + 1;
   for(;i-- > 0;)
     if(m_trail[i] == l) {
-      unassign_vars(i, m_scope_lvl - dl);
+      undo_ext_prop(i);
       break;
     }
+  dbg_print_state();
+}
+//undo all propagations starting from the first shared variable since index st
+void smssolver::undo_ext_prop(unsigned st) {
+  SASSERT(m_scope_lvl == 0);
+  bool rm = false;
+  unsigned sz = st;
+  for (unsigned i = st; i < m_trail.size(); i++) {
+    rm = rm || m_shared[m_trail[i].var()];
+    if (!rm) {
+      sz++;
+      continue;
+    }
+    literal l  = m_trail[i];
+    bool_var v = l.var();
+    m_assignment[l.index()]    = l_undef;
+    m_assignment[(~l).index()] = l_undef;
+    SASSERT(value(v) == l_undef);
+    m_case_split_queue.unassign_var_eh(v);
+    if (m_config.m_anti_exploration) {
+      m_canceled[v] = m_stats.m_conflict;
+    }
+  }
+  m_trail.shrink(sz);        
+  m_qhead = m_trail.size();
   dbg_print_state();
 }
 

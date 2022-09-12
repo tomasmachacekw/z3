@@ -95,6 +95,7 @@ namespace sat {
     void set_pSolver(smssolver* s) {m_pSolver = s;}
     void add_clause_expr(expr* c);
     bool modular_solve();
+    void undo_ext_prop(unsigned st = 0);
     void addShared(expr_ref_vector const& vars) {
       unsigned v;
       for(expr* e: vars) {
