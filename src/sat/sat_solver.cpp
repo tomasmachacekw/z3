@@ -2491,6 +2491,13 @@ namespace sat {
 
             switch (js.get_kind()) {
             case justification::NONE:
+	      if (m_assumption_set.contains(consequent)) {
+		  TRACE("satmodsat", tout << "resolving " << consequent;);
+		  clause* c = reason_from_other(consequent);
+		  js = m_justification[consequent.var()];
+		  CTRACE("satmodsat", c, tout << "clause " << *c;);
+		  continue;
+		}
                 break;
             case justification::BINARY:
                 process_antecedent(~(js.get_literal()), num_marks);
@@ -2741,8 +2748,8 @@ namespace sat {
               );
 
         m_core.reset();
-        if (!m_config.m_drat && m_conflict_lvl == 0) {
-            return;
+        if (false && !m_config.m_drat && m_conflict_lvl == 0) {
+	  return;
         }
         SASSERT(m_unmark.empty());
         DEBUG_CODE({

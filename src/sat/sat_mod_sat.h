@@ -59,6 +59,7 @@ namespace sat {
     //Keep track of how many times literals have been exchanged.
     //Might be useful for conflict analysis
     size_t m_tx_idx;
+    bool m_construct_itp;
     vector<literal_vector> itp;
     bool_var addVar(expr* n) {
       expr_ref e(n, m);
@@ -86,16 +87,16 @@ namespace sat {
     bool propagate_all();
     clause* reason_from_other(literal l) override;
     void get_reason(literal l, literal_vector& c);
-    void get_reason_final(literal_vector& c);
-    void undo_lit(literal);
-    void assign_from_other(literal_vector const&, size_t);
+    void assign_from_other(literal_vector const&);
   public:
-    smssolver(ast_manager& am, params_ref const &p, unsigned i): solver(p, am.limit()), m(am), m_var2expr(m), m_idx(i), m_pSolver(nullptr), m_nSolver(nullptr), m_tx_idx(0) {}
+    smssolver(ast_manager& am, params_ref const &p, unsigned i): solver(p, am.limit()), m(am), m_var2expr(m), m_idx(i), m_pSolver(nullptr), m_nSolver(nullptr), m_tx_idx(0), m_construct_itp(false) {}
     void set_nSolver(smssolver* s) {m_nSolver = s;}
     void set_pSolver(smssolver* s) {m_pSolver = s;}
     void add_clause_expr(expr* c);
+    void construct_itp() {m_construct_itp = true;}
     bool modular_solve();
     void undo_ext_prop(unsigned st = 0);
+    void rm_assumptions(literal_vector const&);
     void addShared(expr_ref_vector const& vars) {
       unsigned v;
       for(expr* e: vars) {
@@ -157,6 +158,7 @@ public:
     m_solverB = alloc(smssolver, m, p, 1);
     m_solverA->set_nSolver(m_solverB.get());
     m_solverB->set_pSolver(m_solverA.get());
+    m_solverB->construct_itp();
   }
   bool solve() {
     if(!m_solverB->modular_solve()) {      

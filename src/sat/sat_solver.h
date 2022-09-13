@@ -642,7 +642,9 @@ namespace sat {
         literal_vector m_ext_antecedents;
         bool use_backjumping(unsigned num_scopes) const;
         bool allow_backtracking() const;
+    public:
         bool resolve_conflict();
+    protected:
         lbool resolve_conflict_core();
         void learn_lemma_and_backjump();
         inline unsigned update_max_level(literal lit, unsigned lvl2, bool& unique_max) {
