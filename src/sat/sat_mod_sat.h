@@ -96,6 +96,7 @@ namespace sat {
     void construct_itp() {m_construct_itp = true;}
     bool modular_solve();
     void undo_ext_prop(unsigned st = 0);
+    void do_analyze_final();
     void rm_assumptions(literal_vector const&);
     void addShared(expr_ref_vector const& vars) {
       unsigned v;

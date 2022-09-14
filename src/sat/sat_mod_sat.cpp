@@ -31,6 +31,8 @@ void smssolver::assign_from_other(literal_vector const& t) {
     return;
   if (m_scope_lvl == 0) push();
   for(literal lit : t) {
+    if (m_assumption_set.contains(lit))
+      continue;
     set_external(lit.var());
     SASSERT(is_external(lit.var()));
     add_assumption(lit);
@@ -67,8 +69,7 @@ bool smssolver::modular_solve() {
       // learns lemma and backjumps
       if (!resolve_conflict()) {
 	return false;
-      }	    
-      
+      }          
       // undo propagations in m_pSolver
       // this step is missing in the sat modulo sat paper
       if (m_pSolver) {
@@ -78,15 +79,17 @@ bool smssolver::modular_solve() {
     }
     dbg_print_state();
     d = decide();
+    dbg_print_lv("after decide", m_trail);
     if (!d) {
       // All literals assigned
       if (!m_pSolver)
 	return true;
       dbg_print_lv("all assignments done. moving to prev solver", m_trail)
-      //Solve with assumptions
+      // Solve with assumptions
       if (m_pSolver->modular_solve())
 	return true;
-      m_pSolver->resolve_conflict();
+      // calls resolve_conflict_for_unsat_core
+      m_pSolver->do_analyze_final();
       literal_vector const& clc = m_pSolver->get_core();
       literal_vector lc;
       unsigned dl = 0;
@@ -123,7 +126,7 @@ bool smssolver::propagate_all() {
     m_pSolver->assign_from_other(th);
     c = m_pSolver->propagate_and_share(tp);
     if (!c) {
-      m_pSolver->resolve_conflict();
+      m_pSolver->do_analyze_final();
       literal_vector const& ccc = m_pSolver->get_core();
       m_lemma.reset();
       unsigned dl = 0;
@@ -144,7 +147,6 @@ bool smssolver::propagate_all() {
       }
       SASSERT(dl <= m_scope_lvl);
       // backtrack till the highest decision level to try and force a conflict
-      pop_reinit(m_scope_lvl - dl);
       learn_lemma_and_backjump();
       // mk_clause_core(cc.size(), cc.data(), sat::status::redundant());
       dbg_print_state();
@@ -230,15 +232,19 @@ clause* smssolver::reason_from_other(literal l) {
   dbg_print_state();
   literal_vector c;
   SASSERT(m_pSolver);
-  m_pSolver->get_reason(~l, c);
+  m_pSolver->get_reason(l, c);
+  literal_vector cc;
+  for (literal l : c)
+    cc.push_back(~l);
   if (m_construct_itp)
-    itp.push_back(c);
+    itp.push_back(cc);
   // is asserted the right status here?
-  clause* lemma = mk_clause_core(c.size(), c.data(), sat::status::redundant());
+  clause* lemma = mk_clause_core(cc.size(), cc.data(), sat::status::redundant());
   unsigned dl = 0;
-  for(literal l : c) {
+  for(literal l : cc) {
     dl = std::max(dl, lvl(l));
   }
+  // justification is the negation of conflict clause.
   justification js(dl);
   switch(c.size()) {
   case 1:
@@ -259,6 +265,13 @@ clause* smssolver::reason_from_other(literal l) {
   return lemma;
 }
 
+void smssolver::do_analyze_final() {
+  SASSERT(inconsistent());
+  bool unique_max;
+  m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);
+  resolve_conflict_for_unsat_core();
+  pop_to_base_level();
+}
 
 /*
  Functions to add clauses to solvers

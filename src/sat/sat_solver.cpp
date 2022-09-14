@@ -1023,7 +1023,7 @@ namespace sat {
     bool solver::propagate_core(bool update) {
         while (m_qhead < m_trail.size() && !m_inconsistent) {
             do {
-	      TRACE("sat", tout << "propagating ...\n";);
+	      TRACE("sat", tout << "propagating ...\n" << m_trail[m_qhead];);
                 checkpoint();
                 m_cleaner.dec();
                 literal l = m_trail[m_qhead];
@@ -1888,7 +1888,11 @@ namespace sat {
             }
             for (literal lit : m_assumptions) {
                 if (inconsistent()) break;
-                assign_scoped(lit);
+		// In SAT mod SAT, only re-assign assumptions if they
+		// were propagated at dl 0. Otherwise, they depend on
+		// decisions made by the solver
+		if (lvl(lit) == 1)
+		  assign_scoped(lit);
             }
             init_ext_assumptions();
 
@@ -2420,7 +2424,7 @@ namespace sat {
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);        
         justification js = m_conflict;
 
-        if (m_conflict_lvl <= 1 && (!m_assumptions.empty() || !m_user_scope_literals.empty())) {
+        if (false && m_conflict_lvl <= 1 && (!m_assumptions.empty() || !m_user_scope_literals.empty())) {
             TRACE("sat", tout << "unsat core\n";);
             resolve_conflict_for_unsat_core();
             return l_false;
@@ -2638,6 +2642,7 @@ namespace sat {
         
         if (use_backjumping(num_scopes)) {
             ++m_stats.m_backjumps;
+	    TRACE("satmodsat", tout << num_scopes;);
             pop_reinit(num_scopes);
         }
         else {
@@ -2653,15 +2658,14 @@ namespace sat {
             m_par->share_clause(*this, *lemma);
         }
         m_lemma.reset();
-        TRACE("sat_conflict_detail", tout << "consistent " << (!m_inconsistent) << " scopes: " << scope_lvl() << " backtrack: " << backtrack_lvl << " backjump: " << backjump_lvl << "\n";);
+        TRACE("sat_conflict_detail", tout << "consistent " << (!m_inconsistent) << " scopes: " << scope_lvl() << " backtrack: " << backtrack_lvl << " backjump: " << backjump_lvl << " m_trail " << m_trail << "\n";);
         decay_activity();
         updt_phase_counters();
     }
 
     bool solver::use_backjumping(unsigned num_scopes) const {
-        return 
-            num_scopes > 0 && 
-            (num_scopes <= m_config.m_backtrack_scopes || !allow_backtracking());
+      return true;// num_scopes > 0; // && 
+				  // (num_scopes <= m_config.m_backtrack_scopes || !allow_backtracking());
     }
 
     bool solver::allow_backtracking() const {
@@ -3535,7 +3539,8 @@ namespace sat {
     void solver::pop_reinit(unsigned num_scopes) {
         pop(num_scopes);
         exchange_par();
-        reinit_assumptions();
+	TRACE("satmodsat", tout << m_trail;);
+	//      reinit_assumptions();
         m_stats.m_units = init_trail_size();
     }
 
@@ -3657,6 +3662,7 @@ namespace sat {
     void solver::unassign_vars(unsigned old_sz, unsigned new_lvl) {
         SASSERT(old_sz <= m_trail.size());
         SASSERT(m_replay_assign.empty());
+	TRACE("satmodsat", tout << "unassign vars " << old_sz << " new lvl " << new_lvl;);
         for (unsigned i = m_trail.size(); i-- > old_sz; ) {
             literal l  = m_trail[i];
             bool_var v = l.var();
