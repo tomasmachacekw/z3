@@ -133,14 +133,11 @@ bool smssolver::propagate_all() {
       for(literal l : ccc) {
 	dl = std::max(dl, lvl(l));
 	m_lemma.push_back(~l);
-	// lrb code assumes that the first literal is unmarked
+	// lrb code assumes that all but the first literal are marked
 	mark(l.var());
       }
-      TRACE("satmodsat", for (literal l : ccc) {
-	  tout << " l " << l << " lvl " << lvl(l);
-	});
-      // lrb code assumes that the first literal is unmarked
       if (m_lemma.size() > 0) {
+	// lrb code assumes that the first literal is unmarked
 	reset_mark(m_lemma[0].var());      
 	dbg_print_lv("learning clause after prop hit conflict in other solver", m_lemma);
 	if (m_construct_itp) itp.push_back(m_lemma);
@@ -266,7 +263,7 @@ clause* smssolver::reason_from_other(literal l) {
 }
 
 void smssolver::do_analyze_final() {
-  SASSERT(inconsistent());
+  //SASSERT(inconsistent());
   bool unique_max;
   m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);
   resolve_conflict_for_unsat_core();
