@@ -1707,6 +1707,22 @@ namespace sat {
         }
     }
 
+  //search above lvl
+  bool solver::search_above(unsigned lvl) {
+    lbool is_sat = l_undef;
+    while (is_sat == l_undef && m_scope_lvl < lvl) {
+      if (inconsistent()) is_sat = resolve_conflict_core();
+      else if (should_propagate()) propagate(true);
+      else if (do_cleanup(false)) continue;
+      else if (should_gc()) do_gc();
+      else if (should_rephase()) do_rephase();
+      else if (should_restart()) { if (!m_restart_enabled) return l_undef; do_restart(!m_config.m_restart_fast); }
+      else if (should_simplify()) do_simplify();
+      else if (!decide()) is_sat = final_check();
+    }
+    return is_sat == l_undef;
+  }
+
     bool solver::should_propagate() const {        
         return !inconsistent() && m_qhead < m_trail.size();
     }

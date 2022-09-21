@@ -357,7 +357,11 @@ namespace sat {
         //
         // -----------------------
     public:
-        // is the state inconsistent?
+      // search only above decision level lvl
+      bool search_above(unsigned lvl);
+      literal const get_m_not_l() { return m_not_l; }
+      literal_vector const& get_m_lemma() { return m_lemma; }
+      // is the state inconsistent?
         bool inconsistent() const { return m_inconsistent; }
 
         // number of variables and clauses
@@ -625,11 +629,12 @@ namespace sat {
             return get_clause(w.get_clause_offset());
         }
 
+public:        
         clause& get_clause(justification const& j) const {
             SASSERT(j.is_clause());
             return get_clause(j.get_clause_offset());
         }
-
+protected:
         clause& get_clause(clause_offset cls_off) const {
             return *(cls_allocator().get_clause(cls_off));
         }
@@ -647,7 +652,15 @@ namespace sat {
         bool allow_backtracking() const;
         bool resolve_conflict();
         lbool resolve_conflict_core();
-        void learn_lemma_and_backjump();
+
+      public:
+        void set_m_lemma(literal_vector const &c) {
+          m_lemma.reset();
+          for (literal l : c)
+	    m_lemma.push_back(l);            
+	}
+      void learn_lemma_and_backjump();
+    protected:  
         inline unsigned update_max_level(literal lit, unsigned lvl2, bool& unique_max) {
             unsigned lvl1 = lvl(lit);
             if (lvl1 < lvl2) return lvl2;
@@ -695,9 +708,11 @@ namespace sat {
         // Backtracking
         //
         // -----------------------
+public:
         void push();
         void pop(unsigned num_scopes);
         void pop_reinit(unsigned num_scopes);
+protected:
         void shrink_vars(unsigned v);
         void pop_vars(unsigned num_scopes);
 

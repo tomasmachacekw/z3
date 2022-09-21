@@ -36,6 +36,7 @@ z3_add_component(sat
     sat_solver.cpp
     sat_watched.cpp
     sat_xor_finder.cpp
+    sms_solver.cpp
   COMPONENT_DEPENDENCIES
     util
     dd
