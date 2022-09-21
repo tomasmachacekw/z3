@@ -34,7 +34,8 @@ Notes:
 #include "qe/qe_mbp.h"
 #include "qe/qe_mbi.h"
 #include "qe/mbp/mbp_term_graph.h"
-
+#include "sat/sat_solver.h"
+#include "sat/sms_solver.h"
 
 BINARY_SYM_CMD(get_quantifier_body_cmd,
                "dbg-get-qbody",
@@ -339,6 +340,42 @@ public:
     void execute(cmd_context & ctx) override { ctx.display_dimacs(); }
 };
 
+class satmodsat_cmd : public cmd {
+    expr* fml_A;
+    expr* fml_B;
+    ptr_vector<expr> m_shared_vars;
+public:
+    satmodsat_cmd():cmd("satmodsat") {}
+    char const * get_usage() const override { return "(<vars>) <expA> <expB> where expA and expB are boolean CNF formulas"; }
+    char const * get_descr(cmd_context & ctx) const override { return "perform SAT mod SAT solving"; }
+    unsigned get_arity() const override { return 3; }
+    cmd_arg_kind next_arg_kind(cmd_context& ctx) const override {
+      if (m_shared_vars.size() == 0) return CPK_EXPR_LIST;
+	return CPK_EXPR;
+    }
+  void set_next_arg(cmd_context& ctx, expr * arg) override {
+    if (fml_A == nullptr) fml_A = arg; else fml_B = arg;
+  }
+  void set_next_arg(cmd_context & ctx, unsigned num, expr * const * ts) override {
+    m_shared_vars.append(num, ts);
+  }
+  void prepare(cmd_context & ctx) override { fml_A = nullptr; fml_B = nullptr; m_shared_vars.reset(); }
+  void execute(cmd_context & ctx) override { 
+    ast_manager& m = ctx.m();
+    expr_ref_vector vars(m);
+    for (expr* v : m_shared_vars) {
+      if (!m.is_bool(v) || !is_uninterp_const(v)) {
+	throw cmd_exception("invalid variable argument. Uninterpreted variable expected");
+      }
+      vars.push_back(to_app(v));
+    }
+    sat::sat_mod_sat solver(m);
+    expr_ref fml1(fml_A, m);
+    expr_ref fml2(fml_B, m);
+    solver.solve(fml1, fml2, vars);
+  }
+};
+
 class mbp_cmd : public cmd {
     expr* m_fml;
     ptr_vector<expr> m_vars;
@@ -597,6 +634,7 @@ void install_dbg_cmds(cmd_context & ctx) {
     ctx.insert(alloc(instantiate_nested_cmd));
     ctx.insert(alloc(set_next_id));
     ctx.insert(alloc(get_interpolant_cmd));
+    ctx.insert(alloc(satmodsat_cmd));
     ctx.insert(alloc(mbp_cmd));
     ctx.insert(alloc(mbi_cmd));
     ctx.insert(alloc(euf_project_cmd));
