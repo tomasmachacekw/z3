@@ -360,6 +360,7 @@ namespace sat {
       // search only above decision level lvl
       bool search_above(unsigned lvl);
       literal const get_m_not_l() { return m_not_l; }
+      justification const get_conflict() { return m_conflict; }
       literal_vector const& get_m_lemma() { return m_lemma; }
       // is the state inconsistent?
         bool inconsistent() const { return m_inconsistent; }
@@ -399,11 +400,14 @@ namespace sat {
             case l_undef: assign_core(l, j); break;
             case l_true:  update_assign(l, j); break;
             }
-        }
+        }        
         void update_assign(literal l, justification j) {
             if (j.level() == 0 && !m_trim) 
                 m_justification[l.var()] = j;
         }
+        void update_assign_uncond(literal l, justification j) {
+	  m_justification[l.var()] = j;
+	}          
         void assign_unit(literal l) { assign(l, justification(0)); }
         void assign_scoped(literal l) { assign(l, justification(scope_lvl())); }
         void assign_core(literal l, justification jst);
@@ -459,8 +463,13 @@ namespace sat {
     protected:            
         watch_list & get_wlist(unsigned l_idx) { return m_watches[l_idx]; }
         bool is_marked(bool_var v) const { return m_mark[v]; }
-        void mark(bool_var v) { SASSERT(!is_marked(v)); m_mark[v] = true; }
-        void reset_mark(bool_var v) { SASSERT(is_marked(v)); m_mark[v] = false; }
+    public:
+      void mark(bool_var v) { SASSERT(!is_marked(v)); m_mark[v] = true; }
+      void reset_mark(bool_var v) {
+	SASSERT(is_marked(v));
+	m_mark[v] = false;
+      }
+    protected:        
         bool is_marked_lit(literal l) const { return m_lit_mark[l.index()]; }
         void mark_lit(literal l) { SASSERT(!is_marked_lit(l)); m_lit_mark[l.index()] = true; }
         void unmark_lit(literal l) { SASSERT(is_marked_lit(l)); m_lit_mark[l.index()] = false; }
