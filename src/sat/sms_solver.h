@@ -6,6 +6,18 @@
 #include "sat/sat_types.h"
 namespace sat {
 
+#define dbg_print(s)						\
+  {								\
+    TRACE("satmodsat",						\
+	  tout << "solver" << m_idx << " " << s;);		\
+  }
+
+#define dbg_print_stat(s, t)					\
+  {								\
+    TRACE("satmodsat",						\
+	  tout << "solver" << m_idx << " " << s << " " << t;);	\
+  }
+    
 #define dbg_print_lit(s, l)					\
   {								\
     TRACE("satmodsat",						\
@@ -30,23 +42,6 @@ namespace sat {
 	      tout <<  " " << expr_ref(get_expr(l.var()), m);	\
 	    }							\
 	  };);							\
-  }
-
-#define dbg_print_state()						\
-  {									\
-    TRACE("satmodsat", tout << "solver" << m_idx			\
-	  << " printing stats qhead " << m_qhead << " trail size "	\
-	  << m_trail.size() << " scope level " << m_scope_lvl		\
-	  << " trail";							\
-	  for(literal l: m_trail) {					\
-	    if (l.sign()) {						\
-	      tout <<  " -" << expr_ref(get_expr(l.var()), m);		\
-	    }								\
-	    else {							\
-	      tout <<  " " << expr_ref(get_expr(l.var()), m);		\
-	    }								\
-	  }								\
-	  ;);								\
   }
 
 class sms_solver : public extension {
@@ -88,7 +83,7 @@ class sms_solver : public extension {
   literal_vector m_core;
   literal_vector m_asserted;
 public:
-  sms_solver(ast_manager& am, symbol const& name, int id): extension(name, id), m(am), m_var2expr(m), m_pSolver(nullptr), m_nSolver(nullptr), m_tx_idx(0), m_construct_itp(false), m_full_assignment_lvl(0) {
+  sms_solver(ast_manager& am, symbol const& name, int id): extension(name, id), m(am), m_var2expr(m), m_idx(id), m_pSolver(nullptr), m_nSolver(nullptr), m_tx_idx(0), m_construct_itp(false), m_full_assignment_lvl(0) {
     params_ref p;
   }
   literal_vector const& get_asserted() { return m_asserted; }
@@ -105,6 +100,7 @@ public:
   void asserted(literal) override;
   void assign_from_other(literal);
   void push_from_other();
+  void init_search() override;
   void push() override;
   void pop(unsigned) override;
   void pop_from_other(unsigned);

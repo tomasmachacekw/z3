@@ -1014,7 +1014,7 @@ namespace sat {
         bool keep;
         unsigned curr_level = lvl(l);
         TRACE("sat_propagate", tout << "propagating: " << l << "@" << curr_level << " " << m_justification[l.var()] << "\n"; );
-
+	TRACE("sat_propagate", tout << m_trail;);
         literal not_l = ~l;
         SASSERT(value(l) == l_true);
         SASSERT(value(not_l) == l_false);
@@ -1044,6 +1044,28 @@ namespace sat {
                     break;
                 case l_true:
                     break; // skip
+                }
+                *it2 = *it;
+                it2++;
+                break;
+            case watched::TERNARY:
+                l1 = it->get_literal1();
+                l2 = it->get_literal2();
+                val1 = value(l1);
+                val2 = value(l2);
+		TRACE("sat_propagate", tout << l1 << " and " << l2;);
+                if (val1 == l_false && val2 == l_undef) {
+                    m_stats.m_ter_propagate++;
+                    assign_core(l2, justification(std::max(curr_level, lvl(l1)), l1, not_l));
+                }
+                else if (val1 == l_undef && val2 == l_false) {
+                    m_stats.m_ter_propagate++;
+                    assign_core(l1, justification(std::max(curr_level, lvl(l2)), l2, not_l));
+                }
+                else if (val1 == l_false && val2 == l_false) {
+                    CONFLICT_CLEANUP();
+                    set_conflict(justification(std::max(curr_level, lvl(l1)), l1, not_l), ~l2);
+                    return false;
                 }
                 *it2 = *it;
                 it2++;
@@ -1710,17 +1732,18 @@ namespace sat {
   //search above lvl
   bool solver::search_above(unsigned lvl) {
     lbool is_sat = l_undef;
-    while (is_sat == l_undef && m_scope_lvl < lvl) {
+    init_search();
+    while (is_sat == l_undef && m_scope_lvl >= lvl) {
       if (inconsistent()) is_sat = resolve_conflict_core();
       else if (should_propagate()) propagate(true);
       else if (do_cleanup(false)) continue;
       else if (should_gc()) do_gc();
       else if (should_rephase()) do_rephase();
       else if (should_restart()) { if (!m_restart_enabled) return l_undef; do_restart(!m_config.m_restart_fast); }
-      else if (should_simplify()) do_simplify();
+      //      else if (should_simplify()) do_simplify();
       else if (!decide()) is_sat = final_check();
     }
-    return is_sat == l_undef;
+    return is_sat == l_true;
   }
 
     bool solver::should_propagate() const {        
@@ -2533,8 +2556,7 @@ namespace sat {
             pop_reinit(m_scope_lvl);
             mk_clause_core(0, nullptr, sat::status::redundant());
             return;
-        }
-        
+        }        
         if (m_config.m_minimize_lemmas) {
             minimize_lemma();
             reset_lemma_var_marks();
@@ -3102,6 +3124,8 @@ namespace sat {
             bool_var var = lit.var();
             m_lemma_min_stack.pop_back();
             justification const& js   = m_justification[var];
+	    TRACE("sat", tout << "finding reason for " << lit;);
+	    TRACE("sat", display_justification(tout, js));
             switch(js.get_kind()) {
             case justification::NONE:
                 // it is a decision variable from a previous scope level
@@ -3139,7 +3163,7 @@ namespace sat {
                 }
                 break;
             }
-            case justification::EXT_JUSTIFICATION: {
+            case justification::EXT_JUSTIFICATION: {	      
                 literal consequent(var, value(var) == l_false);
                 fill_ext_antecedents(consequent, js, false);
                 for (literal l : m_ext_antecedents) {
