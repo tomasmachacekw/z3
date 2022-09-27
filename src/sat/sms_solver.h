@@ -44,12 +44,16 @@ namespace sat {
 	  };);							\
   }
 
+#define NSOLVER_EXT_IDX 0
+#define PSOLVER_EXT_IDX 1
+  
 class sms_solver : public extension {
   ast_manager &m;
   obj_map<expr, unsigned> m_expr2var;
   expr_ref_vector m_var2expr;
   bool_vector m_shared;
-  unsigned m_idx;    
+  unsigned m_idx;
+  literal_vector m_pSolver_clause;
   sms_solver* m_pSolver;
   sms_solver* m_nSolver;
   //Keep track of how many times literals have been exchanged.
@@ -88,7 +92,7 @@ public:
   }
   literal_vector const& get_asserted() { return m_asserted; }
   void reset_asserted() { m_asserted.reset(); }
-  void learn_lemma(literal_vector const& c);
+  void set_conflict();
   void construct_itp() { m_construct_itp = true; }
   void set_pSolver(sms_solver* p) { m_pSolver = p;}
   void set_nSolver(sms_solver* n) { m_nSolver = n;}
@@ -96,9 +100,8 @@ public:
   void get_reason_final(literal_vector&);
   void get_antecedents(literal, ext_justification_idx, literal_vector&, bool) override;
   bool unit_propagate() override;
-  void resolve_conflict_final(literal_vector & rc);
   void asserted(literal) override;
-  void assign_from_other(literal);
+  void assign_from_other(literal, ext_justification_idx);
   void push_from_other();
   void init_search() override;
   void push() override;
@@ -115,11 +118,19 @@ public:
   }
 
   std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const override {
-    return out << "display justification yet to be implemented " << idx << "\n";
+    switch (idx) {
+    case NSOLVER_EXT_IDX:
+      return out << "ext literal from NSOLVER\n";
+    case PSOLVER_EXT_IDX:
+      return out << "ext literal from PSOLVER\n";
+    default:
+      UNREACHABLE();
+      return out;
+    }
   }
 
   std::ostream& display_constraint(std::ostream& out, ext_constraint_idx idx) const override {
-    return out << "display constraint yet to be implemented " << idx << "\n";
+        return out << "display constraint yet to be implemented " << idx << "\n";
   }
 
   check_result check() override;

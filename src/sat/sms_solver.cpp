@@ -5,9 +5,16 @@
 using namespace sat;
 
 void sms_solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector &r, bool probing) {
+  if (idx == NSOLVER_EXT_IDX) {
+    // Literal was asserted by nSolver. Don't resolve.
+    // SASSERT(in solving mode)
+    return;
+  }
   SASSERT(m_pSolver);
   m_pSolver->get_reason(l, r); 
   r.push_back(l);
+  // when probing is true, sat solver is not doing conflict resolution
+  if (probing) return;
   clause* c = m_solver->mk_clause(r.size(), r.data(), sat::status::redundant());
   justification js = m_solver->get_justification(l);
   justification njs(js.level());
@@ -26,62 +33,62 @@ void sms_solver::get_antecedents(literal l, ext_justification_idx idx, literal_v
   m_itp.push_back(r);
 }
 
-void sms_solver::learn_lemma(literal_vector const& c) {
-  unsigned dl = 0;
-  literal l;
-  unsigned hl = 0;
-  literal_vector cc;  
-  for (unsigned i = 0; i < c.size(); i++) {
-    l = c[i];
-    if (m_solver->lvl(l) > dl) {
-      hl = i;
-      dl = m_solver->lvl(l);
-    }
-    m_solver->mark(l.var());
-    cc.push_back(l);
-  }
-  std::swap(cc[hl], cc[0]);
-  m_solver->reset_mark(cc[0].var());
-  m_solver->set_m_lemma(cc);
-  dbg_print_lv("learning lemma", cc);
-}
-
 void sms_solver::init_search() { unit_propagate(); }
+
+void sms_solver::get_reason_final(literal_vector& lc) { m_solver->resolve_conflict_for_ext_core(lc, NSOLVER_EXT_IDX); }
 
 bool sms_solver::unit_propagate() {
   if (m_pSolver) {
     m_pSolver->reset_asserted();
     bool r = m_pSolver->propagate();
     if (!r) {
-      literal_vector lc;
-      m_pSolver->get_reason_final(lc);      
-      learn_lemma(lc);
-      m_itp.push_back(lc);
-      unsigned conflict_lvl = 0;
-      for (literal l : lc) {
-	if(m_solver->value(l) != l_undef)
-	  conflict_lvl = std::max(m_solver->lvl(l), conflict_lvl);
-      }
-      if (conflict_lvl == 0) {
-	m_solver->mk_clause(lc.size(), lc.data(), sat::status::redundant());
-	m_solver->pop(m_solver->scope_lvl());
-	//force conflict
-	m_solver->set_conflict();
-        return false;
-      }
-      m_solver->learn_lemma_and_backjump();
-      dbg_print_stat("solver level", m_solver->scope_lvl());
+      m_pSolver_clause.reset();
+      m_pSolver->get_reason_final(m_pSolver_clause);
+      m_itp.push_back(m_pSolver_clause);
+      set_conflict();      
       return false;
     }
-    m_tx_idx++;
     literal_vector const& t = m_pSolver->get_asserted();
     for (literal l : t) {
-      assign_from_other(l);
+      assign_from_other(l, PSOLVER_EXT_IDX);
     }
   }
   return true;
 }
 
+void sms_solver::set_conflict() {
+  dbg_print_lv("learning lemma", m_pSolver_clause);
+  literal not_l = null_literal;
+  unsigned lvl = 0;
+  unsigned hl = 0;
+  for(unsigned i = 0; i < m_pSolver_clause.size(); i++) {
+    if (lvl < m_solver->lvl(m_pSolver_clause[i])) {
+      hl = i;
+      lvl = m_solver->lvl(m_pSolver_clause[i]);
+    }
+  }
+  justification js(lvl);
+  std::swap(m_pSolver_clause[0], m_pSolver_clause[hl]);
+  clause* c = m_solver->mk_clause(m_pSolver_clause.size(), m_pSolver_clause.data(), sat::status::redundant());
+  switch (m_pSolver_clause.size()) {
+  case 0:
+    SASSERT(false);
+    break;
+  case 1:
+    js = justification(lvl, m_pSolver_clause[0]);
+    break;
+  case 2:
+    js = justification(lvl, m_pSolver_clause[0], m_pSolver_clause[1]);
+    break;
+  default:    
+    clause_offset co = m_solver->get_offset(*c);
+    not_l = m_pSolver_clause[0];
+    js = justification(lvl, co);
+    break;
+  }
+  //force conflict
+  m_solver->set_conflict(js, not_l);  
+}
 
 void sms_solver::asserted(literal l) {
   dbg_print_lit("asserted lit", l);
@@ -89,15 +96,18 @@ void sms_solver::asserted(literal l) {
   if(m_shared[l.var()]) {
     m_asserted.push_back(l);
     if (m_pSolver)
-      m_pSolver->assign_from_other(l);
+      m_pSolver->assign_from_other(l, NSOLVER_EXT_IDX);
   }
 }
 
-void sms_solver::assign_from_other(literal l) {
+void sms_solver::assign_from_other(literal l, ext_justification_idx idx) {
+  justification js = justification::mk_ext_justification(m_solver->scope_lvl(), idx);
   switch(m_solver->value(l)) {
   case l_undef:
     dbg_print_lit("assigning from other", l);
-    m_solver->assign(l, justification::mk_ext_justification(m_solver->scope_lvl(), m_tx_idx));
+    m_solver->assign(l, js);
+    if (m_solver->scope_lvl() == 0)
+      m_solver->update_assign_uncond(l, js);
     break;
   case l_true:
     dbg_print_lit("already assigned true", l);
@@ -105,60 +115,6 @@ void sms_solver::assign_from_other(literal l) {
   case l_false:
     SASSERT(false);
   }
-}
-
-//TODO: reimplement using mark
-void sms_solver::get_reason_final(literal_vector & rc) {
-  SASSERT(m_solver->inconsistent());
-  justification js = m_solver->get_conflict();
-  switch(js.get_kind()) {
-  case sat::justification::NONE: {
-    SASSERT(false);
-    break;
-  }
-  case sat::justification::BINARY: {
-    get_reason(~js.get_literal(), rc);
-    break;
-  }
-  case sat::justification::TERNARY: {
-    literal_vector t;
-    get_reason(~js.get_literal1(), rc);
-    get_reason(~js.get_literal2(), t);
-    for (literal l : t)
-      if (!rc.contains(l))
-	rc.push_back(l);
-    break;
-  }
-  case sat::justification::CLAUSE: {
-    clause & c = m_solver->get_clause(js);
-    literal l = m_solver->get_m_not_l();
-    unsigned i   = 0;
-    if (c[0].var() == l.var()) {
-	i = 1;
-      }
-    else {
-      SASSERT(c[1].var() == l.var());
-      get_reason(~c[1], rc);
-      i = 2;
-    }
-    unsigned sz = c.size();
-    literal_vector t;
-    for (; i < sz; i++) {
-      get_reason(~c[i], t);
-      for (literal l : t)
-	if (!rc.contains(l))
-	  rc.push_back(l);
-    }
-    break;
-  }
-  default:
-    UNREACHABLE();
-}
-  literal_vector t;
-  get_reason(m_solver->get_m_not_l(), t);
-  for (literal l : t)
-    if (!rc.contains(l))
-      rc.push_back(l);
 }
 
 void sms_solver::get_reason(literal l, literal_vector & rc) {  
@@ -227,20 +183,11 @@ void sms_solver::pop_from_other(unsigned num_scopes) {
   m_solver->pop(num_scopes);
 }
 
-void sms_solver::resolve_conflict_final(literal_vector &c) {
-  literal_vector ac;
-  for(literal l: m_solver->get_m_lemma()) {
-    ac.reset();
-    get_reason(l, ac);
-    c.append(ac);
-  }  
-}
-
 void sms_solver::pop(unsigned num_scopes) {
   dbg_print_stat("popping", num_scopes);
   if(m_solver->scope_lvl() - num_scopes < m_full_assignment_lvl) {
     m_core.reset();
-    resolve_conflict_final(m_core);
+    m_solver->resolve_conflict_for_ext_core(m_core, NSOLVER_EXT_IDX);
   }
   if (m_pSolver)
     m_pSolver->pop_from_other(num_scopes);

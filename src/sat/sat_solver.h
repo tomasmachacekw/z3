@@ -407,7 +407,8 @@ namespace sat {
         }
         void update_assign_uncond(literal l, justification j) {
 	  m_justification[l.var()] = j;
-	}          
+	}
+      void resolve_conflict_for_ext_core(literal_vector&, ext_justification_idx);
         void assign_unit(literal l) { assign(l, justification(0)); }
         void assign_scoped(literal l) { assign(l, justification(scope_lvl())); }
         void assign_core(literal l, justification jst);
@@ -677,6 +678,8 @@ protected:
             return lvl1;
         }
         unsigned get_max_lvl(literal consequent, justification js, bool& unique_max);
+        void process_antecedent_for_ext_core(literal, ext_justification_idx, literal_vector&, unsigned&);
+      void process_consequent_for_ext_core(literal, ext_justification_idx, justification const&, literal_vector&, unsigned&);
         void process_antecedent(literal antecedent, unsigned & num_marks);
         void resolve_conflict_for_unsat_core();
         void process_antecedent_for_unsat_core(literal antecedent);
