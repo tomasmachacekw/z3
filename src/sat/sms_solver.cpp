@@ -11,26 +11,28 @@ void sms_solver::get_antecedents(literal l, ext_justification_idx idx, literal_v
     return;
   }
   SASSERT(m_pSolver);
-  m_pSolver->get_reason(l, r); 
-  r.push_back(l);
+  m_pSolver->get_reason(l, r);    
   // when probing is true, sat solver is not doing conflict resolution
   if (probing) return;
-  clause* c = m_solver->mk_clause(r.size(), r.data(), sat::status::redundant());
+  literal_vector cls;
+  cls.push_back(l);
+  for(literal l : r) cls.push_back(l);
+  clause* c = m_solver->mk_clause(cls.size(), cls.data(), sat::status::redundant());
   justification js = m_solver->get_justification(l);
   justification njs(js.level());
-  switch(r.size()) {
+  switch(cls.size()) {
   case 2:
-    njs = justification(njs.level(), ~r[0]);
+    njs = justification(njs.level(), ~cls[1]);
     break;
   case 3:
-    njs = justification(njs.level(), ~r[0], ~r[1]);
+    njs = justification(njs.level(), ~cls[1], ~cls[2]);
     break;
   default:
     njs = justification(njs.level(), m_solver->get_offset(*c));
     break;
   }
   m_solver->update_assign_uncond(l, njs);
-  m_itp.push_back(r);
+  m_itp.push_back(cls);
 }
 
 void sms_solver::init_search() { unit_propagate(); }
