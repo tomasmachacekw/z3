@@ -46,14 +46,21 @@ namespace sat {
 
 #define NSOLVER_EXT_IDX 0
 #define PSOLVER_EXT_IDX 1
-  
+
+  enum sms_mode {
+    PROPAGATE,
+    SOLVE,
+    LOOKAHEAD,
+    VALIDATE
+  };
+    
 class sms_solver : public extension {
   ast_manager &m;
   obj_map<expr, unsigned> m_expr2var;
   expr_ref_vector m_var2expr;
   bool_vector m_shared;
   unsigned m_idx;
-  literal_vector m_pSolver_clause;
+  literal_vector m_ext_clause;
   sms_solver* m_pSolver;
   sms_solver* m_nSolver;
   //Keep track of how many times literals have been exchanged.
@@ -61,6 +68,10 @@ class sms_solver : public extension {
   size_t m_tx_idx;
   bool m_construct_itp;
   vector<literal_vector> m_itp;  
+  unsigned m_full_assignment_lvl;
+  literal_vector* m_core;
+  literal_vector m_asserted;
+  sms_mode m_mode;
   bool_var addVar(expr* n) {
     expr_ref e(n, m);
     unsigned v;
@@ -83,15 +94,26 @@ class sms_solver : public extension {
       return v;
     return addVar(n);
   }
-  unsigned m_full_assignment_lvl;
-  literal_vector m_core;
-  literal_vector m_asserted;
 public:
-  sms_solver(ast_manager& am, symbol const& name, int id): extension(name, id), m(am), m_var2expr(m), m_idx(id), m_pSolver(nullptr), m_nSolver(nullptr), m_tx_idx(0), m_construct_itp(false), m_full_assignment_lvl(0) {
+  sms_solver(ast_manager& am, symbol const& name, int id):
+    extension(name, id),
+    m(am),
+    m_var2expr(m),
+    m_idx(id),
+    m_pSolver(nullptr),
+    m_nSolver(nullptr),
+    m_tx_idx(0),
+    m_construct_itp(false),
+    m_full_assignment_lvl(0),
+    m_core(nullptr),
+    m_mode(SOLVE),
+  {
     params_ref p;
   }
   literal_vector const& get_asserted() { return m_asserted; }
   void reset_asserted() { m_asserted.reset(); }
+  sms_mode get_mode() { return m_mode; }
+  sms_mode set_mode(sms_mode m) { m_mode = m; }
   void set_conflict();
   void construct_itp() { m_construct_itp = true; }
   void set_pSolver(sms_solver* p) { m_pSolver = p;}
@@ -99,6 +121,7 @@ public:
   void get_reason(literal, literal_vector&);
   void get_reason_final(literal_vector&);
   void get_antecedents(literal, ext_justification_idx, literal_vector&, bool) override;
+  void decide(bool_var&, lbool&);
   bool unit_propagate() override;
   void asserted(literal) override;
   void assign_from_other(literal, ext_justification_idx);
@@ -108,11 +131,11 @@ public:
   void pop(unsigned) override;
   void pop_from_other(unsigned);
   bool propagate();
-  literal_vector const &get_core() { return m_core; }
+  void set_core(literal_vector& c) { m_core = &c; }
   lbool resolve_conflict() override {
     return l_undef;
   }
-
+  bool switch_to_lam();
   std::ostream& display(std::ostream& out) const override {
     return out <<"display yet to be implemented\n";
   }
