@@ -362,6 +362,7 @@ namespace sat {
       literal const get_m_not_l() { return m_not_l; }
       justification const get_conflict() { return m_conflict; }
       literal_vector const& get_m_lemma() { return m_lemma; }
+      void reset_m_lemma() { m_lemma.reset(); }
       // is the state inconsistent?
         bool inconsistent() const { return m_inconsistent; }
 
@@ -464,13 +465,11 @@ namespace sat {
     protected:            
         watch_list & get_wlist(unsigned l_idx) { return m_watches[l_idx]; }
         bool is_marked(bool_var v) const { return m_mark[v]; }
-    public:
-      void mark(bool_var v) { SASSERT(!is_marked(v)); m_mark[v] = true; }
-      void reset_mark(bool_var v) {
-	SASSERT(is_marked(v));
-	m_mark[v] = false;
-      }
-    protected:        
+        void mark(bool_var v) { SASSERT(!is_marked(v)); m_mark[v] = true; }
+        void reset_mark(bool_var v) {
+	  SASSERT(is_marked(v));
+	  m_mark[v] = false;
+	}
         bool is_marked_lit(literal l) const { return m_lit_mark[l.index()]; }
         void mark_lit(literal l) { SASSERT(!is_marked_lit(l)); m_lit_mark[l.index()] = true; }
         void unmark_lit(literal l) { SASSERT(is_marked_lit(l)); m_lit_mark[l.index()] = false; }
@@ -559,9 +558,13 @@ namespace sat {
         double   m_simplify_mult = 1.5;
         bool     m_simplify_enabled = true;
         bool     m_restart_enabled = true;
+    public:
         bool guess(bool_var next);
+    protected:
         bool decide();
-        bool_var next_var();
+    public:
+      bool_var next_var();
+    protected:
         lbool bounded_search();
         lbool basic_search();
         lbool search();
@@ -644,6 +647,19 @@ public:
             SASSERT(j.is_clause());
             return get_clause(j.get_clause_offset());
         }
+
+        unsigned get_conflict_lvl() { return m_conflict_lvl; }
+      void save_trail(unsigned start, unsigned end, literal_vector& t, svector<justification>& j) {
+	  literal l;
+	  start = start == 0 ? 0 : start;
+	  for(unsigned i = m_scopes[start].m_trail_lim; i < m_trail.size(); i++) {
+	    l = m_trail[i];
+	    if(lvl(l) >= start && lvl(l) <= end) {
+	      t.push_back(l);
+	      j.push_back(m_justification[l.var()]);
+	    }
+	  }
+	}
 protected:
         clause& get_clause(clause_offset cls_off) const {
             return *(cls_allocator().get_clause(cls_off));
@@ -662,15 +678,7 @@ protected:
         bool allow_backtracking() const;
         bool resolve_conflict();
         lbool resolve_conflict_core();
-
-      public:
-        void set_m_lemma(literal_vector const &c) {
-          m_lemma.reset();
-          for (literal l : c)
-	    m_lemma.push_back(l);            
-	}
-      void learn_lemma_and_backjump();
-    protected:  
+   void learn_lemma_and_backjump();
         inline unsigned update_max_level(literal lit, unsigned lvl2, bool& unique_max) {
             unsigned lvl1 = lvl(lit);
             if (lvl1 < lvl2) return lvl2;

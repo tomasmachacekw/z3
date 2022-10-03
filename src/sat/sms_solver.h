@@ -1,58 +1,78 @@
+#pragma once 
 #include "ast/ast_util.h"
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
 #include "sat/sat_extension.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_types.h"
+
 namespace sat {
 
-#define dbg_print(s)						\
-  {								\
-    TRACE("satmodsat",						\
-	  tout << "solver" << m_idx << " " << s;);		\
+#define dbg_print(s)							\
+  {									\
+    TRACE("satmodsat",							\
+	  tout << "solver" << m_name << " " << m_mode << " " << s;);	\
   }
 
-#define dbg_print_stat(s, t)					\
-  {								\
-    TRACE("satmodsat",						\
-	  tout << "solver" << m_idx << " " << s << " " << t;);	\
+#define dbg_print_stat(s, t)						\
+  {									\
+    TRACE("satmodsat",							\
+	  tout << "solver" << m_name << " " << m_mode << " " << s << " " << t;); \
   }
     
-#define dbg_print_lit(s, l)					\
-  {								\
-    TRACE("satmodsat",						\
-	  tout << "solver" << m_idx << " " << s;			\
-	if (l.sign()) {						\
-	  tout <<  " -" << expr_ref(get_expr(l.var()), m);	\
-	}							\
-	else {							\
-	  tout <<  " " << expr_ref(get_expr(l.var()), m);	\
-	};);							\
+#define dbg_print_lit(s, l)						\
+  {									\
+    TRACE("satmodsat",							\
+	  tout << "solver" << m_name << " " << m_mode << " " << s;	\
+	  if (l.sign()) {						\
+	    tout <<  " -" << expr_ref(get_expr(l.var()), m);		\
+	  }								\
+	  else {							\
+	    tout <<  " " << expr_ref(get_expr(l.var()), m);		\
+	  };);								\
   }
 
-#define dbg_print_lv(s, lv)					\
-  {								\
-    TRACE("satmodsat",						\
-	  tout << "solver" <<  m_idx << " " << s;		\
-	  for (literal l : lv) {				\
-	    if (l.sign()) {					\
-	      tout <<  " -" << expr_ref(get_expr(l.var()), m);	\
-	    }							\
-	    else {						\
-	      tout <<  " " << expr_ref(get_expr(l.var()), m);	\
-	    }							\
-	  };);							\
+#define dbg_print_lv(s, lv)						\
+  {									\
+    TRACE("satmodsat",							\
+	  tout << "solver" <<  m_name << " " << m_mode << " " << s;	\
+	  for (literal l : lv) {					\
+	    if (l.sign()) {						\
+	      tout <<  " -" << expr_ref(get_expr(l.var()), m);		\
+	    }								\
+	    else {							\
+	      tout <<  " " << expr_ref(get_expr(l.var()), m);		\
+	    }								\
+	  };);								\
   }
 
 #define NSOLVER_EXT_IDX 0
 #define PSOLVER_EXT_IDX 1
 
-  enum sms_mode {
-    PROPAGATE,
-    SOLVE,
-    LOOKAHEAD,
-    VALIDATE
-  };
+enum sms_mode {
+  PROPAGATE,
+  SOLVE,
+  LOOKAHEAD,
+  VALIDATE
+};
+
+inline std::ostream& operator<<(std::ostream& out, const sms_mode m) {
+  switch(m) {
+  case PROPAGATE:
+    return out << "PROPAGATE MODE";
+  case SOLVE:
+    return out << "SOLVE MODE";
+  case LOOKAHEAD:
+    return out << "LOOKAHEAD MODE";
+  case VALIDATE:
+    return out << "VALIDATE MODE";
+  default:
+    break;
+  }
+  UNREACHABLE();
+  return out;
+}
+
     
 class sms_solver : public extension {
   ast_manager &m;
@@ -72,6 +92,11 @@ class sms_solver : public extension {
   literal_vector* m_core;
   literal_vector m_asserted;
   sms_mode m_mode;
+  unsigned m_before_lookahead_dl, m_validation_dl;
+  literal m_validate_failed_lit;
+  bool m_validate_failed;
+  svector<justification> m_replay_just;
+  literal_vector m_replay_assign;
   bool_var addVar(expr* n) {
     expr_ref e(n, m);
     unsigned v;
@@ -107,21 +132,27 @@ public:
     m_full_assignment_lvl(0),
     m_core(nullptr),
     m_mode(SOLVE),
+    m_before_lookahead_dl(0),
+    m_validation_dl(0),
+    m_validate_failed(false)
   {
     params_ref p;
   }
   literal_vector const& get_asserted() { return m_asserted; }
   void reset_asserted() { m_asserted.reset(); }
   sms_mode get_mode() { return m_mode; }
-  sms_mode set_mode(sms_mode m) { m_mode = m; }
+  void set_mode(sms_mode m) { m_mode = m; }
   void set_conflict();
+  lbool resolve_conflict() override;
+  void pop_reinit() override;
   void construct_itp() { m_construct_itp = true; }
   void set_pSolver(sms_solver* p) { m_pSolver = p;}
   void set_nSolver(sms_solver* n) { m_nSolver = n;}
-  void get_reason(literal, literal_vector&);
-  void get_reason_final(literal_vector&);
+  bool get_reason(literal, literal_vector&);
+  void get_reason_final(literal_vector&, ext_justification_idx);
   void get_antecedents(literal, ext_justification_idx, literal_vector&, bool) override;
-  void decide(bool_var&, lbool&);
+  void learn_clause_and_update_justification(literal l, literal_vector const& antecedent);
+  bool decide(bool_var&, lbool&) override;
   bool unit_propagate() override;
   void asserted(literal) override;
   void assign_from_other(literal, ext_justification_idx);
@@ -132,9 +163,6 @@ public:
   void pop_from_other(unsigned);
   bool propagate();
   void set_core(literal_vector& c) { m_core = &c; }
-  lbool resolve_conflict() override {
-    return l_undef;
-  }
   bool switch_to_lam();
   std::ostream& display(std::ostream& out) const override {
     return out <<"display yet to be implemented\n";
@@ -231,6 +259,8 @@ public:
     m_satB = alloc(solver, p, m.limit());
     m_satB->set_extension(m_solverB);
     b->construct_itp();
+    b->set_mode(SOLVE);
+    a->set_mode(PROPAGATE);
   }
   ~satmodsatcontext(){
     dealloc(m_satA);
