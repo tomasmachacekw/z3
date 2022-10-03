@@ -2406,7 +2406,8 @@ namespace sat {
         }
 
         if (m_conflict_lvl == 0) {
-            drat_explain_conflict();
+	  if(m_ext) m_ext->resolve_conflict();
+	  drat_explain_conflict();
             if (m_config.m_drat)
                 drat_log_clause(0, nullptr, sat::status::redundant());
             TRACE("sat", tout << "conflict level is 0\n";);
@@ -2652,11 +2653,9 @@ namespace sat {
 	  SASSERT(false);
 	  break;
         case justification::BINARY:
-	  SASSERT(consequent != null_literal);
 	  process_antecedent_for_ext_core(~(js.get_literal()), ext_idx, core, num_marks);
 	  break;
         case justification::TERNARY:
-	  SASSERT(consequent != null_literal);
 	  process_antecedent_for_ext_core(~(js.get_literal1()), ext_idx, core, num_marks);
 	  process_antecedent_for_ext_core(~(js.get_literal2()), ext_idx, core, num_marks);
 	  break;
@@ -2703,9 +2702,6 @@ namespace sat {
     bool unique_max = false;
     m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);
 
-    // TODO: when is unique_max true?
-    SASSERT(!unique_max);
-
     TRACE("sat_verbose", display(tout);
 	  unsigned level = 0;
 	  for (literal l : m_trail) {
@@ -2731,24 +2727,21 @@ namespace sat {
 	}});
 
     literal consequent = m_not_l;
-    // TODO: don't know when this assertion fails
-    SASSERT(m_not_l != null_literal);
-
-    // the number of literals marked to be resolved
-    // start with 2: m_not_l and ~m_not_l
-    unsigned num_marks = 2;
-    justification js = m_justification[m_not_l.var()];
-    // process m_not_l
-    TRACE("sat", tout << "not_l: " << m_not_l << "\n";
+    unsigned num_marks = 1;
+    justification js = m_conflict;
+    if (m_not_l != null_literal) {
+      js = m_justification[m_not_l.var()];
+      // process m_not_l
+      TRACE("sat", tout << "not_l: " << m_not_l << "\n";
 	  display_justification(tout, js) << "\n";);
-    // either mark m_not_l and increase num_marks or add m_not_l to core
-    process_consequent_for_ext_core(m_not_l, ext_idx, js, core, num_marks);
-    num_marks--;
+      // either mark m_not_l and increase num_marks or add m_not_l to core
+      process_consequent_for_ext_core(m_not_l, ext_idx, js, core, num_marks);
+      // process ~m_not_l
+      consequent = ~m_not_l;
+      js = m_conflict;
+    }
     
-    // process ~m_not_l
-    consequent = ~m_not_l;
     SASSERT(!m_conflict.is_ext_justification());
-    js = m_conflict;
     int idx = skip_literals_above_conflict_level();
     
     while(true) {
