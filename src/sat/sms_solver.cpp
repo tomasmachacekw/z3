@@ -1,5 +1,8 @@
 #include "sat/sms_solver.h"
 #include "ast/ast_pp.h"
+#include "sat/sat_justification.h"
+#include "util/debug.h"
+#include "util/lbool.h"
 #include "util/sat_literal.h"
 
 using namespace sat;
@@ -29,18 +32,12 @@ void sms_solver::learn_clause_and_update_justification(literal l, literal_vector
 void sms_solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector &r, bool probing) {
   if (idx == NSOLVER_EXT_IDX) {
     // Literal was asserted by nSolver
-    SASSERT(m_nSolver);
-    SASSERT(get_mode() == LOOKAHEAD);
+    SASSERT(m_nSolver && m_nSolver->get_mode() == LOOKAHEAD);
     m_nSolver->get_reason(l, r);
   }
   else {
     SASSERT(m_pSolver);
-    if(!m_pSolver->get_reason(l, r)) {
-      SASSERT(get_mode() == VALIDATE);
-      m_validate_failed = true;
-      m_validate_failed_lit = l;
-      return;
-    }
+    VERIFY(m_pSolver->get_reason(l, r));
   }
   // when probing is true, sat solver is not doing conflict resolution
   if (probing) return;
@@ -49,20 +46,23 @@ void sms_solver::get_antecedents(literal l, ext_justification_idx idx, literal_v
 
 void sms_solver::init_search() { unit_propagate(); }
 
-void sms_solver::get_reason_final(literal_vector& lc, ext_justification_idx eidx) {
-  m_solver->resolve_conflict_for_ext_core(lc, eidx);
+bool sms_solver::get_reason_final(literal_vector& lc, ext_justification_idx eidx) {
+  if (m_solver->resolve_conflict_for_ext_core(lc, eidx))
+    return true;
+  lc.reset();
+  return false;
 }
 
 bool sms_solver::unit_propagate() {
-  if (m_validate_failed) return true;
-  if (m_pSolver && m_pSolver->get_mode() != LOOKAHEAD) {
+  if (get_mode() == FINISHED) return true;
+  if (m_pSolver && get_mode() != LOOKAHEAD) {
     m_pSolver->reset_asserted();
     bool r = m_pSolver->propagate();
     if (!r) {
       m_ext_clause.reset();
-      m_pSolver->get_reason_final(m_ext_clause, NSOLVER_EXT_IDX);
+      VERIFY(m_pSolver->get_reason_final(m_ext_clause, NSOLVER_EXT_IDX));
       m_itp.push_back(m_ext_clause);
-      set_conflict();      
+      set_conflict();
       return false;
     }
     literal_vector const& t = m_pSolver->get_asserted();
@@ -70,13 +70,17 @@ bool sms_solver::unit_propagate() {
       assign_from_other(l, PSOLVER_EXT_IDX);
     }
   }
-  if (get_mode() == LOOKAHEAD && m_nSolver) {
+  if (m_nSolver && m_nSolver->get_mode() == LOOKAHEAD) {
     m_nSolver->reset_asserted();
     bool r = m_nSolver->propagate();
     if (!r) {
       m_ext_clause.reset();
-      m_nSolver->get_reason_final(m_ext_clause, PSOLVER_EXT_IDX);
-      set_conflict();      
+      if (m_nSolver->get_reason_final(m_ext_clause, PSOLVER_EXT_IDX)) {
+	set_conflict();
+      }
+      else {	
+	exit_search();
+      }
       return false;
     }
     literal_vector const& t = m_nSolver->get_asserted();
@@ -89,41 +93,37 @@ bool sms_solver::unit_propagate() {
 
 bool sms_solver::decide(bool_var& next, lbool& phase) {
   SASSERT(get_mode() != PROPAGATE);
-  if (m_validate_failed) {
-    dbg_print_stat("validation failed, deciding on", m_validate_failed_lit);
-    pop(m_solver->scope_lvl() - m_before_lookahead_dl);
-    m_validate_failed = false;
-    SASSERT(m_solver->value(m_validate_failed_lit) == l_undef);
-    next = m_validate_failed_lit.var();
-    // flip literal
-    phase = m_validate_failed_lit.sign() ? l_false : l_true;
-    return true;
-  }
-  if (!m_pSolver || get_mode() != SOLVE) return false;
+  if (!m_pSolver || get_mode() != SEARCH) return false;
   if (!switch_to_lam()) return false;
   dbg_print("switching to LOOKAHEAD MODE");
-  m_pSolver->set_mode(LOOKAHEAD);
-  set_mode(PROPAGATE);
+  unsigned search_lvl = m_solver->search_lvl();
+  m_pSolver->set_search_mode(search_lvl);
+  set_mode(LOOKAHEAD);
   m_pSolver->set_core(m_ext_clause);
-  m_before_lookahead_dl = m_solver->scope_lvl();
   bool r = m_pSolver->modular_solve();
-  m_pSolver->set_mode(PROPAGATE);
   if (r) {
+    m_pSolver->set_mode(FINISHED);    
     // continue making decisions
     dbg_print("LOOKAHEAD return SAT, VALIDATING");
-    set_mode(VALIDATE);
-    SASSERT(!m_validate_failed);
-    m_validation_dl = m_solver->scope_lvl();
+    set_validate_mode(search_lvl, m_solver->scope_lvl());
     if(m_solver->value(next) == l_undef) return false;
     next = m_solver->next_var();
-    phase = m_solver->guess(next) ? l_true : l_false;
+    phase = m_solver->guess(next)? l_true : l_false;
     return true;
   }
   // m_pSolver decided for you
-  set_mode(SOLVE);
-  dbg_print_lv("look ahead returned unsat with", m_ext_clause);
-  set_conflict();
-  return false;
+  m_pSolver->set_mode(PROPAGATE);  
+  SASSERT(get_mode() == SEARCH);
+  if (m_ext_clause.empty()) {
+    next = m_next_lit.var();
+    phase = m_next_lit.sign()? l_true : l_false;
+    return true;
+  }
+  else {
+    dbg_print_lv("look ahead returned unsat with", m_ext_clause);
+    set_conflict();
+    return false;
+  }
 }
 
 void sms_solver::set_conflict() {
@@ -170,9 +170,9 @@ void sms_solver::asserted(literal l) {
   m_solver->display_justification(tout, m_solver->get_justification(l));
   if(m_shared[l.var()]) {
     m_asserted.push_back(l);
-    if (m_pSolver && m_pSolver->get_mode() != LOOKAHEAD)
+    if (m_pSolver && get_mode() != LOOKAHEAD)
       m_pSolver->assign_from_other(l, NSOLVER_EXT_IDX);
-    if (get_mode() == LOOKAHEAD && m_nSolver)
+    if (m_nSolver && m_nSolver->get_mode() == LOOKAHEAD)
       m_nSolver->assign_from_other(l, PSOLVER_EXT_IDX);
   }
 }
@@ -253,9 +253,9 @@ void sms_solver::push_from_other() {
 
 void sms_solver::push() {
   // Synchoronize decision levels between solvers
-  if (m_pSolver && m_pSolver->get_mode() != LOOKAHEAD)
+  if (m_pSolver && get_mode() != LOOKAHEAD)
     m_pSolver->push_from_other();
-  if (get_mode() == LOOKAHEAD && m_nSolver)
+  if (m_nSolver && (m_nSolver->get_mode() == LOOKAHEAD || m_nSolver->get_mode() == FINISHED))
     m_nSolver->push_from_other();
 }
 
@@ -263,28 +263,150 @@ void sms_solver::pop_from_other(unsigned num_scopes) {
   m_solver->pop(num_scopes);
 }
 
-lbool sms_solver::resolve_conflict() {  
-  if (get_mode() == VALIDATE && m_solver->get_conflict_lvl() < m_validation_dl) {
-    // modular solve should return UNSAT
-    m_solver->reset_m_lemma();
-    set_mode(SOLVE);
-    SASSERT(m_pSolver && m_pSolver->get_mode() == PROPAGATE);
-    SASSERT(m_validate_failed);
-    if (m_solver->scope_lvl() > m_before_lookahead_dl)
-      pop(m_solver->scope_lvl() - m_before_lookahead_dl);
-    //don't backjump further
+void sms_solver::exit_search() {
+  SASSERT(get_mode() == SEARCH);
+  SASSERT(m_nSolver &&  (m_nSolver->get_mode() == LOOKAHEAD || m_nSolver->get_mode() == FINISHED));
+  unsigned lvl = get_search_lvl();
+  dbg_print_stat("exiting search mode", lvl);
+  m_exiting = true;
+  pop(lvl);
+  set_mode(PROPAGATE);
+  m_nSolver->set_mode(SEARCH);
+  m_exiting = false;
+}
+
+void sms_solver::exit_validate() {
+  SASSERT(m_pSolver && m_pSolver->get_mode() == FINISHED && get_mode() == VALIDATE);
+  unsigned lvl = get_search_lvl();
+  dbg_print_stat("exiting validate mode", lvl);
+  m_exiting = true;
+  pop(lvl);
+  set_mode(SEARCH);
+  m_pSolver->set_mode(PROPAGATE);
+  m_exiting = false;
+}
+
+void sms_solver::find_and_set_decision_lit() {
+  SASSERT(m_solver->inconsistent());
+  literal l;
+  literal_vector todo;
+  justification js(0);
+  todo.push_back(m_solver->get_m_not_l());
+  while(!todo.empty()) {
+    l = todo.back();
+    todo.pop_back();
+    if (m_shared[l.var()]) {
+      set_next_decision(l);
+      return;
+    }
+    js = m_solver->get_justification(l);
+    switch (js.get_kind()) {
+    case justification::NONE:
+      SASSERT(false);
+      break;
+    case justification::BINARY:
+      todo.push_back(js.get_literal());
+      break;
+    case justification::TERNARY: {
+      todo.push_back(js.get_literal1());
+      todo.push_back(js.get_literal2());
+      break;
+    }
+    case justification::CLAUSE: {
+      clause & c = m_solver->get_clause(js);
+      unsigned i = 0;
+      unsigned sz = c.size();
+      for(i = 0; i < sz; i++)
+	todo.push_back(c[i]);
+      break;
+    }
+    default:
+      SASSERT(false);
+    }
+  }
+  SASSERT(false);
+}
+lbool sms_solver::resolve_conflict() {
+  if (!(get_mode() == SEARCH || get_mode() == VALIDATE)) return l_undef;
+  if (m_nSolver && !(m_nSolver->get_mode() == FINISHED || m_nSolver->get_mode() == LOOKAHEAD)) return l_undef;
+  if (m_pSolver && m_pSolver->get_mode() != FINISHED) return l_undef;
+  literal_vector todo;
+  todo.push_back(m_solver->get_m_not_l());
+  literal l;
+  justification js(0);
+  literal_vector rc;
+  unsigned c_lvl = m_solver->get_conflict_lvl();
+  if (get_mode() == VALIDATE && c_lvl <= get_validate_lvl()) {
+    if (get_reason_final(m_ext_clause, PSOLVER_EXT_IDX))
+      set_conflict();
+    else
+      find_and_set_decision_lit();
+    exit_validate();
     return l_false;
   }
-  if ((get_mode() == LOOKAHEAD || get_mode() == SOLVE) && m_solver->get_conflict_lvl() < m_full_assignment_lvl)  {
-    dbg_print_stat("modular solve hit conflict below full_assignment_lvl", m_solver->get_conflict_lvl());
-    SASSERT(m_nSolver);
-    m_core->reset();
-    m_solver->resolve_conflict_for_ext_core(*m_core, NSOLVER_EXT_IDX);
-    if (m_solver->scope_lvl() > m_full_assignment_lvl)
-      pop(m_solver->scope_lvl() - m_full_assignment_lvl);
+  if (get_mode() == SEARCH && c_lvl <= get_search_lvl()) {
+    VERIFY(get_reason_final(*m_core, NSOLVER_EXT_IDX));
+    exit_search();
     return l_false;
   }
-  // do normal resolution
+  while(!todo.empty()) {
+    l = todo.back();
+    todo.pop_back();
+    js = m_solver->get_justification(l);
+    SASSERT(m_solver->lvl(l) == c_lvl);
+    switch (js.get_kind()) {
+    case justification::NONE:
+      SASSERT(todo.empty());
+      break;
+    case justification::BINARY:
+      SASSERT(m_solver->lvl(js.get_literal()) == c_lvl);
+      todo.push_back(js.get_literal());
+      break;
+    case justification::TERNARY: {
+      SASSERT(m_solver->lvl(js.get_literal1()) == c_lvl || m_solver->lvl(js.get_literal2()) == c_lvl);
+      if (m_solver->lvl(js.get_literal1()) == c_lvl)
+	todo.push_back(js.get_literal1());
+      if (m_solver->lvl(js.get_literal2()) == c_lvl)
+	todo.push_back(js.get_literal2());
+      break;
+    }
+    case justification::CLAUSE: {
+      clause & c = m_solver->get_clause(js);
+      unsigned i = 0;
+      unsigned sz = c.size();
+      for(i = 0; i < sz; i++)
+	if (m_solver->lvl(c[i]) == c_lvl)
+	  todo.push_back(c[i]);
+      break;
+    }
+    case justification::EXT_JUSTIFICATION: {
+      rc.reset();
+      if (js.get_ext_justification_idx() == NSOLVER_EXT_IDX) {
+	SASSERT(m_nSolver && (m_nSolver->get_mode() == LOOKAHEAD || m_nSolver->get_mode() == FINISHED));
+	if (!m_nSolver->get_reason(l, rc)) {
+	  m_nSolver->set_next_decision(l);
+	  exit_search();
+	  return l_false;
+	}
+      }
+      else {
+	SASSERT(m_pSolver && m_pSolver->get_mode() == FINISHED);
+	if (!m_pSolver->get_reason(l, rc)) {
+	  set_next_decision(l);
+	  exit_validate();
+	  return l_false;
+	}
+      }
+      unsigned i = 0;
+      for(i = 0; i < rc.size(); i++)
+	if (m_solver->lvl(rc[i]) == c_lvl)
+	  todo.push_back(rc[i]);
+    }
+    default:
+      SASSERT(false);
+    }
+  }
+  // do conflict resolution
   return l_undef;
 }
 
@@ -316,15 +438,23 @@ void sms_solver::pop_reinit() {
 
 void sms_solver::pop(unsigned num_scopes) {
   dbg_print_stat("popping", num_scopes);
-  if(m_solver->scope_lvl() - num_scopes < m_full_assignment_lvl) {
-    m_replay_assign.reset();
-    m_replay_just.reset();
-    m_solver->save_trail(m_solver->scope_lvl() - num_scopes, m_full_assignment_lvl, m_replay_assign, m_replay_just);
-    dbg_print_lv("to reinit", m_replay_assign);
+  if (!m_exiting) {
+    if(get_mode() == VALIDATE && m_solver->scope_lvl() - num_scopes < get_validate_lvl()) {
+      m_replay_assign.reset();
+      m_replay_just.reset();
+      m_solver->save_trail(m_solver->scope_lvl() - num_scopes, get_validate_lvl(), m_replay_assign, m_replay_just);
+      dbg_print_lv("to reinit", m_replay_assign);
+    }
+    if(get_mode() == SEARCH && m_solver->scope_lvl() - num_scopes < get_search_lvl()) {
+      m_replay_assign.reset();
+      m_replay_just.reset();
+      m_solver->save_trail(m_solver->scope_lvl() - num_scopes, get_search_lvl(), m_replay_assign, m_replay_just);
+      dbg_print_lv("to reinit", m_replay_assign);
+    }
   }
-  if (m_pSolver && m_pSolver->get_mode() != LOOKAHEAD)
+  if (m_pSolver && get_mode() != LOOKAHEAD)
     m_pSolver->pop_from_other(num_scopes);
-  if (get_mode() == LOOKAHEAD && m_nSolver)
+  if (get_mode() == SEARCH && m_nSolver)
     m_nSolver->pop_from_other(num_scopes);
 }
 
@@ -332,13 +462,16 @@ bool sms_solver::propagate() { return m_solver->propagate(false); }
 
 check_result sms_solver::check() {
   if (!m_pSolver || get_mode() == VALIDATE) return check_result::CR_DONE;
-  SASSERT(get_mode() == SOLVE);
+  SASSERT(get_mode() == SEARCH);
   SASSERT(m_pSolver->get_mode() == PROPAGATE);
-  m_pSolver->set_mode(SOLVE);
+  m_pSolver->set_mode(SEARCH);
+  set_mode(FINISHED);
   dbg_print("got a sat assignment, checking with psolver");
   m_pSolver->set_core(m_ext_clause);
-  if (m_pSolver->modular_solve())
+  if (m_pSolver->modular_solve()) {
+    m_pSolver->set_mode(FINISHED);
     return check_result::CR_DONE;
+  }    
   dbg_print_lv("modular solve returned unsat with", m_ext_clause);
   set_conflict();
   return check_result::CR_CONTINUE;
