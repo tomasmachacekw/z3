@@ -18,6 +18,7 @@ Revision History:
 --*/
 
 
+#include "util/debug.h"
 #include <cmath>
 #ifndef SINGLE_THREAD
 #include <thread>
@@ -2642,7 +2643,7 @@ namespace sat {
         }
   }
 
-  void solver::process_consequent_for_ext_core(literal consequent, ext_justification_idx ext_idx, justification const& js, literal_vector& core, unsigned & num_marks) {
+  bool solver::process_consequent_for_ext_core(literal consequent, ext_justification_idx ext_idx, justification const& js, literal_vector& core, unsigned & num_marks) {
         TRACE("sat", tout << "processing consequent: ";
               if (consequent == null_literal) tout << "null\n";
               else tout << consequent << "\n";
@@ -2650,8 +2651,7 @@ namespace sat {
 	literal_vector todo;
 	switch (js.get_kind()) {
         case justification::NONE:
-	  SASSERT(false);
-	  break;
+	  return false;
         case justification::BINARY:
 	  process_antecedent_for_ext_core(~(js.get_literal()), ext_idx, core, num_marks);
 	  break;
@@ -2695,10 +2695,11 @@ namespace sat {
 	  UNREACHABLE();
 	  break;
         }
+	return true;
     }
 
   // resolve until all literals have ext_justification of justification index ext_idx
-  void solver::resolve_conflict_for_ext_core(literal_vector& core, ext_justification_idx ext_idx) {
+  bool solver::resolve_conflict_for_ext_core(literal_vector& core, ext_justification_idx ext_idx) {
     bool unique_max = false;
     m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);
 
@@ -2735,7 +2736,7 @@ namespace sat {
       TRACE("sat", tout << "not_l: " << m_not_l << "\n";
 	  display_justification(tout, js) << "\n";);
       // either mark m_not_l and increase num_marks or add m_not_l to core
-      process_consequent_for_ext_core(m_not_l, ext_idx, js, core, num_marks);
+      VERIFY(process_consequent_for_ext_core(m_not_l, ext_idx, js, core, num_marks));
       // process ~m_not_l
       consequent = ~m_not_l;
       js = m_conflict;
@@ -2743,9 +2744,13 @@ namespace sat {
     
     SASSERT(!m_conflict.is_ext_justification());
     int idx = skip_literals_above_conflict_level();
-    
+    bool exists_ext_core;
     while(true) {
-      process_consequent_for_ext_core(consequent, ext_idx, js, core, num_marks);
+      exists_ext_core = process_consequent_for_ext_core(consequent, ext_idx, js, core, num_marks);
+      if (!exists_ext_core) {
+	reset_unmark(0);
+	return false;
+      }
       if (--num_marks == 0)
 	break;
       while (idx > 0) {
@@ -2757,6 +2762,7 @@ namespace sat {
       js = m_justification[consequent.var()];
     }
     reset_unmark(0);
+    return true;
   }
   
     void solver::process_antecedent_for_unsat_core(literal antecedent) {
