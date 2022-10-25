@@ -47,8 +47,12 @@ void sms_solver::get_antecedents(literal l, ext_justification_idx idx, literal_v
 void sms_solver::init_search() { unit_propagate(); }
 
 bool sms_solver::get_reason_final(literal_vector& lc, ext_justification_idx eidx) {
-  if (m_solver->resolve_conflict_for_ext_core(lc, eidx))
+  dbg_print("getting final ext reason for conflict");
+  if (m_solver->resolve_conflict_for_ext_core(lc, eidx)) {
+    dbg_print_lv("final reason is", lc);
     return true;
+  }
+  dbg_print("cannot express conflict in terms of shared vars");
   lc.reset();
   return false;
 }
@@ -111,10 +115,17 @@ bool sms_solver::decide(bool_var& next, lbool& phase) {
     phase = m_solver->guess(next)? l_true : l_false;
     return true;
   }
+  if (m_pSolver->is_unsat()) {
+    dbg_print("m_pSolver unsat");
+    m_unsat = true;
+    m_solver->set_conflict(justification(0), null_literal);
+    return false;
+  }
   // m_pSolver decided for you
   m_pSolver->set_mode(PROPAGATE);  
   SASSERT(get_mode() == SEARCH);
   if (m_ext_clause.empty()) {
+    SASSERT(m_solver->scope_lvl() == search_lvl);
     next = m_next_lit.var();
     phase = m_next_lit.sign()? l_true : l_false;
     return true;
@@ -127,10 +138,7 @@ bool sms_solver::decide(bool_var& next, lbool& phase) {
 }
 
 void sms_solver::set_conflict() {
-  if (m_ext_clause.empty()) {
-    m_solver->set_conflict(justification(0), null_literal);
-    return;
-  }
+  SASSERT(!m_ext_clause.empty());
   literal not_l = null_literal;
   unsigned lvl = 0;
   unsigned hl = 0;
@@ -275,6 +283,37 @@ void sms_solver::exit_search() {
   m_exiting = false;
 }
 
+void sms_solver::exit_mode() {
+  switch (get_mode()) {
+  case SEARCH:
+    if (m_solver->get_conflict().level()  == 0)
+      exit_unsat();    
+    else
+      exit_search();
+    break;
+  case VALIDATE:
+    exit_validate();
+    break;
+  default:
+    SASSERT(false);    
+ }
+}
+
+void sms_solver::exit_unsat() {
+  dbg_print("unsat")
+  m_unsat = true;
+  if(m_nSolver && m_nSolver->get_mode() == LOOKAHEAD) {
+    m_exiting = true;
+    pop(m_solver->scope_lvl());
+    set_mode(PROPAGATE);
+    m_nSolver->set_mode(SEARCH);
+    m_exiting = false;
+    return;
+  }
+  pop(m_solver->scope_lvl());
+  return;
+}
+
 void sms_solver::exit_validate() {
   SASSERT(m_pSolver && m_pSolver->get_mode() == FINISHED && get_mode() == VALIDATE);
   unsigned lvl = get_search_lvl();
@@ -328,6 +367,10 @@ void sms_solver::find_and_set_decision_lit() {
 }
 lbool sms_solver::resolve_conflict() {
   if (!(get_mode() == SEARCH || get_mode() == VALIDATE)) return l_undef;
+  if (m_solver->get_conflict_lvl() == 0) {
+    exit_unsat();
+    return l_false;
+  }
   if (m_nSolver && !(m_nSolver->get_mode() == FINISHED || m_nSolver->get_mode() == LOOKAHEAD)) return l_undef;
   if (m_pSolver && m_pSolver->get_mode() != FINISHED) return l_undef;
   literal_vector todo;
@@ -337,15 +380,20 @@ lbool sms_solver::resolve_conflict() {
   literal_vector rc;
   unsigned c_lvl = m_solver->get_conflict_lvl();
   if (get_mode() == VALIDATE && c_lvl <= get_validate_lvl()) {
-    if (get_reason_final(m_ext_clause, PSOLVER_EXT_IDX))
+    if (get_reason_final(m_ext_clause, PSOLVER_EXT_IDX)) {
+      dbg_print_lv("validate hit a conflict below validate lvl, learning lemma and exiting", m_ext_clause);
       set_conflict();
-    else
+    }
+    else {
       find_and_set_decision_lit();
+      dbg_print_lit("validate hit a conflict below validate lvl, exiting with new decision", m_next_lit);
+    }
     exit_validate();
     return l_false;
   }
   if (get_mode() == SEARCH && c_lvl <= get_search_lvl()) {
     VERIFY(get_reason_final(*m_core, NSOLVER_EXT_IDX));
+    dbg_print_lv("search hit a conflict below search lvl, learning lemma and exiting", *m_core);
     exit_search();
     return l_false;
   }
@@ -401,6 +449,7 @@ lbool sms_solver::resolve_conflict() {
       for(i = 0; i < rc.size(); i++)
 	if (m_solver->lvl(rc[i]) == c_lvl)
 	  todo.push_back(rc[i]);
+      break;
     }
     default:
       SASSERT(false);
@@ -414,6 +463,8 @@ void sms_solver::pop_reinit() {
   m_solver->propagate(false);
   if (m_solver->inconsistent()) {
     dbg_print_stat("reinit hit a conflict at level", m_solver->scope_lvl());
+    m_solver->set_conflict(justification(m_solver->scope_lvl()));
+    exit_mode();
     return;
   }
   while(m_solver->scope_lvl() < m_full_assignment_lvl) m_solver->push();
@@ -428,6 +479,8 @@ void sms_solver::pop_reinit() {
     m_solver->propagate(false);
     if (m_solver->inconsistent()) {
      dbg_print_lit("reinit hit a conflict at", l);
+     m_solver->set_conflict(justification(m_solver->scope_lvl()), l);
+     exit_mode();
      return;
     }
     i++;

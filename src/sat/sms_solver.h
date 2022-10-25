@@ -101,6 +101,7 @@ class sms_solver : public extension {
   unsigned m_search_lvl, m_validate_lvl;  
   svector<justification> m_replay_just;
   literal m_next_lit;
+  bool m_unsat;
   literal_vector m_replay_assign;
   bool_var addVar(expr* n) {
     expr_ref e(n, m);
@@ -126,6 +127,8 @@ class sms_solver : public extension {
   }
   void exit_validate();
   void exit_search();
+  void exit_unsat();
+  void exit_mode();
   void find_and_set_decision_lit();
 public:
   sms_solver(ast_manager& am, symbol const& name, int id):
@@ -143,10 +146,12 @@ public:
     m_exiting(false),
     m_search_lvl(0),
     m_validate_lvl(0),
-    m_next_lit(null_literal)
+    m_next_lit(null_literal),
+    m_unsat(false)
   {
     params_ref p;
   }
+  bool is_unsat() const { return m_unsat; }
   literal_vector const& get_asserted() { return m_asserted; }
   void set_next_decision(literal l) { m_next_lit = l; }
   unsigned get_search_lvl() const { return m_search_lvl; }
