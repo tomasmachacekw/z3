@@ -42,6 +42,13 @@ void sms_solver::get_antecedents(literal l, ext_justification_idx idx, literal_v
   // when probing is true, sat solver is not doing conflict resolution
   if (probing) return;
   learn_clause_and_update_justification(l, r);
+  literal_vector cls;
+  cls.push_back(l);
+  for(literal l : r) cls.push_back(l);
+  if (idx == NSOLVER_EXT_IDX)
+    m_l_impl_n.push_back(cls);
+  else
+    m_l_impl_p.push_back(cls);
 }
 
 void sms_solver::init_search() { unit_propagate(); }
@@ -65,7 +72,7 @@ bool sms_solver::unit_propagate() {
     if (!r) {
       m_ext_clause.reset();
       VERIFY(m_pSolver->get_reason_final(m_ext_clause, NSOLVER_EXT_IDX));
-      m_itp.push_back(m_ext_clause);
+      m_l_impl_p.push_back(m_ext_clause);
       set_conflict();
       return false;
     }
@@ -80,6 +87,7 @@ bool sms_solver::unit_propagate() {
     if (!r) {
       m_ext_clause.reset();
       if (m_nSolver->get_reason_final(m_ext_clause, PSOLVER_EXT_IDX)) {
+	m_l_impl_n.push_back(m_ext_clause);
 	set_conflict();
       }
       else {	
@@ -287,14 +295,14 @@ void sms_solver::exit_mode() {
   switch (get_mode()) {
   case SEARCH:
     if (m_solver->get_conflict().level()  == 0)
-      exit_unsat();    
+      exit_unsat();
     else
       exit_search();
     break;
   case VALIDATE:
     exit_validate();
     break;
-  default:
+  default:    
     SASSERT(false);    
  }
 }
