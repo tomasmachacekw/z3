@@ -35,7 +35,7 @@ Notes:
 #include "qe/qe_mbi.h"
 #include "qe/mbp/mbp_term_graph.h"
 #include "sat/sat_solver.h"
-#include "sat/sms_solver.h"
+#include "sat/sms/sms_solver.h"
 
 BINARY_SYM_CMD(get_quantifier_body_cmd,
                "dbg-get-qbody",
