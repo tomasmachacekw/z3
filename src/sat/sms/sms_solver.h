@@ -6,6 +6,7 @@
 #include "sat/sat_solver.h"
 #include "sat/sat_types.h"
 #include "util/sat_literal.h"
+#include "util/vector.h"
 
 namespace sat {
 
@@ -78,6 +79,8 @@ class sms_solver : public extension {
     bool_vector m_shared;
     unsigned m_idx;
     literal_vector m_ext_clause;
+    svector<literal_vector> m_l_impl_n;
+    svector<literal_vector> m_l_impl_p;
     sms_solver *m_pSolver;
     sms_solver *m_nSolver;
     // Keep track of how many times literals have been exchanged.

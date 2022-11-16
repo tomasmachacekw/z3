@@ -2633,10 +2633,6 @@ namespace sat {
         case justification::BINARY:
 	  process_antecedent_for_ext_core(~(js.get_literal()), ext_idx, core, num_marks);
 	  break;
-        case justification::TERNARY:
-	  process_antecedent_for_ext_core(~(js.get_literal1()), ext_idx, core, num_marks);
-	  process_antecedent_for_ext_core(~(js.get_literal2()), ext_idx, core, num_marks);
-	  break;
         case justification::CLAUSE: {
 	  clause & c = get_clause(js);
 	  unsigned i = 0;

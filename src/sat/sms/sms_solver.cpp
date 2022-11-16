@@ -20,9 +20,6 @@ void sms_solver::learn_clause_and_update_justification(
     case 2:
         njs = justification(njs.level(), ~cls[1]);
         break;
-    case 3:
-        njs = justification(njs.level(), ~cls[1], ~cls[2]);
-        break;
     default:
         njs = justification(njs.level(), m_solver->get_offset(*c));
         break;
@@ -165,9 +162,6 @@ void sms_solver::set_conflict() {
     case 1:
         js = justification(lvl, m_ext_clause[0]);
         break;
-    case 2:
-        js = justification(lvl, m_ext_clause[0], m_ext_clause[1]);
-        break;
     default:
         clause_offset co = m_solver->get_offset(*c);
         not_l = m_ext_clause[0];
@@ -227,10 +221,6 @@ bool sms_solver::get_reason(literal l, literal_vector &rc) {
             break;
         case justification::BINARY:
             todo.push_back(~js.get_literal());
-            break;
-        case justification::TERNARY:
-            todo.push_back(~js.get_literal1());
-            todo.push_back(~js.get_literal2());
             break;
         case justification::CLAUSE: {
             clause &c = m_solver->get_clause(js);
@@ -348,11 +338,6 @@ void sms_solver::find_and_set_decision_lit() {
         case justification::BINARY:
             todo.push_back(js.get_literal());
             break;
-        case justification::TERNARY: {
-            todo.push_back(js.get_literal1());
-            todo.push_back(js.get_literal2());
-            break;
-        }
         case justification::CLAUSE: {
             clause &c = m_solver->get_clause(js);
             unsigned i = 0;
@@ -418,15 +403,6 @@ lbool sms_solver::resolve_conflict() {
             SASSERT(m_solver->lvl(js.get_literal()) == c_lvl);
             todo.push_back(js.get_literal());
             break;
-        case justification::TERNARY: {
-            SASSERT(m_solver->lvl(js.get_literal1()) == c_lvl ||
-                    m_solver->lvl(js.get_literal2()) == c_lvl);
-            if (m_solver->lvl(js.get_literal1()) == c_lvl)
-                todo.push_back(js.get_literal1());
-            if (m_solver->lvl(js.get_literal2()) == c_lvl)
-                todo.push_back(js.get_literal2());
-            break;
-        }
         case justification::CLAUSE: {
             clause &c = m_solver->get_clause(js);
             unsigned i = 0;
