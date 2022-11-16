@@ -8,4 +8,5 @@ z3_add_component(extra_cmds
     arith_tactics
     cmd_context
     subpaving_tactic
+    sms_sat
 )

@@ -1,4 +1,4 @@
-#include "sat/sms_solver.h"
+#include "sat/sms/sms_solver.h"
 #include "ast/ast_pp.h"
 #include "sat/sat_justification.h"
 #include "util/debug.h"
