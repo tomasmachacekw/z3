@@ -1049,28 +1049,6 @@ namespace sat {
                 *it2 = *it;
                 it2++;
                 break;
-            case watched::TERNARY:
-                l1 = it->get_literal1();
-                l2 = it->get_literal2();
-                val1 = value(l1);
-                val2 = value(l2);
-		TRACE("sat_propagate", tout << l1 << " and " << l2;);
-                if (val1 == l_false && val2 == l_undef) {
-                    m_stats.m_ter_propagate++;
-                    assign_core(l2, justification(std::max(curr_level, lvl(l1)), l1, not_l));
-                }
-                else if (val1 == l_undef && val2 == l_false) {
-                    m_stats.m_ter_propagate++;
-                    assign_core(l1, justification(std::max(curr_level, lvl(l2)), l2, not_l));
-                }
-                else if (val1 == l_false && val2 == l_false) {
-                    CONFLICT_CLEANUP();
-                    set_conflict(justification(std::max(curr_level, lvl(l1)), l1, not_l), ~l2);
-                    return false;
-                }
-                *it2 = *it;
-                it2++;
-                break;
             case watched::CLAUSE: {
                 if (value(it->get_blocked_literal()) == l_true) {
                     TRACE("propagate_clause_bug", tout << "blocked literal " << it->get_blocked_literal() << "\n";
