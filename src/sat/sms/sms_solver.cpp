@@ -1,19 +1,79 @@
 #include "sat/sms/sms_solver.h"
 #include "ast/ast_pp.h"
 #include "sat/sat_justification.h"
+#include "sat/sat_types.h"
 #include "util/debug.h"
 #include "util/lbool.h"
 #include "util/sat_literal.h"
 
 using namespace sat;
 
+void sms_solver::dump(unsigned sz, literal const *lc, status st) {
+  SASSERT(m_drating);
+  SASSERT(!m_drat_file.str().empty());
+  switch (st.m_st) {
+  case status::st::input:
+  case status::st::asserted:
+    (*m_out) << "i " << m_name << " ";
+    break;
+  case status::st::redundant:
+    (*m_out) << "l " << m_name << " ";
+    break;
+  case status::st::deleted:
+    (*m_out) << "d " << m_name << " ";
+    break;
+  case status::st::copied:
+    (*m_out) << "c " << st.get_src() << " " <<  m_name << " ";
+    break;
+  }
+  dump_clause(sz, lc);
+}
+
+void sms_solver::dump_clause(unsigned sz, literal const* lc) {
+  SASSERT(m_drating);
+  SASSERT(!m_drat_file.str().empty());
+  if (sz == 0) {
+    (*m_out) << "\n";
+      return;
+  }
+  unsigned i = 0; 
+  for (; i < sz - 1; i++) (*m_out) << lc[i] << " ";
+  (*m_out) << lc[i] << "\n";
+}
+
+void sms_solver::drat_dump_cp(literal_vector const& cl, ext_justification_idx id) {
+  SASSERT(m_drating);
+  SASSERT(!m_drat_file.str().empty());
+  symbol src =
+      id == NSOLVER_EXT_IDX ? m_nSolver->name() : m_pSolver->name();
+  status st = status::copied();
+  st.set_src(src);
+  dump(cl.size(), cl.data(), st);
+}
+
+void sms_solver::drat_dump_units(ext_justification_idx id) {
+    sms_solver *s = id == NSOLVER_EXT_IDX ? m_nSolver : m_pSolver;
+    SASSERT(s);
+    status st = status::copied();
+    st.set_src(s->name());
+    literal_vector cl(1);
+    for (unsigned i = 0; i < s->get_units_in_conflict().size(); i++) {
+      cl[0] = s->get_units_in_conflict()[i];     
+      dump(1, cl.data(), st);      
+    }
+}
+
 void sms_solver::learn_clause_and_update_justification(
-    literal l, literal_vector const &antecedent) {
+						       literal l, literal_vector const &antecedent, ext_justification_idx idx) {
     literal_vector cls;
     cls.push_back(l);
     for (literal l : antecedent) cls.push_back(l);
     clause *c =
         m_solver->mk_clause(cls.size(), cls.data(), sat::status::redundant());
+    if (m_drating) {
+        drat_dump_cp(cls, idx);
+	drat_dump_units(idx);
+    }     
     justification js = m_solver->get_justification(l);
     justification njs(js.level());
     switch (cls.size()) {
@@ -30,24 +90,29 @@ void sms_solver::learn_clause_and_update_justification(
 
 void sms_solver::get_antecedents(literal l, ext_justification_idx idx,
                                  literal_vector &r, bool probing) {
+    if (l == null_literal) {
+      SASSERT(idx == PSOLVER_EXT_IDX);
+      literal_vector cls;
+      cls.push_back(l); 
+      drat_dump_cp(cls, idx);
+      return;      
+    }
     if (idx == NSOLVER_EXT_IDX) {
         // Literal was asserted by nSolver
-        SASSERT(m_nSolver && m_nSolver->get_mode() == LOOKAHEAD);
+        SASSERT(probing || (m_nSolver && m_nSolver->get_mode() == LOOKAHEAD));
         m_nSolver->get_reason(l, r);
     } else {
         SASSERT(m_pSolver);
-        VERIFY(m_pSolver->get_reason(l, r));
+	// should have exited validate mode before conflict resolution
+        bool res = m_pSolver->get_reason(l, r);
+	SASSERT(probing || res);
     }
     // when probing is true, sat solver is not doing conflict resolution
     if (probing) return;
-    learn_clause_and_update_justification(l, r);
+    learn_clause_and_update_justification(l, r, idx);
     literal_vector cls;
     cls.push_back(l);
     for (literal l : r) cls.push_back(l);
-    if (idx == NSOLVER_EXT_IDX)
-        m_l_impl_n.push_back(cls);
-    else
-        m_l_impl_p.push_back(cls);
 }
 
 void sms_solver::init_search() { unit_propagate(); }
@@ -72,7 +137,10 @@ bool sms_solver::unit_propagate() {
         if (!r) {
             m_ext_clause.reset();
             VERIFY(m_pSolver->get_reason_final(m_ext_clause, NSOLVER_EXT_IDX));
-            m_l_impl_p.push_back(m_ext_clause);
+            if (m_drating) {
+                drat_dump_cp(m_ext_clause, PSOLVER_EXT_IDX);
+		drat_dump_units(PSOLVER_EXT_IDX);
+	    }                
             set_conflict();
             return false;
         }
@@ -85,8 +153,11 @@ bool sms_solver::unit_propagate() {
         if (!r) {
             m_ext_clause.reset();
             if (m_nSolver->get_reason_final(m_ext_clause, PSOLVER_EXT_IDX)) {
-                m_l_impl_n.push_back(m_ext_clause);
-                set_conflict();
+                if (m_drating) {
+                    drat_dump_cp(m_ext_clause, NSOLVER_EXT_IDX);
+		    drat_dump_units(NSOLVER_EXT_IDX);
+		}                    
+	      set_conflict();
             } else {
                 exit_search();
             }
@@ -121,22 +192,26 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
     if (m_pSolver->is_unsat()) {
         dbg_print("m_pSolver unsat");
         m_unsat = true;
-        m_solver->set_conflict(justification(0), null_literal);
+        justification js =
+            justification::mk_ext_justification(0, PSOLVER_EXT_IDX);
+        m_solver->set_conflict(js, null_literal);
         return false;
     }
     // m_pSolver decided for you
     m_pSolver->set_mode(PROPAGATE);
     SASSERT(get_mode() == SEARCH);
-    if (m_ext_clause.empty()) {
+    SASSERT(m_ext_clause.empty());
+    // if (m_ext_clause.empty()) {
         SASSERT(m_solver->scope_lvl() == search_lvl);
         next = m_next_lit.var();
         phase = m_next_lit.sign() ? l_true : l_false;
         return true;
-    } else {
-        dbg_print_lv("look ahead returned unsat with", m_ext_clause);
-        set_conflict();
-        return false;
-    }
+    // } else {
+    //   // unreachable code?????
+    //     dbg_print_lv("look ahead returned unsat with", m_ext_clause);
+    //     set_conflict();
+    //     return false;
+    // }
 }
 
 void sms_solver::set_conflict() {
@@ -195,7 +270,6 @@ void sms_solver::assign_from_other(literal l, ext_justification_idx idx) {
         if (m_solver->scope_lvl() == 0) m_solver->update_assign_uncond(l, js);
         break;
     case l_true:
-        dbg_print_lit("already assigned true", l);
         return;
     case l_false:
         SASSERT(false);
@@ -207,17 +281,23 @@ bool sms_solver::get_reason(literal l, literal_vector &rc) {
     literal t = l;
     todo.push_back(t);
     rc.reset();
+    m_units_in_conflict.reset();
     while (!todo.empty()) {
         t = todo.back();
         todo.pop_back();
         dbg_print_lit("Fetching reason for", t);
         justification js = m_solver->get_justification(t);
         TRACE("satmodsat", m_solver->display_justification(tout, js););
+	if (js.level() == 0 && !js.is_ext_justification()) {
+	  // a unit clause is used in conflict in the other solver, copy it
+	  dbg_print_lit("unit literal involved in conflict", t);
+	  m_units_in_conflict.push_back(t);
+	}
         switch (js.get_kind()) {
         case justification::NONE:
             // SASSERT(m_finished_lookahead);
             rc.reset();
-            return false;
+            if (js.level() != 0) return false;
             break;
         case justification::BINARY:
             todo.push_back(~js.get_literal());
@@ -292,17 +372,18 @@ void sms_solver::exit_mode() {
 }
 
 void sms_solver::exit_unsat() {
-    dbg_print("unsat") m_unsat = true;
-    if (m_nSolver && m_nSolver->get_mode() == LOOKAHEAD) {
-        m_exiting = true;
-        pop(m_solver->scope_lvl());
-        set_mode(PROPAGATE);
-        m_nSolver->set_mode(SEARCH);
-        m_exiting = false;
-        return;
-    }
+  dbg_print("unsat");
+  m_unsat = true;
+  if (m_nSolver && m_nSolver->get_mode() == LOOKAHEAD) {
+    m_exiting = true;
     pop(m_solver->scope_lvl());
+    set_mode(PROPAGATE);
+    m_nSolver->set_mode(SEARCH);
+    m_exiting = false;
     return;
+  }
+  pop(m_solver->scope_lvl());
+  return;
 }
 
 void sms_solver::exit_validate() {
@@ -351,15 +432,18 @@ void sms_solver::find_and_set_decision_lit() {
     }
     SASSERT(false);
 }
+// resolve_conflict checks whether the current conflict can be
+// resolved in the current solver.
+// if conflict can be resolved, it returns l_undef so that the sat solver can
+// resolve the conflict
+// if conflict requires the solver to change state, it return l_false
 lbool sms_solver::resolve_conflict() {
-    if (!(get_mode() == SEARCH || get_mode() == VALIDATE)) return l_undef;
+    SASSERT(get_mode() == SEARCH || get_mode() == VALIDATE);
+    SASSERT(!m_nSolver || m_nSolver->get_mode() == FINISHED || m_nSolver->get_mode() == LOOKAHEAD);
     if (m_solver->get_conflict_lvl() == 0) {
         exit_unsat();
         return l_false;
     }
-    if (m_nSolver && !(m_nSolver->get_mode() == FINISHED ||
-                       m_nSolver->get_mode() == LOOKAHEAD))
-        return l_undef;
     if (m_pSolver && m_pSolver->get_mode() != FINISHED) return l_undef;
     literal_vector todo;
     todo.push_back(m_solver->get_m_not_l());
@@ -408,7 +492,7 @@ lbool sms_solver::resolve_conflict() {
             unsigned i = 0;
             unsigned sz = c.size();
             for (i = 0; i < sz; i++)
-                if (m_solver->lvl(c[i]) == c_lvl) todo.push_back(c[i]);
+                if (m_solver->lvl(c[i]) == c_lvl && c[i].var() != l.var()) todo.push_back(c[i]);
             break;
         }
         case justification::EXT_JUSTIFICATION: {
