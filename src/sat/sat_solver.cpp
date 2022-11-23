@@ -2424,6 +2424,7 @@ namespace sat {
         m_lemma.reset();
 
         unsigned idx = skip_literals_above_conflict_level();
+        SASSERT(idx < (int) m_trail.size());
 
         // save space for first uip
         m_lemma.push_back(null_literal);
@@ -2828,7 +2829,7 @@ namespace sat {
 
         unsigned old_size = m_unmark.size();
         int idx = skip_literals_above_conflict_level();
-
+	SASSERT(idx < (int) m_trail.size());
         literal consequent = m_not_l;
         if (m_not_l != null_literal) {
             justification js = m_justification[m_not_l.var()];
@@ -2928,7 +2929,7 @@ namespace sat {
     unsigned solver::skip_literals_above_conflict_level() {
         unsigned idx = m_trail.size();
         if (idx == 0) {
-            return idx;
+            return -1;
         }
         idx--;
         // skip literals from levels above the conflict level
