@@ -888,8 +888,8 @@ namespace sat {
         if (j.level() == 0) {
             if (m_config.m_drat) 
                 drat_log_unit(l, j);
-            if (!m_trim)
-                j = justification(0); // erase justification for level 0
+            // if (!m_trim)
+            //     j = justification(0); // erase justification for level 0
         }
         else {
             VERIFY(!at_base_lvl());
