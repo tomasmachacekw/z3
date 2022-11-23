@@ -2630,7 +2630,7 @@ namespace sat {
 	literal_vector todo;
 	switch (js.get_kind()) {
         case justification::NONE:
-	  return false;
+	  return js.level() == 0;
         case justification::BINARY:
 	  process_antecedent_for_ext_core(~(js.get_literal()), ext_idx, core, num_marks);
 	  break;
@@ -2654,8 +2654,6 @@ namespace sat {
         }
         case justification::EXT_JUSTIFICATION: {
 	  if (js.get_ext_justification_idx() == ext_idx) {
-	    //All other lits are marked in process_antecedent_for_ext_core
-	    SASSERT(consequent == m_not_l);
 	    process_antecedent_for_ext_core(consequent, ext_idx, core, num_marks);
 	  }
 	  else {
