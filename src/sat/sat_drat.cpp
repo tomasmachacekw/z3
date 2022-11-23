@@ -64,7 +64,8 @@ namespace sat {
 
     void drat::dump(unsigned n, literal const* c, status st) {
         if (st.is_asserted() && !s.m_ext)
-            return;
+          return;
+	if (s.m_ext) s.m_ext->dump(n, c, st);
         if (m_activity && ((m_stats.m_num_add % 1000) == 0))
             dump_activity();
         

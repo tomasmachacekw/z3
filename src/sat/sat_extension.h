@@ -77,6 +77,7 @@ namespace sat {
         solver const& s() const { return *m_solver; }
         symbol const& name() const { return m_name;  }
 
+        virtual void dump(unsigned sz, literal const* lc, status st) { return; }
         virtual void set_lookahead(lookahead* s) {};
         class scoped_drating {
             extension& ext;
