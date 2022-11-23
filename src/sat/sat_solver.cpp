@@ -1659,7 +1659,7 @@ namespace sat {
                 m_case_split_queue.unassign_var_eh(next);
             next_lit = literal(next, false);
         }
-        
+        if (inconsistent()) return true;
         if (phase == l_undef)
             is_pos = guess(next);
         else
