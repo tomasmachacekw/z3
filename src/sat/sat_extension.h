@@ -80,10 +80,11 @@ namespace sat {
         virtual void dump(unsigned sz, literal const* lc, status st) { return; }
         virtual void set_lookahead(lookahead* s) {};
         class scoped_drating {
-            extension& ext;
+	  extension& ext;
+	  bool m_prev;
         public:
-            scoped_drating(extension& e) :ext(e) { ext.m_drating = true;  }
-            ~scoped_drating() { ext.m_drating = false;  }
+	  scoped_drating(extension& e) :ext(e), m_prev(ext.m_drating) { ext.m_drating = true;  }
+	  ~scoped_drating() { ext.m_drating = m_prev;  }
         };
         virtual void init_search() {}
         virtual bool propagated(sat::literal l, sat::ext_constraint_idx idx) { UNREACHABLE(); return false; }
