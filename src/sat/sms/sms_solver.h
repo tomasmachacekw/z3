@@ -2,10 +2,14 @@
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
+#include "sat/sat_clause.h"
 #include "sat/sat_extension.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_types.h"
+#include "util/debug.h"
+#include "util/memory_manager.h"
 #include "util/sat_literal.h"
+#include "util/symbol.h"
 #include "util/vector.h"
 
 namespace sat {
@@ -79,8 +83,6 @@ class sms_solver : public extension {
     bool_vector m_shared;
     unsigned m_idx;
     literal_vector m_ext_clause;
-    svector<literal_vector> m_l_impl_n;
-    svector<literal_vector> m_l_impl_p;
     sms_solver *m_pSolver;
     sms_solver *m_nSolver;
     // Keep track of how many times literals have been exchanged.
@@ -97,7 +99,9 @@ class sms_solver : public extension {
     svector<justification> m_replay_just;
     literal m_next_lit;
     bool m_unsat;
+    symbol m_drat_file;
     literal_vector m_replay_assign;
+    std::ostream* m_out;
     bool_var addVar(expr *n) {
         expr_ref e(n, m);
         unsigned v;
@@ -122,17 +126,33 @@ class sms_solver : public extension {
     void exit_unsat();
     void exit_mode();
     void find_and_set_decision_lit();
-
+    literal_vector m_units_in_conflict;
   public:
-    sms_solver(ast_manager &am, symbol const &name, int id)
+    sms_solver(ast_manager &am, symbol const &name, int id, symbol dratFile)
         : extension(name, id), m(am), m_var2expr(m), m_idx(id),
           m_pSolver(nullptr), m_nSolver(nullptr), m_tx_idx(0),
           m_construct_itp(false), m_full_assignment_lvl(0), m_core(nullptr),
           m_mode(SEARCH), m_exiting(false), m_search_lvl(0), m_validate_lvl(0),
-          m_next_lit(null_literal), m_unsat(false) {
+          m_next_lit(null_literal), m_unsat(false), m_drat_file(dratFile) {
         params_ref p;
     }
+    ~sms_solver() {
+      m_out->flush();	
+      dealloc(m_out);
+    }
+    literal_vector const &get_units_in_conflict() {
+        return m_units_in_conflict;
+    }
+    void drat_dump_units(ext_justification_idx);
+    void init_drat(bool create) {
+        m_drating = true;
+        m_out = alloc(std::ofstream, m_drat_file.str(), create? std::ios_base::out:std::ios_base::app);
+    }
+    void dump(unsigned sz, literal const* lc, status st) override;
+    void dump_clause(unsigned sz, literal const* lc);
+    void drat_dump_cp(literal_vector const&, ext_justification_idx);    
     bool is_unsat() const { return m_unsat; }
+    symbol get_name() const { return m_name; }
     literal_vector const &get_asserted() { return m_asserted; }
     void set_next_decision(literal l) { m_next_lit = l; }
     unsigned get_search_lvl() const { return m_search_lvl; }
@@ -161,7 +181,7 @@ class sms_solver : public extension {
                          bool) override;
     void
     learn_clause_and_update_justification(literal l,
-                                          literal_vector const &antecedent);
+                                          literal_vector const &antecedent, ext_justification_idx id);
     bool decide(bool_var &, lbool &) override;
     bool unit_propagate() override;
     void asserted(literal) override;
@@ -263,15 +283,22 @@ class satmodsatcontext {
         b->print_var_map();
     }
     satmodsatcontext(ast_manager &am) : m(am) {
+        symbol dratFile = symbol("smsdrat.txt");
+        symbol dratFilea = symbol("smsdrata.txt");
+        symbol dratFileb = symbol("smsdratb.txt");        
         params_ref p;
-        m_solverA = alloc(sms_solver, m, symbol("A"), 0);
-        m_solverB = alloc(sms_solver, m, symbol("B"), 1);
+        m_solverA = alloc(sms_solver, m, symbol("A"), 0, dratFile);
+        m_solverB = alloc(sms_solver, m, symbol("B"), 1, dratFile);
         sms_solver *a = static_cast<sms_solver *>(m_solverA);
         sms_solver *b = static_cast<sms_solver *>(m_solverB);
+	a->init_drat(true);
+	b->init_drat(false);
         a->set_nSolver(b);
         b->set_pSolver(a);
+        p.set_sym("drat.file", dratFilea);
         m_satA = alloc(solver, p, m.limit());
         m_satA->set_extension(m_solverA);
+        p.set_sym("drat.file", dratFileb);        
         m_satB = alloc(solver, p, m.limit());
         m_satB->set_extension(m_solverB);
         b->construct_itp();

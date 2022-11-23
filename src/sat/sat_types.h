@@ -101,19 +101,21 @@ namespace sat {
 
     class status {
     public:
-        enum class st { input, asserted, redundant, deleted };
+      enum class st { input, asserted, redundant, deleted, copied };
         st m_st;
         int m_orig;
         const proof_hint* m_hint;
+      symbol m_src;
     public:
         status(st s, int o, proof_hint const* ps = nullptr) : m_st(s), m_orig(o), m_hint(ps) {};
-        status(status const& s) : m_st(s.m_st), m_orig(s.m_orig), m_hint(s.m_hint) {}
-        status(status&& s) noexcept { m_st = st::asserted; m_orig = -1; std::swap(m_st, s.m_st); std::swap(m_orig, s.m_orig); std::swap(m_hint, s.m_hint); }
-        status& operator=(status const& other) { m_st = other.m_st; m_orig = other.m_orig; return *this; }
+      status(status const& s) : m_st(s.m_st), m_orig(s.m_orig), m_hint(s.m_hint), m_src(s.m_src) {}
+      status(status&& s) noexcept { m_st = st::asserted; m_orig = -1; std::swap(m_st, s.m_st); std::swap(m_orig, s.m_orig); std::swap(m_hint, s.m_hint); std::swap(m_src, s.m_src); }
+      status& operator=(status const& other) { m_st = other.m_st; m_orig = other.m_orig; m_src = other.m_src;return *this; }
         static status redundant() { return status(status::st::redundant, -1); }
         static status asserted() { return status(status::st::asserted, -1); }
         static status deleted() { return status(status::st::deleted, -1); }
         static status input() { return status(status::st::input, -1); }
+      static status copied() { return status(status::st::copied, -1); }
 
         static status th(bool redundant, int id, proof_hint const* ps = nullptr) { return status(redundant ? st::redundant : st::asserted, id, ps); }
 
@@ -125,6 +127,8 @@ namespace sat {
 
         bool is_sat() const { return -1 == m_orig; }
         int  get_th() const { return m_orig;  }
+      void set_src(symbol s) { m_src = s; }
+        symbol get_src() const { return m_src; }
     };
 
     struct status_pp {
