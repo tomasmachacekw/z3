@@ -6,7 +6,6 @@
 #include "sat/sat_extension.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_types.h"
-#include "util/debug.h"
 #include "util/memory_manager.h"
 #include "util/sat_literal.h"
 #include "util/symbol.h"
@@ -291,8 +290,8 @@ class satmodsatcontext {
         m_solverB = alloc(sms_solver, m, symbol("B"), 1, dratFile);
         sms_solver *a = static_cast<sms_solver *>(m_solverA);
         sms_solver *b = static_cast<sms_solver *>(m_solverB);
-	a->init_drat(true);
-	b->init_drat(false);
+        a->init_drat(true);
+        b->init_drat(false);
         a->set_nSolver(b);
         b->set_pSolver(a);
         p.set_sym("drat.file", dratFilea);
