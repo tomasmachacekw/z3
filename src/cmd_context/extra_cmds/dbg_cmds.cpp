@@ -351,7 +351,7 @@ public:
     unsigned get_arity() const override { return 3; }
     cmd_arg_kind next_arg_kind(cmd_context& ctx) const override {
       if (m_shared_vars.size() == 0) return CPK_EXPR_LIST;
-	return CPK_EXPR;
+      return CPK_EXPR;
     }
   void set_next_arg(cmd_context& ctx, expr * arg) override {
     if (fml_A == nullptr) fml_A = arg; else fml_B = arg;
@@ -365,7 +365,7 @@ public:
     expr_ref_vector vars(m);
     for (expr* v : m_shared_vars) {
       if (!m.is_bool(v) || !is_uninterp_const(v)) {
-	throw cmd_exception("invalid variable argument. Uninterpreted variable expected");
+          throw cmd_exception("invalid variable argument. Uninterpreted variable expected");
       }
       vars.push_back(to_app(v));
     }
