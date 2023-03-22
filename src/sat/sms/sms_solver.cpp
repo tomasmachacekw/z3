@@ -248,7 +248,7 @@ void sms_solver::set_conflict() {
 
 void sms_solver::asserted(literal l) {
     dbg_print_lit("asserted lit", l);
-    m_solver->display_justification(tout, m_solver->get_justification(l));
+    TRACE("satmodsat", m_solver->display_justification(tout, m_solver->get_justification(l)););
     if (m_shared[l.var()]) {
         m_asserted.push_back(l);
         if (m_pSolver && get_mode() != LOOKAHEAD)
