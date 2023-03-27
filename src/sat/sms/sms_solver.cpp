@@ -102,11 +102,11 @@ void sms_solver::get_antecedents(literal l, ext_justification_idx idx,
     if (idx == NSOLVER_EXT_IDX) {
         // Literal was asserted by nSolver
         SASSERT(probing || (m_nSolver && m_nSolver->get_mode() == LOOKAHEAD));
-        m_nSolver->get_reason(l, r);
+        m_nSolver->get_ext_reason(l, r);
     } else {
         SASSERT(m_pSolver);
         // should have exited validate mode before conflict resolution
-        bool res = m_pSolver->get_reason(l, r);
+        bool res = m_pSolver->get_ext_reason(l, r);
         (void) res;
         SASSERT(probing || res);
     }
@@ -499,14 +499,14 @@ lbool sms_solver::resolve_conflict() {
             if (js.get_ext_justification_idx() == NSOLVER_EXT_IDX) {
                 SASSERT(m_nSolver && (m_nSolver->get_mode() == LOOKAHEAD ||
                                       m_nSolver->get_mode() == FINISHED));
-                if (!m_nSolver->get_reason(l, rc)) {
+                if (!m_nSolver->get_ext_reason(l, rc)) {
                     m_nSolver->set_next_decision(l);
                     exit_search();
                     return l_false;
                 }
             } else {
                 SASSERT(m_pSolver && m_pSolver->get_mode() == FINISHED);
-                if (!m_pSolver->get_reason(l, rc)) {
+                if (!m_pSolver->get_ext_reason(l, rc)) {
                     set_next_decision(l);
                     exit_validate();
                     return l_false;

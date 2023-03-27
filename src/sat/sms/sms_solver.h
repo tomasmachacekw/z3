@@ -173,7 +173,7 @@ class sms_solver : public extension {
     void construct_itp() { m_construct_itp = true; }
     void set_pSolver(sms_solver *p) { m_pSolver = p; }
     void set_nSolver(sms_solver *n) { m_nSolver = n; }
-    bool get_reason(literal, literal_vector &);
+    bool get_ext_reason(literal, literal_vector &);
     bool get_reason_final(literal_vector &, ext_justification_idx);
     void get_antecedents(literal, ext_justification_idx, literal_vector &,
                          bool) override;
