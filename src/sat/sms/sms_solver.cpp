@@ -53,16 +53,14 @@ void sms_solver::drat_dump_cp(literal_vector const& cl, ext_justification_idx id
   dump(cl.size(), cl.data(), st);
 }
 
-void sms_solver::drat_dump_units(ext_justification_idx id) {
+void sms_solver::drat_dump_ext_unit(literal l, ext_justification_idx id) {
     sms_solver *s = id == NSOLVER_EXT_IDX ? m_nSolver : m_pSolver;
     SASSERT(s);
     status st = status::copied();
-    st.set_src(s->name());
-    literal_vector cl(1);
-    for (unsigned i = 0; i < s->get_units_in_conflict().size(); i++) {
-      cl[0] = s->get_units_in_conflict()[i];     
-      dump(1, cl.data(), st);      
-    }
+    st.set_src(s->get_id());
+    literal_vector cl(1, {l});
+    dump(1, cl.data(), st);
+    m_out->flush();
 }
 
 void sms_solver::learn_clause_and_update_justification(
@@ -74,7 +72,6 @@ void sms_solver::learn_clause_and_update_justification(
         m_solver->mk_clause(cls.size(), cls.data(), sat::status::redundant());
     if (m_drating) {
         drat_dump_cp(cls, idx);
-        drat_dump_units(idx);
     }     
     justification js = m_solver->get_justification(l);
     justification njs(js.level());
@@ -138,7 +135,6 @@ bool sms_solver::unit_propagate() {
             VERIFY(m_pSolver->get_reason_final(m_ext_clause, NSOLVER_EXT_IDX));
             if (m_drating) {
                 drat_dump_cp(m_ext_clause, PSOLVER_EXT_IDX);
-                drat_dump_units(PSOLVER_EXT_IDX);
             }
             set_conflict();
             return false;
@@ -154,7 +150,6 @@ bool sms_solver::unit_propagate() {
             if (m_nSolver->get_reason_final(m_ext_clause, PSOLVER_EXT_IDX)) {
                 if (m_drating) {
                     drat_dump_cp(m_ext_clause, NSOLVER_EXT_IDX);
-                    drat_dump_units(NSOLVER_EXT_IDX);
                 }
                 set_conflict();
             } else {
@@ -266,7 +261,10 @@ void sms_solver::assign_from_other(literal l, ext_justification_idx idx) {
     case l_undef:
         dbg_print_lit("assigning from other", l);
         m_solver->assign(l, js);
-        if (m_solver->scope_lvl() == 0) m_solver->update_assign_uncond(l, js);
+        if (m_solver->scope_lvl() == 0) {
+            m_solver->update_assign_uncond(l, js);
+            if (get_mode() == SEARCH || get_mode() == VALIDATE) drat_dump_ext_unit(l, idx);
+        }
         break;
     case l_true:
         return;
@@ -286,11 +284,6 @@ bool sms_solver::get_reason(literal l, literal_vector &rc) {
         dbg_print_lit("Fetching reason for", t);
         justification js = m_solver->get_justification(t);
         TRACE("satmodsat", m_solver->display_justification(tout, js););
-        if (js.level() == 0 && !js.is_ext_justification()) {
-            // a unit clause is used in conflict in the other solver, copy it
-            dbg_print_lit("unit literal involved in conflict", t);
-            m_units_in_conflict.push_back(t);
-        }
         switch (js.get_kind()) {
             case justification::NONE: {
                 if (js.level() != 0) {
