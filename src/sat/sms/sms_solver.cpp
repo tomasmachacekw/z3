@@ -222,9 +222,6 @@ void sms_solver::set_conflict() {
     clause *c = m_solver->mk_clause(m_ext_clause.size(), m_ext_clause.data(),
                                     sat::status::redundant());
     switch (m_ext_clause.size()) {
-    case 0:
-        SASSERT(false);
-        break;
     case 1:
         js = justification(lvl, m_ext_clause[0]);
         break;
