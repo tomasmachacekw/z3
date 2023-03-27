@@ -87,7 +87,6 @@ void sms_solver::learn_clause_and_update_justification(
             break;
     }
     m_solver->update_assign_uncond(l, njs);
-    m_itp.push_back(cls);
 }
 
 void sms_solver::get_antecedents(literal l, ext_justification_idx idx,
