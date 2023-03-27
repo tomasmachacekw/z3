@@ -433,7 +433,7 @@ void sms_solver::find_and_set_decision_lit() {
 // resolved in the current solver.
 // if conflict can be resolved, it returns l_undef so that the sat solver can
 // resolve the conflict
-// if conflict requires the solver to change state, it return l_false
+// if conflict requires the solver to change state, it returns l_false
 lbool sms_solver::resolve_conflict() {
     SASSERT(get_mode() == SEARCH || get_mode() == VALIDATE);
     SASSERT(!m_nSolver || m_nSolver->get_mode() == FINISHED || m_nSolver->get_mode() == LOOKAHEAD);
