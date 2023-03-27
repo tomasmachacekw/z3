@@ -93,6 +93,7 @@ void sms_solver::get_antecedents(literal l, ext_justification_idx idx,
                                  literal_vector &r, bool probing) {
     if (l == null_literal) {
       SASSERT(idx == PSOLVER_EXT_IDX);
+      if (probing) return;
       literal_vector cls;
       cls.push_back(l); 
       drat_dump_cp(cls, idx);
