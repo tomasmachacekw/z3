@@ -273,7 +273,9 @@ void sms_solver::assign_from_other(literal l, ext_justification_idx idx) {
     }
 }
 
-bool sms_solver::get_reason(literal l, literal_vector &rc) {
+// get reason for l when solver is not in a conflicting state
+// returns false if l is caused by a decision
+bool sms_solver::get_ext_reason(literal l, literal_vector &rc) {
     literal_vector todo;
     literal t = l;
     todo.push_back(t);
