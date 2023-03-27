@@ -36,6 +36,7 @@ Notes:
 #include "qe/mbp/mbp_term_graph.h"
 #include "sat/sat_solver.h"
 #include "sat/sms/sms_solver.h"
+#include "sat/sms/sms_proof_itp.h"
 
 BINARY_SYM_CMD(get_quantifier_body_cmd,
                "dbg-get-qbody",
@@ -370,9 +371,10 @@ public:
       vars.push_back(to_app(v));
     }
     sat::sat_mod_sat solver(m);
+    sat::sms_proof_itp itp(m, &solver);
     expr_ref fml1(fml_A, m);
     expr_ref fml2(fml_B, m);
-    solver.solve(fml1, fml2, vars);
+    if (!solver.solve(fml1, fml2, vars)) itp.interpolate();
   }
 };
 
