@@ -151,7 +151,6 @@ class sms_solver : public extension {
     void dump_clause(unsigned sz, literal const* lc);
     void drat_dump_cp(literal_vector const&, ext_justification_idx);    
     bool is_unsat() const { return m_unsat; }
-    symbol get_name() const { return m_name; }
     literal_vector const &get_asserted() { return m_asserted; }
     void set_next_decision(literal l) { m_next_lit = l; }
     unsigned get_search_lvl() const { return m_search_lvl; }
