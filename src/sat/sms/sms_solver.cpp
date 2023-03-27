@@ -292,35 +292,41 @@ bool sms_solver::get_reason(literal l, literal_vector &rc) {
             m_units_in_conflict.push_back(t);
         }
         switch (js.get_kind()) {
-        case justification::NONE:
-            // SASSERT(m_finished_lookahead);
-            rc.reset();
-            if (js.level() != 0) return false;
-            break;
-        case justification::BINARY:
-            todo.push_back(~js.get_literal());
-            break;
-        case justification::CLAUSE: {
-            clause &c = m_solver->get_clause(js);
-            unsigned i = 0;
-            if (c[0].var() == t.var()) {
-                i = 1;
-            } else {
-                SASSERT(c[1].var() == t.var());
-                todo.push_back(~c[0]);
-                i = 2;
+            case justification::NONE: {
+                if (js.level() != 0) {
+                    // Decision variables involved in the conflict, exit without any justification
+                    // SASSERT(m_finished_lookahead);
+                    rc.reset();
+                    return false;
+                }
+                break;
             }
-            unsigned sz = c.size();
-            for (; i < sz; i++) { todo.push_back(~c[i]); }
-            break;
-        }
-        case justification::EXT_JUSTIFICATION: {
-            rc.push_back(~t);
-            break;
-        }
-        default:
-            UNREACHABLE();
-            break;
+            case justification::BINARY: {
+                todo.push_back(~js.get_literal());
+                break;
+            }
+            case justification::CLAUSE: {
+                clause &c = m_solver->get_clause(js);
+                unsigned i = 0;
+                if (c[0].var() == t.var()) {
+                    i = 1;
+                } else {
+                    SASSERT(c[1].var() == t.var());
+                    todo.push_back(~c[0]);
+                    i = 2;
+                }
+                unsigned sz = c.size();
+                for (; i < sz; i++) { todo.push_back(~c[i]); }
+                break;
+            }
+            case justification::EXT_JUSTIFICATION: {
+                rc.push_back(~t);
+                break;
+            }
+            default: {
+                UNREACHABLE();
+                break;
+            }
         }
     }
     return true;
@@ -430,6 +436,7 @@ void sms_solver::find_and_set_decision_lit() {
     }
     SASSERT(false);
 }
+
 // resolve_conflict checks whether the current conflict can be
 // resolved in the current solver.
 // if conflict can be resolved, it returns l_undef so that the sat solver can
