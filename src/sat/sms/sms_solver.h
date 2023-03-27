@@ -75,7 +75,7 @@ inline std::ostream &operator<<(std::ostream &out, const sms_mode m) {
     UNREACHABLE();
     return out;
 }
-
+class sms_proof_itp;
 class sms_solver : public extension {
     ast_manager &m;
     obj_map<expr, unsigned> m_expr2var;
