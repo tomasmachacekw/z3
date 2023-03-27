@@ -656,13 +656,14 @@ void satmodsatcontext::add_cnf_expr_to_solver(extension *s, expr_ref fml) {
     for (expr *e : *to_app(fml)) { a->add_clause_expr(e); }
 }
 
-void sat_mod_sat::solve(expr_ref A, expr_ref B, expr_ref_vector &shared) {
+bool sat_mod_sat::solve(expr_ref A, expr_ref B, expr_ref_vector &shared) {
     TRACE("satmodsat",
           tout << "A: " << mk_pp(A, m) << " B: " << mk_pp(B, m) << "\n";);
     init(A, B, shared);
     bool res = m_solver.solve();
     const char *s = res ? "satisfiable" : "unsatisfiable";
     TRACE("satmodsat", tout << "final result is " << s;);
+    return res;
 }
 
 // Ensures that all shared variables have the same index in both solvers.
