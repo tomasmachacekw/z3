@@ -10,44 +10,45 @@
 #include "util/sat_literal.h"
 #include "util/symbol.h"
 #include "util/vector.h"
-
 namespace sat {
 
-#define dbg_print(s)                                                           \
-    {                                                                          \
-        TRACE("satmodsat",                                                     \
-              tout << "solver" << m_name << " " << m_mode << " " << s;);       \
+#define dbg_print(s)                                                    \
+    {                                                                   \
+        TRACE("satmodsat",                                              \
+              tout << "solver" << m_name << " " << m_mode << " "        \
+              << m_search_lvl << " " << m_validate_lvl << " " << s;);   \
     }
 
-#define dbg_print_stat(s, t)                                                   \
-    {                                                                          \
-        TRACE("satmodsat", tout << "solver" << m_name << " " << m_mode << " "  \
-                                << s << " " << t;);                            \
+#define dbg_print_stat(s, t)                                            \
+    {                                                                   \
+        TRACE("satmodsat", tout << "solver" << m_name << " "            \
+              << m_mode << " " << m_search_lvl << " " <<                \
+              m_validate_lvl << " " << s << " " << t;);                 \
     }
 
-#define dbg_print_lit(s, l)                                                    \
-    {                                                                          \
-        TRACE(                                                                 \
-            "satmodsat",                                                       \
-            tout << "solver" << m_name << " " << m_mode << " " << s;           \
-            if (l.sign()) {                                                    \
-                tout << " -" << expr_ref(get_expr(l.var()), m);                \
-            } else { tout << " " << expr_ref(get_expr(l.var()), m); };);       \
+#define dbg_print_lit(s, l)                                             \
+    {                                                                   \
+        TRACE("satmodsat",tout << "solver" << m_name << " "             \
+              << m_mode << " " << m_search_lvl << " "                   \
+              << m_validate_lvl << " " << s;                            \
+            if (l.sign()) {                                             \
+                tout << " -" << expr_ref(get_expr(l.var()), m);         \
+            } else {                                                    \
+                tout << " " << expr_ref(get_expr(l.var()), m);          \
+            };);                                                        \
     }
 
-#define dbg_print_lv(s, lv)                                                    \
-    {                                                                          \
-        TRACE(                                                                 \
-            "satmodsat",                                                       \
-            tout << "solver" << m_name << " " << m_mode << " " << s;           \
-            for (literal l                                                     \
-                 : lv) {                                                       \
-                if (l.sign()) {                                                \
-                    tout << " -" << expr_ref(get_expr(l.var()), m);            \
-                } else {                                                       \
-                    tout << " " << expr_ref(get_expr(l.var()), m);             \
-                }                                                              \
-            };);                                                               \
+#define dbg_print_lv(s, lv) {                                           \
+    TRACE("satmodsat", tout << "solver" << m_name << " " << m_mode      \
+          << " " << m_search_lvl << " " << m_validate_lvl               \
+          << " " << s;                                                  \
+          for (literal l : lv) {                                        \
+              if (l.sign()) {                                           \
+                  tout << " -" << expr_ref(get_expr(l.var()), m);       \
+              } else {                                                  \
+                  tout << " " << expr_ref(get_expr(l.var()), m);        \
+              }                                                         \
+          };);                                                          \
     }
 
 #define NSOLVER_EXT_IDX 0
