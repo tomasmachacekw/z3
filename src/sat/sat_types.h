@@ -105,7 +105,7 @@ namespace sat {
         st m_st;
         int m_orig;
         const proof_hint* m_hint;
-      symbol m_src;
+        int m_src;
     public:
         status(st s, int o, proof_hint const* ps = nullptr) : m_st(s), m_orig(o), m_hint(ps) {};
       status(status const& s) : m_st(s.m_st), m_orig(s.m_orig), m_hint(s.m_hint), m_src(s.m_src) {}
@@ -127,8 +127,8 @@ namespace sat {
 
         bool is_sat() const { return -1 == m_orig; }
         int  get_th() const { return m_orig;  }
-      void set_src(symbol s) { m_src = s; }
-        symbol get_src() const { return m_src; }
+        void set_src(int s) { m_src = s; }
+        int get_src() const { return m_src; }
     };
 
     struct status_pp {

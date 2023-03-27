@@ -80,7 +80,6 @@ class sms_solver : public extension {
     obj_map<expr, unsigned> m_expr2var;
     expr_ref_vector m_var2expr;
     bool_vector m_shared;
-    unsigned m_idx;
     literal_vector m_ext_clause;
     sms_solver *m_pSolver;
     sms_solver *m_nSolver;
@@ -128,7 +127,7 @@ class sms_solver : public extension {
     literal_vector m_units_in_conflict;
   public:
     sms_solver(ast_manager &am, symbol const &name, int id, symbol dratFile)
-        : extension(name, id), m(am), m_var2expr(m), m_idx(id),
+        : extension(name, id), m(am), m_var2expr(m),
           m_pSolver(nullptr), m_nSolver(nullptr), m_tx_idx(0),
           m_construct_itp(false), m_full_assignment_lvl(0), m_core(nullptr),
           m_mode(SEARCH), m_exiting(false), m_search_lvl(0), m_validate_lvl(0),

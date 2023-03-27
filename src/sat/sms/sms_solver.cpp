@@ -12,19 +12,21 @@ void sms_solver::dump(unsigned sz, literal const *lc, status st) {
   SASSERT(m_drating);
   SASSERT(!m_drat_file.str().empty());
   switch (st.m_st) {
-  case status::st::input:
-  case status::st::asserted:
-    (*m_out) << "i " << m_name << " ";
-    break;
-  case status::st::redundant:
-    (*m_out) << "l " << m_name << " ";
-    break;
-  case status::st::deleted:
-    (*m_out) << "d " << m_name << " ";
-    break;
-  case status::st::copied:
-    (*m_out) << "c " << st.get_src() << " " <<  m_name << " ";
-    break;
+      case status::st::input:
+          (*m_out) << "i " << get_id() << " ";
+          break;
+      case status::st::asserted:
+          (*m_out) << "l " << get_id() << " ";
+          break;
+      case status::st::redundant:
+          (*m_out) << "l " << get_id() << " ";
+          break;
+      case status::st::deleted:
+          (*m_out) << "d " << get_id() << " ";
+          break;
+      case status::st::copied:
+          (*m_out) << "c " << st.get_src() << " " <<  get_id() << " ";
+          break;
   }
   dump_clause(sz, lc);
 }
@@ -44,8 +46,8 @@ void sms_solver::dump_clause(unsigned sz, literal const* lc) {
 void sms_solver::drat_dump_cp(literal_vector const& cl, ext_justification_idx id) {
   SASSERT(m_drating);
   SASSERT(!m_drat_file.str().empty());
-  symbol src =
-      id == NSOLVER_EXT_IDX ? m_nSolver->name() : m_pSolver->name();
+  int src =
+      id == NSOLVER_EXT_IDX ? m_nSolver->get_id() : m_pSolver->get_id();
   status st = status::copied();
   st.set_src(src);
   dump(cl.size(), cl.data(), st);
