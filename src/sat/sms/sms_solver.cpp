@@ -38,9 +38,10 @@ void sms_solver::dump_clause(unsigned sz, literal const* lc) {
     (*m_out) << "\n";
       return;
   }
-  unsigned i = 0; 
+  unsigned i = 0;
   for (; i < sz - 1; i++) (*m_out) << lc[i] << " ";
   (*m_out) << lc[i] << "\n";
+  m_out->flush();
 }
 
 void sms_solver::drat_dump_cp(literal_vector const& cl, ext_justification_idx id) {
@@ -51,6 +52,7 @@ void sms_solver::drat_dump_cp(literal_vector const& cl, ext_justification_idx id
   status st = status::copied();
   st.set_src(src);
   dump(cl.size(), cl.data(), st);
+  m_out->flush();
 }
 
 void sms_solver::drat_dump_ext_unit(literal l, ext_justification_idx id) {

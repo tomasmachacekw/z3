@@ -246,7 +246,7 @@ class satmodsatcontext {
     solver *m_satA;
     solver *m_satB;
     void add_cnf_expr_to_solver(extension *s, expr_ref fml);
-
+    std::ostream* m_stream;
   public:
     void addA(expr_ref fml);
     void addB(expr_ref fml);
@@ -268,8 +268,9 @@ class satmodsatcontext {
         m_solverB = alloc(sms_solver, m, symbol("B"), NSOLVER_EXT_IDX, dratFile);
         sms_solver *a = static_cast<sms_solver *>(m_solverA);
         sms_solver *b = static_cast<sms_solver *>(m_solverB);
-        a->init_drat(true);
-        b->init_drat(false);
+        m_stream = alloc(std::ofstream, dratFile.str(), std::ios_base::out);
+        a->init_drat(m_stream);
+        b->init_drat(m_stream);
         a->set_nSolver(b);
         b->set_pSolver(a);
         p.set_sym("drat.file", dratFilea);
@@ -285,6 +286,7 @@ class satmodsatcontext {
     ~satmodsatcontext() {
         dealloc(m_satA);
         dealloc(m_satB);
+        dealloc(m_stream);
     }
     bool solve() {
         sms_solver *b = static_cast<sms_solver *>(m_solverB);
