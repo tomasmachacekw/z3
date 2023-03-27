@@ -88,7 +88,6 @@ class sms_solver : public extension {
     // Might be useful for conflict analysis
     size_t m_tx_idx;
     bool m_construct_itp;
-    vector<literal_vector> m_itp;
     unsigned m_full_assignment_lvl;
     literal_vector *m_core;
     literal_vector m_asserted;
@@ -125,27 +124,22 @@ class sms_solver : public extension {
     void exit_unsat();
     void exit_mode();
     void find_and_set_decision_lit();
-    literal_vector m_units_in_conflict;
   public:
     sms_solver(ast_manager &am, symbol const &name, int id, symbol dratFile)
         : extension(name, id), m(am), m_var2expr(m),
           m_pSolver(nullptr), m_nSolver(nullptr), m_tx_idx(0),
           m_construct_itp(false), m_full_assignment_lvl(0), m_core(nullptr),
           m_mode(SEARCH), m_exiting(false), m_search_lvl(0), m_validate_lvl(0),
-          m_next_lit(null_literal), m_unsat(false), m_drat_file(dratFile) {
+          m_next_lit(null_literal), m_unsat(false), m_drat_file(dratFile), m_itp(nullptr) {
         params_ref p;
     }
     ~sms_solver() {
-      m_out->flush();	
-      dealloc(m_out);
+      m_out->flush();
     }
-    literal_vector const &get_units_in_conflict() {
-        return m_units_in_conflict;
-    }
-    void drat_dump_units(ext_justification_idx);
-    void init_drat(bool create) {
+    void drat_dump_ext_unit(literal, ext_justification_idx);
+    void init_drat(std::ostream* s) {
         m_drating = true;
-        m_out = alloc(std::ofstream, m_drat_file.str(), create? std::ios_base::out:std::ios_base::app);
+        m_out = s;
     }
     void dump(unsigned sz, literal const* lc, status st) override;
     void dump_clause(unsigned sz, literal const* lc);
@@ -225,21 +219,6 @@ class sms_solver : public extension {
             v = boolVar(e);
             m_shared[v] = true;
         }
-    }
-    void print_itp() {
-        TRACE(
-            "satmodsat", tout << "Interpolant is \n";
-            for (literal_vector const &lv
-                 : m_itp) {
-                for (literal l : lv) {
-                    if (l.sign()) {
-                        tout << " -" << expr_ref(get_expr(l.var()), m);
-                    } else {
-                        tout << " " << expr_ref(get_expr(l.var()), m);
-                    }
-                }
-                tout << "\n";
-            };);
     }
     bool_var get_var(expr *e) {
         bool_var v;
