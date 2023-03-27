@@ -1,0 +1,11 @@
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(declare-const d Bool)
+(declare-const e Bool)
+(declare-const f Bool)
+
+(satmodsat (a b)
+	   (and (or c a b) (or (not c) a b))
+       (and (or (not a) e f) (or (not a) e (not f)) (or (not a) (not e) f) (or (not a) (not e) (not f))
+       (or (not b) e f) (or (not b) e (not f)) (or (not b) (not e) f) (or (not b) (not e) (not f))))
