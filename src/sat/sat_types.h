@@ -123,6 +123,7 @@ namespace sat {
         bool is_redundant() const { return st::redundant == m_st; }
         bool is_asserted() const { return st::asserted == m_st; }
         bool is_deleted() const { return st::deleted == m_st; }
+        bool is_copied() const { return st::copied == m_st; }
         proof_hint const* get_hint() const { return m_hint; }
 
         bool is_sat() const { return -1 == m_orig; }
