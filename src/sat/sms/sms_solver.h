@@ -264,8 +264,8 @@ class satmodsatcontext {
         symbol dratFilea = symbol("smsdrata.txt");
         symbol dratFileb = symbol("smsdratb.txt");        
         params_ref p;
-        m_solverA = alloc(sms_solver, m, symbol("A"), 0, dratFile);
-        m_solverB = alloc(sms_solver, m, symbol("B"), 1, dratFile);
+        m_solverA = alloc(sms_solver, m, symbol("A"), PSOLVER_EXT_IDX, dratFile);
+        m_solverB = alloc(sms_solver, m, symbol("B"), NSOLVER_EXT_IDX, dratFile);
         sms_solver *a = static_cast<sms_solver *>(m_solverA);
         sms_solver *b = static_cast<sms_solver *>(m_solverB);
         a->init_drat(true);
