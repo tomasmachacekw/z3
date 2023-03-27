@@ -100,6 +100,7 @@ class sms_solver : public extension {
     symbol m_drat_file;
     literal_vector m_replay_assign;
     std::ostream* m_out;
+    sms_proof_itp* m_itp;
     bool_var addVar(expr *n) {
         expr_ref e(n, m);
         unsigned v;
@@ -220,6 +221,17 @@ class sms_solver : public extension {
             m_shared[v] = true;
         }
     }
+        void set_itp(sms_proof_itp* itp) { m_itp = itp; }
+
+        bool has_var(expr* e, bool_var& v) { return m_expr2var.find(e, v); }
+        bool has_expr(bool_var v, expr* &e) {
+            if (m_var2expr.size() <= v) return false;
+            e = m_var2expr[v].get();
+            return true;
+        }
+        bool is_shared(bool_var v) {
+            return m_shared.size() > v && m_shared[v];
+        }
     bool_var get_var(expr *e) {
         bool_var v;
         bool found = m_expr2var.find(e, v);
@@ -245,6 +257,7 @@ class satmodsatcontext {
     extension *m_solverB;
     solver *m_satA;
     solver *m_satB;
+    sms_proof_itp* m_itp;
     void add_cnf_expr_to_solver(extension *s, expr_ref fml);
     std::ostream* m_stream;
   public:
@@ -259,7 +272,7 @@ class satmodsatcontext {
         a->print_var_map();
         b->print_var_map();
     }
-    satmodsatcontext(ast_manager &am) : m(am) {
+    satmodsatcontext(ast_manager &am) : m(am), m_itp(nullptr) {
         symbol dratFile = symbol("smsdrat.txt");
         symbol dratFilea = symbol("smsdrata.txt");
         symbol dratFileb = symbol("smsdratb.txt");        
@@ -288,27 +301,60 @@ class satmodsatcontext {
         dealloc(m_satB);
         dealloc(m_stream);
     }
-    bool solve() {
-        sms_solver *b = static_cast<sms_solver *>(m_solverB);
-        if (!b->modular_solve()) {
-            b->print_itp();
-            return false;
+
+        void set_itp(sms_proof_itp* itp) {
+            m_itp = itp;
+            sms_solver *a = static_cast<sms_solver *>(m_solverA);
+            sms_solver *b = static_cast<sms_solver *>(m_solverB);
+            a->set_itp(m_itp);
+            b->set_itp(m_itp);
         }
-        return true;
-    }
+
+        bool solve() {
+            sms_solver *b = static_cast<sms_solver *>(m_solverB);
+            if (!b->modular_solve()) {
+                return false;
+            }
+            return true;
+        }
+
+        unsigned get_var(expr* e) {
+            sms_solver *b = static_cast<sms_solver *>(m_solverB);
+            sms_solver *a = static_cast<sms_solver *>(m_solverA);
+            bool_var v;
+            VERIFY(b->has_var(e, v) || a->has_var(e, v));
+            return v;
+        }
+
+        expr* get_expr(bool_var v) {
+            sms_solver *b = static_cast<sms_solver *>(m_solverB);
+            sms_solver *a = static_cast<sms_solver *>(m_solverA);
+            expr* e;
+            VERIFY(b->has_expr(v, e) || a->has_expr(v, e));
+            return e;
+        }
+
+        bool is_shared(bool_var v) {
+            sms_solver *b = static_cast<sms_solver *>(m_solverB);
+            return b->is_shared(v);
+        }
 };
 
-class sat_mod_sat {
-    ast_manager &m;
-    expr_ref_vector m_shared;
-    expr_ref m_a;
-    expr_ref m_b;
-    satmodsatcontext m_solver;
-    void init(expr_ref A, expr_ref B, expr_ref_vector const &shared);
+    class sat_mod_sat {
+        ast_manager &m;
+        expr_ref_vector m_shared;
+        expr_ref m_a;
+        expr_ref m_b;
+        satmodsatcontext m_solver;
+        void init(expr_ref A, expr_ref B, expr_ref_vector const &shared);
+        public:
+            sat_mod_sat(ast_manager &am)
+                : m(am), m_shared(m), m_a(m), m_b(m), m_solver(m) {}
+            bool solve(expr_ref A, expr_ref B, expr_ref_vector &shared);
+            void set_itp(sms_proof_itp* itp) { m_solver.set_itp(itp); }
+            unsigned get_var(expr* e) { return m_solver.get_var(e); }
+            expr* get_expr(bool_var v) { return m_solver.get_expr(v); }
+            bool is_shared(bool_var v) { return m_solver.is_shared(v); }
 
-  public:
-    sat_mod_sat(ast_manager &am)
-        : m(am), m_shared(m), m_a(m), m_b(m), m_solver(m) {}
-    void solve(expr_ref A, expr_ref B, expr_ref_vector &shared);
-};
+    };
 } // namespace sat

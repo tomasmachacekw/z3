@@ -5,6 +5,7 @@
 #include "util/debug.h"
 #include "util/lbool.h"
 #include "util/sat_literal.h"
+#include "sat/sms/sms_proof_itp.h"
 
 using namespace sat;
 
@@ -29,6 +30,7 @@ void sms_solver::dump(unsigned sz, literal const *lc, status st) {
           break;
   }
   dump_clause(sz, lc);
+  if (m_itp) m_itp->log_clause(st, sz, lc);
 }
 
 void sms_solver::dump_clause(unsigned sz, literal const* lc) {
