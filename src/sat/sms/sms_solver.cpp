@@ -63,6 +63,7 @@ void sms_solver::drat_dump_ext_unit(literal l, ext_justification_idx id) {
     m_out->flush();
 }
 
+// learn clause (l || antecedent) from external solver idx
 void sms_solver::learn_clause_and_update_justification(
     literal l, literal_vector const &antecedent, ext_justification_idx idx) {
     literal_vector cls;
@@ -93,7 +94,7 @@ void sms_solver::get_antecedents(literal l, ext_justification_idx idx,
       literal_vector cls;
       cls.push_back(l); 
       drat_dump_cp(cls, idx);
-      return;      
+      return;
     }
     if (idx == NSOLVER_EXT_IDX) {
         // Literal was asserted by nSolver
@@ -131,6 +132,7 @@ bool sms_solver::unit_propagate() {
         m_pSolver->reset_asserted();
         bool r = m_pSolver->propagate();
         if (!r) {
+            SASSERT(get_mode() == SEARCH);
             m_ext_clause.reset();
             VERIFY(m_pSolver->get_reason_final(m_ext_clause, NSOLVER_EXT_IDX));
             if (m_drating) {
@@ -195,17 +197,10 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
     m_pSolver->set_mode(PROPAGATE);
     SASSERT(get_mode() == SEARCH);
     SASSERT(m_ext_clause.empty());
-    // if (m_ext_clause.empty()) {
-        SASSERT(m_solver->scope_lvl() == search_lvl);
-        next = m_next_lit.var();
-        phase = m_next_lit.sign() ? l_true : l_false;
-        return true;
-    // } else {
-    //   // unreachable code?????
-    //     dbg_print_lv("look ahead returned unsat with", m_ext_clause);
-    //     set_conflict();
-    //     return false;
-    // }
+    SASSERT(m_solver->scope_lvl() == search_lvl);
+    next = m_next_lit.var();
+    phase = m_next_lit.sign() ? l_true : l_false;
+    return true;
 }
 
 void sms_solver::set_conflict() {
@@ -445,11 +440,7 @@ lbool sms_solver::resolve_conflict() {
         return l_false;
     }
     if (m_pSolver && m_pSolver->get_mode() != FINISHED) return l_undef;
-    literal_vector todo;
-    todo.push_back(m_solver->get_m_not_l());
-    literal l;
-    justification js(0);
-    literal_vector rc;
+
     unsigned c_lvl = m_solver->get_conflict_lvl();
     if (get_mode() == VALIDATE && c_lvl <= get_validate_lvl()) {
         if (get_reason_final(m_ext_clause, PSOLVER_EXT_IDX)) {
@@ -474,6 +465,12 @@ lbool sms_solver::resolve_conflict() {
         exit_search();
         return l_false;
     }
+
+    literal_vector todo;
+    todo.push_back(m_solver->get_m_not_l());
+    literal l;
+    justification js(0);
+    literal_vector rc;
     while (!todo.empty()) {
         l = todo.back();
         todo.pop_back();
