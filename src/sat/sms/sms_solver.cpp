@@ -403,11 +403,11 @@ void sms_solver::find_and_set_decision_lit() {
     while (!todo.empty()) {
         l = todo.back();
         todo.pop_back();
-        if (m_shared[l.var()]) {
+        js = m_solver->get_justification(l);
+        if (m_shared[l.var()] && !js.is_none()) {
             set_next_decision(l);
             return;
         }
-        js = m_solver->get_justification(l);
         switch (js.get_kind()) {
         case justification::NONE:
             SASSERT(false);
