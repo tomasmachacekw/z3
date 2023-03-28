@@ -649,17 +649,17 @@ public:
         }
 
         unsigned get_conflict_lvl() { return m_conflict_lvl; }
-      void save_trail(unsigned start, unsigned end, literal_vector& t, svector<justification>& j) {
-	  literal l;
-	  start = start == 0 ? 0 : start;
-	  for(unsigned i = m_scopes[start].m_trail_lim; i < m_trail.size(); i++) {
-	    l = m_trail[i];
-	    if(lvl(l) >= start && lvl(l) <= end) {
-	      t.push_back(l);
-	      j.push_back(m_justification[l.var()]);
-	    }
-	  }
-	}
+        void save_trail(unsigned start, unsigned end, literal_vector& t, svector<justification>& j) {
+                literal l;
+                start = start == 0 ? 0 : start;
+                for(unsigned i = m_scopes[start].m_trail_lim; i < m_trail.size(); i++) {
+                        l = m_trail[i];
+                        if(lvl(l) >= start && lvl(l) <= end) {
+                                t.push_back(l);
+                                j.push_back(m_justification[l.var()]);
+                        }
+                }
+        }
 protected:
         clause& get_clause(clause_offset cls_off) const {
             return *(cls_allocator().get_clause(cls_off));
