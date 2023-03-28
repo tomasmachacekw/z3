@@ -1015,7 +1015,7 @@ namespace sat {
         bool keep;
         unsigned curr_level = lvl(l);
         TRACE("sat_propagate", tout << "propagating: " << l << "@" << curr_level << " " << m_justification[l.var()] << "\n"; );
-	TRACE("sat_propagate", tout << m_trail;);
+        TRACE("sat_propagate", tout << m_trail;);
         literal not_l = ~l;
         SASSERT(value(l) == l_true);
         SASSERT(value(not_l) == l_false);
@@ -2385,8 +2385,8 @@ namespace sat {
         }
 
         if (m_conflict_lvl == 0) {
-	  if(m_ext) m_ext->resolve_conflict();
-	  drat_explain_conflict();
+            if(m_ext) m_ext->resolve_conflict();
+            drat_explain_conflict();
             if (m_config.m_drat)
                 drat_log_clause(0, nullptr, sat::status::redundant());
             TRACE("sat", tout << "conflict level is 0\n";);
