@@ -81,6 +81,9 @@ void sms_solver::learn_clause_and_update_justification(
     justification js = m_solver->get_justification(l);
     justification njs(js.level());
     switch (cls.size()) {
+        case 1:
+            njs = justification(0, l);
+            break;
         case 2:
             njs = justification(njs.level(), ~cls[1]);
             break;
