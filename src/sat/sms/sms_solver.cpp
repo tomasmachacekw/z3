@@ -184,10 +184,11 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
     m_pSolver->set_core(m_ext_clause);
     bool r = m_pSolver->modular_solve();
     if (r) {
-        m_pSolver->set_mode(FINISHED);
         // continue making decisions
-        dbg_print("LOOKAHEAD return SAT, VALIDATING");
+        m_pSolver->set_mode(FINISHED);
         set_validate_mode(search_lvl, m_solver->scope_lvl());
+        dbg_print("LOOKAHEAD return SAT, VALIDATING");
+        m_solver->push();
         if (m_solver->value(next) == l_undef) return false;
         next = m_solver->next_var();
         phase = m_solver->guess(next) ? l_true : l_false;
