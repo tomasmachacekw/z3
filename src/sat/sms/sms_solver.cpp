@@ -610,8 +610,8 @@ void sms_solver::pop_reinit() {
 void sms_solver::pop(unsigned num_scopes) {
     dbg_print_stat("popping", num_scopes);
     if (!m_exiting) {
-        if (get_mode() == VALIDATE &&
-            m_solver->scope_lvl() - num_scopes < get_validate_lvl()) {
+        unsigned new_lvl = m_solver->scope_lvl() - num_scopes;
+        if (get_mode() == VALIDATE && new_lvl < get_validate_lvl()) {
             m_replay_assign.reset();
             m_replay_just.reset();
             m_solver->save_trail(m_solver->scope_lvl() - num_scopes,
@@ -620,7 +620,7 @@ void sms_solver::pop(unsigned num_scopes) {
             dbg_print_lv("to reinit", m_replay_assign);
         }
         if (get_mode() == SEARCH &&
-            m_solver->scope_lvl() - num_scopes < get_search_lvl()) {
+            new_lvl < get_search_lvl()) {
             m_replay_assign.reset();
             m_replay_just.reset();
             m_solver->save_trail(m_solver->scope_lvl() - num_scopes,
