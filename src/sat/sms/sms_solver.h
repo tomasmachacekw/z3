@@ -51,7 +51,7 @@ namespace sat {
           };);                                                          \
     }
 
-#define NSOLVER_EXT_IDX 0
+#define NSOLVER_EXT_IDX 2
 #define PSOLVER_EXT_IDX 1
 #define UNDEF_EXT_IDX 2
 
