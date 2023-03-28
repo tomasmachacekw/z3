@@ -528,11 +528,10 @@ lbool sms_solver::resolve_conflict() {
     while (!todo.empty()) {
         l = todo.back();
         todo.pop_back();
-        js = m_solver->get_justification(l);
-        SASSERT(m_solver->lvl(l) == c_lvl);
+        js = l == null_literal ? m_solver->get_conflict() :  m_solver->get_justification(l);
+        SASSERT(js.level() == c_lvl);
         switch (js.get_kind()) {
         case justification::NONE:
-            SASSERT(todo.empty());
             break;
         case justification::BINARY:
             SASSERT(m_solver->lvl(js.get_literal()) == c_lvl);
@@ -547,6 +546,7 @@ lbool sms_solver::resolve_conflict() {
             break;
         }
         case justification::EXT_JUSTIFICATION: {
+            SASSERT(l != null_literal);
             rc.reset();
             if (js.get_ext_justification_idx() == NSOLVER_EXT_IDX) {
                 SASSERT(m_nSolver && (m_nSolver->get_mode() == LOOKAHEAD ||
