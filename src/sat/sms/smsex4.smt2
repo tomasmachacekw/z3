@@ -5,6 +5,7 @@
 (declare-const e Bool)
 (declare-const f Bool)
 
+;; ITP: (or a b)
 (satmodsat (a b)
 	   (and (or c a b) (or (not c) a b))
        (and (or (not a) e f) (or (not a) e (not f)) (or (not a) (not e) f) (or (not a) (not e) (not f))
