@@ -73,11 +73,11 @@ void sms_solver::learn_clause_and_update_justification(
     literal_vector cls;
     cls.push_back(l);
     for (auto a : antecedent) cls.push_back(a);
-    clause *c =
-        m_solver->mk_clause(cls.size(), cls.data(), sat::status::redundant());
     if (m_drating) {
         drat_dump_cp(cls, idx);
-    }     
+    }
+    clause *c =
+        m_solver->mk_clause(cls.size(), cls.data(), sat::status::redundant());
     justification js = m_solver->get_justification(l);
     justification njs(js.level());
     switch (cls.size()) {
