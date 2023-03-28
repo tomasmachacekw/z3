@@ -370,11 +370,58 @@ void sms_solver::exit_mode() {
     }
 }
 
+void sms_solver::resolve_all_ext_unit_lits() {
+    literal_vector todo;
+    todo.push_back(m_solver->get_m_not_l());
+    literal l;
+    justification js(0);
+    literal_vector rc;
+    while (!todo.empty()) {
+        l = todo.back();
+        todo.pop_back();
+        js = m_solver->get_justification(l);
+        SASSERT(m_solver->lvl(l) == 0);
+        switch (js.get_kind()) {
+        case justification::NONE:
+            SASSERT(js.level() == 0);
+            break;
+        case justification::BINARY:
+            SASSERT(m_solver->lvl(js.get_literal()) == 0);
+            todo.push_back(js.get_literal());
+            break;
+        case justification::CLAUSE: {
+            clause &c = m_solver->get_clause(js);
+            unsigned i = 0;
+            unsigned sz = c.size();
+            for (i = 0; i < sz; i++) {
+                SASSERT(m_solver->lvl(c[i]) == 0);
+                if (c[i].var() != l.var()) todo.push_back(c[i]);
+            }
+            break;
+        }
+        case justification::EXT_JUSTIFICATION: {
+            rc.reset();
+            get_antecedents(~l, js.get_ext_justification_idx(), rc, false);
+            unsigned i = 0;
+            for (i = 0; i < rc.size(); i++) {
+                SASSERT(m_solver->lvl(rc[i]) == 0);
+                todo.push_back(rc[i]);
+            }
+            break;
+        }
+        default:
+            SASSERT(false);
+        }
+    }
+}
+
 void sms_solver::exit_unsat() {
   dbg_print("unsat");
   m_unsat = true;
   if (m_nSolver && m_nSolver->get_mode() == LOOKAHEAD) {
     m_exiting = true;
+    //learn all ext prop at lvl 0
+    resolve_all_ext_unit_lits();
     pop(m_solver->scope_lvl());
     set_mode(PROPAGATE);
     m_nSolver->set_mode(SEARCH);
