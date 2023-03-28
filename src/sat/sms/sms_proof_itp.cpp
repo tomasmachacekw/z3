@@ -85,6 +85,7 @@ void sms_proof_itp::log_clause(status s, unsigned int sz, const literal *c) {
 void sms_proof_itp::mk_clause(literal_vector const& clause, expr_ref& out) {
     expr_ref_vector lits(m);
     for(auto l : clause) {
+        SASSERT(l == null_literal || is_shared(l.var()));
         if (l == null_literal) lits.push_back(m.mk_false());
         else lits.push_back(get_expr(l));
     }
