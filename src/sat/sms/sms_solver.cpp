@@ -379,6 +379,7 @@ void sms_solver::resolve_all_ext_unit_lits() {
     while (!todo.empty()) {
         l = todo.back();
         todo.pop_back();
+        if (l == null_literal) continue;
         js = m_solver->get_justification(l);
         SASSERT(m_solver->lvl(l) == 0);
         switch (js.get_kind()) {
