@@ -4024,7 +4024,8 @@ namespace sat {
         }
         case justification::EXT_JUSTIFICATION:
             if (m_ext) 
-                m_ext->display_justification(out << "ext ", js.get_ext_justification_idx());            
+                m_ext->display_justification(out << "ext ", js.get_ext_justification_idx());
+            out << " @" << js.level() << "\n";
             break;
         default:
             break;

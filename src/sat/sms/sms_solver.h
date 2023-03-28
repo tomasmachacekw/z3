@@ -197,9 +197,9 @@ class sms_solver : public extension {
                           ext_justification_idx idx) const override {
         switch (idx) {
         case NSOLVER_EXT_IDX:
-            return out << "ext literal from NSOLVER\n";
+            return out << "literal from NSOLVER";
         case PSOLVER_EXT_IDX:
-            return out << "ext literal from PSOLVER\n";
+            return out << "literal from PSOLVER";
         default:
             UNREACHABLE();
             return out;
