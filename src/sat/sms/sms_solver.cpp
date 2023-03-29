@@ -178,7 +178,7 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
     if (!m_pSolver || get_mode() != SEARCH) return false;
     if (!switch_to_lam()) return false;
     dbg_print("switching to LOOKAHEAD MODE");
-    unsigned search_lvl = m_solver->search_lvl();
+    unsigned search_lvl = m_solver->scope_lvl();
     m_pSolver->set_search_mode(search_lvl);
     set_mode(LOOKAHEAD);
     m_pSolver->set_core(m_ext_clause);
