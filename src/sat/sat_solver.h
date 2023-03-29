@@ -410,6 +410,7 @@ namespace sat {
 	  m_justification[l.var()] = j;
 	}
       bool resolve_conflict_for_ext_core(literal_vector&, ext_justification_idx);
+        bool check_resolvable(unsigned& c_lvl, unsigned& bj_lvl, literal_vector& lemma);
         void assign_unit(literal l) { assign(l, justification(0)); }
         void assign_scoped(literal l) { assign(l, justification(scope_lvl())); }
         void assign_core(literal l, justification jst);

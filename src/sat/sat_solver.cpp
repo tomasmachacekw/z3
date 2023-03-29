@@ -2362,6 +2362,114 @@ namespace sat {
         }
     }
 
+    // HELPER method for SMS. Implemented here because it needs to accurately
+    // compute backtrack level, which requires iterating m_trail in reverse
+
+    // Check if there exists a literal l s.t. justification(l) == ext but
+    // get_antecedent(l) returns the empty set. In SMS, this implies that l
+    // cannot be explained using decisions of a single solver, triggering a mode transition
+    // Return conflict level and first UIP backjump level
+    bool solver::check_resolvable(unsigned& c_lvl, unsigned& bj_lvl, literal_vector& lemma) {
+        unsigned num_marks = 0;
+        literal consequent = null_literal;
+        bool unique_max;
+        bj_lvl = 0;
+        c_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);
+        // unsat is by default non-resolvable
+        if (c_lvl == 0) return false;
+        bool_var_vector marked;
+        lemma.reset();
+        lemma.push_back(null_literal);
+        auto process_antecedent = [&] (literal l, unsigned& num_marks) {
+            if (!is_marked(l.var()) && lvl(l.var()) > 0) {
+                mark(l.var());
+                marked.push_back(l.var());
+                if (lvl(l.var()) == m_conflict_lvl)
+                    num_marks++;
+                else {
+                    bj_lvl = std::max(bj_lvl, lvl(l.var()));
+                    lemma.push_back(~l);
+                }
+            }
+        };
+        auto reset_marks = [&] () {
+            for(auto v : marked) if(is_marked(v)) reset_mark(v);
+        };
+        unsigned idx = skip_literals_above_conflict_level();
+        SASSERT(idx < (int) m_trail.size());
+
+        justification js = m_conflict;
+        if (m_not_l != null_literal) {
+            process_antecedent(m_not_l, num_marks);
+            consequent = ~m_not_l;
+        }
+
+        do {
+            switch (js.get_kind()) {
+            case justification::NONE:
+                break;
+            case justification::BINARY:
+                process_antecedent(~(js.get_literal()), num_marks);
+                break;
+            case justification::CLAUSE: {
+                clause & c = get_clause(js);
+                unsigned i = 0;
+                if (consequent != null_literal) {
+                    SASSERT(c[0] == consequent || c[1] == consequent);
+                    if (c[0] == consequent) {
+                        i = 1;
+                    }
+                    else {
+                        process_antecedent(~c[0], num_marks);
+                        i = 2;
+                    }
+                }
+                unsigned sz = c.size();
+                for (; i < sz; i++)
+                    process_antecedent(~c[i], num_marks);
+                break;
+            }
+            case justification::EXT_JUSTIFICATION: {
+                fill_ext_antecedents(consequent, js, true);
+                if (m_ext_antecedents.empty()) {
+                    //conflict is below assumptions level. Trigger mode transition
+                    reset_marks();
+                    bj_lvl = 0;
+                    return true;
+                }
+                for (literal l : m_ext_antecedents)
+                    process_antecedent(l, num_marks);
+                break;
+            }
+            default:
+                UNREACHABLE();
+                break;
+            }
+
+            bool_var c_var;
+            while (true) {
+                consequent = m_trail[idx];
+                c_var = consequent.var();
+                if (is_marked(c_var)) {
+                    if (lvl(c_var) == m_conflict_lvl) {
+                        break;
+                    }
+                    SASSERT(lvl(c_var) < m_conflict_lvl);
+                }
+                VERIFY(idx > 0);
+                idx--;
+            }
+            SASSERT(lvl(consequent) == m_conflict_lvl);
+            js             = m_justification[c_var];
+            idx--;
+            num_marks--;
+            reset_mark(c_var);
+        }
+        while (num_marks > 0);
+        lemma[0] = ~consequent;
+        reset_marks();
+        return false;
+    }
 
     lbool solver::resolve_conflict_core() {
         m_conflicts_since_init++;
