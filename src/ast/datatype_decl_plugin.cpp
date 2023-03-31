@@ -404,14 +404,14 @@ namespace datatype {
         func_decl * decl::plugin::mk_is(unsigned num_parameters, parameter const * parameters, 
                                                 unsigned arity, sort * const * domain, sort *) {
             ast_manager& m = *m_manager;
-            VALIDATE_PARAM(arity == 1 && num_parameters == 1 && parameters[0].is_ast() && is_func_decl(parameters[0].get_ast()));
+            VALIDATE_PARAM(arity == 1 && num_parameters == 2 && parameters[0].is_ast() && is_func_decl(parameters[0].get_ast()));
             VALIDATE_PARAM(u().is_datatype(domain[0]));
             VALIDATE_PARAM_PP(domain[0] == to_func_decl(parameters[0].get_ast())->get_range(), "invalid sort argument passed to recognizer");
             VALIDATE_PARAM_PP(u().is_constructor(to_func_decl(parameters[0].get_ast())), "expecting constructor argument to recognizer");
             sort* range = m_manager->mk_bool_sort();
             func_decl_info info(m_family_id, OP_DT_IS, num_parameters, parameters);
             info.m_private_parameters = true;
-            return m.mk_func_decl(symbol("is"), arity, domain, range, info);
+            return m.mk_func_decl(symbol(parameters[1].get_symbol()), arity, domain, range, info);
         }
 
         func_decl * decl::plugin::mk_accessor(unsigned num_parameters, parameter const * parameters, 
@@ -1079,8 +1079,13 @@ namespace datatype {
     func_decl * util::get_constructor_is(func_decl * con) {
         SASSERT(is_constructor(con));
         sort * datatype = con->get_range();
-        parameter ps(con);
-        return m.mk_func_decl(fid(), OP_DT_IS, 1, &ps, 1, &datatype);
+        def const& dd = get_def(datatype);
+        symbol r;
+        for (constructor const* c : dd)
+            if (c->name() == con->get_name())
+                r = c->recognizer();
+        parameter ps[2] = { parameter(con), parameter(r) };
+        return m.mk_func_decl(fid(), OP_DT_IS, 2, ps, 1, &datatype);
     }
 
     func_decl * util::get_constructor_recognizer(func_decl * con) {
