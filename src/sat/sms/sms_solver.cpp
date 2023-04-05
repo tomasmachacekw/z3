@@ -195,6 +195,7 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
         phase = m_solver->guess(next) ? l_true : l_false;
         return true;
     }
+    m_pSolver->set_mode(PROPAGATE);
     //PSolver is unsat even without decisions in NSOLVER
     if (m_pSolver->is_unsat()) {
         dbg_print("m_pSolver unsat");
@@ -211,12 +212,10 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
     }
     clause *c = m_solver->mk_clause(m_ext_clause.size(), m_ext_clause.data(),
                                     sat::status::redundant());
-    m_pSolver->set_mode(PROPAGATE);
     SASSERT(get_mode() == SEARCH);
+    m_solver->propagate(false);
     if (m_solver->inconsistent()) return false;
-    next = m_next_lit.var();
-    phase = m_next_lit.sign() ? l_true : l_false;
-    return true;
+    return false;
 }
 
 void sms_solver::set_conflict() {
@@ -427,10 +426,10 @@ void sms_solver::resolve_all_ext_unit_lits() {
 void sms_solver::exit_unsat() {
   dbg_print("unsat");
   m_unsat = true;
+  //learn all ext prop at lvl 0
+  resolve_all_ext_unit_lits();
   if (m_nSolver && m_nSolver->get_mode() == LOOKAHEAD) {
     m_exiting = true;
-    //learn all ext prop at lvl 0
-    resolve_all_ext_unit_lits();
     m_solver->pop(m_solver->scope_lvl());
     set_mode(PROPAGATE);
     m_nSolver->set_mode(SEARCH);
@@ -488,6 +487,29 @@ void sms_solver::find_and_set_decision_lit() {
     SASSERT(false);
 }
 
+void sms_solver::handle_mode_transition() {
+  if (get_mode() == VALIDATE) {
+    if (get_reason_final(m_ext_clause, PSOLVER_EXT_IDX)) {
+      dbg_print_lv("validate hit a conflict below validate lvl, learning "
+		   "lemma and exiting", m_ext_clause);
+      set_conflict();
+    } else {
+      find_and_set_decision_lit();
+      dbg_print_lit("validate hit a conflict below validate lvl, exiting "
+		    "with new decision",
+		    m_next_lit);
+    }
+    exit_validate();
+  }
+  else {
+    SASSERT(get_mode() == SEARCH);
+    VERIFY(get_reason_final(*m_core, NSOLVER_EXT_IDX));
+    dbg_print_lv("search hit a conflict below search lvl, learning lemma "
+		 "and exiting", *m_core);
+    exit_search();
+  }
+}
+
 // resolve_conflict checks whether the current conflict can be
 // resolved in the current solver.
 // if conflict can be resolved, it returns l_undef so that the sat solver can
@@ -508,28 +530,9 @@ lbool sms_solver::resolve_conflict() {
     // Case 2. This conflict forces solver mode transition immediately
     // i.e. conflict level is below validate/search level
     // handle backjumping, make solver transitions and return false
-    if (get_mode() == VALIDATE && (c_lvl <= get_validate_lvl() || !resolvable)) {
-        if (get_reason_final(m_ext_clause, PSOLVER_EXT_IDX)) {
-            dbg_print_lv("validate hit a conflict below validate lvl, learning "
-                         "lemma and exiting",
-                         m_ext_clause);
-            set_conflict();
-        } else {
-            find_and_set_decision_lit();
-            dbg_print_lit("validate hit a conflict below validate lvl, exiting "
-                          "with new decision",
-                          m_next_lit);
-        }
-        exit_validate();
-        return l_false;
-    }
-    if (get_mode() == SEARCH && (c_lvl <= get_search_lvl() || !resolvable)) {
-        VERIFY(get_reason_final(*m_core, NSOLVER_EXT_IDX));
-        dbg_print_lv("search hit a conflict below search lvl, learning lemma "
-                     "and exiting",
-                     *m_core);
-        exit_search();
-        return l_false;
+    if (!resolvable || c_lvl <= (get_mode() == VALIDATE ? get_validate_lvl() : get_search_lvl())) {
+      handle_mode_transition();
+      return l_false;
     }
 
     // Case 3. Conflict might cause backjumping to level below validate/search
@@ -545,36 +548,35 @@ lbool sms_solver::resolve_conflict() {
         m_solver->pop(m_solver->scope_lvl() - bj_lvl);
         //learn clause
         m_solver->mk_clause(lemma.size(), lemma.data(), sat::status::redundant());
+	auto handle_reinit_conflict = [&] () {
+	  dbg_print_stat("reinit hit a conflict at level", m_solver->scope_lvl());
+	  m_solver->set_conflict(justification(m_solver->scope_lvl()));
+	  // make recursive call. Decreases conflict level
+	  resolve_conflict();
+	};
         //reinit assumptions
         m_solver->propagate(false);
         if (m_solver->inconsistent()) {
-            dbg_print_stat("reinit hit a conflict at level", m_solver->scope_lvl());
-            m_solver->set_conflict(justification(m_solver->scope_lvl()));
-            exit_mode();
-            return l_false;
-        }
+	  handle_reinit_conflict();
+	  return l_false;
+	}
+
         while (m_solver->scope_lvl() < end_of_saved_trail) m_solver->push();
         if (m_replay_assign.empty()) return l_false;
-        unsigned i = 0;
-        justification js = m_replay_just[i];
-        literal l = m_replay_assign[i];
         dbg_print_lv("reinitializing", m_replay_assign);
-        while (true) {
-            SASSERT(m_solver->scope_lvl() <= js.level());
-            SASSERT(m_solver->value(l) == l_undef);
-            m_solver->assign_core(l, js);
-            m_solver->propagate(false);
-            if (m_solver->inconsistent()) {
-                dbg_print_lit("reinit hit a conflict at", l);
-                m_solver->set_conflict(justification(m_solver->scope_lvl()), l);
-                exit_mode();
-                return l_false;
-            }
-            i++;
-            js = m_replay_just[i];
-            l = m_replay_assign[i];
+        for(unsigned i = 0, sz = m_replay_assign.size(); i < sz; i++) {
+	  justification js = m_replay_just[i];
+	  literal l = m_replay_assign[i];
+	  SASSERT(m_solver->scope_lvl() <= js.level());
+	  SASSERT(m_solver->value(l) == l_undef);
+	  m_solver->assign_core(l, js);
+	  m_solver->propagate(false);
+	  if (m_solver->inconsistent()) {
+	    handle_reinit_conflict();
+	    return l_false;
+	  }
         }
-        //if reinit hit a conflict, exit mode
+	// reinit did not hit a conflict, continue making decisions
         return l_false;
     }
     return l_undef;

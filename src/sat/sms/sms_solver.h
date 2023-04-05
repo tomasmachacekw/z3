@@ -163,6 +163,7 @@ class sms_solver : public extension {
     sms_mode get_mode() { return m_mode; }
     void set_mode(sms_mode m) { m_mode = m; }
     void set_conflict();
+    void handle_mode_transition();
     lbool resolve_conflict() override;
     void pop_reinit() override;
     void construct_itp() { m_construct_itp = true; }
