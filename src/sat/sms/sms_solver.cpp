@@ -177,6 +177,7 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
     SASSERT(get_mode() != PROPAGATE);
     if (!m_pSolver || get_mode() != SEARCH) return false;
     if (!switch_to_lam()) return false;
+    m_solver->push();
     dbg_print("switching to LOOKAHEAD MODE");
     unsigned search_lvl = m_solver->scope_lvl();
     m_pSolver->set_search_mode(search_lvl);
@@ -194,6 +195,7 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
         phase = m_solver->guess(next) ? l_true : l_false;
         return true;
     }
+    //PSolver is unsat even without decisions in NSOLVER
     if (m_pSolver->is_unsat()) {
         dbg_print("m_pSolver unsat");
         m_unsat = true;
@@ -202,11 +204,16 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
         m_solver->set_conflict(js, null_literal);
         return false;
     }
-    // m_pSolver decided for you
+    // PSOLVER is unsat with decisions in NSOLVER
+    // use core to learn lemma
+    if (m_drating) {
+        drat_dump_cp(m_ext_clause, PSOLVER_EXT_IDX);
+    }
+    clause *c = m_solver->mk_clause(m_ext_clause.size(), m_ext_clause.data(),
+                                    sat::status::redundant());
     m_pSolver->set_mode(PROPAGATE);
     SASSERT(get_mode() == SEARCH);
-    SASSERT(m_ext_clause.empty());
-    SASSERT(m_solver->scope_lvl() == search_lvl);
+    if (m_solver->inconsistent()) return false;
     next = m_next_lit.var();
     phase = m_next_lit.sign() ? l_true : l_false;
     return true;
