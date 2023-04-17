@@ -23,6 +23,24 @@
 (declare-const by Bool)
 (declare-const bz Bool)
 
+;; A and B sat
+;; A ^ B sat (no vars in common)
+(satmodsat () ;; vars
+           ;; A
+           (and ax)
+           ;; B
+           (and bz (not by))
+           )
+
+;; A and B cubes
+;; A ^ B sat (no vars in common)
+;; B unsat
+(satmodsat () ;; vars
+           ;; A
+           (and ax)
+           ;; B
+           (and bz (not bz))
+           )
 
 ;; A and B sat cubes
 ;; A ^ B is sat
