@@ -120,8 +120,8 @@ class sms_solver : public extension {
         if (m_expr2var.find(n, v)) return v;
         return addVar(n);
     }
-    void exit_validate();
-    void exit_search();
+    void exit_validate(unsigned lvl);
+    void exit_search(unsigned lvl);
     void exit_unsat();
     void find_and_set_decision_lit();
   public:
@@ -163,7 +163,7 @@ class sms_solver : public extension {
     sms_mode get_mode() { return m_mode; }
     void set_mode(sms_mode m) { m_mode = m; m_search_lvl = 0; m_validate_lvl = 0; }
     void set_conflict();
-    void handle_mode_transition();
+    void handle_mode_transition(unsigned lvl);
     lbool resolve_conflict() override;
     void pop_reinit() override;
     void construct_itp() { m_construct_itp = true; }

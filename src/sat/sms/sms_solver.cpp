@@ -163,7 +163,7 @@ bool sms_solver::unit_propagate() {
                 }
                 set_conflict();
             } else {
-                exit_search();
+                exit_search(get_search_lvl());
             }
             return false;
         }
@@ -187,6 +187,7 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
     if (r) {
         // continue making decisions
         m_pSolver->set_mode(FINISHED);
+        SASSERT(m_pSolver->get_scope_lvl() == m_solver->scope_lvl());
         set_validate_mode(search_lvl, m_solver->scope_lvl());
         dbg_print("LOOKAHEAD return SAT, VALIDATING");
         m_solver->push();
@@ -218,6 +219,9 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
     return false;
 }
 
+
+// Assume that m_ext_clause is false in current trail. learn clause m_ext_clause
+// and set it as clause that is false under current trail
 void sms_solver::set_conflict() {
     SASSERT(!m_ext_clause.empty());
     literal not_l = null_literal;
@@ -348,11 +352,11 @@ void sms_solver::pop_from_other(unsigned num_scopes) {
     m_solver->pop(num_scopes);
 }
 
-void sms_solver::exit_search() {
+void sms_solver::exit_search(unsigned lvl) {
     SASSERT(get_mode() == SEARCH);
     SASSERT(m_nSolver && (m_nSolver->get_mode() == LOOKAHEAD ||
                           m_nSolver->get_mode() == FINISHED));
-    unsigned lvl = get_search_lvl();
+    SASSERT(lvl <= get_search_lvl());
     dbg_print_stat("exiting search mode", lvl);
     m_exiting = true;
     m_solver->pop(m_solver->scope_lvl() - lvl);
@@ -425,11 +429,12 @@ void sms_solver::exit_unsat() {
   return;
 }
 
-void sms_solver::exit_validate() {
+void sms_solver::exit_validate(unsigned lvl) {
     SASSERT(m_pSolver && m_pSolver->get_mode() == FINISHED &&
             get_mode() == VALIDATE);
-    unsigned lvl = get_search_lvl();
-    dbg_print_stat("exiting validate mode", lvl);
+    SASSERT(lvl <= get_validate_lvl());
+    lvl = lvl <= get_search_lvl() ? lvl : get_search_lvl();
+    dbg_print_stat("exiting validate mode, jumping to ", lvl);
     m_exiting = true;
     m_solver->pop(m_solver->scope_lvl() - lvl);
     set_mode(SEARCH);
@@ -472,26 +477,29 @@ void sms_solver::find_and_set_decision_lit() {
     SASSERT(false);
 }
 
-void sms_solver::handle_mode_transition() {
+void sms_solver::handle_mode_transition(unsigned bj_lvl) {
   if (get_mode() == VALIDATE) {
-    if (get_reason_final(m_ext_clause, PSOLVER_EXT_IDX)) {
-      dbg_print_lv("validate hit a conflict below validate lvl, learning "
-		   "lemma and exiting", m_ext_clause);
-      set_conflict();
-    } else {
-      find_and_set_decision_lit();
-      dbg_print_lit("validate hit a conflict below validate lvl, exiting "
-		    "with new decision",
-		    m_next_lit);
-    }
-    exit_validate();
+      if (get_reason_final(m_ext_clause, PSOLVER_EXT_IDX)) {
+          exit_validate(bj_lvl);
+          dbg_print_lv("validate hit a conflict below validate lvl, learning "
+                       "lemma and exiting", m_ext_clause);
+          m_solver->mk_clause(m_ext_clause.size(), m_ext_clause.data(), sat::status::redundant());
+      } else {
+          exit_validate(bj_lvl);
+          find_and_set_decision_lit();
+          dbg_print_lit("validate hit a conflict below validate lvl, exiting "
+                        "with new decision",
+                        m_next_lit);
+      }
   }
   else {
     SASSERT(get_mode() == SEARCH);
-    VERIFY(get_reason_final(*m_core, NSOLVER_EXT_IDX));
+    SASSERT(m_nSolver);
+    VERIFY(get_reason_final(m_ext_clause, NSOLVER_EXT_IDX));
     dbg_print_lv("search hit a conflict below search lvl, learning lemma "
-		 "and exiting", *m_core);
-    exit_search();
+                 "and exiting", m_ext_clause);
+    exit_search(bj_lvl);
+    m_solver->mk_clause(m_ext_clause.size(), m_ext_clause.data(), sat::status::redundant());
   }
 }
 
@@ -516,7 +524,7 @@ lbool sms_solver::resolve_conflict() {
     // i.e. conflict level is below validate/search level
     // handle backjumping, make solver transitions and return false
     if (!resolvable || c_lvl <= (get_mode() == VALIDATE ? get_validate_lvl() : get_search_lvl())) {
-      handle_mode_transition();
+      handle_mode_transition(bj_lvl);
       return l_false;
     }
 
@@ -602,6 +610,7 @@ bool sms_solver::modular_solve() {
     m_full_assignment_lvl = m_solver->scope_lvl();
     dbg_print_stat("reached modular solve with", m_full_assignment_lvl);
     bool r = m_solver->search_above(m_full_assignment_lvl);
+    dbg_print_stat("finished modular solve with", m_solver->scope_lvl());
     // The following assertion does not hold because solver does not backjump
     // when conflict lvl is 0
     //  SASSERT(r || m_solver->scope_lvl() <= m_full_assignment_lvl);

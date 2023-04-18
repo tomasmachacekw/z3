@@ -2467,6 +2467,7 @@ namespace sat {
         }
         while (num_marks > 0);
         lemma[0] = ~consequent;
+        SASSERT(lemma.size() > 1 || bj_lvl == 0);
         reset_marks();
         return false;
     }
