@@ -2308,6 +2308,9 @@ namespace sat {
             while (n < scope_lvl() - search_lvl());
             return n;
 #endif
+            //In PSMS, there are dummy decision levels without any variables.
+            //If this happens at level 0, set restart level to 0
+            if (m_trail.empty()) return scope_lvl() - search_lvl();
             // pop trail from bottom
             unsigned n = search_lvl();
             for (; n < scope_lvl() && m_case_split_queue.more_active(scope_literal(n).var(), next); ++n) {
