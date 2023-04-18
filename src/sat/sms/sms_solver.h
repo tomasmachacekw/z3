@@ -162,7 +162,7 @@ class sms_solver : public extension {
     }
     void reset_asserted() { m_asserted.reset(); }
     sms_mode get_mode() { return m_mode; }
-    void set_mode(sms_mode m) { m_mode = m; }
+    void set_mode(sms_mode m) { m_mode = m; m_search_lvl = 0; m_validate_lvl = 0; }
     void set_conflict();
     void handle_mode_transition();
     lbool resolve_conflict() override;
