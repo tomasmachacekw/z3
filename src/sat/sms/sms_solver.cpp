@@ -207,15 +207,12 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
         return false;
     }
     // PSOLVER is unsat with decisions in NSOLVER
-    // use core to learn lemma
+    SASSERT(!m_ext_clause.empty());
     if (m_drating) {
         drat_dump_cp(m_ext_clause, PSOLVER_EXT_IDX);
     }
-    clause *c = m_solver->mk_clause(m_ext_clause.size(), m_ext_clause.data(),
-                                    sat::status::redundant());
+    set_conflict();
     SASSERT(get_mode() == SEARCH);
-    m_solver->propagate(false);
-    if (m_solver->inconsistent()) return false;
     return false;
 }
 
@@ -495,11 +492,13 @@ void sms_solver::handle_mode_transition(unsigned bj_lvl) {
   else {
     SASSERT(get_mode() == SEARCH);
     SASSERT(m_nSolver);
-    VERIFY(get_reason_final(m_ext_clause, NSOLVER_EXT_IDX));
+    VERIFY(get_reason_final(*m_core, NSOLVER_EXT_IDX));
     dbg_print_lv("search hit a conflict below search lvl, learning lemma "
-                 "and exiting", m_ext_clause);
+                 "and exiting", *m_core);
+    SASSERT(m_core != nullptr);
     exit_search(bj_lvl);
-    m_solver->mk_clause(m_ext_clause.size(), m_ext_clause.data(), sat::status::redundant());
+    // learn clause in psolver as well. This is optional
+    m_solver->mk_clause(m_core->size(), m_core->data(), sat::status::redundant());
   }
 }
 

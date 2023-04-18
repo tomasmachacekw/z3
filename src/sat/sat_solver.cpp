@@ -2438,7 +2438,7 @@ namespace sat {
                     //conflict is below assumptions level. Trigger mode transition
                     reset_marks();
                     bj_lvl = 0;
-                    return true;
+                    return false;
                 }
                 for (literal l : m_ext_antecedents)
                     process_antecedent(l, num_marks);
@@ -2472,7 +2472,7 @@ namespace sat {
         lemma[0] = ~consequent;
         SASSERT(lemma.size() > 1 || bj_lvl == 0);
         reset_marks();
-        return false;
+        return true;
     }
 
     lbool solver::resolve_conflict_core() {
