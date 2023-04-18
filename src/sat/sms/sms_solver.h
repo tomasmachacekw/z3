@@ -149,6 +149,7 @@ class sms_solver : public extension {
     literal_vector const &get_asserted() { return m_asserted; }
     void set_next_decision(literal l) { m_next_lit = l; }
     unsigned get_search_lvl() const { return m_search_lvl; }
+    unsigned get_scope_lvl() const { return m_solver->scope_lvl(); }
     unsigned get_validate_lvl() const { return m_validate_lvl; }
     void set_search_mode(unsigned lvl) {
         set_mode(SEARCH);

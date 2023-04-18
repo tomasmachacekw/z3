@@ -355,7 +355,7 @@ void sms_solver::exit_search() {
     unsigned lvl = get_search_lvl();
     dbg_print_stat("exiting search mode", lvl);
     m_exiting = true;
-    m_solver->pop(lvl);
+    m_solver->pop(m_solver->scope_lvl() - lvl);
     set_mode(PROPAGATE);
     m_nSolver->set_mode(SEARCH);
     m_exiting = false;
@@ -446,7 +446,7 @@ void sms_solver::exit_validate() {
     unsigned lvl = get_search_lvl();
     dbg_print_stat("exiting validate mode", lvl);
     m_exiting = true;
-    m_solver->pop(lvl);
+    m_solver->pop(m_solver->scope_lvl() - lvl);
     set_mode(SEARCH);
     m_pSolver->set_mode(PROPAGATE);
     m_exiting = false;
