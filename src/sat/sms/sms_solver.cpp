@@ -361,21 +361,6 @@ void sms_solver::exit_search() {
     m_exiting = false;
 }
 
-void sms_solver::exit_mode() {
-    switch (get_mode()) {
-    case SEARCH:
-        if (m_solver->get_conflict().level() == 0)
-            exit_unsat();
-        else
-            exit_search();
-        break;
-    case VALIDATE:
-        exit_validate();
-        break;
-    default:
-        SASSERT(false);
-    }
-}
 
 void sms_solver::resolve_all_ext_unit_lits() {
     literal_vector todo;
@@ -548,35 +533,35 @@ lbool sms_solver::resolve_conflict() {
         m_solver->pop(m_solver->scope_lvl() - bj_lvl);
         //learn clause
         m_solver->mk_clause(lemma.size(), lemma.data(), sat::status::redundant());
-	auto handle_reinit_conflict = [&] () {
-	  dbg_print_stat("reinit hit a conflict at level", m_solver->scope_lvl());
-	  m_solver->set_conflict(justification(m_solver->scope_lvl()));
-	  // make recursive call. Decreases conflict level
-	  resolve_conflict();
-	};
+        auto handle_reinit_conflict = [&] () {
+            dbg_print_stat("reinit hit a conflict at level", m_solver->scope_lvl());
+            m_solver->set_conflict(justification(m_solver->scope_lvl()));
+            // make recursive call. Decreases conflict level
+            resolve_conflict();
+        };
         //reinit assumptions
         m_solver->propagate(false);
         if (m_solver->inconsistent()) {
-	  handle_reinit_conflict();
-	  return l_false;
-	}
+            handle_reinit_conflict();
+            return l_false;
+        }
 
         while (m_solver->scope_lvl() < end_of_saved_trail) m_solver->push();
         if (m_replay_assign.empty()) return l_false;
         dbg_print_lv("reinitializing", m_replay_assign);
         for(unsigned i = 0, sz = m_replay_assign.size(); i < sz; i++) {
-	  justification js = m_replay_just[i];
-	  literal l = m_replay_assign[i];
-	  SASSERT(m_solver->scope_lvl() <= js.level());
-	  SASSERT(m_solver->value(l) == l_undef);
-	  m_solver->assign_core(l, js);
-	  m_solver->propagate(false);
-	  if (m_solver->inconsistent()) {
-	    handle_reinit_conflict();
-	    return l_false;
-	  }
+            justification js = m_replay_just[i];
+            literal l = m_replay_assign[i];
+            SASSERT(m_solver->scope_lvl() <= js.level());
+            SASSERT(m_solver->value(l) == l_undef);
+            m_solver->assign_core(l, js);
+            m_solver->propagate(false);
+            if (m_solver->inconsistent()) {
+                handle_reinit_conflict();
+                return l_false;
+            }
         }
-	// reinit did not hit a conflict, continue making decisions
+        // reinit did not hit a conflict, continue making decisions
         return l_false;
     }
     return l_undef;

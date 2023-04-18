@@ -3350,8 +3350,8 @@ namespace sat {
             bool_var var = lit.var();
             m_lemma_min_stack.pop_back();
             justification const& js   = m_justification[var];
-	    TRACE("sat", tout << "finding reason for " << lit;);
-	    TRACE("sat", display_justification(tout, js));
+            TRACE("sat", tout << "finding reason for " << lit;);
+            TRACE("sat", display_justification(tout, js));
             switch(js.get_kind()) {
             case justification::NONE:
                 // it is a decision variable from a previous scope level

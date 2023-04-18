@@ -123,7 +123,6 @@ class sms_solver : public extension {
     void exit_validate();
     void exit_search();
     void exit_unsat();
-    void exit_mode();
     void find_and_set_decision_lit();
   public:
     sms_solver(ast_manager &am, symbol const &name, int id, symbol dratFile)
