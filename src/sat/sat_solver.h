@@ -650,8 +650,8 @@ public:
         unsigned get_conflict_lvl() { return m_conflict_lvl; }
         void save_trail(unsigned start, unsigned end, literal_vector& t, svector<justification>& j) {
                 literal l;
-                start = start == 0 ? 0 : start;
-                for(unsigned i = m_scopes[start].m_trail_lim; i < m_trail.size(); i++) {
+                unsigned i = start == 0 ? 0 : m_scopes[start].m_trail_lim;
+                for(; i < m_trail.size(); i++) {
                         l = m_trail[i];
                         if(lvl(l) >= start && lvl(l) <= end) {
                                 t.push_back(l);
