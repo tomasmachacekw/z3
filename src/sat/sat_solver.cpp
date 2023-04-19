@@ -2377,6 +2377,8 @@ namespace sat {
         literal consequent = null_literal;
         bool unique_max;
         bj_lvl = 0;
+        //Since we don't want to change state of the sat solver, use c_lvl
+        //instead of m_conflict_lvl
         c_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);
         // unsat is by default non-resolvable
         if (c_lvl == 0) return false;
@@ -2387,7 +2389,7 @@ namespace sat {
             if (!is_marked(l.var()) && lvl(l.var()) > 0) {
                 mark(l.var());
                 marked.push_back(l.var());
-                if (lvl(l.var()) == m_conflict_lvl)
+                if (lvl(l.var()) == c_lvl)
                     num_marks++;
                 else {
                     bj_lvl = std::max(bj_lvl, lvl(l.var()));
@@ -2398,7 +2400,19 @@ namespace sat {
         auto reset_marks = [&] () {
             for(auto v : marked) if(is_marked(v)) reset_mark(v);
         };
-        unsigned idx = skip_literals_above_conflict_level();
+
+        auto skip_literals_above_c_lvl = [&] () {
+            unsigned idx = m_trail.size();
+            SASSERT(idx > 0);
+            idx--;
+            // skip literals from levels above the conflict level
+            while (lvl(m_trail[idx]) > c_lvl) {
+                SASSERT(idx > 0);
+                idx--;
+            }
+            return idx;
+        };
+        unsigned idx = skip_literals_above_c_lvl();
         SASSERT(idx < (int) m_trail.size());
 
         justification js = m_conflict;
@@ -2454,15 +2468,15 @@ namespace sat {
                 consequent = m_trail[idx];
                 c_var = consequent.var();
                 if (is_marked(c_var)) {
-                    if (lvl(c_var) == m_conflict_lvl) {
+                    if (lvl(c_var) == c_lvl) {
                         break;
                     }
-                    SASSERT(lvl(c_var) < m_conflict_lvl);
+                    SASSERT(lvl(c_var) < c_lvl);
                 }
                 VERIFY(idx > 0);
                 idx--;
             }
-            SASSERT(lvl(consequent) == m_conflict_lvl);
+            SASSERT(lvl(consequent) == c_lvl);
             js             = m_justification[c_var];
             idx--;
             num_marks--;
