@@ -93,9 +93,7 @@ void sms_solver::learn_clause_and_update_justification(
     literal_vector cls;
     cls.push_back(l);
     for (auto a : antecedent) cls.push_back(a);
-    if (m_drating) {
-        drat_dump_cp(cls, idx);
-    }
+    if (m_drating) drat_dump_cp(cls, idx);
     place_highest_dl_at_start(cls);
     clause* c = learn_clause(cls);
     justification js = m_solver->get_justification(l);
@@ -121,7 +119,7 @@ void sms_solver::get_antecedents(literal l, ext_justification_idx idx,
       if (probing) return;
       literal_vector cls;
       cls.push_back(l); 
-      drat_dump_cp(cls, idx);
+      if (m_drating) drat_dump_cp(cls, idx);
       return;
     }
     if (idx == NSOLVER_EXT_IDX) {
@@ -220,10 +218,12 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
     //PSolver is unsat even without decisions in NSOLVER
     if (m_pSolver->is_unsat()) {
         dbg_print("m_pSolver unsat");
+	SASSERT(!m_solver->inconsistent());
         m_unsat = true;
         justification js =
             justification::mk_ext_justification(0, PSOLVER_EXT_IDX);
         m_solver->set_conflict(js, null_literal);
+	SASSERT(m_solver->scope_lvl() == 0);
         return false;
     }
     // PSOLVER is unsat with decisions in NSOLVER
