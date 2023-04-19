@@ -67,6 +67,26 @@ void sms_solver::drat_dump_ext_unit(literal l, ext_justification_idx id) {
     m_out->flush();
 }
 
+// place literal with highest dl in cls at position 0
+void sms_solver::place_highest_dl_at_start(literal_vector& cls) {
+    unsigned lvl = 0;
+    unsigned hl = 0;
+    for (unsigned i = 0; i < cls.size(); i++) {
+        if (lvl < m_solver->lvl(cls[i])) {
+            hl = i;
+            lvl = m_solver->lvl(cls[i]);
+        }
+    }
+    std::swap(cls[0], cls[hl]);
+}
+
+// add cls to solver, return ptr to the new clause
+clause* sms_solver::learn_clause(literal_vector& cls) {
+    dbg_print_lv("learning lemma", cls);
+    DEBUG_CODE(unsigned i = 1; for (; i < cls.size(); i++) SASSERT(m_solver->lvl(cls[i]) <= m_solver->lvl(cls[0])););
+    return  m_solver->mk_clause(cls.size(), cls.data(), sat::status::redundant());
+}
+
 // learn clause (l || antecedent) from external solver idx
 void sms_solver::learn_clause_and_update_justification(
     literal l, literal_vector const &antecedent, ext_justification_idx idx) {
@@ -76,8 +96,8 @@ void sms_solver::learn_clause_and_update_justification(
     if (m_drating) {
         drat_dump_cp(cls, idx);
     }
-    clause *c =
-        m_solver->mk_clause(cls.size(), cls.data(), sat::status::redundant());
+    place_highest_dl_at_start(cls);
+    clause* c = learn_clause(cls);
     justification js = m_solver->get_justification(l);
     justification njs(js.level());
     switch (cls.size()) {
@@ -222,19 +242,10 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
 void sms_solver::set_conflict() {
     SASSERT(!m_ext_clause.empty());
     literal not_l = null_literal;
-    unsigned lvl = 0;
-    unsigned hl = 0;
-    for (unsigned i = 0; i < m_ext_clause.size(); i++) {
-        if (lvl < m_solver->lvl(m_ext_clause[i])) {
-            hl = i;
-            lvl = m_solver->lvl(m_ext_clause[i]);
-        }
-    }
-    dbg_print_lv("learning lemma", m_ext_clause);
+    place_highest_dl_at_start(m_ext_clause);
+    clause *c = learn_clause(m_ext_clause);
+    unsigned lvl = m_solver->lvl(m_ext_clause[0]);
     justification js(lvl);
-    std::swap(m_ext_clause[0], m_ext_clause[hl]);
-    clause *c = m_solver->mk_clause(m_ext_clause.size(), m_ext_clause.data(),
-                                    sat::status::redundant());
     switch (m_ext_clause.size()) {
     case 1:
         js = justification(lvl, m_ext_clause[0]);
@@ -477,10 +488,11 @@ void sms_solver::find_and_set_decision_lit() {
 void sms_solver::handle_mode_transition(unsigned bj_lvl) {
   if (get_mode() == VALIDATE) {
       if (get_reason_final(m_ext_clause, PSOLVER_EXT_IDX)) {
+          place_highest_dl_at_start(m_ext_clause);
           exit_validate(bj_lvl);
           dbg_print_lv("validate hit a conflict below validate lvl, learning "
                        "lemma and exiting", m_ext_clause);
-          m_solver->mk_clause(m_ext_clause.size(), m_ext_clause.data(), sat::status::redundant());
+          learn_clause(m_ext_clause);
       } else {
           exit_validate(bj_lvl);
           find_and_set_decision_lit();
@@ -496,9 +508,10 @@ void sms_solver::handle_mode_transition(unsigned bj_lvl) {
     dbg_print_lv("search hit a conflict below search lvl, learning lemma "
                  "and exiting", *m_core);
     SASSERT(m_core != nullptr);
+    place_highest_dl_at_start(*m_core);
     exit_search(bj_lvl);
     // learn clause in psolver as well. This is optional
-    m_solver->mk_clause(m_core->size(), m_core->data(), sat::status::redundant());
+    learn_clause(*m_core);
   }
 }
 
@@ -538,8 +551,9 @@ lbool sms_solver::resolve_conflict() {
         m_solver->save_trail(bj_lvl, end_of_saved_trail, m_replay_assign, m_replay_just);
         dbg_print_lv("to reinit", m_replay_assign);
         m_solver->pop(m_solver->scope_lvl() - bj_lvl);
-        //learn clause
-        m_solver->mk_clause(lemma.size(), lemma.data(), sat::status::redundant());
+        SASSERT(!m_solver->inconsistent());
+        dbg_print_lv("learning clause ", lemma);
+        learn_clause(lemma);
         auto handle_reinit_conflict = [&] () {
             dbg_print_stat("reinit hit a conflict at level", m_solver->scope_lvl());
             m_solver->set_conflict(justification(m_solver->scope_lvl()));

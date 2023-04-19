@@ -177,6 +177,8 @@ class sms_solver : public extension {
     learn_clause_and_update_justification(literal l,
                                           literal_vector const &antecedent, ext_justification_idx id);
     bool decide(bool_var &, lbool &) override;
+    void place_highest_dl_at_start(literal_vector& cls);
+    clause* learn_clause(literal_vector& cls);
     bool unit_propagate() override;
     void asserted(literal) override;
     void assign_from_other(literal, ext_justification_idx);
