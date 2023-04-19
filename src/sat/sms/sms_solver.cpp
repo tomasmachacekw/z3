@@ -557,13 +557,12 @@ lbool sms_solver::resolve_conflict() {
             dbg_print_stat("reinit hit a conflict at level", m_solver->scope_lvl());
             SASSERT(m_solver->inconsistent());
             // make recursive call. Decreases c_lvl
-            resolve_conflict();
+            return resolve_conflict();
         };
         //reinit assumptions
         m_solver->propagate(false);
         if (m_solver->inconsistent()) {
-            handle_reinit_conflict();
-            return l_false;
+            return handle_reinit_conflict();
         }
 
         while (m_solver->scope_lvl() < end_of_saved_trail) m_solver->push();
@@ -577,8 +576,7 @@ lbool sms_solver::resolve_conflict() {
             m_solver->assign_core(l, js);
             m_solver->propagate(false);
             if (m_solver->inconsistent()) {
-                handle_reinit_conflict();
-                return l_false;
+                return handle_reinit_conflict();
             }
         }
         // reinit did not hit a conflict, continue making decisions
