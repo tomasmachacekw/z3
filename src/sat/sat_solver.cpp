@@ -2864,6 +2864,7 @@ namespace sat {
             js = m_justification[consequent.var()];
         }
         reset_unmark(0);
+	m_inconsistent = false;
         return true;
     }
   

@@ -423,10 +423,10 @@ void sms_solver::resolve_all_ext_unit_lits() {
 void sms_solver::exit_unsat() {
   dbg_print("unsat");
   m_unsat = true;
-  //learn all ext prop at lvl 0
-  resolve_all_ext_unit_lits();
   if (m_nSolver && m_nSolver->get_mode() == LOOKAHEAD) {
     m_exiting = true;
+    //learn all ext prop at lvl 0
+    resolve_all_ext_unit_lits();
     m_solver->pop(m_solver->scope_lvl());
     set_mode(PROPAGATE);
     m_nSolver->set_mode(SEARCH);
