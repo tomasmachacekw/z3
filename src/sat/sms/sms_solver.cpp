@@ -240,6 +240,8 @@ void sms_solver::set_conflict(sms_solver* solver) {
     dbg_print_lv("other solver unsat with current trail, learning lemma ", m_ext_clause);
     if (m_drating) drat_dump_cp(m_ext_clause, idx);
     clause *c = learn_clause(m_ext_clause);
+    // learning binary clauses cause propagation and conflict
+    if (m_solver->inconsistent()) return;
     unsigned lvl = m_solver->lvl(m_ext_clause[0]);
     justification js(lvl);
     switch (m_ext_clause.size()) {
@@ -376,12 +378,17 @@ void sms_solver::resolve_all_ext_unit_lits() {
     literal l;
     justification js(0);
     literal_vector rc;
+    int_hashtable<int_hash, default_eq<int>> mark;
     while (!todo.empty()) {
         l = todo.back();
         todo.pop_back();
-        if (l == null_literal) continue;
-        js = m_solver->get_justification(l);
-        SASSERT(m_solver->lvl(l) == 0);
+        if (mark.contains(l.var())) continue;
+        mark.insert(l.var());
+        if (l == null_literal) js = m_solver->get_conflict();
+        else {
+            js = m_solver->get_justification(l);
+            SASSERT(m_solver->lvl(l) == 0);
+        }
         switch (js.get_kind()) {
         case justification::NONE:
             SASSERT(js.level() == 0);
@@ -406,7 +413,7 @@ void sms_solver::resolve_all_ext_unit_lits() {
             unsigned i = 0;
             for (i = 0; i < rc.size(); i++) {
                 SASSERT(m_solver->lvl(rc[i]) == 0);
-                todo.push_back(rc[i]);
+                if (rc[i].var() != l.var()) todo.push_back(rc[i]);
             }
             break;
         }
@@ -521,7 +528,8 @@ lbool sms_solver::resolve_conflict() {
     SASSERT(!m_nSolver || m_nSolver->get_mode() == FINISHED || m_nSolver->get_mode() == LOOKAHEAD);
     unsigned c_lvl = 0, bj_lvl = 0;
     literal_vector lemma;
-    bool resolvable = m_solver->check_resolvable(c_lvl, bj_lvl, lemma);
+    literal_vector unit_lits;
+    bool resolvable = m_solver->check_resolvable(c_lvl, bj_lvl, lemma, unit_lits);
     //Case 1. Solver UNSAT
     if (c_lvl == 0) {
         exit_unsat();
@@ -549,6 +557,12 @@ lbool sms_solver::resolve_conflict() {
         m_solver->pop(m_solver->scope_lvl() - bj_lvl);
         SASSERT(!m_solver->inconsistent());
         learn_clause(lemma);
+        ext_justification_idx idx = get_mode() == VALIDATE ? PSOLVER_EXT_IDX : NSOLVER_EXT_IDX;
+        for(literal l : unit_lits) {
+            literal_vector uc(1, {l});
+            if (m_drating) drat_dump_cp(uc, idx);
+            learn_clause(uc);
+        }
         auto handle_reinit_conflict = [&] () {
             dbg_print_stat("reinit hit a conflict at level", m_solver->scope_lvl());
             SASSERT(m_solver->inconsistent());

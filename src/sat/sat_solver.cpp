@@ -2372,7 +2372,7 @@ namespace sat {
     // get_antecedent(l) returns the empty set. In SMS, this implies that l
     // cannot be explained using decisions of a single solver, triggering a mode transition
     // Return conflict level and first UIP backjump level
-    bool solver::check_resolvable(unsigned& c_lvl, unsigned& bj_lvl, literal_vector& lemma) {
+    bool solver::check_resolvable(unsigned& c_lvl, unsigned& bj_lvl, literal_vector& lemma, literal_vector& ext_unit_lits) {
         unsigned num_marks = 0;
         literal consequent = null_literal;
         bool unique_max;
@@ -2395,6 +2395,9 @@ namespace sat {
                     bj_lvl = std::max(bj_lvl, lvl(l.var()));
                     lemma.push_back(~l);
                 }
+            }
+            if (lvl(l.var()) == 0 && m_justification[l.var()].is_ext_justification()) {
+                ext_unit_lits.push_back(l);
             }
         };
         auto reset_marks = [&] () {
@@ -2447,7 +2450,11 @@ namespace sat {
                 break;
             }
             case justification::EXT_JUSTIFICATION: {
-                fill_ext_antecedents(consequent, js, true);
+                //This should really be a probing query. However, we do not do
+                //another conflict resolution if this conflict is resolvable
+                //This does not lead to learning same lemma multiple times
+                //because justifications are updated
+                fill_ext_antecedents(consequent, js, false);
                 if (m_ext_antecedents.empty()) {
                     //conflict is below assumptions level. Trigger mode transition
                     reset_marks();
