@@ -248,7 +248,7 @@ void sms_solver::set_conflict(sms_solver* solver) {
         break;
     default:
         clause_offset co = m_solver->get_offset(*c);
-        not_l = m_ext_clause[0];
+        not_l = ~m_ext_clause[0];
         js = justification(lvl, co);
         break;
     }
