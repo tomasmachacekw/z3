@@ -552,12 +552,11 @@ lbool sms_solver::resolve_conflict() {
         dbg_print_lv("to reinit", m_replay_assign);
         m_solver->pop(m_solver->scope_lvl() - bj_lvl);
         SASSERT(!m_solver->inconsistent());
-        dbg_print_lv("learning clause ", lemma);
         learn_clause(lemma);
         auto handle_reinit_conflict = [&] () {
             dbg_print_stat("reinit hit a conflict at level", m_solver->scope_lvl());
-            m_solver->set_conflict(justification(m_solver->scope_lvl()));
-            // make recursive call. Decreases conflict level
+            SASSERT(m_solver->inconsistent());
+            // make recursive call. Decreases c_lvl
             resolve_conflict();
         };
         //reinit assumptions
