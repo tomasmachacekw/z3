@@ -130,9 +130,7 @@ class sms_solver : public extension {
           m_pSolver(nullptr), m_nSolver(nullptr), m_tx_idx(0),
           m_construct_itp(false), m_full_assignment_lvl(0), m_core(nullptr),
           m_mode(SEARCH), m_exiting(false), m_search_lvl(0), m_validate_lvl(0),
-          m_next_lit(null_literal), m_unsat(false), m_drat_file(dratFile), m_itp(nullptr) {
-        params_ref p;
-    }
+          m_next_lit(null_literal), m_unsat(false), m_drat_file(dratFile), m_itp(nullptr) { }
     ~sms_solver() {
       m_out->flush();
     }
@@ -281,6 +279,10 @@ class satmodsatcontext {
         symbol dratFilea = symbol("smsdrata.txt");
         symbol dratFileb = symbol("smsdratb.txt");        
         params_ref p;
+	//TODO: Lemma minimization attempts to get_antecedents for
+	//each literal in the lemma. However, it sets the probing flag
+	//to false, triggering clause learning in sms_solver.
+	p.set_bool("minimize_lemmas", false);
         m_solverA = alloc(sms_solver, m, symbol("A"), PSOLVER_EXT_IDX, dratFile);
         m_solverB = alloc(sms_solver, m, symbol("B"), NSOLVER_EXT_IDX, dratFile);
         sms_solver *a = static_cast<sms_solver *>(m_solverA);
