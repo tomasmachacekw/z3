@@ -542,8 +542,8 @@ lbool sms_solver::resolve_conflict() {
 
     // Case 3. Conflict might cause backjumping to level below validate/search
     // but no immediate mode transition
-    if ((get_mode() == VALIDATE && bj_lvl <= m_validate_lvl) ||
-         (get_mode() == SEARCH && bj_lvl <= m_search_lvl)) {
+    if ((get_mode() == VALIDATE && bj_lvl < m_validate_lvl) ||
+         (get_mode() == SEARCH && bj_lvl < m_search_lvl)) {
         unsigned end_of_saved_trail = get_mode() == VALIDATE ? m_validate_lvl : m_search_lvl;
         //save trail
         m_replay_assign.reset();
