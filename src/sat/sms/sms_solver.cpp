@@ -288,7 +288,7 @@ void sms_solver::assign_from_other(literal l, ext_justification_idx idx) {
     case l_true:
         return;
     case l_false:
-        SASSERT(false);
+      m_solver->set_conflict(js, ~l);
     }
 }
 
