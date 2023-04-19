@@ -161,10 +161,7 @@ bool sms_solver::unit_propagate() {
             SASSERT(get_mode() == SEARCH);
             m_ext_clause.reset();
             VERIFY(m_pSolver->get_reason_final(m_ext_clause, NSOLVER_EXT_IDX));
-            if (m_drating) {
-                drat_dump_cp(m_ext_clause, PSOLVER_EXT_IDX);
-            }
-            set_conflict();
+            set_conflict(m_pSolver);
             return false;
         }
         literal_vector const &t = m_pSolver->get_asserted();
@@ -176,10 +173,7 @@ bool sms_solver::unit_propagate() {
         if (!r) {
             m_ext_clause.reset();
             if (m_nSolver->get_reason_final(m_ext_clause, PSOLVER_EXT_IDX)) {
-                if (m_drating) {
-                    drat_dump_cp(m_ext_clause, NSOLVER_EXT_IDX);
-                }
-                set_conflict();
+                set_conflict(m_nSolver);
             } else {
                 exit_search(get_search_lvl());
             }
@@ -215,34 +209,36 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
         return true;
     }
     m_pSolver->set_mode(PROPAGATE);
-    //PSolver is unsat even without decisions in NSOLVER
-    if (m_pSolver->is_unsat()) {
-        dbg_print("m_pSolver unsat");
-	SASSERT(!m_solver->inconsistent());
-        m_unsat = true;
-        justification js =
-            justification::mk_ext_justification(0, PSOLVER_EXT_IDX);
-        m_solver->set_conflict(js, null_literal);
-	SASSERT(m_solver->scope_lvl() == 0);
-        return false;
-    }
-    // PSOLVER is unsat with decisions in NSOLVER
-    SASSERT(!m_ext_clause.empty());
-    if (m_drating) {
-        drat_dump_cp(m_ext_clause, PSOLVER_EXT_IDX);
-    }
-    set_conflict();
+    //pSolver unsat with current decisions, learn lemma
+    set_conflict(m_pSolver);
     SASSERT(get_mode() == SEARCH);
     return false;
 }
 
-
-// Assume that m_ext_clause is false in current trail. learn clause m_ext_clause
+// Assume that solver is unsat with unsat core m_ext_clause
+// Learn clause m_ext_clause and set it as the conflict clause
 // and set it as clause that is false under current trail
-void sms_solver::set_conflict() {
+void sms_solver::set_conflict(sms_solver* solver) {
+    SASSERT(solver != this);
+    ext_justification_idx idx = solver->get_ext_justification_idx();
+    // solver is unsat by itself
+    if (solver->is_unsat() || m_ext_clause.empty()) {
+        dbg_print("other solver unsat");
+        SASSERT(!m_solver->inconsistent());
+        SASSERT(m_solver->scope_lvl() == 0);
+        m_unsat = true;
+        justification js = justification::mk_ext_justification(0, idx);
+        m_solver->set_conflict(js, null_literal);
+        return;
+    }
+
+    // solver is unsat with decisions in this
+    // learn m_ext_clause
     SASSERT(!m_ext_clause.empty());
     literal not_l = null_literal;
     place_highest_dl_at_start(m_ext_clause);
+    dbg_print_lv("other solver unsat with current trail, learning lemma ", m_ext_clause);
+    if (m_drating) drat_dump_cp(m_ext_clause, idx);
     clause *c = learn_clause(m_ext_clause);
     unsigned lvl = m_solver->lvl(m_ext_clause[0]);
     justification js(lvl);
@@ -609,8 +605,8 @@ check_result sms_solver::check() {
         m_pSolver->set_mode(FINISHED);
         return check_result::CR_DONE;
     }
-    dbg_print_lv("modular solve returned unsat with", m_ext_clause);
-    set_conflict();
+    //pSolver unsat with current decisions
+    set_conflict(m_pSolver);
     return check_result::CR_CONTINUE;
 }
 

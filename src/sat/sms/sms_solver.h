@@ -134,6 +134,7 @@ class sms_solver : public extension {
     ~sms_solver() {
       m_out->flush();
     }
+        ext_justification_idx get_ext_justification_idx() const { return m_id; }
     void drat_dump_ext_unit(literal, ext_justification_idx);
     void init_drat(std::ostream* s) {
         m_drating = true;
@@ -160,7 +161,7 @@ class sms_solver : public extension {
     void reset_asserted() { m_asserted.reset(); }
     sms_mode get_mode() { return m_mode; }
     void set_mode(sms_mode m) { m_mode = m; m_search_lvl = 0; m_validate_lvl = 0; }
-    void set_conflict();
+    void set_conflict(sms_solver* solver);
     void handle_mode_transition(unsigned lvl);
     lbool resolve_conflict() override;
     void pop_reinit() override;
