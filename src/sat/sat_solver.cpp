@@ -2373,7 +2373,6 @@ namespace sat {
     // cannot be explained using decisions of a single solver, triggering a mode transition
     // Return conflict level and first UIP backjump level
     bool solver::check_resolvable(unsigned& c_lvl, unsigned& bj_lvl, literal_vector& lemma, literal_vector& ext_unit_lits) {
-        unsigned num_marks = 0;
         literal consequent = null_literal;
         bool unique_max;
         bj_lvl = 0;
@@ -2385,23 +2384,26 @@ namespace sat {
         bool_var_vector marked;
         lemma.reset();
         lemma.push_back(null_literal);
-        auto process_antecedent = [&] (literal l, unsigned& num_marks) {
-            if (!is_marked(l.var()) && lvl(l.var()) > 0) {
-                mark(l.var());
-                marked.push_back(l.var());
-                if (lvl(l.var()) == c_lvl)
-                    num_marks++;
+        auto process_antecedent = [&] (literal pa_l, unsigned& pa_num_marks) {
+            TRACE("satmodsat", tout << "processing antecedent of " << pa_l << " num_marks: " << pa_num_marks << "\n";);
+            bool_var pa_v = pa_l.var();
+            unsigned pa_lvl = lvl(pa_v);
+            if (!is_marked(pa_v) && lvl(pa_v) > 0) {
+                mark(pa_v);
+                marked.push_back(pa_v);
+                if (pa_lvl == c_lvl)
+                    pa_num_marks++;
                 else {
-                    bj_lvl = std::max(bj_lvl, lvl(l.var()));
-                    lemma.push_back(~l);
+                    bj_lvl = std::max(bj_lvl, pa_lvl);
+                    lemma.push_back(~pa_l);
                 }
             }
-            if (lvl(l.var()) == 0 && m_justification[l.var()].is_ext_justification()) {
-                ext_unit_lits.push_back(l);
+            if (pa_lvl == 0 && m_justification[pa_v].is_ext_justification()) {
+                ext_unit_lits.push_back(pa_l);
             }
         };
-        auto reset_marks = [&] () {
-            for(auto v : marked) if(is_marked(v)) reset_mark(v);
+        auto reset_marks = [&] (bool_var_vector& to_be_reset) {
+            for(auto v : to_be_reset) if(is_marked(v)) reset_mark(v);
         };
 
         auto skip_literals_above_c_lvl = [&] () {
@@ -2416,6 +2418,7 @@ namespace sat {
             return idx;
         };
         unsigned idx = skip_literals_above_c_lvl();
+        unsigned num_marks = 0;
         SASSERT(idx < (int) m_trail.size());
 
         justification js = m_conflict;
@@ -2457,7 +2460,7 @@ namespace sat {
                 fill_ext_antecedents(consequent, js, false);
                 if (m_ext_antecedents.empty()) {
                     //conflict is below assumptions level. Trigger mode transition
-                    reset_marks();
+                    reset_marks(marked);
                     bj_lvl = 0;
                     return false;
                 }
@@ -2492,7 +2495,7 @@ namespace sat {
         while (num_marks > 0);
         lemma[0] = ~consequent;
         SASSERT(lemma.size() > 1 || bj_lvl == 0);
-        reset_marks();
+        reset_marks(marked);
         return true;
     }
 
