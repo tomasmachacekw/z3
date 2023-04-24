@@ -382,7 +382,7 @@ public:
         solver_ref sb = sf(m, p, false, true, true, symbol::null);
         sb->assert_expr(fml);
         sb->assert_expr(fml_B);
-        if (sb->check_sat() == l_false) TRACE("satmodsat", tout << "ERROR: ITP !==> \neg B");
+        if (sb->check_sat() == l_false) TRACE("satmodsat", tout << "ERROR: ITP !==> !B");
         solver_ref sa = sf(m, p, false, true, true, symbol::null);
         sa->assert_expr(fml_A);
         sa->assert_expr(m.mk_not(fml));
