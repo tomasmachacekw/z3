@@ -2763,7 +2763,7 @@ namespace sat {
         TRACE("sat", tout << "processing consequent: ";
               if (consequent == null_literal) tout << "null\n";
               else tout << consequent << "\n";
-              display_justification(tout << "js kind: ", js) << "\n";);
+              display_justification(tout << "js kind: ", js) << " marks: " << num_marks << "\n";);
         literal_vector todo;
         switch (js.get_kind()) {
             case justification::NONE:
@@ -2808,7 +2808,8 @@ namespace sat {
         return true;
     }
 
-    // resolve until all literals have ext_justification of justification index ext_idx
+    // resolve until all literals have ext_justification of justification index
+    // ext_idx
     bool solver::resolve_conflict_for_ext_core(literal_vector& core, ext_justification_idx ext_idx) {
         bool unique_max = false;
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);
@@ -2854,24 +2855,22 @@ namespace sat {
         SASSERT(!m_conflict.is_ext_justification());
         int idx = skip_literals_above_conflict_level();
         bool exists_ext_core;
-        while(true) {
+        do {
             exists_ext_core = process_consequent_for_ext_core(consequent, ext_idx, js, core, num_marks);
+            if (consequent != null_literal) num_marks--;
             if (!exists_ext_core) {
                 reset_unmark(0);
                 return false;
             }
-            if (--num_marks == 0)
-                break;
             while (idx > 0) {
-                consequent = m_trail[idx];
+                consequent = m_trail[idx--];
                 if (is_marked(consequent.var()))
                     break;
-                idx--;
             }
             js = m_justification[consequent.var()];
-        }
+        } while(num_marks > 0);
         reset_unmark(0);
-	m_inconsistent = false;
+        m_inconsistent = false;
         return true;
     }
   
@@ -2964,7 +2963,7 @@ namespace sat {
 
         unsigned old_size = m_unmark.size();
         int idx = skip_literals_above_conflict_level();
-	SASSERT(idx < (int) m_trail.size());
+        SASSERT(idx < (int) m_trail.size());
         literal consequent = m_not_l;
         if (m_not_l != null_literal) {
             justification js = m_justification[m_not_l.var()];
