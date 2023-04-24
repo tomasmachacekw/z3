@@ -35,7 +35,7 @@ namespace sat {
 
  public:
       sms_proof_itp(ast_manager& man, sat_mod_sat *s): m(man), m_solver(s) { m_solver->set_itp(this); }
-      void interpolate();
+      void interpolate(expr_ref& itp);
       void log_clause(status s, unsigned sz, literal const *c);
 };
 }

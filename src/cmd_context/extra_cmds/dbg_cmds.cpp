@@ -374,7 +374,20 @@ public:
     sat::sms_proof_itp itp(m, &solver);
     expr_ref fml1(fml_A, m);
     expr_ref fml2(fml_B, m);
-    if (!solver.solve(fml1, fml2, vars)) itp.interpolate();
+    if (!solver.solve(fml1, fml2, vars)) {
+        expr_ref fml(m);
+        itp.interpolate(fml);
+        solver_factory& sf = ctx.get_solver_factory();
+        params_ref p;
+        solver_ref sb = sf(m, p, false, true, true, symbol::null);
+        sb->assert_expr(fml);
+        sb->assert_expr(fml_B);
+        if (sb->check_sat() == l_false) TRACE("satmodsat", tout << "ERROR: ITP !==> \neg B");
+        solver_ref sa = sf(m, p, false, true, true, symbol::null);
+        sa->assert_expr(fml_A);
+        sa->assert_expr(m.mk_not(fml));
+        if (sa->check_sat() == l_false) TRACE("satmodsat", tout << "ERROR: A !==> ITP");
+    }
   }
 };
 

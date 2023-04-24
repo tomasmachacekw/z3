@@ -110,7 +110,7 @@ void sms_proof_itp::add_itp_imp(vector<literal_vector> const& tail, literal_vect
     itp.push_back(implies);
 }
 
-void sms_proof_itp::interpolate() {
+void sms_proof_itp::interpolate(expr_ref& out) {
     vector<literal_vector> tail;
     expr_ref_vector itp(m);
     for(auto const& [st, lc] : m_trail) {
@@ -123,7 +123,6 @@ void sms_proof_itp::interpolate() {
             add_itp_imp(tail, lc, itp);
         }
     }
-    expr_ref out(m);
     mk_and(itp, out);
     TRACE("satmodsat", tout << "interpolant is " << out << "\n";);
 }
