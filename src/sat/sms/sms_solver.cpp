@@ -372,24 +372,9 @@ void sms_solver::exit_search(unsigned lvl) {
 }
 
 
-void sms_solver::resolve_all_ext_unit_lits() {
-    literal_vector todo;
-    todo.push_back(m_solver->get_m_not_l());
-    literal l;
-    justification js(0);
+void sms_solver::process_antecedents_for_ext_unit(justification js, literal l, literal_vector& todo) {
     literal_vector rc;
-    int_hashtable<int_hash, default_eq<int>> mark;
-    while (!todo.empty()) {
-        l = todo.back();
-        todo.pop_back();
-        if (mark.contains(l.var())) continue;
-        mark.insert(l.var());
-        if (l == null_literal) js = m_solver->get_conflict();
-        else {
-            js = m_solver->get_justification(l);
-            SASSERT(m_solver->lvl(l) == 0);
-        }
-        switch (js.get_kind()) {
+    switch (js.get_kind()) {
         case justification::NONE:
             SASSERT(js.level() == 0);
             break;
@@ -420,6 +405,29 @@ void sms_solver::resolve_all_ext_unit_lits() {
         default:
             SASSERT(false);
         }
+}
+void sms_solver::resolve_all_ext_unit_lits() {
+    literal_vector todo;
+    literal l = m_solver->get_m_not_l();
+
+    if (l != null_literal) {
+        justification js = m_solver->get_conflict();
+        process_antecedents_for_ext_unit(js,  l, todo);
+    }
+    todo.push_back(l);
+    justification js(0);
+    int_hashtable<int_hash, default_eq<int>> mark;
+    while (!todo.empty()) {
+        l = todo.back();
+        todo.pop_back();
+        if (mark.contains(l.var())) continue;
+        mark.insert(l.var());
+        if (l == null_literal) js = m_solver->get_conflict();
+        else {
+            js = m_solver->get_justification(l);
+            SASSERT(m_solver->lvl(l) == 0);
+        }
+        process_antecedents_for_ext_unit(js,  l, todo);
     }
 }
 

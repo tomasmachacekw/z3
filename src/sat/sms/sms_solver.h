@@ -190,6 +190,7 @@ class sms_solver : public extension {
     void set_core(literal_vector &c) { m_core = &c; }
     bool switch_to_lam();
     void resolve_all_ext_unit_lits();
+    void process_antecedents_for_ext_unit(justification js, literal l, literal_vector& todo);
     std::ostream &display(std::ostream &out) const override {
         return out << "display yet to be implemented\n";
     }
