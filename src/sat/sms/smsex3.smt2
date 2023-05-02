@@ -7,6 +7,7 @@
 (declare-const x Bool)
 (declare-const y Bool)
 
+
 ;; Example from Arie. -c is a good interpolant to learn but the
 ;; current implementation only learns -a || -b
 ;; ITP: (or (not b) (not a))
@@ -49,12 +50,14 @@
                   ;; (or (not b) (not f))))
 (satmodsat (a b c d e f)
 	   (and x (or a b)
-		  (or c d)
-		  (or e f))
-           (and (or (not y) (not x)) (or y (not x))
-	   	(or (not a) (not c))
-		(or (not a) (not e))
-		(or (not c) (not e))
-		(or (not b) (not d))
-		(or (not b) (not f))
-		(or (not d) (not f))))
+		      (or c d)
+		      (or e f))
+
+        (and (or (not y) (not x))
+             (or y (not x))
+	   	     (or (not a) (not c))
+		     (or (not a) (not e))
+		     (or (not c) (not e))
+		     (or (not b) (not d))
+		     (or (not b) (not f))
+		     (or (not d) (not f))))

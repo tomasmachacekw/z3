@@ -279,8 +279,8 @@ void sms_solver::assign_from_other(literal l, ext_justification_idx idx) {
         dbg_print_lit("assigning from other", l);
         m_solver->assign(l, js);
         if (m_solver->scope_lvl() == 0) {
+            //the solver might change justifications at level 0
             m_solver->update_assign_uncond(l, js);
-            if (get_mode() == SEARCH || get_mode() == VALIDATE) drat_dump_ext_unit(l, idx);
         }
         break;
     case l_true:
@@ -406,6 +406,7 @@ void sms_solver::process_antecedents_for_ext_unit(justification js, literal l, l
             SASSERT(false);
         }
 }
+
 void sms_solver::resolve_all_ext_unit_lits() {
     literal_vector todo;
     literal l = m_solver->get_m_not_l();
@@ -422,7 +423,10 @@ void sms_solver::resolve_all_ext_unit_lits() {
         todo.pop_back();
         if (mark.contains(l.var())) continue;
         mark.insert(l.var());
-        if (l == null_literal) js = m_solver->get_conflict();
+        if (l == null_literal) {
+            js = m_solver->get_conflict();
+            if (js.is_ext_justification()) continue;
+        }
         else {
             js = m_solver->get_justification(l);
             SASSERT(m_solver->lvl(l) == 0);
@@ -434,10 +438,10 @@ void sms_solver::resolve_all_ext_unit_lits() {
 void sms_solver::exit_unsat() {
   dbg_print("unsat");
   m_unsat = true;
+  //learn all ext prop at lvl 0
+  resolve_all_ext_unit_lits();
   if (m_nSolver && m_nSolver->get_mode() == LOOKAHEAD) {
     m_exiting = true;
-    //learn all ext prop at lvl 0
-    resolve_all_ext_unit_lits();
     m_solver->pop(m_solver->scope_lvl());
     set_mode(PROPAGATE);
     m_nSolver->set_mode(SEARCH);
