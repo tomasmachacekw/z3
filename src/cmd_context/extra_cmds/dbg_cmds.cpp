@@ -388,6 +388,9 @@ public:
         sa->assert_expr(m.mk_not(fml));
         if (sa->check_sat() != l_false) TRACE("satmodsat", tout << "ERROR: A !==> ITP");
     }
+    else {
+        IF_VERBOSE(1, verbose_stream() << "satisfiable";);
+    }
   }
 };
 

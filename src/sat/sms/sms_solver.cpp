@@ -567,6 +567,7 @@ lbool sms_solver::resolve_conflict() {
         m_solver->save_trail(bj_lvl, end_of_saved_trail, m_replay_assign, m_replay_just);
         dbg_print_lv("to reinit", m_replay_assign);
         m_solver->pop(m_solver->scope_lvl() - bj_lvl);
+        SASSERT(m_solver->scope_lvl() == bj_lvl);
         SASSERT(!m_solver->inconsistent());
         learn_clause(lemma);
         ext_justification_idx idx = get_mode() == VALIDATE ? PSOLVER_EXT_IDX : NSOLVER_EXT_IDX;
@@ -593,9 +594,11 @@ lbool sms_solver::resolve_conflict() {
         for(unsigned i = 0, sz = m_replay_assign.size(); i < sz; i++) {
             justification js = m_replay_just[i];
             literal l = m_replay_assign[i];
-            SASSERT(m_solver->scope_lvl() <= js.level());
-            SASSERT(m_solver->value(l) == l_undef);
-            m_solver->assign_core(l, js);
+            // The trail is unordered. So we could be assigning literals at a
+            // lower level than solver->scope_lvl()
+            SASSERT(js.level() <= bj_lvl);
+            SASSERT(m_solver->value(l) == l_undef || js.level() == 0);
+            if(m_solver->value(l) == l_undef) m_solver->assign_core(l, js);
             m_solver->propagate(false);
             if (m_solver->inconsistent()) {
                 return handle_reinit_conflict();
