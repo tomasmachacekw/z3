@@ -370,26 +370,29 @@ public:
       }
       vars.push_back(to_app(v));
     }
-    sat::sat_mod_sat solver(m);
+    params_ref p =  gparams::get_module("smt");
+    p.set_bool("minimize_lemmas", false);
+    sat::sat_mod_sat solver(m, p);
     sat::sms_proof_itp itp(m, &solver);
     expr_ref fml1(fml_A, m);
     expr_ref fml2(fml_B, m);
     if (!solver.solve(fml1, fml2, vars)) {
+        IF_VERBOSE(1, verbose_stream() << "unsatisfiable\n";);
         expr_ref fml(m);
         itp.interpolate(fml);
         solver_factory& sf = ctx.get_solver_factory();
-        params_ref p;
-        solver_ref sb = sf(m, p, false, true, true, symbol::null);
+        params_ref empty;
+        solver_ref sb = sf(m, empty, false, true, true, symbol::null);
         sb->assert_expr(fml);
         sb->assert_expr(fml_B);
-        if (sb->check_sat() != l_false) TRACE("satmodsat", tout << "ERROR: ITP !==> !B");
-        solver_ref sa = sf(m, p, false, true, true, symbol::null);
+        if (sb->check_sat() != l_false) IF_VERBOSE(1, verbose_stream() << "ERROR: ITP !==> !B\n");
+        solver_ref sa = sf(m, empty, false, true, true, symbol::null);
         sa->assert_expr(fml_A);
         sa->assert_expr(m.mk_not(fml));
-        if (sa->check_sat() != l_false) TRACE("satmodsat", tout << "ERROR: A !==> ITP");
+        if (sa->check_sat() != l_false) IF_VERBOSE(1, verbose_stream() << "ERROR: A !==> ITP\n");
     }
     else {
-        IF_VERBOSE(1, verbose_stream() << "satisfiable";);
+        IF_VERBOSE(1, verbose_stream() << "satisfiable\n";);
     }
   }
 };

@@ -11,7 +11,6 @@ using namespace sat;
 
 void sms_solver::dump(unsigned sz, literal const *lc, status st) {
   SASSERT(m_drating);
-  SASSERT(!m_drat_file.str().empty());
   switch (st.m_st) {
       case status::st::input:
           (*m_out) << "i " << get_id() << " ";
@@ -35,7 +34,6 @@ void sms_solver::dump(unsigned sz, literal const *lc, status st) {
 
 void sms_solver::dump_clause(unsigned sz, literal const* lc) {
   SASSERT(m_drating);
-  SASSERT(!m_drat_file.str().empty());
   if (sz == 0) {
     (*m_out) << "\n";
       return;
@@ -48,7 +46,6 @@ void sms_solver::dump_clause(unsigned sz, literal const* lc) {
 
 void sms_solver::drat_dump_cp(literal_vector const& cl, ext_justification_idx id) {
   SASSERT(m_drating);
-  SASSERT(!m_drat_file.str().empty());
   int src =
       id == NSOLVER_EXT_IDX ? m_nSolver->get_id() : m_pSolver->get_id();
   status st = status::copied();
@@ -640,7 +637,9 @@ check_result sms_solver::check() {
     return check_result::CR_CONTINUE;
 }
 
-bool sms_solver::switch_to_lam() { return true; }
+bool sms_solver::switch_to_lam() {
+    return m_lam_switch > 0;
+}
 
 bool sms_solver::modular_solve() {
     m_full_assignment_lvl = m_solver->scope_lvl();

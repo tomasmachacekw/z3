@@ -7,6 +7,7 @@
 #include "sat/sat_solver.h"
 #include "sat/sat_types.h"
 #include "util/memory_manager.h"
+#include "util/params.h"
 #include "util/sat_literal.h"
 #include "util/symbol.h"
 #include "util/vector.h"
@@ -97,10 +98,11 @@ class sms_solver : public extension {
     svector<justification> m_replay_just;
     literal m_next_lit;
     bool m_unsat;
-    symbol m_drat_file;
     literal_vector m_replay_assign;
     std::ostream* m_out;
     sms_proof_itp* m_itp;
+
+    unsigned m_lam_switch;
     bool_var addVar(expr *n) {
         expr_ref e(n, m);
         unsigned v;
@@ -124,13 +126,18 @@ class sms_solver : public extension {
     void exit_search(unsigned lvl);
     void exit_unsat();
     void find_and_set_decision_lit();
+    void update_params(params_ref const & p) {
+        m_lam_switch = p.get_uint("lam_switch", 1);
+    }
   public:
-    sms_solver(ast_manager &am, symbol const &name, int id, symbol dratFile)
+    sms_solver(ast_manager &am, symbol const &name, int id, const params_ref p)
         : extension(name, id), m(am), m_var2expr(m),
           m_pSolver(nullptr), m_nSolver(nullptr), m_tx_idx(0),
           m_construct_itp(false), m_full_assignment_lvl(0), m_core(nullptr),
           m_mode(SEARCH), m_exiting(false), m_search_lvl(0), m_validate_lvl(0),
-          m_next_lit(null_literal), m_unsat(false), m_drat_file(dratFile), m_itp(nullptr) { }
+          m_next_lit(null_literal), m_unsat(false), m_itp(nullptr) {
+        update_params(p);
+    }
     ~sms_solver() {
       m_out->flush();
     }
@@ -276,17 +283,16 @@ class satmodsatcontext {
         a->print_var_map();
         b->print_var_map();
     }
-    satmodsatcontext(ast_manager &am) : m(am), m_itp(nullptr) {
+    satmodsatcontext(ast_manager &am, params_ref const& p) : m(am), m_itp(nullptr) {
         symbol dratFile = symbol("smsdrat.txt");
         symbol dratFilea = symbol("smsdrata.txt");
-        symbol dratFileb = symbol("smsdratb.txt");        
-        params_ref p;
-	//TODO: Lemma minimization attempts to get_antecedents for
-	//each literal in the lemma. However, it sets the probing flag
-	//to false, triggering clause learning in sms_solver.
-	p.set_bool("minimize_lemmas", false);
-        m_solverA = alloc(sms_solver, m, symbol("A"), PSOLVER_EXT_IDX, dratFile);
-        m_solverB = alloc(sms_solver, m, symbol("B"), NSOLVER_EXT_IDX, dratFile);
+        symbol dratFileb = symbol("smsdratb.txt");
+        //TODO: Lemma minimization attempts to get_antecedents for
+        //each literal in the lemma. However, it sets the probing flag
+        //to false, triggering clause learning in sms_solver.
+        SASSERT(!p.get_bool("minimize_lemmas", false));
+        m_solverA = alloc(sms_solver, m, symbol("A"), PSOLVER_EXT_IDX, p);
+        m_solverB = alloc(sms_solver, m, symbol("B"), NSOLVER_EXT_IDX, p);
         sms_solver *a = static_cast<sms_solver *>(m_solverA);
         sms_solver *b = static_cast<sms_solver *>(m_solverB);
         m_stream = alloc(std::ofstream, dratFile.str(), std::ios_base::out);
@@ -294,11 +300,12 @@ class satmodsatcontext {
         b->init_drat(m_stream);
         a->set_nSolver(b);
         b->set_pSolver(a);
-        p.set_sym("drat.file", dratFilea);
-        m_satA = alloc(solver, p, m.limit());
+        params_ref pa(p), pb(p);
+        pa.set_sym("drat.file", dratFilea);
+        m_satA = alloc(solver, pa, m.limit());
         m_satA->set_extension(m_solverA);
-        p.set_sym("drat.file", dratFileb);        
-        m_satB = alloc(solver, p, m.limit());
+        pb.set_sym("drat.file", dratFileb);
+        m_satB = alloc(solver, pb, m.limit());
         m_satB->set_extension(m_solverB);
         b->construct_itp();
         b->set_mode(SEARCH);
@@ -356,8 +363,8 @@ class satmodsatcontext {
         satmodsatcontext m_solver;
         void init(expr_ref A, expr_ref B, expr_ref_vector const &shared);
         public:
-            sat_mod_sat(ast_manager &am)
-                : m(am), m_shared(m), m_a(m), m_b(m), m_solver(m) {}
+            sat_mod_sat(ast_manager &am, const params_ref & p)
+                : m(am), m_shared(m), m_a(m), m_b(m), m_solver(m, p) {}
             bool solve(expr_ref A, expr_ref B, expr_ref_vector &shared);
             void set_itp(sms_proof_itp* itp) { m_solver.set_itp(itp); }
             unsigned get_var(expr* e) { return m_solver.get_var(e); }
