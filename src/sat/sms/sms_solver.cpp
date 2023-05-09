@@ -348,7 +348,8 @@ void sms_solver::push_from_other() { m_solver->push(); }
 
 void sms_solver::push() {
     // Synchoronize decision levels between solvers
-    if (m_pSolver && get_mode() != LOOKAHEAD) m_pSolver->push_from_other();
+    if (m_pSolver && get_mode() != LOOKAHEAD &&  get_mode() != FINISHED)
+        m_pSolver->push_from_other();
     if (m_nSolver && (m_nSolver->get_mode() == LOOKAHEAD ||
                       m_nSolver->get_mode() == FINISHED))
         m_nSolver->push_from_other();
