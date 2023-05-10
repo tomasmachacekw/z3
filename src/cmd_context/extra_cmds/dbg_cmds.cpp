@@ -345,30 +345,39 @@ class satmodsat_cmd : public cmd {
     expr* fml_A;
     expr* fml_B;
     ptr_vector<expr> m_shared_vars;
+    ptr_vector<expr> m_pref_vars;
 public:
     satmodsat_cmd():cmd("satmodsat") {}
-    char const * get_usage() const override { return "(<vars>) <expA> <expB> where expA and expB are boolean CNF formulas"; }
+    char const * get_usage() const override { return "(<vars>) <expA> <expB> (<prefvars>) where expA and expB are boolean CNF formulas, <prefvars> is a subset of <vars>"; }
     char const * get_descr(cmd_context & ctx) const override { return "perform SAT mod SAT solving"; }
-    unsigned get_arity() const override { return 3; }
+    unsigned get_arity() const override { return 4; }
     cmd_arg_kind next_arg_kind(cmd_context& ctx) const override {
-      if (m_shared_vars.size() == 0) return CPK_EXPR_LIST;
+      if (m_shared_vars.size() == 0 || fml_B != nullptr) return CPK_EXPR_LIST;
       return CPK_EXPR;
     }
   void set_next_arg(cmd_context& ctx, expr * arg) override {
-    if (fml_A == nullptr) fml_A = arg; else fml_B = arg;
+    if (fml_A == nullptr) fml_A = arg;
+    else fml_B = arg;
   }
   void set_next_arg(cmd_context & ctx, unsigned num, expr * const * ts) override {
-    m_shared_vars.append(num, ts);
+    if (m_shared_vars.size() == 0) m_shared_vars.append(num, ts);
+    else m_pref_vars.append(num, ts);
   }
-  void prepare(cmd_context & ctx) override { fml_A = nullptr; fml_B = nullptr; m_shared_vars.reset(); }
+  void prepare(cmd_context & ctx) override { fml_A = nullptr; fml_B = nullptr; m_shared_vars.reset(); m_pref_vars.reset(); }
   void execute(cmd_context & ctx) override { 
     ast_manager& m = ctx.m();
-    expr_ref_vector vars(m);
+    expr_ref_vector vars(m), pref_vars(m);
     for (expr* v : m_shared_vars) {
       if (!m.is_bool(v) || !is_uninterp_const(v)) {
           throw cmd_exception("invalid variable argument. Uninterpreted variable expected");
       }
       vars.push_back(to_app(v));
+    }
+    for (expr* v : m_pref_vars) {
+      if (!m.is_bool(v) || !is_uninterp_const(v)) {
+          throw cmd_exception("invalid pref variable argument");
+      }
+      pref_vars.push_back(to_app(v));
     }
     params_ref p =  gparams::get_module("smt");
     p.set_bool("minimize_lemmas", false);
@@ -376,7 +385,7 @@ public:
     sat::sms_proof_itp itp(m, &solver);
     expr_ref fml1(fml_A, m);
     expr_ref fml2(fml_B, m);
-    if (!solver.solve(fml1, fml2, vars)) {
+    if (!solver.solve(fml1, fml2, vars, pref_vars)) {
         IF_VERBOSE(1, verbose_stream() << "unsatisfiable\n";);
         expr_ref fml(m);
         itp.interpolate(fml);

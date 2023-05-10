@@ -82,6 +82,7 @@ class sms_solver : public extension {
     obj_map<expr, unsigned> m_expr2var;
     expr_ref_vector m_var2expr;
     bool_vector m_shared;
+    svector<unsigned> m_preferred;
     literal_vector m_ext_clause;
     sms_solver *m_pSolver;
     sms_solver *m_nSolver;
@@ -232,6 +233,13 @@ class sms_solver : public extension {
             m_shared[v] = true;
         }
     }
+    void addPreferred(expr_ref_vector const &vars) {
+        unsigned v;
+        for (expr *e : vars) {
+            v = boolVar(e);
+            m_preferred.push_back(v);
+        }
+    }
         void set_itp(sms_proof_itp* itp) { m_itp = itp; }
 
         bool has_var(expr* e, bool_var& v) { return m_expr2var.find(e, v); }
@@ -282,6 +290,10 @@ class satmodsatcontext {
         for (expr *e : vars) { SASSERT(a->get_var(e) == b->get_var(e)); }
         a->print_var_map();
         b->print_var_map();
+    }
+    void addPreferred(expr_ref_vector const &vars) {
+        sms_solver *a = static_cast<sms_solver *>(m_solverA);
+        a->addPreferred(vars);
     }
     satmodsatcontext(ast_manager &am, params_ref const& p) : m(am), m_itp(nullptr) {
         symbol dratFile = symbol("smsdrat.txt");
@@ -361,11 +373,11 @@ class satmodsatcontext {
         expr_ref m_a;
         expr_ref m_b;
         satmodsatcontext m_solver;
-        void init(expr_ref A, expr_ref B, expr_ref_vector const &shared);
+        void init(expr_ref A, expr_ref B, expr_ref_vector const &shared, expr_ref_vector const &pref);
         public:
             sat_mod_sat(ast_manager &am, const params_ref & p)
                 : m(am), m_shared(m), m_a(m), m_b(m), m_solver(m, p) {}
-            bool solve(expr_ref A, expr_ref B, expr_ref_vector &shared);
+            bool solve(expr_ref A, expr_ref B, expr_ref_vector &shared, expr_ref_vector &pref);
             void set_itp(sms_proof_itp* itp) { m_solver.set_itp(itp); }
             unsigned get_var(expr* e) { return m_solver.get_var(e); }
             expr* get_expr(bool_var v) { return m_solver.get_expr(v); }

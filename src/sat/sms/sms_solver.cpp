@@ -184,6 +184,16 @@ bool sms_solver::unit_propagate() {
 
 bool sms_solver::decide(bool_var &next, lbool &phase) {
     SASSERT(get_mode() != PROPAGATE);
+    if (!m_pSolver && get_mode() == SEARCH) {
+        for (unsigned v : m_preferred) {
+            if (m_solver->value(v) == l_undef) {
+                next = v;
+                phase = l_false;
+                return true;
+            }
+        }
+        return false;
+    }
     if (!m_pSolver || get_mode() != SEARCH) return false;
     if (!switch_to_lam()) return false;
     m_solver->push();
@@ -696,10 +706,10 @@ void satmodsatcontext::add_cnf_expr_to_solver(extension *s, expr_ref fml) {
     for (expr *e : *to_app(fml)) { a->add_clause_expr(e); }
 }
 
-bool sat_mod_sat::solve(expr_ref A, expr_ref B, expr_ref_vector &shared) {
+bool sat_mod_sat::solve(expr_ref A, expr_ref B, expr_ref_vector &shared, expr_ref_vector &pref) {
     TRACE("satmodsat",
           tout << "A: " << mk_pp(A, m) << " B: " << mk_pp(B, m) << "\n";);
-    init(A, B, shared);
+    init(A, B, shared, pref);
     bool res = m_solver.solve();
     const char *s = res ? "satisfiable" : "unsatisfiable";
     TRACE("satmodsat", tout << "final result is " << s;);
@@ -710,11 +720,12 @@ bool sat_mod_sat::solve(expr_ref A, expr_ref B, expr_ref_vector &shared) {
 // That is variable 1 in Solver_A is the same as variable 1 in solver_B
 // This is required to reduce the amount of bookkeeping when exchanging lits and
 // clauses between solvers
-void sat_mod_sat::init(expr_ref A, expr_ref B, expr_ref_vector const &shared) {
+void sat_mod_sat::init(expr_ref A, expr_ref B, expr_ref_vector const &shared, expr_ref_vector const &pref) {
     m_a = A;
     m_b = B;
     m_shared = expr_ref_vector(shared);
     m_solver.addShared(shared);
+    m_solver.addPreferred(pref);
     m_solver.addA(m_a);
     m_solver.addB(m_b);
 }
