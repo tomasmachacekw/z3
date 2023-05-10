@@ -11,4 +11,5 @@
            (and (or a b) (or c d) (or e f) (or y x p) (or (not p) y x) (or (not p) (not y) x) (or p (not y) x))
            (and (or (not a) (not c)) (or (not a) (not e)) (or (not c) (not e)) (or (not b) (not d)) (or (not b) (not f)) (or (not d) (not f)) (or (not y) (not x)) (or y (not x)))
            (x y)
+           ()
            )

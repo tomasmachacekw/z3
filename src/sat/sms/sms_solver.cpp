@@ -182,20 +182,40 @@ bool sms_solver::unit_propagate() {
     return true;
 }
 
+bool sms_solver::pick_random_unassigned(bool_var &next, lbool &phase) {
+    unsigned sz =  m_preferred.size();
+    unsigned i = sz;
+    for (unsigned j = 0; j < i; j++) m_picked[j] = false;
+    while(i > 0) {
+        bool_var v = m_solver->rand()() % sz;
+        if (m_picked[v]) continue;
+        m_picked[v] = true;
+        i--;
+        if (m_solver->value(v) == l_undef) {
+            next = v;
+            phase = l_false;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool sms_solver::get_case_split(bool_var &next, lbool &phase) {
+    if (!m_pSolver && get_mode() == SEARCH)
+        return pick_random_unassigned(next, phase);
+    return false;
+}
+
 bool sms_solver::decide(bool_var &next, lbool &phase) {
     SASSERT(get_mode() != PROPAGATE);
-    if (!m_pSolver && get_mode() == SEARCH) {
-        for (unsigned v : m_preferred) {
-            if (m_solver->value(v) == l_undef) {
-                next = v;
-                phase = l_false;
-                return true;
-            }
-        }
-        return false;
-    }
+    //there is no psolver to speculate
     if (!m_pSolver || get_mode() != SEARCH) return false;
-    if (!switch_to_lam()) return false;
+    // assign preferred vars
+    if (pick_random_unassigned(next, phase)) return true;
+    //never enter speculative execution
+    if (m_lam_switch == 0) return false;
+
+    //all preferred variables have been picked, speculate
     m_solver->push();
     dbg_print("switching to LOOKAHEAD MODE");
     unsigned search_lvl = m_solver->scope_lvl();
@@ -706,10 +726,10 @@ void satmodsatcontext::add_cnf_expr_to_solver(extension *s, expr_ref fml) {
     for (expr *e : *to_app(fml)) { a->add_clause_expr(e); }
 }
 
-bool sat_mod_sat::solve(expr_ref A, expr_ref B, expr_ref_vector &shared, expr_ref_vector &pref) {
+bool sat_mod_sat::solve(expr_ref A, expr_ref B, expr_ref_vector &shared, expr_ref_vector &prefA, expr_ref_vector &prefB) {
     TRACE("satmodsat",
           tout << "A: " << mk_pp(A, m) << " B: " << mk_pp(B, m) << "\n";);
-    init(A, B, shared, pref);
+    init(A, B, shared, prefA, prefB);
     bool res = m_solver.solve();
     const char *s = res ? "satisfiable" : "unsatisfiable";
     TRACE("satmodsat", tout << "final result is " << s;);
@@ -720,12 +740,12 @@ bool sat_mod_sat::solve(expr_ref A, expr_ref B, expr_ref_vector &shared, expr_re
 // That is variable 1 in Solver_A is the same as variable 1 in solver_B
 // This is required to reduce the amount of bookkeeping when exchanging lits and
 // clauses between solvers
-void sat_mod_sat::init(expr_ref A, expr_ref B, expr_ref_vector const &shared, expr_ref_vector const &pref) {
+void sat_mod_sat::init(expr_ref A, expr_ref B, expr_ref_vector const &shared, expr_ref_vector const &prefA, expr_ref_vector const &prefB) {
     m_a = A;
     m_b = B;
     m_shared = expr_ref_vector(shared);
     m_solver.addShared(shared);
-    m_solver.addPreferred(pref);
+    m_solver.addPreferred(prefA, prefB);
     m_solver.addA(m_a);
     m_solver.addB(m_b);
 }

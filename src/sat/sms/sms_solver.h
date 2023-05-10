@@ -99,10 +99,12 @@ class sms_solver : public extension {
     svector<justification> m_replay_just;
     literal m_next_lit;
     bool m_unsat;
+    bool_vector m_picked;
     literal_vector m_replay_assign;
     std::ostream* m_out;
     sms_proof_itp* m_itp;
 
+    // if m_lam_switch is 0, we never speculate
     unsigned m_lam_switch;
     bool_var addVar(expr *n) {
         expr_ref e(n, m);
@@ -130,6 +132,8 @@ class sms_solver : public extension {
     void update_params(params_ref const & p) {
         m_lam_switch = p.get_uint("lam_switch", 1);
     }
+    //pick a random unassigned variable from m_preferred
+    bool pick_random_unassigned(bool_var &next, lbool &phase);
   public:
     sms_solver(ast_manager &am, symbol const &name, int id, const params_ref p)
         : extension(name, id), m(am), m_var2expr(m),
@@ -184,6 +188,7 @@ class sms_solver : public extension {
     learn_clause_and_update_justification(literal l,
                                           literal_vector const &antecedent, ext_justification_idx id);
     bool decide(bool_var &, lbool &) override;
+    bool get_case_split(bool_var &, lbool &) override;
     void place_highest_dl_at_start(literal_vector& cls);
     clause* learn_clause(literal_vector& cls);
     bool unit_propagate() override;
@@ -239,6 +244,7 @@ class sms_solver : public extension {
             v = boolVar(e);
             m_preferred.push_back(v);
         }
+        m_picked.resize(m_preferred.size());
     }
         void set_itp(sms_proof_itp* itp) { m_itp = itp; }
 
@@ -291,9 +297,11 @@ class satmodsatcontext {
         a->print_var_map();
         b->print_var_map();
     }
-    void addPreferred(expr_ref_vector const &vars) {
+    void addPreferred(expr_ref_vector const &prefA, expr_ref_vector const &prefB) {
         sms_solver *a = static_cast<sms_solver *>(m_solverA);
-        a->addPreferred(vars);
+        a->addPreferred(prefA);
+        sms_solver *b = static_cast<sms_solver *>(m_solverB);
+        b->addPreferred(prefB);
     }
     satmodsatcontext(ast_manager &am, params_ref const& p) : m(am), m_itp(nullptr) {
         symbol dratFile = symbol("smsdrat.txt");
@@ -373,11 +381,11 @@ class satmodsatcontext {
         expr_ref m_a;
         expr_ref m_b;
         satmodsatcontext m_solver;
-        void init(expr_ref A, expr_ref B, expr_ref_vector const &shared, expr_ref_vector const &pref);
+        void init(expr_ref A, expr_ref B, expr_ref_vector const &shared, expr_ref_vector const &prefA, expr_ref_vector const &prefB);
         public:
             sat_mod_sat(ast_manager &am, const params_ref & p)
                 : m(am), m_shared(m), m_a(m), m_b(m), m_solver(m, p) {}
-            bool solve(expr_ref A, expr_ref B, expr_ref_vector &shared, expr_ref_vector &pref);
+            bool solve(expr_ref A, expr_ref B, expr_ref_vector &shared, expr_ref_vector &prefA, expr_ref_vector &prefB);
             void set_itp(sms_proof_itp* itp) { m_solver.set_itp(itp); }
             unsigned get_var(expr* e) { return m_solver.get_var(e); }
             expr* get_expr(bool_var v) { return m_solver.get_expr(v); }
