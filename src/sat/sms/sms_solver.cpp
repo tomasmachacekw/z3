@@ -324,9 +324,12 @@ bool sms_solver::get_ext_reason(literal l, literal_vector &rc) {
     literal t = l;
     todo.push_back(t);
     rc.reset();
+    int_hashtable<int_hash, default_eq<int>> mark;
     while (!todo.empty()) {
         t = todo.back();
         todo.pop_back();
+        if (mark.contains(l.var())) continue;
+        mark.insert(l.var());
         dbg_print_lit("Fetching reason for", t);
         justification js = m_solver->get_justification(t);
         TRACE("satmodsat", m_solver->display_justification(tout, js););
