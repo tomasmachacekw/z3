@@ -405,7 +405,7 @@ public:
     expr_ref fml1(fml_A, m);
     expr_ref fml2(fml_B, m);
     if (!solver.solve(fml1, fml2, vars, pref_varsA, pref_varsB)) {
-        IF_VERBOSE(1, verbose_stream() << "unsatisfiable\n";);
+        IF_VERBOSE(0, verbose_stream() << "unsatisfiable\n";);
         expr_ref fml(m);
         itp.interpolate(fml);
         solver_factory& sf = ctx.get_solver_factory();
@@ -420,7 +420,7 @@ public:
         if (sa->check_sat() != l_false) IF_VERBOSE(1, verbose_stream() << "ERROR: A !==> ITP\n");
     }
     else {
-        IF_VERBOSE(1, verbose_stream() << "satisfiable\n";);
+        IF_VERBOSE(0, verbose_stream() << "satisfiable\n";);
     }
   }
 };

@@ -331,7 +331,7 @@ void sms_solver::assign_from_other(literal l, ext_justification_idx idx) {
     case l_true:
         return;
     case l_false:
-      m_solver->set_conflict(js, ~l);
+        m_solver->set_conflict(js, ~l);
     }
 }
 
@@ -608,7 +608,7 @@ lbool sms_solver::resolve_conflict() {
     // handle backjumping, make solver transitions and return false
     if (c_lvl <= (get_mode() == VALIDATE ? get_validate_lvl() : get_search_lvl())) {
        handle_mode_transition();
-      return l_false;
+       return l_false;
     }
 
     unsigned  bj_lvl = 0;
