@@ -121,7 +121,8 @@ void sms_solver::get_antecedents(literal l, ext_justification_idx idx,
     }
     if (idx == NSOLVER_EXT_IDX) {
         // Literal was asserted by nSolver
-        SASSERT(probing || (m_nSolver && m_nSolver->get_mode() == LOOKAHEAD));
+        // Right now, even when there is a conflcit below assumptions level, we attempt to resolve it
+        SASSERT(probing || (m_nSolver && (m_nSolver->get_mode() == LOOKAHEAD || m_nSolver->get_mode() == FINISHED)));
         m_nSolver->get_ext_reason(l, r);
     } else {
         SASSERT(m_pSolver);
@@ -660,7 +661,7 @@ void sms_solver::pop_reinit() { }
 
 void sms_solver::pop(unsigned num_scopes) {
     dbg_print_stat("popping", num_scopes);
-    if (m_pSolver && get_mode() != LOOKAHEAD)
+    if (m_pSolver && get_mode() != LOOKAHEAD && get_mode() != FINISHED)
         m_pSolver->pop_from_other(num_scopes);
     if (get_mode() == SEARCH && m_nSolver)
         m_nSolver->pop_from_other(num_scopes);
@@ -672,7 +673,8 @@ check_result sms_solver::check() {
     if (!m_pSolver || get_mode() == VALIDATE) return check_result::CR_DONE;
     SASSERT(get_mode() == SEARCH);
     SASSERT(m_pSolver->get_mode() == PROPAGATE);
-    m_pSolver->set_mode(SEARCH);
+    unsigned search_lvl = m_solver->scope_lvl();
+    m_pSolver->set_search_mode(search_lvl);
     set_mode(FINISHED);
     dbg_print("got a sat assignment, checking with psolver");
     m_pSolver->set_core(m_ext_clause);
@@ -682,6 +684,7 @@ check_result sms_solver::check() {
     }
     //pSolver unsat with current decisions
     set_conflict(m_pSolver);
+    SASSERT(get_mode() == SEARCH);
     return check_result::CR_CONTINUE;
 }
 
