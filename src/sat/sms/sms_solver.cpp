@@ -214,7 +214,6 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
     if (pick_random_unassigned(next, phase)) return true;
     //never enter speculative execution
     if (m_lam_switch == 0) return false;
-
     //all preferred variables have been picked, speculate
     m_solver->push();
     dbg_print("switching to LOOKAHEAD MODE");
@@ -233,6 +232,14 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
         if (m_solver->value(next) == l_undef) return false;
         next = m_solver->next_var();
         phase = m_solver->guess(next) ? l_true : l_false;
+        return true;
+    }
+    //m_pSolver refined
+    if (m_pSolver->get_next_decision() != null_literal) {
+        next = m_pSolver->get_next_decision().var();
+        phase = m_pSolver->get_next_decision().sign() ? l_true : l_false;
+        SASSERT(m_solver->value(next) == l_undef);
+        m_pSolver->set_next_decision(null_literal);
         return true;
     }
     m_pSolver->set_mode(PROPAGATE);
@@ -506,7 +513,7 @@ void sms_solver::find_and_set_decision_lit() {
         l = todo.back();
         todo.pop_back();
         js = m_solver->get_justification(l);
-        if (m_shared[l.var()] && !js.is_none()) {
+        if (m_shared[l.var()]) {
             set_next_decision(l);
             return;
         }
@@ -540,8 +547,8 @@ void sms_solver::handle_mode_transition(unsigned bj_lvl) {
                        "lemma and exiting", m_ext_clause);
           learn_clause(m_ext_clause);
       } else {
-          exit_validate(bj_lvl);
           find_and_set_decision_lit();
+          exit_validate(bj_lvl);
           dbg_print_lit("validate hit a conflict below validate lvl, exiting "
                         "with new decision",
                         m_next_lit);
@@ -550,14 +557,22 @@ void sms_solver::handle_mode_transition(unsigned bj_lvl) {
   else {
     SASSERT(get_mode() == SEARCH);
     SASSERT(m_nSolver);
-    VERIFY(get_reason_final(*m_core, NSOLVER_EXT_IDX));
-    dbg_print_lv("search hit a conflict below search lvl, learning lemma "
-                 "and exiting", *m_core);
-    SASSERT(m_core != nullptr);
-    place_highest_dl_at_start(*m_core);
-    exit_search(bj_lvl);
-    // learn clause in psolver as well. This is optional
-    learn_clause(*m_core);
+    if(get_reason_final(*m_core, NSOLVER_EXT_IDX)) {
+        dbg_print_lv("search hit a conflict below search lvl, learning lemma "
+                     "and exiting", *m_core);
+        SASSERT(m_core != nullptr);
+        place_highest_dl_at_start(*m_core);
+        exit_search(bj_lvl);
+        // learn clause in psolver as well. This is optional
+        learn_clause(*m_core);
+    }
+    else {
+        find_and_set_decision_lit();
+        exit_search(bj_lvl);
+        dbg_print_lit("search hit an unrecoverable conflict "
+                      "with new decision",
+                        m_next_lit);
+    }
   }
 }
 
