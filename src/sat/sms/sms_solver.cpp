@@ -595,10 +595,8 @@ void sms_solver::handle_mode_transition() {
 lbool sms_solver::resolve_conflict() {
     SASSERT(get_mode() == SEARCH || get_mode() == VALIDATE);
     SASSERT(!m_nSolver || m_nSolver->get_mode() == FINISHED || m_nSolver->get_mode() == LOOKAHEAD);
-    unsigned c_lvl = 0, bj_lvl = 0;
-    literal_vector lemma;
-    literal_vector unit_lits;
-    bool resolvable = m_solver->check_resolvable(c_lvl, bj_lvl, lemma, unit_lits);
+    unsigned c_lvl = m_solver->compute_conflict_lvl();
+
     //Case 1. Solver UNSAT
     if (c_lvl == 0) {
         exit_unsat();
@@ -613,13 +611,18 @@ lbool sms_solver::resolve_conflict() {
       return l_false;
     }
 
+    unsigned  bj_lvl = 0;
+    literal_vector lemma;
+    literal_vector unit_lits;
+    bool resolvable = m_solver->check_resolvable(c_lvl, bj_lvl, lemma, unit_lits);
+
+    // Case 3. Conflict cannot be resolved in one module. refine
     if (!resolvable) {
-        bj_lvl = get_search_lvl();
         handle_mode_transition();
         return l_false;
     }
 
-    // Case 3. Conflict might cause backjumping to level below validate/search
+    // Case 4. Conflict might cause backjumping to level below validate/search
     // but no immediate mode transition
     if ((get_mode() == VALIDATE && bj_lvl < m_validate_lvl) ||
          (get_mode() == SEARCH && bj_lvl < m_search_lvl)) {

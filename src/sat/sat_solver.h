@@ -647,6 +647,7 @@ public:
             return get_clause(j.get_clause_offset());
         }
 
+        unsigned compute_conflict_lvl() { bool u; return get_max_lvl(m_not_l, m_conflict, u); }
         unsigned get_conflict_lvl() { return m_conflict_lvl; }
         void save_trail(unsigned start, unsigned end, literal_vector& t, svector<justification>& j) {
                 literal l;
