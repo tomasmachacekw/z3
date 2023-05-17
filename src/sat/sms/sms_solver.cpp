@@ -278,7 +278,6 @@ void sms_solver::set_conflict(sms_solver* solver) {
     // solver is unsat with decisions in this
     // learn m_ext_clause
     SASSERT(!m_ext_clause.empty());
-    literal not_l = null_literal;
     place_highest_dl_at_start(m_ext_clause);
     dbg_print_lv("other solver unsat with current trail, learning lemma ", m_ext_clause);
     if (m_drating) drat_dump_cp(m_ext_clause, idx);
@@ -287,18 +286,21 @@ void sms_solver::set_conflict(sms_solver* solver) {
     if (m_solver->inconsistent()) return;
     unsigned lvl = m_solver->lvl(m_ext_clause[0]);
     justification js(lvl);
+    // force conflict
     switch (m_ext_clause.size()) {
     case 1:
+        m_solver->set_conflict(js);
+        break;
+    case 2:
         js = justification(lvl, m_ext_clause[0]);
+        m_solver->set_conflict(js, ~m_ext_clause[1]);
         break;
     default:
         clause_offset co = m_solver->get_offset(*c);
-        not_l = ~m_ext_clause[0];
         js = justification(lvl, co);
+        m_solver->set_conflict(js);
         break;
     }
-    // force conflict
-    m_solver->set_conflict(js, not_l);
     dbg_print_stat("conflict level", lvl);
 }
 
