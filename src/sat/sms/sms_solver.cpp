@@ -169,7 +169,7 @@ bool sms_solver::unit_propagate() {
             return false;
         }
         literal_vector const &t = m_pSolver->get_asserted();
-        for (literal l : t) { assign_from_other(l, PSOLVER_EXT_IDX); }
+        for (literal l : t) { assign_from_other(l, m_pSolver); }
     }
     if (m_nSolver && m_nSolver->get_mode() == LOOKAHEAD) {
         m_nSolver->reset_asserted();
@@ -184,7 +184,7 @@ bool sms_solver::unit_propagate() {
             return false;
         }
         literal_vector const &t = m_nSolver->get_asserted();
-        for (literal l : t) { assign_from_other(l, NSOLVER_EXT_IDX); }
+        for (literal l : t) { assign_from_other(l, m_nSolver); }
     }
     return true;
 }
@@ -310,15 +310,16 @@ void sms_solver::asserted(literal l) {
     if (m_shared[l.var()]) {
         m_asserted.push_back(l);
         if (m_pSolver && get_mode() != LOOKAHEAD)
-            m_pSolver->assign_from_other(l, NSOLVER_EXT_IDX);
+            m_pSolver->assign_from_other(l, this);
         if (m_nSolver && m_nSolver->get_mode() == LOOKAHEAD)
-            m_nSolver->assign_from_other(l, PSOLVER_EXT_IDX);
+            m_nSolver->assign_from_other(l, this);
     }
 }
 
-void sms_solver::assign_from_other(literal l, ext_justification_idx idx) {
+void sms_solver::assign_from_other(literal l, sms_solver* solver) {
+    SASSERT(this != solver);
     justification js =
-        justification::mk_ext_justification(m_solver->scope_lvl(), idx);
+        justification::mk_ext_justification(solver->get_lit_lvl(l), solver->get_id());
     switch (m_solver->value(l)) {
     case l_undef:
         dbg_print_lit("assigning from other", l);

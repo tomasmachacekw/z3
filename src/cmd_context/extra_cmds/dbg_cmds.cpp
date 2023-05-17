@@ -400,6 +400,7 @@ public:
     }
     params_ref p =  gparams::get_module("smt");
     p.set_bool("minimize_lemmas", false);
+    p.set_uint("backtrack.conflicts", UINT_MAX);
     sat::sat_mod_sat solver(m, p);
     sat::sms_proof_itp itp(m, &solver);
     expr_ref fml1(fml_A, m);

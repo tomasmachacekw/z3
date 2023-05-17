@@ -194,7 +194,11 @@ class sms_solver : public extension {
     clause* learn_clause(literal_vector& cls);
     bool unit_propagate() override;
     void asserted(literal) override;
-    void assign_from_other(literal, ext_justification_idx);
+    unsigned get_lit_lvl(literal l) {
+        SASSERT(m_solver->value(l) != l_undef);
+        return m_solver->get_justification(l.var()).level();
+    }
+    void assign_from_other(literal, sms_solver*);
     void push_from_other();
     void init_search() override;
     void push() override;
