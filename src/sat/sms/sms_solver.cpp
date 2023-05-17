@@ -193,7 +193,7 @@ bool sms_solver::pick_random_unassigned(bool_var &next, lbool &phase) {
         i--;
         if (m_solver->value(v) == l_undef) {
             next = v;
-            phase = l_false;
+            phase = l_undef;
             return true;
         }
     }
