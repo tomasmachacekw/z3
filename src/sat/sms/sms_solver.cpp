@@ -237,6 +237,8 @@ bool sms_solver::decide(bool_var &next, lbool &phase) {
     }
     //m_pSolver refined
     if (m_pSolver->get_next_decision() != null_literal) {
+        m_pSolver->set_mode(PROPAGATE);
+        set_search_mode(0);
         next = m_pSolver->get_next_decision().var();
         phase = m_pSolver->get_next_decision().sign() ? l_true : l_false;
         SASSERT(m_solver->value(next) == l_undef);
