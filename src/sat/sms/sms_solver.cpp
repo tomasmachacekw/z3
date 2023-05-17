@@ -289,7 +289,9 @@ void sms_solver::set_conflict(sms_solver* solver) {
     // force conflict
     switch (m_ext_clause.size()) {
     case 1:
-        m_solver->set_conflict(js);
+        // if its a unit clause, it cannot be simplified further, so no need for
+        //conflict analysis
+        SASSERT(m_solver->scope_lvl() == 0);
         break;
     case 2:
         js = justification(lvl, m_ext_clause[0]);
@@ -417,7 +419,7 @@ void sms_solver::exit_search(unsigned lvl) {
     m_exiting = true;
     m_solver->pop(m_solver->scope_lvl() - lvl);
     set_mode(PROPAGATE);
-    m_nSolver->set_mode(SEARCH);
+    m_nSolver->set_search_mode(0);
     m_exiting = false;
 }
 
@@ -646,8 +648,9 @@ lbool sms_solver::resolve_conflict() {
         auto handle_reinit_conflict = [&] () {
             dbg_print_stat("reinit hit a conflict at level", m_solver->scope_lvl());
             SASSERT(m_solver->inconsistent());
-            // make recursive call. Decreases c_lvl
-            return resolve_conflict();
+            if (m_solver->scope_lvl() == 0) exit_unsat();
+            else handle_mode_transition();
+            return l_false;
         };
         //reinit assumptions
         m_solver->propagate(false);
@@ -661,6 +664,8 @@ lbool sms_solver::resolve_conflict() {
         for(unsigned i = 0, sz = m_replay_assign.size(); i < sz; i++) {
             justification js = m_replay_just[i];
             literal l = m_replay_assign[i];
+            SASSERT(m_solver->scope_lvl() <= js.level());
+            while (m_solver->scope_lvl() < js.level()) m_solver->push();
             // The trail is unordered. So we could be assigning literals at a
             // lower level than solver->scope_lvl()
             SASSERT(js.level() <= bj_lvl);
