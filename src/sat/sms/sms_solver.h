@@ -175,7 +175,7 @@ class sms_solver : public extension {
     sms_mode get_mode() { return m_mode; }
     void set_mode(sms_mode m) { m_mode = m; m_search_lvl = 0; m_validate_lvl = 0; }
     void set_conflict(sms_solver* solver);
-    void handle_mode_transition(unsigned lvl);
+    void handle_mode_transition();
     lbool resolve_conflict() override;
     void pop_reinit() override;
     void construct_itp() { m_construct_itp = true; }
@@ -190,7 +190,7 @@ class sms_solver : public extension {
                                           literal_vector const &antecedent, ext_justification_idx id);
     bool decide(bool_var &, lbool &) override;
     bool get_case_split(bool_var &, lbool &) override;
-    void place_highest_dl_at_start(literal_vector& cls);
+    unsigned place_highest_dl_at_start(literal_vector& cls);
     clause* learn_clause(literal_vector& cls);
     bool unit_propagate() override;
     void asserted(literal) override;

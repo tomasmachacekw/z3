@@ -65,7 +65,8 @@ void sms_solver::drat_dump_ext_unit(literal l, ext_justification_idx id) {
 }
 
 // place literal with highest dl in cls at position 0
-void sms_solver::place_highest_dl_at_start(literal_vector& cls) {
+// returns level at which cls is asserting
+unsigned sms_solver::place_highest_dl_at_start(literal_vector& cls) {
     unsigned lvl = 0;
     unsigned hl = 0;
     for (unsigned i = 0; i < cls.size(); i++) {
@@ -75,6 +76,11 @@ void sms_solver::place_highest_dl_at_start(literal_vector& cls) {
         }
     }
     std::swap(cls[0], cls[hl]);
+    unsigned bj_lvl = 0;
+    for (auto i = 1; i < cls.size(); i++) {
+        bj_lvl = std::max(bj_lvl, m_solver->lvl(cls[i]));
+    }
+    return bj_lvl;
 }
 
 // add cls to solver, return ptr to the new clause
@@ -541,17 +547,17 @@ void sms_solver::find_and_set_decision_lit() {
     SASSERT(false);
 }
 
-void sms_solver::handle_mode_transition(unsigned bj_lvl) {
+void sms_solver::handle_mode_transition() {
   if (get_mode() == VALIDATE) {
       if (get_reason_final(m_ext_clause, PSOLVER_EXT_IDX)) {
-          place_highest_dl_at_start(m_ext_clause);
+          unsigned bj_lvl = place_highest_dl_at_start(m_ext_clause);
           exit_validate(bj_lvl);
           dbg_print_lv("validate hit a conflict below validate lvl, learning "
                        "lemma and exiting", m_ext_clause);
           learn_clause(m_ext_clause);
       } else {
           find_and_set_decision_lit();
-          exit_validate(bj_lvl);
+          exit_validate(get_search_lvl());
           dbg_print_lit("validate hit a conflict below validate lvl, exiting "
                         "with new decision",
                         m_next_lit);
@@ -564,14 +570,14 @@ void sms_solver::handle_mode_transition(unsigned bj_lvl) {
         dbg_print_lv("search hit a conflict below search lvl, learning lemma "
                      "and exiting", *m_core);
         SASSERT(m_core != nullptr);
-        place_highest_dl_at_start(*m_core);
+        unsigned bj_lvl = place_highest_dl_at_start(*m_core);
         exit_search(bj_lvl);
         // learn clause in psolver as well. This is optional
         learn_clause(*m_core);
     }
     else {
         find_and_set_decision_lit();
-        exit_search(bj_lvl);
+        exit_search(get_search_lvl());
         dbg_print_lit("search hit an unrecoverable conflict "
                       "with new decision",
                         m_next_lit);
@@ -601,13 +607,13 @@ lbool sms_solver::resolve_conflict() {
     // i.e. conflict level is below validate/search level
     // handle backjumping, make solver transitions and return false
     if (c_lvl <= (get_mode() == VALIDATE ? get_validate_lvl() : get_search_lvl())) {
-      handle_mode_transition(bj_lvl);
+       handle_mode_transition();
       return l_false;
     }
 
     if (!resolvable) {
         bj_lvl = get_search_lvl();
-        handle_mode_transition(bj_lvl);
+        handle_mode_transition();
         return l_false;
     }
 
