@@ -2461,7 +2461,6 @@ namespace sat {
                 if (m_ext_antecedents.empty()) {
                     //conflict is below assumptions level. Trigger mode transition
                     reset_marks(marked);
-                    bj_lvl = 0;
                     return false;
                 }
                 for (literal l : m_ext_antecedents)

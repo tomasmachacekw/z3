@@ -598,9 +598,15 @@ lbool sms_solver::resolve_conflict() {
     // Case 2. This conflict forces solver mode transition immediately
     // i.e. conflict level is below validate/search level
     // handle backjumping, make solver transitions and return false
-    if (!resolvable || c_lvl <= (get_mode() == VALIDATE ? get_validate_lvl() : get_search_lvl())) {
+    if (c_lvl <= (get_mode() == VALIDATE ? get_validate_lvl() : get_search_lvl())) {
       handle_mode_transition(bj_lvl);
       return l_false;
+    }
+
+    if (!resolvable) {
+        bj_lvl = get_search_lvl();
+        handle_mode_transition(bj_lvl);
+        return l_false;
     }
 
     // Case 3. Conflict might cause backjumping to level below validate/search
