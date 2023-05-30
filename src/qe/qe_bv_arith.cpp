@@ -1140,6 +1140,7 @@ struct bv_project_plugin::imp {
       // back to qe_arith plugin give up without even trying
       expr_ref_vector res(m);
       res.append(fmls);
+      // for all variables to project
       for (unsigned var_num = 0; var_num < vars.size(); var_num++) {
         expr_ref v(vars.get(var_num), m);
         TRACE("bv_tmp", tout << "eliminate " << mk_pp(v, m) << "\n";);
@@ -1147,15 +1148,16 @@ struct bv_project_plugin::imp {
         expr_ref_vector new_fmls(m), norm(m), backg_fmls(m), norm_fmls(m);
         expr_ref_vector pi(m), sig(m);
 
+        // for each formula
         for (unsigned f_num = 0; f_num < res.size(); f_num++) {
           expr_ref f(res.get(f_num), m);
 
-          // background fmls
+          // background fmls -- if var is not in formula then save it
           if (!contains(f, v)) {
             backg_fmls.push_back(f);
             continue;
           }
-          norm.reset();
+          norm.reset(); // formulas returned by normalization process
           // normalize and add to sig
           if (normalize(v, f, model, norm)) {
             TRACE("bv_tmp", tout << "Normalized " << f << " into "
@@ -1180,6 +1182,12 @@ struct bv_project_plugin::imp {
             pi.push_back(f);
           }
         }
+        /* everything normalizable is normalized
+        backg_fmls - formulas without variable v
+        norm_fmls - formulas in normalized form
+        sig - original formulas that were normalizable
+        pi - original formulas that were not normalizable
+        */
         expr_ref_vector bd_fmls(m);
         resolve(v, norm_fmls, model, new_fmls, bd_fmls);
         TRACE("bv_tmp", tout << "Resolve produced " << mk_and(new_fmls) << "\n";);
@@ -1194,20 +1202,22 @@ struct bv_project_plugin::imp {
                            << " and sig " << mk_and(sig) << "\n";);
           lazy_mbp(backg_fmls, sig, pi, v, new_fmls, model);
         }
-        res.reset();
+        res.reset(); // reset and throw away everything we have computed for other variables for each variable?
         res.append(new_fmls);
         res.append(backg_fmls);
         TRACE("bv_tmp", tout << "eliminated " << mk_pp(v, m) << " result is "
                              << mk_and(res) << "\n";);
         SASSERT(model.is_true(res));
       }
-      return vector<def>();
+      return vector<def>(); // so this functions always returns empty vector, contains no returns elsewhere?
     }
 
+    // get literals in the form t <=_u s(x)
     void get_lbs(expr *var, expr_ref_vector &f, expr_ref_vector &lbs) {
       expr *lhs, *rhs;
       for (auto a : f) {
         if (contains(a, var)) {
+          // if it is in the form t <=_u s(x)
           if (bv.is_bv_ule(a, lhs, rhs) && !contains(lhs, var) &&
               contains(rhs, var))
             lbs.push_back(a);
@@ -1215,6 +1225,7 @@ struct bv_project_plugin::imp {
       }
     }
 
+    // get literals in the form s(x) <=_u t
     void get_ubs(expr *var, expr_ref_vector &f, expr_ref_vector &ubs) {
       expr *lhs, *rhs;
       for (auto a : f) {
@@ -1237,12 +1248,12 @@ struct bv_project_plugin::imp {
         SASSERT(bv.is_numeral(t1));
         bv.is_numeral(t1, o_coeff);
         return o_coeff * get_coeff(t2, var);
-    }
-    for (auto t : *to_app(a)) {
-      if (contains(t, var))
-        return get_coeff(t, var);
-    }
-    return rational::zero();
+      }
+      for (auto t : *to_app(a)) {
+        if (contains(t, var))
+          return get_coeff(t, var);
+      }
+      return rational::zero();
     }
 
 //lcm of coefficients of var in f
@@ -1255,6 +1266,8 @@ struct bv_project_plugin::imp {
     return l;
     }
 
+// input Model and vector of terms t <=_u s * x
+// find term where s it is inf of s_i
 expr* find_glb(model &mdl, expr_ref_vector& lbs) {
     expr_ref res(m);
     expr *r = lbs.get(0);
@@ -1273,6 +1286,8 @@ expr* find_glb(model &mdl, expr_ref_vector& lbs) {
     return r;
 }
 
+// input Model and vector of terms s * x <=_u t
+// find term where s is sup s_i
 expr *find_lub(model &mdl, expr_ref_vector &ubs) {
   expr_ref res(m);
   expr *r = ubs.get(0);
@@ -1321,6 +1336,9 @@ void resolve(expr *a, expr *b, rational lcm, expr *var, expr_ref &res) {
   }
 }
 
+// generates under-aproximation True if all literals in form s*x >=t  or s*x<=t
+// 
+
 // generates an under-approximation for some literals in f
 // modifies f, res and bd_fmls
 void resolve(expr *var, expr_ref_vector &f, model &mdl, expr_ref_vector &res,
@@ -1328,8 +1346,19 @@ void resolve(expr *var, expr_ref_vector &f, model &mdl, expr_ref_vector &res,
   if (f.empty())
     return;
   expr_ref_vector lbs(m), ubs(m);
-  get_lbs(var, f, lbs);
-  get_ubs(var, f, ubs);
+  get_lbs(var, f, lbs); //t <=_u s(x) -- in paper this should be <
+  get_ubs(var, f, ubs); //s(x) <=_u t -- this is ok
+
+  // first case from the paper
+  // if x*s <= something -  it can always be true 
+  // if .. t <= s * x then it sometimes isnt possible?- POSSIBLE BUG
+  /* Z3 proof
+(declare-const x (_ BitVec 8))
+(assert (= x #b11111110))
+(assert (forall ((k (_ BitVec 8))) (exists ((l (_ BitVec 8))) (bvuge (bvmul k l) x))))
+(check-sat)
+unsat
+  */
   if (ubs.size() == f.size() || lbs.size() == f.size()) {
     bd_fmls.reset();
     res.push_back(m.mk_true());
@@ -1347,11 +1376,13 @@ void resolve(expr *var, expr_ref_vector &f, model &mdl, expr_ref_vector &res,
                        << " and the lower bound is " << mk_pp(lb, m) << "\n";);
   rational ub_c = get_coeff(ub, var);
   rational lb_c = get_coeff(lb, var);
-  expr_ref_vector sc(m);
+  expr_ref_vector sc(m); // co je v sc?
   if (!lcm.is_one()) {
     NOT_IMPLEMENTED_YET();
     return;
   }
+
+  // create vector t_i <= _u t from t_i <=_u s_i *x and t such that s = lb_c
 
   // compare all lbs against lb
   nw_rhs = to_app(lb)->get_arg(0);
@@ -1363,6 +1394,8 @@ void resolve(expr *var, expr_ref_vector &f, model &mdl, expr_ref_vector &res,
     TRACE("bv_tmp", tout << "lb comparison produced " << r << "\n";);
   }
 
+  // create vector t <= _u t_i from t < s * x such that s = lb_c and  s_i * x <=_u t_i
+
   // resolve all ubs against lb
   for (auto a : ubs) {
     resolve(lb, a, lcm, var, r);
@@ -1370,6 +1403,7 @@ void resolve(expr *var, expr_ref_vector &f, model &mdl, expr_ref_vector &res,
     TRACE("qe", tout << "resolve produced " << r << "\n";);
   }
 
+  
   // check if any side conditions failed
   if (!mdl.is_true(mk_and(sc))) {
     bd_fmls.append(f);
