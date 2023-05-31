@@ -672,6 +672,7 @@ bool extract_assgn(expr *lhs, expr *rhs, expr_ref var, expr_ref_vector &res) {
     return false;
 }
 
+// Tom - why not do big equality between tmm?
 bool resolve_eqs(expr_ref_vector &res, expr_ref v) {
     expr_ref_vector tmm(m);
     for (unsigned f_num = 0; f_num < res.size(); f_num++) {
