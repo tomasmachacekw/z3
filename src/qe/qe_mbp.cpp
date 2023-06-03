@@ -139,7 +139,6 @@ class mbp::impl {
         expr_ref tmp(m), t(m), v(m);            
         for (unsigned i = 0; i < lits.size(); ++i) {
             expr* e = lits[i].get(), *l, *r;
-            // Tom - equalities are handled here explicitly
             if (m.is_eq(e, l, r) && reduce_eq(is_var, l, r, v, t)) {
                 reduced = true;
                 project_plugin::erase(lits, i);
@@ -153,7 +152,6 @@ class mbp::impl {
                 }
             }
         }
-        std::cout << "Tom - vo vnutri solve pred if2 solve je: " << model.is_true(mk_and(lits)) << std::endl;
         if (reduced) {
             unsigned j = 0;
             for (app* v : vars) {
@@ -163,7 +161,6 @@ class mbp::impl {
             }
             vars.shrink(j);
         }
-        std::cout << "Tom - vo vnutri solve po if2 solve je: " << model.is_true(mk_and(lits)) << std::endl;
         return reduced;
     }
 
@@ -379,7 +376,6 @@ public:
             expr* fml = fmls[i].get(), *nfml, *f1, *f2, *f3;
             SASSERT(m.is_bool(fml));
             if (m.is_not(fml, nfml) && m.is_distinct(nfml)) {
-                // if equality take that equality, if more than 2 members of eq then pick 2 that must be same otherwise it would not be false
                 fmls[i] = project_plugin::pick_equality(m, model, nfml);
                 --i;
             }
@@ -393,7 +389,6 @@ public:
                     }
                 }
             }
-            // break and into multiple lits
             else if (m.is_and(fml)) {
                 fmls.append(to_app(fml)->get_num_args(), to_app(fml)->get_args());
                 project_plugin::erase(fmls, i);
@@ -488,7 +483,7 @@ public:
                 if (extract_bools(eval, fmls, fml)) {
                     project_plugin::erase(fmls, i);
                 }
-                // TBD other Boolean operations. - Not added by tom but I should add them
+                // TBD other Boolean operations.
             }
         }
         TRACE("qe", tout << fmls << "\n";);
@@ -497,7 +492,6 @@ public:
 
     impl(ast_manager& m, params_ref const& p):m(m), m_params(p), m_rw(m) {
         add_plugin(alloc(arith_project_plugin, m));
-        // TOM  -- here I add bv_project plugin
         add_plugin(alloc(bv_project_plugin, m));
         add_plugin(alloc(datatype_project_plugin, m));
         add_plugin(alloc(array_project_plugin, m));
@@ -516,16 +510,13 @@ public:
 
     void preprocess_solve(model& model, app_ref_vector& vars, expr_ref_vector& fmls) {
         extract_literals(model, fmls);
-        std::cout << "Tom - po extract literals model je: " << model.is_true(mk_and(fmls)) << std::endl;
         bool change = true;
         while (change && !vars.empty()) {
             change = solve(model, vars, fmls);
-            std::cout << "Tom - po solve je: " << model.is_true(mk_and(fmls)) << "a change je"<< change<< std::endl;
             for (auto* p : m_plugins) {
                 if (p && p->solve(model, vars, fmls)) {
                     change = true;
                 }
-                SASSERT(model.is_true(mk_and(fmls)));
             }
         }        
     }
@@ -539,32 +530,23 @@ public:
         return true;
     }
 
-    // TOM odtialto volam správny project_plugin, lebo ho dostanem cez get plugin - krok 13
     void operator()(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls) {
         SASSERT(validate_model(model, fmls));
         expr_ref val(m), tmp(m);
         app_ref var(m);
         expr_ref_vector unused_fmls(m);
         bool progress = true;
-        std::cout << "Tom - pred preprocessingom model je: " << model.is_true(mk_and(fmls)) << std::endl;
         preprocess_solve(model, vars, fmls);
-        std::cout << "Tom - pred filter variables model je: " << model.is_true(mk_and(fmls)) << std::endl;
         filter_variables(model, vars, fmls, unused_fmls);
-        std::cout << "Tom - pred project bools variables model je: " << model.is_true(mk_and(fmls)) << std::endl;
         project_bools(model, vars, fmls);
-        std::cout << "Tom - po project bools model je: " << model.is_true(mk_and(fmls)) << std::endl;
         while (progress && !vars.empty() && !fmls.empty() && m.limit().inc()) {
             app_ref_vector new_vars(m);
             progress = false;
-            int counter = 0;
             for (project_plugin * p : m_plugins) {
                 if (p) {
-                    std::cout << "Tom - tu idem do MBP" << counter << "a model je:" << model.is_true(mk_and(fmls)) << std::endl;
                     (*p)(model, vars, fmls);
-                    counter++;
                 }
             }
-            counter = 0;
             while (!vars.empty() && !fmls.empty() && m.limit().inc()) {
                 var = vars.back();
                 vars.pop_back();
@@ -726,8 +708,7 @@ void mbp::get_param_descrs(param_descrs & r) {
     r.insert("reduce_all_selects", CPK_BOOL, "(default: false) reduce selects");
     r.insert("dont_sub", CPK_BOOL, "(default: false) disable substitution of values for free variables");
 }
-
-// TOM tu sa cez operator dostanem dalej do implementacie krok 12
+        
 void mbp::operator()(bool force_elim, app_ref_vector& vars, model& mdl, expr_ref_vector& fmls) {
     scoped_no_proof _sp (fmls.get_manager());
     (*m_impl)(force_elim, vars, mdl, fmls);

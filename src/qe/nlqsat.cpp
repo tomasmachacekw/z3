@@ -386,7 +386,6 @@ namespace qe {
             // renaming variables. 
             for (unsigned i = vars.size(); i-- > 0;) {
                 new_result.reset();
-                // TOM -  krok 21
                 ex.project(vars[i], result.size(), result.c_ptr(), new_result);
                 TRACE("qe", display_project(tout, vars[i], result, new_result););                
                 TRACE("qe", display_project(std::cout, vars[i], result, new_result););

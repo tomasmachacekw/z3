@@ -141,7 +141,6 @@ namespace spacer {
         p.set_bool("reduce_all_selects", reduce_all_selects);
         p.set_bool("dont_sub", dont_sub);
 
-        // TOM - MBP called from qe_project - krok 11
         qe::mbp mbp(m, p);
         mbp.spacer(vars, mdl, fml);
     }
@@ -248,7 +247,7 @@ namespace spacer {
               qe::mbp mbp (m);
               expr_ref_vector fmls(m);
               flatten_and (fml, fmls);
-            // TOM - MBP called for reals and ints krok 11 (nemal bz by som sa sem dostat, lebo native_mbp je false a neda sa dostat do tejto funkcie)
+
               mbp (true, arith_vars, mdl, fmls);
               fml = mk_and(fmls);
               SASSERT(arith_vars.empty ());
@@ -311,7 +310,6 @@ namespace spacer {
             qe_project_z3(m, vars, fml, mdl,
                           reduce_all_selects, use_native_mbp, dont_sub);
         else
-            // TOM tu sa nedostávam do spaceru krok - lebo use_native_mbp je true
             qe_project_spacer(m, vars, fml, mdl,
                               reduce_all_selects, use_native_mbp, dont_sub);
     }

@@ -65,7 +65,7 @@ void get_extrt_bnds(expr* var, expr_ref e, vector<bnd> &bnds) {
   bv_util m_bv(e.get_manager());
   unsigned sz = m_bv.get_bv_size(var);
   bnd full(0, sz - 1);
-  bnds.push_back(full); // so that whole var is kept when it is not extracted
+  bnds.push_back(full);
   CTRACE("bv_tmp", bnds.size() > 0, tout << "extracted bnds " << e << " for var " << mk_pp(var, e.get_manager()) << " "<< bnds.size() << "\n";);
 }
 //check whether r overlaps with any bnd in bnds
@@ -983,11 +983,8 @@ struct bv_mbp_rw_cfg : public default_rewriter_cfg {
     bool rewrite_concat(expr* a, expr_ref& res, expr_ref& sc) {
         if (m_bv.is_bv_add(a)) {
             expr_ref a1(m), a1_neg(m), a2(m);
-            expr_ref_vector a_rest(m);
             a1 = to_app(a)->get_arg(0);
             a2 = to_app(a)->get_arg(1);
-            a_rest = to_app(a)->get_args();
-            std::cout << "Tom - a1 and a2 in rw concat :" << a1  << std::endl << a2  << std::endl;
             rational n;
             expr_ref_vector nw_args(m);
             if (m_bv.is_concat(a2) && m_bv.is_numeral(a1, n)) {
@@ -1028,18 +1025,12 @@ struct bv_mbp_rw_cfg : public default_rewriter_cfg {
         expr_ref sc(m);
         expr_ref e(m);
         e = m.mk_app(f, num, args);
-        std::cout << "Tom - got into reduce app with expr" << e << std::endl;
         if (rewrite_concat(e, result, sc)) {
             m_sc.push_back(sc);
             TRACE("bv_tmp", tout << "concat rewritten " << result << " and sc " << sc << "\n";);
-            std::cout << "Tom - result after rw concat |" << result << std::endl;
-            SASSERT(m_mdl->is_true(result));
             return BR_DONE;
         }
         if (rewrite_bvneg(e, result)) {
-            // sanity checks for debug
-            SASSERT(m_mdl->is_true(result));
-            std::cout << "Tom - result after rw neg |" << result << std::endl;
             return BR_DONE;
         }
         return BR_FAILED;
@@ -1149,9 +1140,6 @@ struct bv_project_plugin::imp {
       // back to qe_arith plugin give up without even trying
       expr_ref_vector res(m);
       res.append(fmls);
-      //std::cout << "Printing formulas |" << fmls.size() << "|" <<std::endl << fmls<< std::endl << "|" <<model << "|" <<std::endl;
-      // Sanity check, if model is trully a model of fmls
-      SASSERT(model.is_true(mk_and(fmls)));
       // for all variables to project
       for (unsigned var_num = 0; var_num < vars.size(); var_num++) {
         expr_ref v(vars.get(var_num), m);
@@ -1184,7 +1172,6 @@ struct bv_project_plugin::imp {
               else
                 backg_fmls.push_back(a);
             }
-            std::cout << "Printing formulas |" <<  mk_pp(mk_and(norm), m) <<std::endl;
             // sanity check. normalization should be an under approximation
             SASSERT(is_sat((mk_and(norm), m.mk_not(f))));
             // sanity check. model satisfies normalized formula
@@ -1215,14 +1202,14 @@ struct bv_project_plugin::imp {
                            << " and sig " << mk_and(sig) << "\n";);
           lazy_mbp(backg_fmls, sig, pi, v, new_fmls, model);
         }
-        res.reset();
+        res.reset(); // reset and throw away everything we have computed for other variables for each variable?
         res.append(new_fmls);
         res.append(backg_fmls);
         TRACE("bv_tmp", tout << "eliminated " << mk_pp(v, m) << " result is "
                              << mk_and(res) << "\n";);
         SASSERT(model.is_true(res));
       }
-      return vector<def>();
+      return vector<def>(); // so this functions always returns empty vector, contains no returns elsewhere?
     }
 
     // get literals in the form t <=_u s(x)
@@ -1505,8 +1492,8 @@ void lazy_mbp(expr_ref_vector &bg, expr_ref_vector &sig, expr_ref_vector &pi, ex
     TRACE("bv_tmp", tout << "\nLazy MBP completed. pi size " << init_sz << " substitutions in sig " << substs.size() - init_sz << " and sig size " << sig.size()  << "\n";);
     new_fmls.append(substs);
 }
-      // krok, volam sa do operatoru s jednou var, ktorej sa chcem zbaviť - krok 15
-      // project a single variable 
+
+      // project a single variable
       bool operator()(model &model, app *v, app_ref_vector &vars,
                       expr_ref_vector &lits) {
         app_ref_vector vs(m);
@@ -1518,14 +1505,12 @@ void lazy_mbp(expr_ref_vector &bg, expr_ref_vector &sig, expr_ref_vector &pi, ex
       bool solve(model & model, app_ref_vector & vars, expr_ref_vector & lits) {
         TRACE("bv_tmp",
               tout << "entering solve with " << mk_and(lits) << "\n";);
-        std::cout << "Tom - vo vnutri bv_arith-impl-solve: " << model.is_true(mk_and(lits)) << std::endl;
         expr_ref_vector sc_bvr(m);
         expr_ref res(m), lit_and(m);
         expr_mark reduced;
         lit_and = mk_and(lits);
         app_ref_vector nw_vars(m);
         vector<bnd> bnds, nw_bnds;
-        // code responsible for rewriting extracts into new extract variables
         for (auto *e : vars) {
           bnds.reset();
           bv_ext_rw_cfg bv_ext_rw(m, e);
@@ -1549,15 +1534,11 @@ void lazy_mbp(expr_ref_vector &bg, expr_ref_vector &sig, expr_ref_vector &pi, ex
         bv_mbp_rw_cfg bvr(m, sc_bvr);
         bvr.add_model(&model);
         rewriter_tpl<bv_mbp_rw_cfg> bv_rw(m, false, bvr);
-        std::cout << "Tom - pred rewrite operatore bv_arith-impl-solve: " << model.is_true(lit_and) << std::endl;
         bv_rw(lit_and.get(), lit_and);
-        std::cout << "Tom - po rewrite operatore bv_arith-impl-solve: " << model.is_true(lit_and) << std::endl;
         lits.reset();
         flatten_and(lit_and, lits);
-        std::cout << "Tom - po flatten and bv_arith-impl-solve: " << model.is_true(lits) << std::endl;
         lits.append(sc_bvr);
         //returning false because all preprocessing is over
-        std::cout << "Tom - na konci bv_arith-impl-solve: " << model.is_true(mk_and(lits)) << std::endl;
         return false;
       }
       };
@@ -1592,7 +1573,6 @@ void lazy_mbp(expr_ref_vector &bg, expr_ref_vector &sig, expr_ref_vector &pi, ex
 
       bool bv_project_plugin::solve(model & model, app_ref_vector & vars,
                                     expr_ref_vector & lits) {
-        std::cout << "Tom - vo vnutri bv_project_plugin::solve: " << model.is_true(mk_and(lits)) << std::endl;
         return m_imp->solve(model, vars, lits);
       }
 

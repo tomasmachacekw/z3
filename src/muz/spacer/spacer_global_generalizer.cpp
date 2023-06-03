@@ -421,7 +421,6 @@ bool lemma_global_generalizer::subsume(lemma_cluster lc, lemma_ref &lemma,
     SASSERT(mdl.get() != nullptr);
     TRACE("subsume", expr_ref t(m); model2expr(mdl, t);
           tout << "calling mbp with " << cvx_pattern << " and " << t << "\n";);
-    // TOM next place where I can call - krok 9
     qe_project(m, m_dim_frsh_cnsts, cvx_pattern, *mdl.get(), true, true, !m_ctx.use_ground_pob());
     TRACE("subsume_verb", tout << "Pattern after mbp of computing cvx cls: "
                                << cvx_pattern << "\n";);

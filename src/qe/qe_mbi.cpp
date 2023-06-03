@@ -308,7 +308,6 @@ namespace qe {
         expr_ref_vector alits(m), uflits(m);
         split_arith(lits, alits, uflits);
         auto avars = get_arith_vars(lits);
-        // TOM - krok 22
         vector<def> defs = arith_project(mdl, avars, alits);
         for (auto const& d : defs) uflits.push_back(m.mk_eq(d.var, d.term));
         TRACE("qe", tout << "uflits: " << uflits << "\n";);

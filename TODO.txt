@@ -1,8 +1,0 @@
-PRIO 1
-- add invertibility conditions for operators that are currently unhandled (from the unhandled funcion in qe_bv_arith)
-- find next important TODO, think about incorporating other operations
-
-PRIO 2
-- why normalize = into <= or => when we can replace it and get a more precise aproximation?
--- utilize function from bvspacer to replace x for the first euality, such that we choose the t1,t2 .. t_n st. it has least variables and replace linear occurences
-
