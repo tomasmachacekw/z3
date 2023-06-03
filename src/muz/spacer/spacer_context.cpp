@@ -1331,6 +1331,7 @@ bool pred_transformer::is_qblocked (pob &n) {
 void pred_transformer::mbp(app_ref_vector &vars, expr_ref &fml, model &mdl,
                            bool reduce_all_selects, bool force) {
     scoped_watch _t_(m_mbp_watch);
+    // TOM- tiez krok 9
     qe_project(m, vars, fml, mdl, reduce_all_selects, use_native_mbp(), !force);
 }
 

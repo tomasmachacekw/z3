@@ -3484,17 +3484,17 @@ namespace smt {
         if (!check_preamble(reset_cancel)) return l_undef;
         SASSERT(at_base_level());
         setup_context(false);
-        if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {            
+        if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {           
             expr_ref_vector asms(m, num_assumptions, assumptions);
             parallel p(*this);
             return p(asms);
         }
-        lbool r;
+        lbool r;  
         do {
             pop_to_base_lvl();
             expr_ref_vector asms(m, num_assumptions, assumptions);
             internalize_assertions();
-            add_theory_assumptions(asms);                
+            add_theory_assumptions(asms);               
             TRACE("unsat_core_bug", tout << asms << "\n";);        
             init_assumptions(asms);
             TRACE("before_search", display(tout););
@@ -3588,7 +3588,7 @@ namespace smt {
     }
 
 
-    lbool context::search() {
+    lbool context::search() { 
         if (m_asserted_formulas.inconsistent()) {
             asserted_inconsistent();
             return l_false;
@@ -3614,7 +3614,6 @@ namespace smt {
 
         while (true) {
             SASSERT(!inconsistent());
-
             status = bounded_search();
             TRACE("search_bug", tout << "status: " << status << ", inconsistent: " << inconsistent() << "\n";);
             TRACE("assigned_literals_per_lvl", display_num_assigned_literals_per_lvl(tout);

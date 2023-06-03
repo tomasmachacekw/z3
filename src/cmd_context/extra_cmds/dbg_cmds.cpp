@@ -369,6 +369,7 @@ public:
             }
             vars.push_back(to_app(v));
         }
+        // TOM - tu tvorim mbp object a volam spacer - krok 10
         qe::mbp mbp(m);
         expr_ref fml(m_fml, m);
         mbp.spacer(vars, *mdl.get(), fml);
