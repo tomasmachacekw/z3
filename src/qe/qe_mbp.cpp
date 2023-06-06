@@ -127,6 +127,8 @@ class mbp::impl {
         return m_plugins.get(fid, 0);
     }
 
+
+    // function that replaces variable x with equivalent x-free expr.
     bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
         expr_mark is_var, is_rem;
         if (vars.empty()) {
@@ -136,7 +138,8 @@ class mbp::impl {
         for (unsigned i = 0; i < vars.size(); ++i) { 
             is_var.mark(vars[i].get());
         }
-        expr_ref tmp(m), t(m), v(m);            
+        expr_ref tmp(m), t(m), v(m);
+        // handle equalities, find equality in the form x = .. and replace all occurences of x         
         for (unsigned i = 0; i < lits.size(); ++i) {
             expr* e = lits[i].get(), *l, *r;
             if (m.is_eq(e, l, r) && reduce_eq(is_var, l, r, v, t)) {
@@ -152,6 +155,7 @@ class mbp::impl {
                 }
             }
         }
+        // find variables that are still remaining, not removed ..
         if (reduced) {
             unsigned j = 0;
             for (app* v : vars) {
@@ -244,6 +248,7 @@ class mbp::impl {
         return found_bool;
     }
 
+    // replace all bool variables with model value
     void project_bools(model& mdl, app_ref_vector& vars, expr_ref_vector& fmls) {
         expr_safe_replace sub(m);
         expr_ref val(m);
@@ -367,6 +372,7 @@ public:
         return arith.maximize(fmls, mdl, t, ge, gt);
     }
 
+    // break logical ops into literals
     void extract_literals(model& model, expr_ref_vector& fmls) {
         expr_ref val(m);
         model_evaluator eval(model);
@@ -508,6 +514,7 @@ public:
         m_dont_sub   = m_params.get_bool("dont_sub", false);
     }
 
+    // break logical ops into literals, replace x with x-free and replace double neg and push addition into concat
     void preprocess_solve(model& model, app_ref_vector& vars, expr_ref_vector& fmls) {
         extract_literals(model, fmls);
         bool change = true;
@@ -530,6 +537,108 @@ public:
         return true;
     }
 
+    bool project_linear_var(app_ref& var, model& model, expr_ref_vector& fmls, expr_ref_vector& boundaries) { 
+        NOT_IMPLEMENTED_YET();
+    }
+
+    // project variables that are top level linear in the formula --> invertibility conditions
+    // for each formula project each variable if they do not fall into the same true case
+    // also check if reduced formula is a valid boundary
+    bool project_linear(app_ref_vector& vars, model& model, expr_ref_vector& fmls, expr_ref_vector& boundaries) { 
+        NOT_IMPLEMENTED_YET();
+    }
+
+    // extract formulas of the form s*x <u t , s * x <=u t, t <u s*x , t <=u s*x,that would be reduced to true
+    void extract_unsigned_boundaries(app_ref_vector& vars, model& model, expr_ref_vector& fmls, expr_ref_vector& boundaries) {
+        NOT_IMPLEMENTED_YET();
+    }
+
+    // normalize whatever we did not breakup / extract until now -> Normalization function
+    bool normalize_ineq(app_ref_vector& vars, model& model, expr_ref_vector& fmls) {
+        NOT_IMPLEMENTED_YET();
+    }
+
+    // expects a cube in fmls
+    void mainloop(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls) {
+        bool progress = true;
+        app_ref_vector new_vars(m);
+        expr_ref val(m), tmp(m);
+        app_ref var(m);
+        expr_ref_vector boundaries(m);
+        boundaries.reset();
+
+        extract_unsigned_boundaries(vars, model, fmls, boundaries); // Dont need this I think
+        project_linear(vars, model, fmls, boundaries);
+        //fmls.append(boundaries); // TODO think what to do with boundaries
+        while (progress && !vars.empty() && !fmls.empty() && m.limit().inc()) {
+            app_ref_vector new_vars(m);
+            progress = false;
+            for (project_plugin * p : m_plugins) {
+                if (p) {
+                    (*p)(model, vars, fmls);
+                }
+            }
+            while (!vars.empty() && !fmls.empty() && m.limit().inc()) {
+                var = vars.back();
+                vars.pop_back();
+                project_plugin* p = get_plugin(var);
+                if (p && (*p)(model, var, vars, fmls)) {
+                    progress = true;
+                }
+                else {
+                    new_vars.push_back(var);
+                }
+            }
+            // no progress made in rewriting, so project last var
+            if (!progress && !new_vars.empty() && !fmls.empty() && force_elim && m.limit().inc()) {
+                var = new_vars.back();
+                new_vars.pop_back();
+                expr_safe_replace sub(m);
+                val = model(var);
+                sub.insert(var, val);
+                for (unsigned i = 0; i < fmls.size(); ++i) {
+                    sub(fmls[i].get(), tmp);
+                    m_rw(tmp);
+                    if (m.is_true(tmp)) {
+                        project_plugin::erase(fmls, i);
+                    }
+                    else {
+                        fmls[i] = tmp;
+                    }
+                }            
+                progress = true;
+            }        
+            if (!m.limit().inc()) 
+                return;
+            vars.append(new_vars);
+            if (progress) {
+                preprocess_solve(model, vars, fmls);
+            }
+        }
+        if (fmls.empty()) {
+            vars.reset();
+        }
+        SASSERT(validate_model(model, fmls));
+        TRACE("qe", tout << vars << " " << fmls << "\n";);
+
+    }
+
+    void operator_new(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls) {
+        SASSERT(validate_model(model, fmls));
+        expr_ref_vector unused_fmls(m);
+        bool progress = true;
+        // Cubification + substitution for x + rewrite extracts + push addition to extract
+        preprocess_solve(model, vars, fmls);
+        // extract list of variables contained in fmls
+        filter_variables(model, vars, fmls, unused_fmls); // - TODO remove unused_fmls
+        // replace bool variables with model values
+        project_bools(model, vars, fmls);
+        // mainloop
+        mainloop(force_elim, vars, model, fmls);
+
+    }
+
+    // TOM -  function where MBP starts
     void operator()(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls) {
         SASSERT(validate_model(model, fmls));
         expr_ref val(m), tmp(m);
@@ -558,6 +667,7 @@ public:
                     new_vars.push_back(var);
                 }
             }
+            // no progress made in rewriting, so project last var
             if (!progress && !new_vars.empty() && !fmls.empty() && force_elim && m.limit().inc()) {
                 var = new_vars.back();
                 new_vars.pop_back();
