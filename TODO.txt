@@ -54,3 +54,5 @@ PRIO 2
 
 Konzultovat2 - mainloop je ok?
              - implementujem postuopne pravidla
+             - wtf kompilacia v non-debug mode - validation rule fail
+             - kompilacia v debug mode - validation rule nekričí

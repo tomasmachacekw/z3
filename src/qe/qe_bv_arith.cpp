@@ -1604,7 +1604,7 @@ struct bv_mbp_rw_cfg : public default_rewriter_cfg {
     bv_mbp_rw_cfg(ast_manager &m, expr_ref_vector& sc) : m(m), m_sc(sc), m_bv(m) {}
 
     // function to push addition of constant into concat
-    bool rewrite_concat(expr* a, expr_ref& res, expr_ref& sc) {
+    bool rewrite_concat_tom(expr* a, expr_ref& res, expr_ref& sc) {
       //std::cout << "num of arg" << to_app(a)->get_num_args() << std::endl;
       // Tom TODO - add numerals together and make smarter check for rational
       if (m_bv.is_bv_add(a) && to_app(a)->get_num_args() < 3) {
@@ -1658,7 +1658,7 @@ struct bv_mbp_rw_cfg : public default_rewriter_cfg {
 
 
     // function to push addition of constant into concat - old
-    bool rewrite_concat_legacy(expr* a, expr_ref& res, expr_ref& sc) {
+    bool rewrite_concat(expr* a, expr_ref& res, expr_ref& sc) {
         if (m_bv.is_bv_add(a)) {
             expr_ref a1(m), a1_neg(m), a2(m);
             a1 = to_app(a)->get_arg(0);
@@ -2051,7 +2051,7 @@ bool get_lbs_IC(expr *var, expr *f, expr_ref_vector &res){
 
 // generates an under-approximation for some literals in f
 // modifies f, res and bd_fmls
-void resolve(expr *var, expr_ref_vector &f, model &mdl, expr_ref_vector &res,
+void resolve_tom(expr *var, expr_ref_vector &f, model &mdl, expr_ref_vector &res,
              expr_ref_vector &bd_fmls) {
   if (f.empty())
     return;
@@ -2118,7 +2118,7 @@ void resolve(expr *var, expr_ref_vector &f, model &mdl, expr_ref_vector &res,
 
 // generates an under-approximation for some literals in f
 // modifies f, res and bd_fmls
-void resolve_legacy(expr *var, expr_ref_vector &f, model &mdl, expr_ref_vector &res,
+void resolve(expr *var, expr_ref_vector &f, model &mdl, expr_ref_vector &res,
              expr_ref_vector &bd_fmls) {
   if (f.empty())
     return;
