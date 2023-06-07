@@ -539,6 +539,7 @@ public:
 
     bool project_linear_var(app_ref& var, model& model, expr_ref_vector& fmls, expr_ref_vector& boundaries) { 
         NOT_IMPLEMENTED_YET();
+        return false;
     }
 
     // project variables that are top level linear in the formula --> invertibility conditions
@@ -546,6 +547,7 @@ public:
     // also check if reduced formula is a valid boundary
     bool project_linear(app_ref_vector& vars, model& model, expr_ref_vector& fmls, expr_ref_vector& boundaries) { 
         NOT_IMPLEMENTED_YET();
+        return false;
     }
 
     // extract formulas of the form s*x <u t , s * x <=u t, t <u s*x , t <=u s*x,that would be reduced to true
@@ -556,6 +558,7 @@ public:
     // normalize whatever we did not breakup / extract until now -> Normalization function
     bool normalize_ineq(app_ref_vector& vars, model& model, expr_ref_vector& fmls) {
         NOT_IMPLEMENTED_YET();
+        return false;
     }
 
     // expects a cube in fmls

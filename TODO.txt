@@ -1,18 +1,19 @@
 PRIO 0
-sepsat postup, nie nutne dp text ale nech to nie je shit - fix the mainloop in the paper
-check confluency of invertibility condition rewrite rules
+sepsat postup, nie nutne dp text ale nech to nie je shit - DONE
+change uremi,urem0, udivi, udiv0 to cover more cases not just linear, also cover all operators, and shit completely update handling
+implement is_op_ult
+check confluency of invertibility condition rewrite rules 
 
 
 PRIO 1
 - add invertibility condition to unsound part of project function  - done
 - add invertibility conditions for operators that are currently unhandled (from the unhandled funcion in qe_bv_arith)
-    + done bv_udiv, bv_urem, bv_and, bv_or  for <=u
-    - not done - cudne variacie ,sdiv, smod - -> bcs smod, sdiv not defined
+    + done bv_udiv, bv_urem, bv_and, bv_or a rakoviny uremi0, udivi0  for <=u
+    - not done - ,sdiv, smod -> bcs smod, sdiv not defined
 
 
 - create and verifiy reduction rules so the inv. cond can be used more efficiently (for mod and div it might be crucial)
-    - not done yet
-    - probably not possible
+    - replace by a war - TODO
 
 - ADD NOT_IMPLEMENTED_YET from spacerbv
 
@@ -50,3 +51,6 @@ PRIO 2
                 - kill me
                -- Konzultovat navrh postupu 1 - 4.
                -- generate signed op rules on SYGUS too? or rewrite signed into unsigned?
+
+Konzultovat2 - mainloop je ok?
+             - implementujem postuopne pravidla
