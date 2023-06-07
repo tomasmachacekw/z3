@@ -1,5 +1,5 @@
 PRIO 0
-sepsat postup, nie nutne dp text ale nech to nie je shit | done
+sepsat postup, nie nutne dp text ale nech to nie je shit - fix the mainloop in the paper
 check confluency of invertibility condition rewrite rules
 
 
