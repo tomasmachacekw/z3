@@ -13,7 +13,7 @@ PRIO 1
 
 
 - create and verifiy reduction rules so the inv. cond can be used more efficiently (for mod and div it might be crucial)
-    - replace by a war - TODO
+    - replace by a var - TODO
 
 - ADD NOT_IMPLEMENTED_YET from spacerbv
 

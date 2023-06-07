@@ -2527,6 +2527,7 @@ expr_ref context::get_reachable(func_decl *p) {
 }
 
 bool context::validate() {
+    std::cout << "Validujem\n";
     if (!m_validate_result) { return true; }
 
     std::stringstream msg;

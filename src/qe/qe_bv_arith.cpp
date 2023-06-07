@@ -1019,10 +1019,11 @@ void replace_zero_handle_ops(model& model, expr_ref_vector& fmls) {
     if (m_bv.is_bv_urem0(lhs) || m_bv.is_bv_uremi(lhs)) {
       exp1 = to_app(lhs)->get_arg(0);
       exp2 = to_app(lhs)->get_arg(1);
-      if (!model.is_true(m.mk_eq(exp2, zero)))
+      if (!model.is_true(m.mk_eq(exp2, zero))) {
         new_fmls.push_back(m.mk_app(m_bv.get_family_id(), operation, m_bv.mk_bv_urem(exp1, exp2),rhs));
         continue;
-    } 
+      }
+    }
     if (m_bv.is_bv_urem0(rhs) || m_bv.is_bv_uremi(rhs)) {
       exp1 = to_app(rhs)->get_arg(0);
       exp2 = to_app(rhs)->get_arg(1);
@@ -1034,9 +1035,10 @@ void replace_zero_handle_ops(model& model, expr_ref_vector& fmls) {
     if (m_bv.is_bv_udiv0(lhs) || m_bv.is_bv_udivi(lhs)) {
       exp1 = to_app(lhs)->get_arg(0);
       exp2 = to_app(lhs)->get_arg(1);
-      if (!model.is_true(m.mk_eq(exp2, zero)))
+      if (!model.is_true(m.mk_eq(exp2, zero))) {
         new_fmls.push_back(m.mk_app(m_bv.get_family_id(), operation, m_bv.mk_bv_udiv(exp1, exp2),rhs));
         continue;
+      }
     } 
     if (m_bv.is_bv_udiv0(rhs) || m_bv.is_bv_udivi(rhs)) {
       exp1 = to_app(rhs)->get_arg(0);
