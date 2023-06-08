@@ -987,15 +987,6 @@ expr* mk_bv_or(bv_util& bv, expr* a, expr* b) {
   return m.mk_app(bv.get_family_id(), OP_BOR, 2, args);
 }
 
-expr* mk_bv_ult(bv_util& bv, expr* a, expr* b) {
-  expr* args[2];
-  args[0] = a;
-  args[1] = b;
-  ast_manager& m = bv.get_manager();
-  return m.mk_app(bv.get_family_id(), OP_LE, 2, args);
-}
-
-
 // start of umodi0, udivi0 handling
 
 // function to get rid of modi0, divi0 .. 
@@ -1053,12 +1044,10 @@ void replace_zero_handle_ops(model& model, expr_ref_vector& fmls) {
   fmls.reset();
   fmls.append(new_fmls);
 }
-
-
 // end of umodi0, udivi0 handling
 // start of Invertibility condition rules
 
-// ule
+// ---------- ULE ---------
 
 class inv_ule_bvurem : public rw_rule {
 public:
@@ -1096,7 +1085,7 @@ public:
           return true;
         }
         // TODO handle a < b by transformation
-        new_lit = mk_bv_ult(m_bv,lhs, exp1);
+        new_lit = m_bv.mk_ult(lhs, exp1);
         if (m_mdl->is_true(new_lit)) {
           out.push_back(new_lit);
           return true;
@@ -1134,7 +1123,7 @@ public:
         h1 = m_bv.mk_numeral(0,sz);
         h3 = m_bv.mk_bv_not(exp1);
         h2 = mk_bv_or(m_bv, h3, rhs);
-        out.push_back(mk_bv_ult(m_bv, h1, h2));
+        out.push_back(m_bv.mk_ult(h1, h2));
         SASSERT(m_mdl->is_true(out.back()));
         return true;
       }
@@ -1226,7 +1215,8 @@ public:
   }
 };
 
-// ult TODO
+// ----------- ULT -----------
+// TODO
 class inv_ult_basic : public rw_rule {
 public:
   inv_ult_basic(ast_manager &m) : rw_rule(m) {}
@@ -1252,7 +1242,7 @@ public:
         h1 = m_bv.mk_numeral(0,sz);
         h3 = m_bv.mk_bv_not(exp1);
         h2 = mk_bv_or(m_bv, h3, rhs);
-          out.push_back(mk_bv_ult(m_bv, h1, h2));
+          out.push_back(m_bv.mk_ult( h1, h2));
         SASSERT(m_mdl->is_true(out.back()));
         return true;
       }
@@ -1305,7 +1295,7 @@ public:
         h1 = m_bv.mk_numeral(0,sz);
         h3 = m_bv.mk_bv_not(exp1);
         h2 = mk_bv_or(m_bv, h3, rhs);
-          out.push_back(mk_bv_ult(m_bv, h1, h2));
+          out.push_back(m_bv.mk_ult( h1, h2));
         SASSERT(m_mdl->is_true(out.back()));
         return true;
       }
@@ -1425,6 +1415,7 @@ public:
   }
 };
 
+// TODO
 class inv_ult_bvand : public rw_rule {
 public:
   inv_ult_bvand(ast_manager &m) : rw_rule(m) {}
@@ -1450,7 +1441,7 @@ public:
         h1 = m_bv.mk_numeral(0,sz);
         h3 = m_bv.mk_bv_not(exp1);
         h2 = mk_bv_or(m_bv, h3, rhs);
-          out.push_back(mk_bv_ult(m_bv, h1, h2));
+          out.push_back(m_bv.mk_ult( h1, h2));
         SASSERT(m_mdl->is_true(out.back()));
         return true;
       }
@@ -1476,6 +1467,7 @@ public:
   }
 };
 
+// TODO
 class inv_ult_bvor : public rw_rule {
 public:
   inv_ult_bvor(ast_manager &m) : rw_rule(m) {}
@@ -1501,7 +1493,61 @@ public:
         h1 = m_bv.mk_numeral(0,sz);
         h3 = m_bv.mk_bv_not(exp1);
         h2 = mk_bv_or(m_bv, h3, rhs);
-          out.push_back(mk_bv_ult(m_bv, h1, h2));
+          out.push_back(m_bv.mk_ult( h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      }
+    }
+    else if(m_bv.is_bv_udiv(rhs)) {
+      exp1 = to_app(rhs)->get_arg(0);
+      exp2 = to_app(rhs)->get_arg(1);
+      //  if ((s*t) udiv t) & s = s then  Exists x. t ≤u x udiv s
+      if (exp1 == m_var) {
+        mk_mul(exp2, lhs, h4); // s*t
+        h3 = mk_bv_udiv(m_bv, h4, lhs); //(s*t) udiv t
+        h1 = mk_bv_and(m_bv, h3, exp2); // ((s*t) udiv t) & s 
+        out.push_back(m.mk_eq(h1, exp2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } //  if True then  Exists x. t ≤u s mod_u x
+      else if (exp2 == m_var) {
+        out.push_back(m.mk_true());
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+// -------- SLE -------
+
+// TODO
+class inv_sle_basic : public rw_rule {
+public:
+  inv_sle_basic(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ule(e, lhs, rhs) && contains_num(e, m_var) != 1)
+      return false;
+    expr_ref exp1(m), exp2(m), h1(m), h2(m), h3(m), h4(m);
+    if (m_bv.is_bv_udiv(lhs)) {
+      exp1 = to_app(lhs)->get_arg(0);
+      exp2 = to_app(lhs)->get_arg(1);
+      //  if ~(-s) ≤u s|t then  Exists x. x udiv s ≤u t
+      if (exp1 == m_var) {
+        mk_neg(exp2, h3);
+        h1 = m_bv.mk_bv_not(h3); // ~-s
+        h2 = mk_bv_or(m_bv, exp2, rhs); // s | t
+        out.push_back(m_bv.mk_ule(h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } // if 0 <u ~s | t then  Exists x. s udiv x ≤u t
+      else if(exp2 == m_var){
+        unsigned sz = m_bv.get_bv_size(m_var);
+        h1 = m_bv.mk_numeral(0,sz);
+        h3 = m_bv.mk_bv_not(exp1);
+        h2 = mk_bv_or(m_bv, h3, rhs);
+          out.push_back(m_bv.mk_ult( h1, h2));
         SASSERT(m_mdl->is_true(out.back()));
         return true;
       }
@@ -1528,6 +1574,560 @@ public:
 };
 
 
+// TODO
+class inv_sle_mul : public rw_rule {
+public:
+  inv_sle_mul(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ule(e, lhs, rhs) && contains_num(e, m_var) != 1)
+      return false;
+    expr_ref exp1(m), exp2(m), h1(m), h2(m), h3(m), h4(m);
+    if (m_bv.is_bv_udiv(lhs)) {
+      exp1 = to_app(lhs)->get_arg(0);
+      exp2 = to_app(lhs)->get_arg(1);
+      //  if ~(-s) ≤u s|t then  Exists x. x udiv s ≤u t
+      if (exp1 == m_var) {
+        mk_neg(exp2, h3);
+        h1 = m_bv.mk_bv_not(h3); // ~-s
+        h2 = mk_bv_or(m_bv, exp2, rhs); // s | t
+        out.push_back(m_bv.mk_ule(h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } // if 0 <u ~s | t then  Exists x. s udiv x ≤u t
+      else if(exp2 == m_var){
+        unsigned sz = m_bv.get_bv_size(m_var);
+        h1 = m_bv.mk_numeral(0,sz);
+        h3 = m_bv.mk_bv_not(exp1);
+        h2 = mk_bv_or(m_bv, h3, rhs);
+          out.push_back(m_bv.mk_ult( h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      }
+    }
+    else if(m_bv.is_bv_udiv(rhs)) {
+      exp1 = to_app(rhs)->get_arg(0);
+      exp2 = to_app(rhs)->get_arg(1);
+      //  if ((s*t) udiv t) & s = s then  Exists x. t ≤u x udiv s
+      if (exp1 == m_var) {
+        mk_mul(exp2, lhs, h4); // s*t
+        h3 = mk_bv_udiv(m_bv, h4, lhs); //(s*t) udiv t
+        h1 = mk_bv_and(m_bv, h3, exp2); // ((s*t) udiv t) & s 
+        out.push_back(m.mk_eq(h1, exp2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } //  if True then  Exists x. t ≤u s mod_u x
+      else if (exp2 == m_var) {
+        out.push_back(m.mk_true());
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+
+class inv_sle_urem : public rw_rule {
+public:
+  inv_sle_urem(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ult(e, lhs, rhs) && contains_num(e, m_var) != 1)
+      return false;
+    expr_ref exp1(m), exp2(m), h1(m), h2(m), h3(m), h4(m);
+    if (is_urem(lhs, exp1, exp2)) {
+      //  if not t = 0 then  Exists x. x umod s < t
+      //  if not t = 0 then  Exists x. s umod x < t
+      unsigned sz = m_bv.get_bv_size(m_var);
+      h1 = m.mk_not(m.mk_eq(rhs, m_bv.mk_numeral(0, sz)));
+      out.push_back(h1);
+      SASSERT(m_mdl->is_true(out.back()));
+      return true;
+    }
+    else {if (is_urem(rhs, exp1, exp2)) {
+      //  if t <u ∼(−s) then  Exists x. t < x umod s
+      if (exp1 == m_var) {
+        mk_neg(exp2, h2);
+        h1 = m_bv.mk_bv_not(h2);
+        out.push_back(m_bv.mk_ult(lhs, h1));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } //  if t <u s then  Exists x. t <u s mod_u x
+      else if (exp2 == m_var) {
+        out.push_back(m_bv.mk_ult(lhs, exp1));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      }
+    }
+    }
+    return false;
+  }
+};
+
+
+class inv_sle_udiv : public rw_rule {
+public:
+  inv_sle_udiv(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m), zro(m);
+    unsigned sz = m_bv.get_bv_size(m_var);
+    zro = m_bv.mk_numeral(0, sz);
+    if (!is_ult(e, lhs, rhs) && contains_num(e, m_var) != 1)
+      return false;
+    expr_ref exp1(m), exp2(m), h1(m), h2(m), h3(m), h4(m);
+    if (is_udiv(lhs, exp1, exp2)) {
+      //  if 0 <u s ∧ 0 <u t then  Exists x. x udiv s <u t
+      if (exp1 == m_var) {
+        h1 = m_bv.mk_ult(zro, exp2); // 0 <u s
+        h2 = m_bv.mk_ult(zro, rhs); // 0 <u t
+        out.push_back(h1);
+        SASSERT(m_mdl->is_true(out.back()));
+        out.push_back(h2);
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } // if 0 <u ∼(−t & s) ∧ 0 <u t then  Exists x. s udiv x <u t
+      else if(exp2 == m_var){
+        mk_neg(rhs, h3);
+        h4 = mk_bv_and(m_bv, h3, exp1); // TODO sketchy unifiy
+        h1 = m_bv.mk_bv_not(h4);
+        out.push_back(m_bv.mk_ult(zro, h1));
+        SASSERT(m_mdl->is_true(out.back()));
+        h2 = m_bv.mk_ult(zro, rhs); // 0 <u t
+        out.push_back(h2);
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      }
+    }
+    else if (is_udiv(rhs, exp1, exp2)) {
+      //  if t <u ∼0 ÷ s  then  Exists x. t <u x udiv s
+      if (exp1 == m_var) {
+        h3 = m_bv.mk_bv_not(zro);
+        h4 = mk_bv_udiv(m_bv, h3, exp2); //~0 udiv s
+        h1 = m_bv.mk_ult(lhs, h4);
+        out.push_back(h1);
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } //  if t <u ∼0 then  Exists x. t <u s udiv x
+      else if (exp2 == m_var) {
+        h2 = m_bv.mk_bv_not(zro);
+        h1 = m_bv.mk_ult(lhs, h2);
+        out.push_back(h1);
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+// TODO
+class inv_sle_bvand : public rw_rule {
+public:
+  inv_sle_bvand(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ule(e, lhs, rhs) && contains_num(e, m_var) != 1)
+      return false;
+    expr_ref exp1(m), exp2(m), h1(m), h2(m), h3(m), h4(m);
+    if (m_bv.is_bv_udiv(lhs)) {
+      exp1 = to_app(lhs)->get_arg(0);
+      exp2 = to_app(lhs)->get_arg(1);
+      //  if ~(-s) ≤u s|t then  Exists x. x udiv s ≤u t
+      if (exp1 == m_var) {
+        mk_neg(exp2, h3);
+        h1 = m_bv.mk_bv_not(h3); // ~-s
+        h2 = mk_bv_or(m_bv, exp2, rhs); // s | t
+        out.push_back(m_bv.mk_ule(h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } // if 0 <u ~s | t then  Exists x. s udiv x ≤u t
+      else if(exp2 == m_var){
+        unsigned sz = m_bv.get_bv_size(m_var);
+        h1 = m_bv.mk_numeral(0,sz);
+        h3 = m_bv.mk_bv_not(exp1);
+        h2 = mk_bv_or(m_bv, h3, rhs);
+          out.push_back(m_bv.mk_ult( h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      }
+    }
+    else if(m_bv.is_bv_udiv(rhs)) {
+      exp1 = to_app(rhs)->get_arg(0);
+      exp2 = to_app(rhs)->get_arg(1);
+      //  if ((s*t) udiv t) & s = s then  Exists x. t ≤u x udiv s
+      if (exp1 == m_var) {
+        mk_mul(exp2, lhs, h4); // s*t
+        h3 = mk_bv_udiv(m_bv, h4, lhs); //(s*t) udiv t
+        h1 = mk_bv_and(m_bv, h3, exp2); // ((s*t) udiv t) & s 
+        out.push_back(m.mk_eq(h1, exp2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } //  if True then  Exists x. t ≤u s mod_u x
+      else if (exp2 == m_var) {
+        out.push_back(m.mk_true());
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+// TODO
+class inv_sle_bvor : public rw_rule {
+public:
+  inv_sle_bvor(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ule(e, lhs, rhs) && contains_num(e, m_var) != 1)
+      return false;
+    expr_ref exp1(m), exp2(m), h1(m), h2(m), h3(m), h4(m);
+    if (m_bv.is_bv_udiv(lhs)) {
+      exp1 = to_app(lhs)->get_arg(0);
+      exp2 = to_app(lhs)->get_arg(1);
+      //  if ~(-s) ≤u s|t then  Exists x. x udiv s ≤u t
+      if (exp1 == m_var) {
+        mk_neg(exp2, h3);
+        h1 = m_bv.mk_bv_not(h3); // ~-s
+        h2 = mk_bv_or(m_bv, exp2, rhs); // s | t
+        out.push_back(m_bv.mk_ule(h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } // if 0 <u ~s | t then  Exists x. s udiv x ≤u t
+      else if(exp2 == m_var){
+        unsigned sz = m_bv.get_bv_size(m_var);
+        h1 = m_bv.mk_numeral(0,sz);
+        h3 = m_bv.mk_bv_not(exp1);
+        h2 = mk_bv_or(m_bv, h3, rhs);
+          out.push_back(m_bv.mk_ult( h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      }
+    }
+    else if(m_bv.is_bv_udiv(rhs)) {
+      exp1 = to_app(rhs)->get_arg(0);
+      exp2 = to_app(rhs)->get_arg(1);
+      //  if ((s*t) udiv t) & s = s then  Exists x. t ≤u x udiv s
+      if (exp1 == m_var) {
+        mk_mul(exp2, lhs, h4); // s*t
+        h3 = mk_bv_udiv(m_bv, h4, lhs); //(s*t) udiv t
+        h1 = mk_bv_and(m_bv, h3, exp2); // ((s*t) udiv t) & s 
+        out.push_back(m.mk_eq(h1, exp2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } //  if True then  Exists x. t ≤u s mod_u x
+      else if (exp2 == m_var) {
+        out.push_back(m.mk_true());
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+// -------- SLT-------
+
+// TODO
+class inv_slt_basic : public rw_rule {
+public:
+  inv_slt_basic(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ule(e, lhs, rhs) && contains_num(e, m_var) != 1)
+      return false;
+    expr_ref exp1(m), exp2(m), h1(m), h2(m), h3(m), h4(m);
+    if (m_bv.is_bv_udiv(lhs)) {
+      exp1 = to_app(lhs)->get_arg(0);
+      exp2 = to_app(lhs)->get_arg(1);
+      //  if ~(-s) ≤u s|t then  Exists x. x udiv s ≤u t
+      if (exp1 == m_var) {
+        mk_neg(exp2, h3);
+        h1 = m_bv.mk_bv_not(h3); // ~-s
+        h2 = mk_bv_or(m_bv, exp2, rhs); // s | t
+        out.push_back(m_bv.mk_ule(h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } // if 0 <u ~s | t then  Exists x. s udiv x ≤u t
+      else if(exp2 == m_var){
+        unsigned sz = m_bv.get_bv_size(m_var);
+        h1 = m_bv.mk_numeral(0,sz);
+        h3 = m_bv.mk_bv_not(exp1);
+        h2 = mk_bv_or(m_bv, h3, rhs);
+          out.push_back(m_bv.mk_ult( h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      }
+    }
+    else if(m_bv.is_bv_udiv(rhs)) {
+      exp1 = to_app(rhs)->get_arg(0);
+      exp2 = to_app(rhs)->get_arg(1);
+      //  if ((s*t) udiv t) & s = s then  Exists x. t ≤u x udiv s
+      if (exp1 == m_var) {
+        mk_mul(exp2, lhs, h4); // s*t
+        h3 = mk_bv_udiv(m_bv, h4, lhs); //(s*t) udiv t
+        h1 = mk_bv_and(m_bv, h3, exp2); // ((s*t) udiv t) & s 
+        out.push_back(m.mk_eq(h1, exp2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } //  if True then  Exists x. t ≤u s mod_u x
+      else if (exp2 == m_var) {
+        out.push_back(m.mk_true());
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+
+// ult TODO
+class inv_slt_mul : public rw_rule {
+public:
+  inv_slt_mul(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ule(e, lhs, rhs) && contains_num(e, m_var) != 1)
+      return false;
+    expr_ref exp1(m), exp2(m), h1(m), h2(m), h3(m), h4(m);
+    if (m_bv.is_bv_udiv(lhs)) {
+      exp1 = to_app(lhs)->get_arg(0);
+      exp2 = to_app(lhs)->get_arg(1);
+      //  if ~(-s) ≤u s|t then  Exists x. x udiv s ≤u t
+      if (exp1 == m_var) {
+        mk_neg(exp2, h3);
+        h1 = m_bv.mk_bv_not(h3); // ~-s
+        h2 = mk_bv_or(m_bv, exp2, rhs); // s | t
+        out.push_back(m_bv.mk_ule(h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } // if 0 <u ~s | t then  Exists x. s udiv x ≤u t
+      else if(exp2 == m_var){
+        unsigned sz = m_bv.get_bv_size(m_var);
+        h1 = m_bv.mk_numeral(0,sz);
+        h3 = m_bv.mk_bv_not(exp1);
+        h2 = mk_bv_or(m_bv, h3, rhs);
+          out.push_back(m_bv.mk_ult( h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      }
+    }
+    else if(m_bv.is_bv_udiv(rhs)) {
+      exp1 = to_app(rhs)->get_arg(0);
+      exp2 = to_app(rhs)->get_arg(1);
+      //  if ((s*t) udiv t) & s = s then  Exists x. t ≤u x udiv s
+      if (exp1 == m_var) {
+        mk_mul(exp2, lhs, h4); // s*t
+        h3 = mk_bv_udiv(m_bv, h4, lhs); //(s*t) udiv t
+        h1 = mk_bv_and(m_bv, h3, exp2); // ((s*t) udiv t) & s 
+        out.push_back(m.mk_eq(h1, exp2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } //  if True then  Exists x. t ≤u s mod_u x
+      else if (exp2 == m_var) {
+        out.push_back(m.mk_true());
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+
+class inv_slt_urem : public rw_rule {
+public:
+  inv_slt_urem(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ult(e, lhs, rhs) && contains_num(e, m_var) != 1)
+      return false;
+    expr_ref exp1(m), exp2(m), h1(m), h2(m), h3(m), h4(m);
+    if (is_urem(lhs, exp1, exp2)) {
+      //  if not t = 0 then  Exists x. x umod s < t
+      //  if not t = 0 then  Exists x. s umod x < t
+      unsigned sz = m_bv.get_bv_size(m_var);
+      h1 = m.mk_not(m.mk_eq(rhs, m_bv.mk_numeral(0, sz)));
+      out.push_back(h1);
+      SASSERT(m_mdl->is_true(out.back()));
+      return true;
+    }
+    else {if (is_urem(rhs, exp1, exp2)) {
+      //  if t <u ∼(−s) then  Exists x. t < x umod s
+      if (exp1 == m_var) {
+        mk_neg(exp2, h2);
+        h1 = m_bv.mk_bv_not(h2);
+        out.push_back(m_bv.mk_ult(lhs, h1));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } //  if t <u s then  Exists x. t <u s mod_u x
+      else if (exp2 == m_var) {
+        out.push_back(m_bv.mk_ult(lhs, exp1));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      }
+    }
+    }
+    return false;
+  }
+};
+
+
+class inv_slt_udiv : public rw_rule {
+public:
+  inv_slt_udiv(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m), zro(m);
+    unsigned sz = m_bv.get_bv_size(m_var);
+    zro = m_bv.mk_numeral(0, sz);
+    if (!is_ult(e, lhs, rhs) && contains_num(e, m_var) != 1)
+      return false;
+    expr_ref exp1(m), exp2(m), h1(m), h2(m), h3(m), h4(m);
+    if (is_udiv(lhs, exp1, exp2)) {
+      //  if 0 <u s ∧ 0 <u t then  Exists x. x udiv s <u t
+      if (exp1 == m_var) {
+        h1 = m_bv.mk_ult(zro, exp2); // 0 <u s
+        h2 = m_bv.mk_ult(zro, rhs); // 0 <u t
+        out.push_back(h1);
+        SASSERT(m_mdl->is_true(out.back()));
+        out.push_back(h2);
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } // if 0 <u ∼(−t & s) ∧ 0 <u t then  Exists x. s udiv x <u t
+      else if(exp2 == m_var){
+        mk_neg(rhs, h3);
+        h4 = mk_bv_and(m_bv, h3, exp1); // TODO sketchy unifiy
+        h1 = m_bv.mk_bv_not(h4);
+        out.push_back(m_bv.mk_ult(zro, h1));
+        SASSERT(m_mdl->is_true(out.back()));
+        h2 = m_bv.mk_ult(zro, rhs); // 0 <u t
+        out.push_back(h2);
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      }
+    }
+    else if (is_udiv(rhs, exp1, exp2)) {
+      //  if t <u ∼0 ÷ s  then  Exists x. t <u x udiv s
+      if (exp1 == m_var) {
+        h3 = m_bv.mk_bv_not(zro);
+        h4 = mk_bv_udiv(m_bv, h3, exp2); //~0 udiv s
+        h1 = m_bv.mk_ult(lhs, h4);
+        out.push_back(h1);
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } //  if t <u ∼0 then  Exists x. t <u s udiv x
+      else if (exp2 == m_var) {
+        h2 = m_bv.mk_bv_not(zro);
+        h1 = m_bv.mk_ult(lhs, h2);
+        out.push_back(h1);
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+// TODO
+class inv_slt_bvand : public rw_rule {
+public:
+  inv_slt_bvand(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ule(e, lhs, rhs) && contains_num(e, m_var) != 1)
+      return false;
+    expr_ref exp1(m), exp2(m), h1(m), h2(m), h3(m), h4(m);
+    if (m_bv.is_bv_udiv(lhs)) {
+      exp1 = to_app(lhs)->get_arg(0);
+      exp2 = to_app(lhs)->get_arg(1);
+      //  if ~(-s) ≤u s|t then  Exists x. x udiv s ≤u t
+      if (exp1 == m_var) {
+        mk_neg(exp2, h3);
+        h1 = m_bv.mk_bv_not(h3); // ~-s
+        h2 = mk_bv_or(m_bv, exp2, rhs); // s | t
+        out.push_back(m_bv.mk_ule(h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } // if 0 <u ~s | t then  Exists x. s udiv x ≤u t
+      else if(exp2 == m_var){
+        unsigned sz = m_bv.get_bv_size(m_var);
+        h1 = m_bv.mk_numeral(0,sz);
+        h3 = m_bv.mk_bv_not(exp1);
+        h2 = mk_bv_or(m_bv, h3, rhs);
+          out.push_back(m_bv.mk_ult( h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      }
+    }
+    else if(m_bv.is_bv_udiv(rhs)) {
+      exp1 = to_app(rhs)->get_arg(0);
+      exp2 = to_app(rhs)->get_arg(1);
+      //  if ((s*t) udiv t) & s = s then  Exists x. t ≤u x udiv s
+      if (exp1 == m_var) {
+        mk_mul(exp2, lhs, h4); // s*t
+        h3 = mk_bv_udiv(m_bv, h4, lhs); //(s*t) udiv t
+        h1 = mk_bv_and(m_bv, h3, exp2); // ((s*t) udiv t) & s 
+        out.push_back(m.mk_eq(h1, exp2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } //  if True then  Exists x. t ≤u s mod_u x
+      else if (exp2 == m_var) {
+        out.push_back(m.mk_true());
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+// TODO
+class inv_slt_bvor : public rw_rule {
+public:
+  inv_slt_bvor(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ule(e, lhs, rhs) && contains_num(e, m_var) != 1)
+      return false;
+    expr_ref exp1(m), exp2(m), h1(m), h2(m), h3(m), h4(m);
+    if (m_bv.is_bv_udiv(lhs)) {
+      exp1 = to_app(lhs)->get_arg(0);
+      exp2 = to_app(lhs)->get_arg(1);
+      //  if ~(-s) ≤u s|t then  Exists x. x udiv s ≤u t
+      if (exp1 == m_var) {
+        mk_neg(exp2, h3);
+        h1 = m_bv.mk_bv_not(h3); // ~-s
+        h2 = mk_bv_or(m_bv, exp2, rhs); // s | t
+        out.push_back(m_bv.mk_ule(h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } // if 0 <u ~s | t then  Exists x. s udiv x ≤u t
+      else if(exp2 == m_var){
+        unsigned sz = m_bv.get_bv_size(m_var);
+        h1 = m_bv.mk_numeral(0,sz);
+        h3 = m_bv.mk_bv_not(exp1);
+        h2 = mk_bv_or(m_bv, h3, rhs);
+          out.push_back(m_bv.mk_ult( h1, h2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      }
+    }
+    else if(m_bv.is_bv_udiv(rhs)) {
+      exp1 = to_app(rhs)->get_arg(0);
+      exp2 = to_app(rhs)->get_arg(1);
+      //  if ((s*t) udiv t) & s = s then  Exists x. t ≤u x udiv s
+      if (exp1 == m_var) {
+        mk_mul(exp2, lhs, h4); // s*t
+        h3 = mk_bv_udiv(m_bv, h4, lhs); //(s*t) udiv t
+        h1 = mk_bv_and(m_bv, h3, exp2); // ((s*t) udiv t) & s 
+        out.push_back(m.mk_eq(h1, exp2));
+        SASSERT(m_mdl->is_true(out.back()));
+        return true;
+      } //  if True then  Exists x. t ≤u s mod_u x
+      else if (exp2 == m_var) {
+        out.push_back(m.mk_true());
+        return true;
+      }
+    }
+    return false;
+  }
+};
 
 // end of Invertibility condition rules
 

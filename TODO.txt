@@ -52,7 +52,7 @@ PRIO 2
                -- Konzultovat navrh postupu 1 - 4.
                -- generate signed op rules on SYGUS too? or rewrite signed into unsigned?
 
-Konzultovat2 - mainloop je ok?
+Konzultovat2 - mainloop je ok? OK
              - implementujem postuopne pravidla
              - wtf kompilacia v non-debug mode - validation rule fail
              - kompilacia v debug mode - validation rule nekričí
