@@ -128,6 +128,7 @@ class mbp::impl {
         return m_plugins.get(fid, 0);
     }
 
+    // function that replaces variable x with equivalent x-free epr.
     bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
         expr_mark is_var, is_rem;
         if (vars.empty()) {
@@ -137,7 +138,8 @@ class mbp::impl {
         for (unsigned i = 0; i < vars.size(); ++i) { 
             is_var.mark(vars[i].get());
         }
-        expr_ref tmp(m), t(m), v(m);            
+        expr_ref tmp(m), t(m), v(m);
+        // handle equalities, find equality in the form x = .. and replace all occurences of x                   
         for (unsigned i = 0; i < lits.size(); ++i) {
             expr* e = lits[i].get(), *l, *r;
             if (m.is_eq(e, l, r) && reduce_eq(is_var, l, r, v, t)) {
@@ -153,6 +155,7 @@ class mbp::impl {
                 }
             }
         }
+        // find variables that are still remaining, not removed ..
         if (reduced) {
             unsigned j = 0;
             for (app* v : vars) {
@@ -211,7 +214,7 @@ class mbp::impl {
             m_visited.mark(e);
             if (m.is_bool(e) && !m.is_true(e) && !m.is_false(e) && !m.canceled()) {
                 expr_ref val = eval(e);
-                TRACE("qe", tout << "found: " << mk_pp(e, m) << "\n";);
+                TRACE("qe", tout << "found: " << mk_pp(e, m) << " " << val << "\n";);
                 if (m.canceled())
                     continue;
                 SASSERT(m.is_true(val) || m.is_false(val));
@@ -232,6 +235,10 @@ class mbp::impl {
         if (found_bool) {
             expr_ref tmp(m);
             sub(fml, tmp);
+            // --- Tom added from olrder version
+            th_rewriter tmp_rw(m);
+            tmp_rw(tmp);
+            // ---
             expr_ref val = eval(tmp);
             if (!m.is_true(val) && !m.is_false(val))
                 return false;
@@ -240,6 +247,7 @@ class mbp::impl {
         return found_bool;
     }
 
+    // replace all bool variables with model value
     void project_bools(model& mdl, app_ref_vector& vars, expr_ref_vector& fmls) {
         expr_safe_replace sub(m);
         expr_ref val(m);
@@ -363,9 +371,13 @@ public:
         return arith.maximize(fmls, mdl, t, ge, gt);
     }
 
+    // break logical ops into literals
     void extract_literals(model& model, expr_ref_vector& fmls) {
         expr_ref val(m);
         model_evaluator eval(model);
+        // Tom -- added from newer version
+        eval.set_expand_array_equalities(true);
+        // -------
         TRACE("qe", tout << fmls << "\n";);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* fml = fmls[i].get(), *nfml, *f1, *f2, *f3;
@@ -503,6 +515,7 @@ public:
         m_dont_sub   = m_params.get_bool("dont_sub", false);
     }
 
+    // break logical ops into literals, replace x with x-free and replace double neg and push addition into concat
     void preprocess_solve(model& model, app_ref_vector& vars, expr_ref_vector& fmls) {
         extract_literals(model, fmls);
         bool change = true;
@@ -525,6 +538,7 @@ public:
         return true;
     }
 
+    // MBP starts here
     void operator()(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls) {
         SASSERT(validate_model(model, fmls));
         expr_ref val(m), tmp(m);
@@ -553,6 +567,7 @@ public:
                     new_vars.push_back(var);
                 }
             }
+            // no progress made in rewriting, so project last var
             if (!progress && !new_vars.empty() && !fmls.empty() && force_elim && m.limit().inc()) {
                 var = new_vars.back();
                 new_vars.pop_back();
