@@ -1,46 +1,11 @@
 PRIO 0
-sepsat postup, nie nutne dp text ale nech to nie je shit - DONE
-change uremi,urem0, udivi, udiv0 to cover more cases not just linear, also cover all operators, and shit completely update handling
-implement is_op_ult
-check confluency of invertibility condition rewrite rules 
-
-
-PRIO 1
-- add invertibility condition to unsound part of project function  - done
-- add invertibility conditions for operators that are currently unhandled (from the unhandled funcion in qe_bv_arith)
-    + done bv_udiv, bv_urem, bv_and, bv_or a rakoviny uremi0, udivi0  for <=u
-    - not done - ,sdiv, smod -> bcs smod, sdiv not defined
-
-
-- create and verifiy reduction rules so the inv. cond can be used more efficiently (for mod and div it might be crucial)
-    - replace by a var - TODO
-
-- ADD NOT_IMPLEMENTED_YET from spacerbv
-
--- determine when to use which rules, it is probably not eff to use them all at once
-    + what if I use invertibility conditions for precise definitions if var is linear and LIA rules otherwise? might not be so good
-      if other variables that are not linear become stuck because of this
-      
-      0. create cube
-      1. use INV_cond when solo var - since using inv cond can halt possible progress
-      2. use LIA rules to normalize nonlinear terms  
-      ?3 when do I use MBP for bouding?, here, but might be beneficial to use some inv. cond for s*x <=u t inside here (already impl.)
-      4. use INV_cond on broken up rules where other methods failed
-
-- find next important TODO, think about incorporating other operations
-
-
-
+- migrate to older version
+- check if I need basic rules for equality
+- check confluency of invertibility condition rewrite rules 
+- replace more complex sides in (a + x) mod s = t by a new variable
 
 PRIO 2
-- why normalize = into <= or => when we can replace it and get a more precise aproximation?
 -- when linear just normalize it with inv cond, when non-linear replace it by <=, =>
-- mk_bv_not uprav nech nech tam nie je dvojita negacia
-
-
-
--- TIMELINE
-- rewrite INV rules for =, <=u, <_u
 
 
 -- Konzultovat -- operacie modi, mod0?? what to do
@@ -56,3 +21,7 @@ Konzultovat2 - mainloop je ok? OK
              - implementujem postuopne pravidla
              - wtf kompilacia v non-debug mode - validation rule fail
              - kompilacia v debug mode - validation rule nekričí
+
+Konzultovat3 -- dorobene rw rules for mul, udiv, umod, bvand, bvor for all comparators
+             -- dorobene basic ops for ineq ops (s+x , -x, ~x, x) (staci pridat bv sub ako bv add???)
+             -- add conditions for shifts???
