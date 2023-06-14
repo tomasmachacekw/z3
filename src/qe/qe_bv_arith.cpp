@@ -358,59 +358,40 @@ void split_term(expr_ref var, expr* exp, expr_ref& t, expr_ref& t2, expr_ref& t2
 
 
 // udiv0, udivi, urem0, uremi handling
-void replace_zero_handle_ops(model& model, expr_ref_vector& fmls) {
-  ast_manager& m = model.get_manager();
+void replace_zero_handle_rec(expr* f, model &mdl) {
+  ast_manager& m = mdl.get_manager();
   bv_util m_bv(m);
-  expr_ref_vector new_fmls(m);
-  expr_ref lhs(m), rhs(m), exp1(m), exp2(m),  zero(m);
-  decl_kind operation;
+  expr_ref lhs(m), rhs(m), zero(m), exp1(m), exp2(m);
   unsigned sz;
-  new_fmls.reset();
-  for (auto *fml : fmls) {
-    operation = fml->get_kind();
-    if (operation != OP_ULT && operation != OP_ULEQ && operation != OP_SLEQ && operation != OP_SLT && operation != OP_EQ) {
-      continue;
+  sz = m_bv.get_bv_size(f);
+  zero = m_bv.mk_numeral(rational::zero(), sz);
+  if (m_bv.is_bv_urem0(f) || m_bv.is_bv_uremi(f)) {
+    exp1 = to_app(lhs)->get_arg(0);
+    exp2 = to_app(lhs)->get_arg(1);
+    if (!mdl.are_equal(zero, exp2)) {
+      f = m_bv.mk_bv_urem(exp1, exp2);
     }
-    lhs = to_app(fml)->get_arg(0);
-    rhs = to_app(fml)->get_arg(1);
-    sz = m_bv.get_bv_size(fml);
-    zero = m_bv.mk_numeral(rational::zero(), sz);
-    if (m_bv.is_bv_urem0(lhs) || m_bv.is_bv_uremi(lhs)) {
-      exp1 = to_app(lhs)->get_arg(0);
-      exp2 = to_app(lhs)->get_arg(1);
-      if (!model.is_true(m.mk_eq(exp2, zero))) {
-        new_fmls.push_back(m.mk_app(m_bv.get_family_id(), operation, m_bv.mk_bv_urem(exp1, exp2),rhs));
-        continue;
-      }
-    }
-    if (m_bv.is_bv_urem0(rhs) || m_bv.is_bv_uremi(rhs)) {
-      exp1 = to_app(rhs)->get_arg(0);
-      exp2 = to_app(rhs)->get_arg(1);
-      if (!model.is_true(m.mk_eq(exp2, zero))) {
-        new_fmls.push_back(m.mk_app(m_bv.get_family_id(), operation, lhs, m_bv.mk_bv_urem(exp1, exp2)));
-        continue;
-      }
-    }
-    if (m_bv.is_bv_udiv0(lhs) || m_bv.is_bv_udivi(lhs)) {
-      exp1 = to_app(lhs)->get_arg(0);
-      exp2 = to_app(lhs)->get_arg(1);
-      if (!model.is_true(m.mk_eq(exp2, zero))) {
-        new_fmls.push_back(m.mk_app(m_bv.get_family_id(), operation, m_bv.mk_bv_udiv(exp1, exp2),rhs));
-        continue;
-      }
-    } 
-    if (m_bv.is_bv_udiv0(rhs) || m_bv.is_bv_udivi(rhs)) {
-      exp1 = to_app(rhs)->get_arg(0);
-      exp2 = to_app(rhs)->get_arg(1);
-      if (!model.is_true(m.mk_eq(exp2, zero))) {
-        new_fmls.push_back(m.mk_app(m_bv.get_family_id(), operation, lhs, m_bv.mk_bv_udiv(exp1, exp2)));
-        continue;
-      }
-    }
-    new_fmls.push_back(fml);
   }
-  fmls.reset();
-  fmls.append(new_fmls);
+  if (m_bv.is_bv_udiv0(f) || m_bv.is_bv_udivi(f)) {
+    exp1 = to_app(lhs)->get_arg(0);
+    exp2 = to_app(lhs)->get_arg(1);
+    if (!mdl.are_equal(zero, exp2)) {
+      f = m_bv.mk_bv_udiv(exp1, exp2);
+    }
+  }
+  unsigned num_arg = to_app(f)->get_num_args();
+  for (unsigned i = 0; i < num_arg; i++) {
+    replace_zero_handle_rec(to_app(f)->get_arg(i), mdl);
+  }
+}
+
+void replace_zero_handle_ops(model& mdl, expr_ref_vector& fmls) {
+  ast_manager m = mdl.get_manager();
+  bv_util m_bv(m);
+  for (auto *fml : fmls) {
+    if (m_bv.is_bv_sort((m.get_sort(fml))))
+      replace_zero_handle_rec(fml, mdl);
+  }
 }
 
 // rw_rule basic class and utility functions
@@ -2103,11 +2084,11 @@ public:
 // end of Invertibility condition rules
 
 struct bv_project_plugin::imp {
-ast_manager &m;
-bv_util u;
-ptr_buffer<rw_rule> inv_cond_rw_rules;
+  ast_manager &m;
+  bv_util u;
+  ptr_buffer<rw_rule> inv_cond_rw_rules;
 
-imp(ast_manager &_m) : m(_m), u(m) {
+  imp(ast_manager &_m) : m(_m), u(m) {
     // equalities
     inv_cond_rw_rules.push_back(alloc(inv_eq_mul, m));
     inv_cond_rw_rules.push_back(alloc(inv_eq_urem, m));
@@ -2147,14 +2128,192 @@ imp(ast_manager &_m) : m(_m), u(m) {
     inv_cond_rw_rules.push_back(alloc(inv_slt_udiv, m));
     inv_cond_rw_rules.push_back(alloc(inv_slt_bvand, m));
     inv_cond_rw_rules.push_back(alloc(inv_slt_bvor, m));
-}
+  }
 
 
-~imp() {}
+  ~imp() {
+    for (auto *r : inv_cond_rw_rules) {
+      dealloc(r);
+    }
+  }
+
+  void reset_inv_rw_rules(model &mdl, expr *var) {
+      for (auto r : inv_cond_rw_rules) {
+        r->reset(&mdl, var);
+      }
+    }
+
+  // true iff fml is a bound that is projected true
+  bool is_lost_bound(expr* fml, expr* var) {
+    bv_util m_bv(m);
+    expr_ref rhs(m), lhs(m), exp1(m), exp2(m);
+    if (m_bv.is_bv_ule(fml) || m_bv.is_bv_sle(fml)) {
+      exp1 = to_app(fml)->get_arg(0);
+      exp2 = to_app(fml)->get_arg(1);
+      // first basic operations
+      if(exp1 == var || exp2 == var || 
+         ((m_bv.is_bv_neg(exp1) || m_bv.is_bv_not(exp1)) && to_app(exp1)->get_arg(0) == var) ||
+         ((m_bv.is_bv_neg(exp2) || m_bv.is_bv_not(exp2)) && to_app(exp2)->get_arg(0) == var)) {
+          return true;
+      }
+      if (m_bv.is_bv_add(exp1) || m_bv.is_bv_sub(exp1)) {
+        for (auto t : *to_app(exp1)) {
+          if (t == var)
+            return true;
+        }
+      }
+      if (m_bv.is_bv_add(exp2) || m_bv.is_bv_sub(exp2)) {
+        for (auto t : *to_app(exp1)) {
+          if (t == var)
+            return true;
+        }
+      }
+    }
+    if (m_bv.is_bv_ule(fml)) {
+      exp1 = to_app(fml)->get_arg(0);
+      if (m_bv.is_bv_mul(exp1)) {
+        for (auto t : *to_app(exp1)) {
+          if (t == var)
+            return true;
+        }
+      }
+    }
+    return false; 
+  }
+
+  bool project_linear(expr *f, expr_ref_vector &out) {
+    for (auto r : inv_cond_rw_rules) {
+      out.reset();
+      if (r->apply(f, out)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  // function to project linear formulas 
+  void project_all_linear(model &mdl, app_ref_vector &vars, expr_ref_vector &fmls, bool project_bounds) { 
+    expr_ref_vector iter_res(m), out(m);
+    iter_res.reset();
+    // TODO add heuristic for variable formulas ordering
+    for (unsigned var_num = 0; var_num < vars.size(); var_num++) {
+      expr_ref var(vars.get(var_num), m);
+      reset_inv_rw_rules(mdl, var);
+      iter_res.reset();
+      for (expr* fml : fmls) {
+        // filter non-linear and bounds that could be projected to true
+        if (contains_num(fml, var) != 1 || (!project_bounds && is_lost_bound(fml, var))) {
+          iter_res.push_back(fml);
+          continue;
+        }
+        if (project_linear(fml, out))
+          iter_res.append(out);
+        else
+          iter_res.push_back(fml);
+      }
+      // reset formulas
+      fmls.reset();
+      fmls.append(iter_res);
+    }
+  }
+
+  vector<def> project(model &mdl, app_ref_vector &vars, expr_ref_vector &fmls, bool useless) {
+    std::cout << "in project \n" << std::endl;
+    expr_ref_vector res(m);
+    app_ref_vector var_vect(m); // vector for 1 variable for later inputs
+    // backg_fmls = x-free formulas
+    // norm_fmls = normalized formulas
+    // new_fmls = new bounds created from resolve
+    // bd_fmls = formulas which cannot be reduced to a bound
+    // lazy_fmls = formulas that are added by Lazy mbp
+    // pi = unnormalized original formulas
+    // sig = normalized original formulas
+    expr_ref_vector backg_fmls(m), norm(m), new_fmls(m), norm_fmls(m), bd_fmls(m), lazy_fmls(m);
+    expr_ref_vector pi(m), sig(m);
+    expr_ref orig_fla(m);
+    mk_exists(mk_and(fmls), vars, orig_fla);
+    res.append(fmls);
+    // Sanity check, if model is trully a model of fmls
+    expr_ref result(mk_and(res), m);
+    SASSERT(mdl.is_true(result));
+
+    // project all linear formulas, leave the bounds alive
+    project_all_linear(mdl, vars, res, false);
+    SASSERT(mdl.is_true(res));
+
+    result = mk_and(res);
+    SASSERT(mdl.is_true(result));
+    // if sat, then MBP => E vars. fmls is not valid
+    SASSERT(!is_sat(result, m.mk_not(orig_fla)));
+
+    for (unsigned var_num = 0; var_num < vars.size(); var_num++) {
+      expr_ref var(vars.get(var_num), m);
+      for (unsigned f_num = 0; f_num < res.size(); f_num++) {
+        expr_ref fml(res.get(f_num), m);
+        app_ref vr(vars.get(var_num), m);
+        var_vect.push_back(vr);
+        if (!contains(fml, var)) {
+          backg_fmls.push_back(fml);
+          continue;
+        }
+        norm.reset();
+        if (normalize(var, fml, mdl, norm)) {
+          sig.push_back(fml);
+          // sanity check. normalization should be an under approximation
+          //std::cout << "Normalized:" << mk_pp(fml, m) << "\ninto: " << mk_pp(mk_and(norm), m) << std::endl;  
+          SASSERT(is_sat((mk_and(norm), m.mk_not(fml))));
+          // sanity check. model satisfies normalized formula
+          SASSERT(mdl.is_true(mk_and(norm)));
+          // project potential newly created linear formulas
+          project_all_linear(mdl, var_vect, norm, false);
+          // sanity check. normalization should still be an under approximation
+          SASSERT(is_sat((mk_and(norm), m.mk_not(fml))));
+          // sanity check. model satisfies normalized formula
+          SASSERT(mdl.is_true(mk_and(norm)));
+          for (auto a : norm) {
+            // normalization can create side conditions not involving var
+            if (contains(a, var))
+              norm_fmls.push_back(a);
+            else
+              backg_fmls.push_back(a);
+          } 
+        }
+        else { // not normalized
+          pi.push_back(fml);
+        }
+      }
+      resolve(var, norm_fmls, mdl, new_fmls, bd_fmls);
+      if (bd_fmls.size() > 0) {
+        pi.append(bd_fmls);
+      }
+      project_all_linear(mdl, var_vect, norm_fmls, true);
+
+      if (!pi.empty()) {
+        expr_ref ex_sig(m);
+        mk_exists(mk_and(sig), var_vect, ex_sig);
+        //lazy_mbp(backg_fmls, sig, ex_sig, pi, var, new_fmls, mdl, lazy_fmls, orig_fla);
+        lazy_mbp(backg_fmls, pi, sig, var, new_fmls, mdl);
+      }  
+      res.reset();
+      //res.append(lazy_fmls);
+      res.append(new_fmls);
+      res.append(backg_fmls);     
+    }
+
+    //std::cout << "Vars: " << vars << std::endl;
+    //std::cout << "Original formula :\n"<< mk_pp(mk_and(fmls), m) << std::endl;
+    //std::cout << "New formula: \n"<< mk_pp(mk_and(res), m) << std::endl;
+
+    result = mk_and(res);
+    SASSERT(mdl.is_true(result));
+    // if sat, then MBP => E vars. fmls is not valid
+    std::cout << "Checking validity \n";
+    //SASSERT(!is_sat(result, m.mk_not(orig_fla)));
+    return vector<def>();
+  }
 
 // MAIN PROJECTION FUNCTION
 // compute_def is unused
-vector<def> project(model &model, app_ref_vector &vars, expr_ref_vector &fmls,
+vector<def> project_legacy(model &model, app_ref_vector &vars, expr_ref_vector &fmls,
                     bool compute_def) {
     expr_ref_vector res(m);
     res.append(fmls);
@@ -2223,15 +2382,67 @@ vector<def> project(model &model, app_ref_vector &vars, expr_ref_vector &fmls,
     // final sanity check
     expr_ref orig_fla(m);
     mk_exists(mk_and(fmls), vars, orig_fla);
-    expr_ref mbp(mk_and(res), m);
-    SASSERT(model.is_true(mbp));
-    SASSERT(!is_sat(mbp, m.mk_not(orig_fla)));
+    expr_ref result(mk_and(res), m);
+    SASSERT(model.is_true(result));
+    SASSERT(!is_sat(result, m.mk_not(orig_fla)));
     fmls.reset();
     fmls.append(res);
     // Since lazy_mbp guarentees elimination of all vars, reset vars
     vars.shrink(0);
     return vector<def>();
 }
+
+// Tom
+// Inputes values lazyli untill it holds that MBP(mdl, var, fmls) => Exists var. fmls
+// Input  bckg_fmls ∧ new_fmls => exists var. sig
+// Output bckg_fmls ∧ new_fmls ∧ lazy_fmls => exists var. pi ∧ sig (orig fla)
+void lazy_mbp_leg(expr_ref_vector &bckg_fmls, expr_ref_vector &sig, expr_ref &exists_sig, expr_ref_vector &pi, expr_ref var,
+              expr_ref_vector &new_fmls, model &mdl, expr_ref_vector &lazy_fmls, expr_ref &orig_fla) {
+  expr_ref negged_quant_conj(m);
+  negged_quant_conj = m.mk_and(mk_and(pi), m.mk_and(mk_and(sig), mk_and(bckg_fmls)));
+  app_ref_vector vec(m);
+  vec.push_back(to_app(var.get()));
+  std::cout << "Before exists: " << mk_pp(negged_quant_conj,m) << std::endl;
+  mk_exists(negged_quant_conj, vec, negged_quant_conj);
+  std::cout << "Before neg: " << mk_pp(negged_quant_conj,m) << std::endl;
+  negged_quant_conj = m.mk_not(negged_quant_conj);
+  std::cout << "After neg: " << mk_pp(negged_quant_conj, m) << std::endl;
+  SASSERT(!is_sat(negged_quant_conj));
+  std::cout << "Sig: " << mk_pp(mk_and(sig), m) << std::endl;
+  std::cout << "Ex Sig: " << exists_sig << std::endl;
+  std::cout << "bckg_fmls :\n"<< mk_pp(mk_and(bckg_fmls), m) << std::endl;
+  std::cout << "new_fmls: \n"<< mk_pp(mk_and(new_fmls), m) << std::endl;
+  // sanity check
+  std::cout << "Sig size :" <<sig.size() << std::endl;
+  SASSERT(!is_sat(mk_and(bckg_fmls), mk_and(new_fmls), m.mk_not(exists_sig)));
+  // if there exists a conterexample to bckg_fmls ∧ new_fmls => exists var. sig
+  if (!is_sat(mk_and(bckg_fmls), mk_and(new_fmls), m.mk_not(orig_fla))) {
+    std::cout << "do not need to strenghten\n";
+    return;
+  }
+  std::cout << "need to strenghten\n";
+  expr_ref_vector result_fmls(m);
+  result_fmls.append(bckg_fmls);
+  result_fmls.append(new_fmls);
+  expr_ref r(m);
+  for (auto f : pi) {
+    get_subst(mdl, var, f, r);
+    lazy_fmls.push_back(r);
+  }
+  if (!is_sat(mk_and(result_fmls), mk_and(lazy_fmls), negged_quant_conj))
+      return;
+  for (auto f : sig) {
+    get_subst(mdl, var, f, r);
+    lazy_fmls.push_back(r);
+    if (!is_sat(mk_and(result_fmls), mk_and(lazy_fmls), negged_quant_conj))
+      return;
+  }
+  result_fmls.append(lazy_fmls);
+  std::cout << "nqc :\n"<< mk_pp(negged_quant_conj, m) << std::endl;
+  std::cout << "result: \n"<< mk_pp(mk_and(result_fmls), m) << std::endl;
+  SASSERT(!is_sat(mk_and(result_fmls), negged_quant_conj));//m.mk_not(orig_fla)));
+  }
+
 
 //  version from qe_lia_arith
 void lazy_mbp(expr_ref_vector &backg, expr_ref_vector &pi, expr_ref_vector &sig,
@@ -2264,6 +2475,9 @@ void lazy_mbp(expr_ref_vector &backg, expr_ref_vector &pi, expr_ref_vector &sig,
         }
         stren_sz = substs.size();
     }
+
+    // sanity check
+    // SASSERT(!is_sat(new_fmls_conj, mk_and(substs), negged_quant_conj));
 
     // todo: possibly, optimize with incremental SMT
     for (unsigned k = 0; k < substs.size(); ) {
@@ -2820,8 +3034,8 @@ void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
     if (f.empty())
         return;
     expr_ref_vector lbs(m), ubs(m);
-    get_lbs(var, f, lbs);
-    get_ubs(var, f, ubs);
+    get_lbs(var, f, lbs); //t <=_u s*x -- in paper this should be < - TODO fix
+    get_ubs(var, f, ubs); //s*x <=_u t -- this is ok
     if (ubs.size() == f.size() || lbs.size() == f.size()) {
         bd_fmls.reset();
         res.push_back(m.mk_true());
@@ -2885,8 +3099,9 @@ void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
 
     //check if any side conditions failed
     if (!mdl.is_true(mk_and(sc))) {
+        bd_fmls.reset(); // Tom
         bd_fmls.append(f);
-        f.reset();
+        //f.reset(); - Tom
         res.reset();
     }
     return;
@@ -2932,11 +3147,20 @@ bool bv_project_plugin::operator()(model &model, app *var, app_ref_vector &vars,
 
 void bv_project_plugin::operator()(model &model, app_ref_vector &vars,
                                    expr_ref_vector &lits) {
+    // everytime I call mbp for all vars I need to try to remove 0 handling ops
+    //replace_zero_handle_ops(model, lits);
+    //ast_manager m = model.get_manager();
+    //expr_ref sanity(mk_and(lits), m);
+    //SASSERT(model.is_true(sanity));
     m_imp->project(model, vars, lits, false);
 }
 
 vector<def> bv_project_plugin::project(model &model, app_ref_vector &vars,
                                        expr_ref_vector &lits) {
+    //replace_zero_handle_ops(model, lits);
+    //ast_manager m = model.get_manager();
+    //expr_ref sanity(mk_and(lits), m);
+    //SASSERT(model.is_true(sanity));
     return m_imp->project(model, vars, lits, true);
 }
 
