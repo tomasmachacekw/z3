@@ -56,7 +56,7 @@ unsigned contains_num(expr *e, expr *v) {
   return count;
 }
 
-bool unhandled(expr *f, expr_ref var) {
+bool unhandled_legacy(expr *f, expr_ref var) {
     ast_manager &m = var.get_manager();
     bv_util m_bv(m);
     SASSERT(contains(f, var));
@@ -67,7 +67,7 @@ bool unhandled(expr *f, expr_ref var) {
     if (m_bv.is_extract(f) || m_bv.is_concat(f)) return true;
     for (auto a : *(to_app(f))) {
         if (!contains(a, var)) continue;
-        return unhandled(a, var);
+        return unhandled_legacy(a, var);
     }
     return false;
 }
@@ -177,6 +177,13 @@ void mk_add(expr_ref_vector &f, expr_ref &res) {
 void mk_add(expr_ref t1, expr_ref t2, expr_ref &res) {
   ast_manager &m = res.get_manager();
   expr_ref_vector f(m);
+  flatten_add(t1, f);
+  flatten_add(t2, f);
+  mk_add(f, res);
+}
+
+void mk_add(expr *t1, expr *t2, expr_ref &res) {
+  expr_ref_vector f(res.get_manager());
   flatten_add(t1, f);
   flatten_add(t2, f);
   mk_add(f, res);
@@ -309,26 +316,60 @@ void mk_exists(expr *f, app_ref_vector &vars, expr_ref &res) {
 }
 
 // LIA to bv rule utils
+bool split(expr *e, expr *var, expr_ref &t1, expr_ref &t2) {
+    ast_manager &m(t2.get_manager());
+    bv_util m_bv(m);
+    if (!m_bv.is_bv_add(e) || !contains(e, var))
+        return false;
+    expr_ref_vector nw_args(m);
+    for (expr *arg : *to_app(e)) {
+        if (contains(arg, var))
+            t1 = arg;
+        else
+            nw_args.push_back(arg);
+    }
+    if (nw_args.size() == 0) return false;
+    mk_add(nw_args, t2);
+    return true;
+}
+bool split_exl(expr *e, expr *var, expr_ref &t1, expr_ref &t2) {
+  ast_manager &m(t2.get_manager());
+  bv_util m_bv(m);
+  if (!m_bv.is_bv_add(e) || !contains(e, var))
+    return false;
+  expr_ref_vector nw_args(m);
+  for (expr *arg : *to_app(e)) {
+    if (contains(arg, var))
+      t2 = arg;
+    else
+      nw_args.push_back(arg);
+  }
+  if (nw_args.size() == 0)
+    return false;
+  mk_add(nw_args, t1);
+  return true;
+}
+
 // separates lhs, rhs into three parts such that only one contains var
-void split(expr_ref var, expr *lhs, expr *rhs, expr_ref& t1, expr_ref& t2, expr_ref& t2_neg, expr_ref& t3) {
+void split_legacy(expr_ref var, expr *lhs, expr *rhs, expr_ref& t1, expr_ref& t2, expr_ref& t2_neg, expr_ref& t3) {
   ast_manager &m = var.get_manager();
   bool lhs_var = contains(lhs, var);
   TRACE("qe", tout << "Trying to split " << mk_pp(lhs, m) << " tilda "
                    << mk_pp(rhs, m) << " wrt var " << var << "\n";);
 
   if (lhs_var) {
-      split_term(var, lhs, t1, t2, t2_neg);
+      split_term_legacy(var, lhs, t1, t2, t2_neg);
       t3 = rhs;
   }
   else {
-      split_term(var, rhs, t3, t2, t2_neg);
+      split_term_legacy(var, rhs, t3, t2, t2_neg);
       t1 = lhs;
   }
   return;
 }
 
 // splits exp into terms t and t2 such that exp = t + t2 and t contains var
-void split_term(expr_ref var, expr* exp, expr_ref& t, expr_ref& t2, expr_ref& t2_neg) {
+void split_term_legacy(expr_ref var, expr* exp, expr_ref& t, expr_ref& t2, expr_ref& t2_neg) {
     ast_manager &m = var.get_manager();
     bv_util m_bv(m);
     SASSERT(contains(exp, var));
@@ -564,6 +605,585 @@ public:
     virtual bool apply(expr *exp, expr_ref_vector &out) = 0;
 };
 
+// start of LIA bv rules
+class sle1 : public rw_rule {
+  // a <= 2^(n - 1) - 1 && b <= 2^(n - 1) - 1 && a <= b ==> a <=_s b
+public:
+    sle1 (ast_manager &m): rw_rule(m) {}
+    bool apply(expr *e, expr_ref_vector &out) override {
+      expr_ref lhs(m), rhs(m);
+      if (!is_sle(e, lhs, rhs))
+        return false;
+      unsigned sz = m_bv.get_bv_size(m_var);
+      expr_ref bnd(m), b1(m), b2(m), rw(m);
+      bnd = m_bv.mk_numeral(rational::power_of_two(sz - 1) - 1, sz);
+      b1 = m_bv.mk_ule(lhs, bnd);
+      b2 = m_bv.mk_ule(rhs, bnd);
+      rw = m_bv.mk_ule(lhs, rhs);
+      if (m_mdl->is_true(b1) && m_mdl->is_true(b2) && m_mdl->is_true(rw)) {
+        out.push_back(b1);
+        out.push_back(b2);
+        out.push_back(rw);
+        return true;
+      }
+      return false;
+    }
+};
+
+class sle2 : public rw_rule {
+  // a >= 2^(n - 1) && b >= 2^(n - 1) && a <= b ==> a <=_s b
+public:
+  sle2(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_sle(e, lhs, rhs))
+      return false;
+    unsigned sz = m_bv.get_bv_size(m_var);
+    expr_ref bnd(m), b1(m), b2(m), rw(m);
+    bnd = m_bv.mk_numeral(rational::power_of_two(sz - 1), sz);
+    b1 = m_bv.mk_ule(bnd, lhs);
+    b2 = m_bv.mk_ule(bnd, rhs);
+    rw = m_bv.mk_ule(lhs, rhs);
+    if (m_mdl->is_true(b1) && m_mdl->is_true(b2) && m_mdl->is_true(rw)) {
+      out.push_back(b1);
+      out.push_back(b2);
+      out.push_back(rw);
+      return true;
+    }
+    return false;
+  }
+};
+
+class sle3 : public rw_rule {
+  // a >= 2^(n - 1) && b <= 2^(n - 1) - 1 ==> a <=_s b
+public:
+  sle3(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_sle(e, lhs, rhs))
+      return false;
+    unsigned sz = m_bv.get_bv_size(m_var);
+    expr_ref bnd1(m), b1(m), b2(m), bnd2(m);
+    bnd1 = m_bv.mk_numeral(rational::power_of_two(sz - 1) - 1, sz);
+    bnd2 = m_bv.mk_numeral(rational::power_of_two(sz - 1), sz);
+    b1 = m_bv.mk_ule(bnd2, lhs);
+    b2 = m_bv.mk_ule(rhs, bnd1);
+    if (m_mdl->is_true(b1) && m_mdl->is_true(b2)) {
+      out.push_back(b1);
+      out.push_back(b2);
+      return true;
+    }
+    return false;
+  }
+};
+
+class eq : public rw_rule {
+  // a <= b && b <= a ==> a = b
+public:
+  eq(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr *lhs, *rhs;
+    expr_ref b1(m), b2(m);
+    if (!(m.is_eq(e, lhs, rhs) &&
+          (contains(lhs, m_var) || contains(rhs, m_var))))
+      return false;
+    b1 = m_bv.mk_ule(rhs, lhs);
+    b2 = m_bv.mk_ule(lhs, rhs);
+    if (m_mdl->is_true(b1) && m_mdl->is_true(b2)) {
+      out.push_back(b1);
+      out.push_back(b2);
+      return true;
+    }
+    return false;
+  }
+};
+
+class neq1 : public rw_rule {
+  // a < b ==> a != b
+public:
+  neq1(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr *f, *lhs, *rhs;
+    if (!(m.is_not(e, f) && m.is_eq(f, lhs, rhs) &&
+          (contains(lhs, m_var) || contains(rhs, m_var))))
+      return false;
+    expr_ref b1(m);
+    b1 = m.mk_not(m_bv.mk_ule(rhs, lhs));
+    if (m_mdl->is_true(b1)) {
+      out.push_back(b1);
+      return true;
+    }
+    return false;
+  }
+};
+
+class neq2 : public rw_rule {
+  // a > b ==> a != b
+public:
+  neq2(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr *f, *lhs, *rhs;
+    if (!((m.is_not(e, f)) && m.is_eq(f, lhs, rhs) &&
+          (contains(lhs, m_var) || contains(rhs, m_var))))
+      return false;
+    expr_ref b1(m), nt(m);
+    nt = m_bv.mk_ule(lhs, rhs);
+    b1 = m.mk_not(nt);
+    if (m_mdl->is_true(b1)) {
+      out.push_back(b1);
+      return true;
+    }
+    return false;
+  }
+};
+
+class nule : public rw_rule {
+  // b <= a - 1 /\ 1 <= a ==> not(a <= b)
+public:
+  nule(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    std::cout << "Tom NULE 1 \n";
+    expr_ref f(m), lhs(m), rhs(m);
+    if (!((m.is_not(e, f)) && m_bv.is_bv_ule(f, lhs, rhs) &&
+          (contains(lhs, m_var) || contains(rhs, m_var))))
+      return false;
+    unsigned sz = m_bv.get_bv_size(m_var);
+    expr_ref mone(m), dff(m), one(m);
+    std::cout << "Tom NULE 2 \n";
+    one = m_bv.mk_numeral(rational::one(), sz);
+    std::cout << "Tom NULE 3 \n";
+    mk_neg(one, mone);
+    std::cout << "Tom NULE 4 \n";
+    dff = m_bv.mk_bv_add(lhs, mone);
+    std::cout << "Tom NULE 5 \n";
+    expr *b1 = m_bv.mk_ule(rhs, dff);
+    expr *b2 = m_bv.mk_ule(one, lhs);
+    std::cout << "Tom NULE 6 \n";
+    if (m_mdl->is_true(b1) && m_mdl->is_true(b2)) {
+      out.push_back(b1);
+      out.push_back(b2);
+      std::cout << "Tom NULE 7 \n";
+      return true;
+    }
+    std::cout << "Tom NULE 8 \n";
+    return false;
+  }
+};
+
+class nsle : public rw_rule {
+  // b <=_s a - 1 /\ -2^(n - 1) + 1 <=_s a ==> not(a <=_s b)
+public:
+  nsle(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    std::cout << "Tom NSLE 1 \n";
+    expr *f, *lhs, *rhs;
+    if (!((m.is_not(e, f)) && m_bv.is_bv_sle(f, lhs, rhs) &&
+          (contains(lhs, m_var) || contains(rhs, m_var)))) {
+      std::cout << "Tom NSLE 2 \n";
+      return false;
+    }
+    unsigned sz = m_bv.get_bv_size(m_var);
+    expr_ref bnd(m);
+    bnd = m_bv.mk_numeral((-1 * rational::power_of_two(sz - 1)) + 1, sz);
+    expr_ref mone(m), dff(m), b1(m), b2(m);
+    mone = m_bv.mk_numeral(rational::minus_one(), sz);
+    mk_add(lhs, mone, dff);
+    b1 = m_bv.mk_sle(bnd, lhs);
+    b2 = m_bv.mk_sle(rhs, dff);
+    if (m_mdl->is_true(b1) && m_mdl->is_true(b2)) {
+      out.push_back(b1);
+      out.push_back(b2);
+      std::cout << "Tom NSLE 3 \n";
+      return true;
+    }
+    std::cout << "Tom NSLE 4 \n";
+    return false;
+  }
+};
+
+class mul_mone1 : public rw_rule {
+  //-1*b <= a ==> -1*a <= b
+public:
+    mul_mone1(ast_manager &m) : rw_rule(m) {}
+    bool apply(expr *e, expr_ref_vector &out) override {
+      expr_ref lhs(m), rhs(m), nw_lhs(m);
+      expr *l1, *l2;
+      rational val;
+      if (!is_ule_one_side(e, lhs, rhs))
+        return false;
+      if (!(contains(lhs, m_var) && m_bv.is_bv_mul(lhs, l1, l2) && l2 == m_var))
+        return false;
+      unsigned sz = m_bv.get_bv_size(m_var);
+      if (!(m_bv.is_numeral(l1, val) &&
+            (val.is_minus_one() || (val == rational::power_of_two(sz) - 1))))
+        return false;
+      mk_mul(l1, rhs, nw_lhs);
+      expr_ref b1(m);
+      b1 = m_bv.mk_ule(nw_lhs, l2);
+      if (m_mdl->is_true(b1)) {
+        out.push_back(b1);
+        return true;
+      }
+      return false;
+    }
+};
+
+class mul_mone2 : public rw_rule {
+  //a <= -1*b ==> b <= -1*a
+public:
+  mul_mone2(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m), nw_rhs(m);
+    expr *l1, *l2;
+    rational val;
+    if (!is_ule_one_side(e, lhs, rhs))
+      return false;
+    if (!(contains(rhs, m_var) && m_bv.is_bv_mul(rhs, l1, l2) && l2 == m_var))
+      return false;
+    unsigned sz = m_bv.get_bv_size(m_var);
+    if (!(m_bv.is_numeral(l1, val) && (val.is_minus_one() || (val == rational::power_of_two(sz) - 1))))
+        return false;
+    mk_mul(l1, lhs, nw_rhs);
+    expr_ref b1(m);
+    b1 = m_bv.mk_ule(l2, nw_rhs);
+    if (m_mdl->is_true(b1)) {
+        out.push_back(b1);
+        return true;
+    }
+    return false;
+  }
+};
+
+class ule_zro : public rw_rule {
+  // b = 0 ==> b <= x
+public:
+  ule_zro(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m);
+    rational val;
+    if (!m_bv.is_bv_ule(e)) return false;
+    lhs = to_app(e)->get_arg(0);
+
+    if (m_bv.is_numeral(lhs, val) && val.is_zero())
+        return true;
+    return false;
+  }
+};
+
+class addl1: public rw_rule {
+  //if {y <= z /\ f(x) <= z - y} then {f(x) + y <= z}
+public:
+    addl1 (ast_manager& m): rw_rule(m){}
+    bool apply(expr *e, expr_ref_vector &out) override {
+      expr_ref lhs(m), rhs(m), oth(m), rw(m);
+      if (!is_ule_one_side(e, lhs, rhs))
+        return false;
+      expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
+      if (!split(lhs, m_var, t1, t2))
+        return false;
+      mk_neg(t2, t2_neg);
+      oth = m_bv.mk_ule(t2, rhs);
+      mk_add(rhs, t2_neg, add_t);
+      rw = m_bv.mk_ule(t1, add_t);
+      if (m_mdl->is_true(oth) && m_mdl->is_true(rw)) {
+        out.push_back(oth);
+        out.push_back(rw);
+        return true;
+      }
+      return false;
+    };
+};
+
+class addl2: public rw_rule {
+  // if {-y <= f(x) /\ f(x) <= z - y} then {f(x) + y <= z}
+public:
+  addl2 (ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m), oth(m), rw(m);
+    if (!is_ule_one_side(e, lhs, rhs))
+      return false;
+    expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
+    if (!split(lhs, m_var, t1, t2))
+      return false;
+    mk_neg(t2, t2_neg);
+    oth = m_bv.mk_ule(t2_neg, t1);
+    mk_add(rhs, t2_neg, add_t);
+    rw = m_bv.mk_ule(t1, add_t);
+    if (m_mdl->is_true(oth) && m_mdl->is_true(rw)) {
+      out.push_back(oth);
+      out.push_back(rw);
+      return true;
+    }
+    return false;
+  };
+};
+
+class addl3 : public rw_rule {
+  // if {-y <= f(x) /\ y <= z /\ y != 0} then {f(x) + y <= z}
+public:
+  addl3(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m), sc1(m), sc2(m), zro(m), sc3(m);
+    if (!is_ule_one_side(e, lhs, rhs))
+      return false;
+    expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
+    if (!split(lhs, m_var, t1, t2))
+      return false;
+    mk_neg(t2, t2_neg);
+    sc1 = m_bv.mk_ule(t2_neg, t1);
+    sc2 = m_bv.mk_ule(t2, rhs);
+    unsigned sz = m_bv.get_bv_size(m_var);
+    zro = m_bv.mk_numeral(rational::zero(), sz);
+    sc3 = m.mk_not(m.mk_eq(t2, zro));
+    if (m_mdl->is_true(sc1) && m_mdl->is_true(sc2) && m_mdl->is_true(sc3)) {
+      out.push_back(sc1);
+      out.push_back(sc2);
+      out.push_back(sc3);
+      return true;
+    }
+    return false;
+  };
+};
+
+class addbx4 : public rw_rule {
+  // if {x <= 2^n/k2/k1} then {k1*x <= k2*x}
+  // TODO: handle other cases as well
+public:
+  addbx4(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m), nw_rhs(m), bnd_e(m), sc1(m);
+    if (!is_ule(e, lhs, rhs))
+      return false;
+    expr *k1_e, *k2_e, *var;
+    rational k1, k2;
+    if (!m_bv.is_bv_mul(lhs, k1_e, var)) return false;
+    if (var != m_var) return false;
+    if (!m_bv.is_numeral(k1_e, k1)) return false;
+
+    if (!m_bv.is_bv_mul(rhs, k2_e, var)) return false;
+    if (var != m_var) return false;
+    if (!m_bv.is_numeral(k2_e, k2)) return false;
+    if (k1 == k2) return true;
+    rational k3 = k2/k1;
+    unsigned sz = m_bv.get_bv_size(m_var);
+    rational bnd = rational::power_of_two(sz)/k3;
+    bnd_e = m_bv.mk_numeral(bnd, sz);
+    sc1 = m_bv.mk_ule(m_var, bnd_e);
+    if (m_mdl->is_true(sc1)) {
+      out.push_back(sc1);
+      return true;
+    }
+    TRACE("bv_tmp", tout << "model not good enough for bx4 " << mk_pp(sc1, m) << "\n";);
+    return false;
+  };
+};
+
+class addbx1 : public rw_rule {
+  // if {f1(x) <= f2(x) /\ y <= f2(x) - f1(x)} then {f1(x) + y <= f2(x)}
+public:
+  addbx1(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m), nw_rhs(m), sc1(m), rw(m);
+    if (!is_ule(e, lhs, rhs))
+      return false;
+    expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
+    if (!split_exl(lhs, m_var, t1, t2))
+      return false;
+    mk_neg(t2, t2_neg);
+    sc1 = m_bv.mk_ule(t2, rhs);
+    mk_add(rhs, t2_neg, nw_rhs);
+    rw = m_bv.mk_ule(t1, nw_rhs);
+    TRACE("bv_tmp",
+          tout << "checking mdl bx1 with " << mk_pp(sc1, m)<< " and " << mk_pp(rw, m) << "\n";);
+    if (m_mdl->is_true(sc1) && m_mdl->is_true(rw)) {
+      out.push_back(sc1);
+      out.push_back(rw);
+      return true;
+    }
+    TRACE("bv_tmp", tout << "checking mdl bx1 with " << mk_pp(sc1, m) << " and "
+                         << mk_pp(rw, m) << "\n";);
+    return false;
+  };
+};
+
+class addbx2 : public rw_rule {
+  // if {-f1(x) <= y /\ y <= f2(x) - f1(x)} then {f1(x) + y <= f2(x)}
+public:
+  addbx2(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m), nw_rhs(m), rw(m), sc1(m);
+    if (!is_ule(e, lhs, rhs))
+      return false;
+    expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
+    if (!split_exl(lhs, m_var, t1, t2))
+      return false;
+    mk_neg(t2, t2_neg);
+    sc1 = m_bv.mk_ule(t2_neg, t1);
+    mk_add(rhs, t2_neg, nw_rhs);
+    rw = m_bv.mk_ule(t1, nw_rhs);
+    TRACE("bv_tmp", tout << "checking mdl bx2 with " << mk_pp(sc1, m) << " and "
+                         << mk_pp(rw, m) << "\n";);
+    if (m_mdl->is_true(sc1) && m_mdl->is_true(rw)) {
+      out.push_back(sc1);
+      out.push_back(rw);
+      return true;
+    }
+    return false;
+  };
+};
+
+class addbx3 : public rw_rule {
+  // if {-f1(x) <= y /\ f1(x) <= f2(x) /\ f1(x) != 0} then {f1(x) + y <= f2(x)}
+public:
+  addbx3(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m), nw_rhs(m), sc1(m), sc2(m), sc3(m), zro(m);
+    if (!is_ule(e, lhs, rhs))
+      return false;
+    expr_ref t1(m), t2(m), t2_neg(m), add_t(m);
+    if (!split_exl(lhs, m_var, t1, t2))
+      return false;
+    mk_neg(t2, t2_neg);
+    sc1 = m_bv.mk_ule(t2_neg, t1);
+    sc2 = m_bv.mk_ule(t2, rhs);
+    unsigned sz = m_bv.get_bv_size(m_var);
+    zro = m_bv.mk_numeral(rational::zero(), sz);
+    sc3 = m.mk_not(m.mk_eq(t2, zro));
+
+    TRACE("bv_tmp", tout << "checking mdl bx3 with " << mk_pp(sc1, m) << " and "
+                         << mk_pp(sc2, m) << "\n";);
+    if (m_mdl->is_true(sc1) && m_mdl->is_true(sc2) && m_mdl->is_true(sc3)) {
+      out.push_back(sc1);
+      out.push_back(sc2);
+      out.push_back(sc3);
+      return true;
+    }
+    return false;
+  };
+};
+
+class addr1 : public rw_rule {
+  // if {z <= y - 1 /\ y != 0 /\ z - y <= f(x)} then {z <= f(x) + y}
+public:
+  addr1(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ule(e, lhs, rhs))
+      return false;
+    expr_ref t1(m), t2(m), t2_neg(m);
+    if (!split(rhs, m_var, t1, t2))
+      return false;
+    mk_neg(t2, t2_neg);
+    unsigned sz = m_bv.get_bv_size(m_var);
+    expr_ref one(m), minus_one(m), zro(m), add_t1(m), add_mo(m), oth(m),
+        no_zro(m);
+    one = m_bv.mk_numeral(rational::one(), sz);
+    zro = m_bv.mk_numeral(rational::zero(), sz);
+    mk_neg(one, minus_one);
+    mk_add(t2, minus_one, add_mo);
+    oth = m_bv.mk_ule(lhs, add_mo);
+    no_zro = m.mk_not(m.mk_eq(t2, zro));
+    mk_add(lhs, t2_neg, add_t1);
+    expr *rw = m_bv.mk_ule(add_t1, t1);
+    if (m_mdl->is_true(oth) && m_mdl->is_true(rw) && m_mdl->is_true(no_zro)) {
+      out.push_back(oth);
+      out.push_back(no_zro);
+      out.push_back(rw);
+      return true;
+    }
+    return false;
+  };
+};
+
+class addr2 : public rw_rule {
+  // if { f(x) <= -y - 1 /\ y != 0  /\ z - y <= f(x)} then { z <= f(x) + y}
+public:
+  addr2(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ule(e, lhs, rhs)) return false;
+    expr_ref t1(m), t2(m), t2_neg(m);
+    if (!split(rhs, m_var, t1, t2)) return false;
+    mk_neg(t2, t2_neg);
+    unsigned sz = m_bv.get_bv_size(m_var);
+    expr_ref one(m), minus_one(m), zro(m), add_t2(m), add_lhs(m), rw(m), oth(m),
+        no_zro(m);
+    one = m_bv.mk_numeral(rational::one(), sz);
+    zro = m_bv.mk_numeral(rational::zero(), sz);
+    mk_neg(one, minus_one);
+    mk_add(t2_neg, minus_one, add_t2);
+    oth = m_bv.mk_ule(t1, add_t2);
+    no_zro = m.mk_not(m.mk_eq(t2, zro));
+    mk_add(lhs, t2_neg, add_lhs);
+    rw = m_bv.mk_ule(add_lhs, t1);
+    if (m_mdl->is_true(oth) && m_mdl->is_true(rw) && m_mdl->is_true(no_zro)) {
+        out.push_back(oth);
+        out.push_back(no_zro);
+        out.push_back(rw);
+        return true;
+    }
+    return false;
+  };
+};
+
+class addr3 : public rw_rule {
+  // if { y == 0  /\ z <= f(x)} then { z <= f(x) + y}
+public:
+  addr3(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ule(e, lhs, rhs))
+      return false;
+    expr_ref t1(m), t2(m);
+    if (!split(rhs, m_var, t1, t2))
+      return false;
+    unsigned sz = m_bv.get_bv_size(m_var);
+    expr_ref zro(m), oth(m), t2_zro(m);
+    zro = m_bv.mk_numeral(rational::zero(), sz);
+    oth = m_bv.mk_ule(lhs, t1);
+    t2_zro = m.mk_eq(t2, zro);
+    if (m_mdl->is_true(t2_zro) && m_mdl->is_true(oth)) {
+      out.push_back(oth);
+      out.push_back(t2_zro);
+      return true;
+    }
+    return false;
+  };
+};
+
+class addr4 : public rw_rule {
+  // if { y != 0  /\ z <= y - 1 && x <= -y - 1 } then { z <= f(x) + y}
+public:
+  addr4(ast_manager &m) : rw_rule(m) {}
+  bool apply(expr *e, expr_ref_vector &out) override {
+    expr_ref lhs(m), rhs(m);
+    if (!is_ule(e, lhs, rhs))
+      return false;
+    expr_ref t1(m), t2(m), t2_neg(m);
+    if (!split(rhs, m_var, t1, t2))
+      return false;
+    mk_neg(t2, t2_neg);
+    unsigned sz = m_bv.get_bv_size(m_var);
+    expr_ref one(m), zro(m), mone(m), add_t2(m), add_negt2(m), t2_zro(m),
+        oth(m), oth2(m);
+    zro = m_bv.mk_numeral(rational::zero(), sz);
+    mone = m_bv.mk_numeral(rational::minus_one(), sz);
+    mk_add(t2, mone, add_t2);
+    mk_add(t2_neg, mone, add_negt2);
+    t2_zro = m.mk_not(m.mk_eq(t2, zro));
+    oth = m_bv.mk_ule(lhs, add_t2);
+    oth2 = m_bv.mk_ule(t1, add_negt2);
+    if (m_mdl->is_true(t2_zro) && m_mdl->is_true(oth) && m_mdl->is_true(oth2)) {
+      out.push_back(oth);
+      out.push_back(oth2);
+      out.push_back(t2_zro);
+      return true;
+    }
+    return false;
+  };
+};
+
+// end of BV rules based on LIA
 // start of Invertibility condition rules
 // Solve basic rules x ?? t, -x ?? t, ~x ?? t, x+s ?? t 
 // for ?? in <u, <s, (prob later add ≤u, ≤s) TODO
@@ -670,7 +1290,7 @@ public:
         SASSERT(m_mdl->is_true(out.back()));
         return true;
       }
-      //  if t ≤u (t+t-s) & s  = t then  Exists x. s mod_u x = t
+      //  if t ≤u (t+t-s) & s then  Exists x. s mod_u x = t
       if (exp2 == m_var) {
         unsigned sz = m_bv.get_bv_size(m_var);
         two = m_bv.mk_numeral(rational(2), sz);
@@ -2087,8 +2707,35 @@ struct bv_project_plugin::imp {
   ast_manager &m;
   bv_util u;
   ptr_buffer<rw_rule> inv_cond_rw_rules;
+  ptr_buffer<rw_rule> sep_var_rw_rules;
+  ptr_buffer<rw_rule> break_op_rw_rules;
 
   imp(ast_manager &_m) : m(_m), u(m) {
+    // variable separation rules
+    sep_var_rw_rules.push_back(alloc(addl1, m));
+    sep_var_rw_rules.push_back(alloc(addl2, m));
+    sep_var_rw_rules.push_back(alloc(addl3, m));
+    sep_var_rw_rules.push_back(alloc(addr1, m));
+    sep_var_rw_rules.push_back(alloc(addr2, m));
+    sep_var_rw_rules.push_back(alloc(addr3, m));
+    sep_var_rw_rules.push_back(alloc(addr4, m));
+    sep_var_rw_rules.push_back(alloc(addbx1, m));
+    sep_var_rw_rules.push_back(alloc(addbx2, m));
+    sep_var_rw_rules.push_back(alloc(addbx3, m));
+    sep_var_rw_rules.push_back(alloc(addbx4, m));
+    sep_var_rw_rules.push_back(alloc(mul_mone1, m));
+    sep_var_rw_rules.push_back(alloc(mul_mone2, m));
+    sep_var_rw_rules.push_back(alloc(ule_zro, m));
+    sep_var_rw_rules.push_back(alloc(nsle, m));
+    sep_var_rw_rules.push_back(alloc(nule, m));
+    // rules that change operations
+    break_op_rw_rules.push_back(alloc(sle1, m));
+    break_op_rw_rules.push_back(alloc(sle2, m));
+    break_op_rw_rules.push_back(alloc(sle3, m));
+    break_op_rw_rules.push_back(alloc(eq, m));
+    break_op_rw_rules.push_back(alloc(neq1, m));
+    break_op_rw_rules.push_back(alloc(neq2, m));
+
     // equalities
     inv_cond_rw_rules.push_back(alloc(inv_eq_mul, m));
     inv_cond_rw_rules.push_back(alloc(inv_eq_urem, m));
@@ -2135,13 +2782,32 @@ struct bv_project_plugin::imp {
     for (auto *r : inv_cond_rw_rules) {
       dealloc(r);
     }
+    for (auto *r : sep_var_rw_rules) {
+      dealloc(r);
+    }
+    for (auto *r : break_op_rw_rules) {
+      dealloc(r);
+    }
+    
   }
 
   void reset_inv_rw_rules(model &mdl, expr *var) {
-      for (auto r : inv_cond_rw_rules) {
-        r->reset(&mdl, var);
-      }
+    for (auto r : inv_cond_rw_rules) {
+       r->reset(&mdl, var);
+     }
+  }
+
+  void reset_sep_var_rw_rules(model &mdl, expr *var) {
+    for (auto r : sep_var_rw_rules) {
+      r->reset(&mdl, var);
     }
+  }
+
+  void reset_break_op_rw_rules(model &mdl, expr *var) {
+    for (auto r : break_op_rw_rules) {
+      r->reset(&mdl, var);
+    }
+  }
 
   // true iff fml is a bound that is projected true
   bool is_lost_bound(expr* fml, expr* var) {
@@ -2217,6 +2883,71 @@ struct bv_project_plugin::imp {
   }
 
   vector<def> project(model &mdl, app_ref_vector &vars, expr_ref_vector &fmls, bool useless) {
+    std::cout << "In project \n";
+    expr_ref_vector res(m);
+    app_ref_vector var_vect(m); // vector for 1 variable for later inputs
+    // backg_fmls = x-free formulas
+    // norm_fmls = formulas with separated variables
+    // simpl_fmls = formulas with broken operations
+    // bound_fmls = input for resolve
+    // new_bounds = result from resolve function
+    // bd_fmls = formulas which cannot be reduced to a bound
+    // lazy_fmls = formulas that are added by Lazy mbp
+    // pi = unnormalized original formulas
+    // sig = normalized original formulas
+    expr_ref_vector backg_fmls(m), norm_fmls(m), simpl_fmls(m), bound_fmls(m), new_bounds(m), bd_fmls(m), lazy_fmls(m);
+    expr_ref_vector pi(m), sig(m);
+    expr_ref orig_fla(m);
+    expr_ref result(m);
+    res.append(fmls);
+    mk_exists(mk_and(res), vars, orig_fla);
+    // Sanity check, if model is trully a model of fmls
+    result = mk_and(res);
+    SASSERT(mdl.is_true(result));
+    // project all linear formulas, leave the bounds alive
+    project_all_linear(mdl, vars, res, false);
+    result = mk_and(res);
+    SASSERT(mdl.is_true(result));
+    for (unsigned var_num = 0; var_num < vars.size(); var_num++) {
+      expr_ref var(vars.get(var_num), m);
+      for (unsigned f_num = 0; f_num < res.size(); f_num++) {
+        expr_ref fml(res.get(f_num), m);
+        app_ref vr(vars.get(var_num), m);
+        var_vect.push_back(vr);
+        if (!contains(fml, var)) {
+          backg_fmls.push_back(fml);
+          continue;
+        }
+        norm_fmls.reset();
+        separate_vars(var, fml, mdl, norm_fmls); // separate what we can
+        std::cout << "In project 2 \n";
+        project_all_linear(mdl, vars, norm_fmls, false); // invert newly created linear formulas
+        std::cout << "In project 3 \n";
+        simplify_operations(var, norm_fmls, mdl, simpl_fmls);
+        std::cout << "In project 4 \n";
+        extract_bound_fmls(var, simpl_fmls, mdl, pi, bound_fmls, backg_fmls);
+        std::cout << "In project 5 \n";
+      }
+    std::cout << "In project 6 \n";
+    resolve(var, bound_fmls, mdl, new_bounds, bd_fmls);
+    if (bd_fmls.size() > 0) {
+      pi.append(bd_fmls);
+    }
+    else {
+      backg_fmls.append(new_bounds);
+    }
+    std::cout << "In project 7 \n";
+    lazy_mbp(backg_fmls, pi, bound_fmls, var, lazy_fmls, mdl);
+    std::cout << "In project 8 \n";
+    res.reset();
+    res.append(backg_fmls);
+    res.append(lazy_fmls);
+    }
+    std::cout << "Checking validity \n";
+    return vector<def>();
+   }
+
+  vector<def> project_old_norm(model &mdl, app_ref_vector &vars, expr_ref_vector &fmls, bool useless) {
     std::cout << "in project \n" << std::endl;
     expr_ref_vector res(m);
     app_ref_vector var_vect(m); // vector for 1 variable for later inputs
@@ -2256,7 +2987,7 @@ struct bv_project_plugin::imp {
           continue;
         }
         norm.reset();
-        if (normalize(var, fml, mdl, norm)) {
+        if (normalize_legacy(var, fml, mdl, norm)) {
           sig.push_back(fml);
           // sanity check. normalization should be an under approximation
           //std::cout << "Normalized:" << mk_pp(fml, m) << "\ninto: " << mk_pp(mk_and(norm), m) << std::endl;  
@@ -2342,7 +3073,7 @@ vector<def> project_legacy(model &model, app_ref_vector &vars, expr_ref_vector &
             }
             norm.reset();
             // normalize and add to pi
-            if (normalize(v, f, model, norm)) {
+            if (normalize_legacy(v, f, model, norm)) {
                 pi.push_back(f);
                 TRACE("qe", tout << "normalized from " << mk_pp(f, m) << " to "
                       << mk_pp(mk_and(norm), m) << "\n";);
@@ -2556,6 +3287,142 @@ void get_subst(model &model, expr *v, expr *f, expr_ref& res) {
     sub(f, res);
 }
 
+// top level expression is unhandled, so we are done with this expr
+bool unhandled(expr *f) {
+    if (is_uninterp(f))
+      return false;
+    if (u.is_bv_sdiv(f) || u.is_bv_udiv(f))
+      return true;
+    if (u.is_bv_smod(f) || u.is_bv_smodi(f) || u.is_bv_smod0(f))
+      return true;
+    if (u.is_bv_urem(f) || u.is_bv_urem0(f) || u.is_bv_uremi(f))
+      return true;
+    if (u.is_extract(f) || u.is_concat(f))
+      return true;
+    return false;
+}
+
+// we have moved everything we could to the other side
+bool is_separated(expr *f, expr *v) {
+  if (!contains(f, v) || unhandled(f))
+    return true;
+  return false;
+}
+
+// separate vars for one formula
+void separate_vars(expr *var, expr *f, model &mdl, expr_ref_vector &res) {
+  expr_ref_vector fmls(m);
+  fmls.push_back(f);
+  separate_vars(var, fmls, mdl, res);
+}
+
+// move vars to to other side in all expressions in f
+void separate_vars(expr *var, expr_ref_vector &fmls, model &mdl, expr_ref_vector &res) {
+    expr_ref_vector todo(m);
+    todo.append(fmls);
+    reset_sep_var_rw_rules(mdl, var);
+    expr_ref_vector out(m);
+    expr_ref t(m);
+    bool normalized;
+    while (!todo.empty()) {
+      t = todo.back();
+      todo.pop_back();
+      if (is_separated(t, var)) {
+        res.push_back(t);
+        continue;
+      }
+      normalized = false;
+      for (auto r : sep_var_rw_rules) {
+        out.reset();
+        if (r->apply(t, out)) {
+          todo.append(out);
+          normalized = true;
+          break;
+        }
+      }
+      if (!normalized) 
+        res.push_back(t);
+  }
+}
+
+// break operations to other operations and separate vars accordingly
+void simplify_operations(expr *var, expr_ref_vector &fmls, model &mdl, expr_ref_vector &res) {
+    expr_ref_vector todo(m);
+    todo.append(fmls);
+    reset_break_op_rw_rules(mdl, var);
+    reset_sep_var_rw_rules(mdl, var);
+    expr_ref_vector out(m);
+    expr_ref t(m);
+    unsigned i = 0;
+    bool normalized;
+    std::cout << "Simpl project 1 \n";
+    while (!todo.empty()) {
+      t = todo.back();
+      todo.pop_back();
+      std::cout << "Simpl project 2 \n";
+      if (is_separated(t, var)) {
+        res.push_back(t);
+        continue;
+      }
+      std::cout << "Simpl project 3 \n";
+      normalized = false;
+      for (auto r : break_op_rw_rules) {
+        out.reset();
+        if (r->apply(t, out)) {
+          todo.append(out);
+          normalized = true;
+          break;
+        }
+      }
+      std::cout << "Simpl project 4 \n";
+      if (!normalized) {
+        i = 0;
+        for (auto r : sep_var_rw_rules) {
+          out.reset();
+          std::cout << "Simpl project 5 and i is: "<< i << "\n";
+          i++;
+          if (r->apply(t, out)) {
+            todo.append(out);
+            normalized = true;
+            break;
+          }
+        }
+      }
+      std::cout << "Simpl project 6 \n";
+      if (!normalized) 
+        res.push_back(t);
+    }
+}
+
+void extract_bound_fmls(expr *var, expr_ref_vector &fmls, model &mdl, expr_ref_vector &pi,
+                      expr_ref_vector &bounds, expr_ref_vector &bckg_fmls) {
+  unsigned var_count;
+  expr_ref  lhs(m), rhs(m), exp1(m), exp2(m);
+  for (auto *f : fmls) {
+    var_count = contains_num(f, var);
+    if (var_count == 0) {
+      bckg_fmls.push_back(f);
+      continue;
+    }
+    if (var_count > 1) {
+      pi.push_back(f);
+      continue;
+    }
+    if (u.is_bv_ule(f)) {
+      lhs = to_app(f)->get_arg(0);
+      rhs = to_app(f)->get_arg(1);
+      if ((contains(lhs, var) && (lhs == var || (u.is_bv_mul(lhs) &&
+       (to_app(lhs)->get_arg(0) == var || to_app(lhs)->get_arg(1) == var)))) ||
+          (contains(rhs, var) && (rhs == var || (u.is_bv_mul(rhs) &&
+       (to_app(rhs)->get_arg(0) == var || to_app(rhs)->get_arg(1) == var))))) {
+      }
+      bounds.push_back(f);
+      continue;   
+    }
+    pi.push_back(f);
+  }
+}
+
 // push not inside f
 // produces side condition sc satisfied by mdl
 bool push_not(expr_ref f, expr_ref &res, expr_ref &sc, model &mdl) {
@@ -2632,7 +3499,7 @@ bool rewrite_ule(expr_ref var, expr *lhs, expr *rhs, model &mdl,
         return true;
     }
 
-    split(var, lhs, rhs, t1, t2, t2_neg, t3);
+    split_legacy(var, lhs, rhs, t1, t2, t2_neg, t3);
     bool lhs_var = contains(lhs, var);
     expr_ref r(m), t(m);
     t = m.mk_not(u.mk_ule(t2, t1));
@@ -2701,7 +3568,7 @@ bool rewrite_ule_alt(expr_ref var, expr *lhs, expr *rhs, model &mdl, expr_ref_ve
         }
     }
 
-    split(var, lhs, rhs, t1, t2, t2_neg, t3);
+    split_legacy(var, lhs, rhs, t1, t2, t2_neg, t3);
     bool lhs_var = contains(lhs, var);
     if (lhs_var) {
         SASSERT(contains(t1, var));
@@ -2789,7 +3656,7 @@ void handle_eq(expr_ref var, expr *lhs, expr *rhs, expr_ref_vector &res) {
         return;
     }
 
-    split (var, lhs, rhs, t1, t2, t2_neg, t3);
+    split_legacy (var, lhs, rhs, t1, t2, t2_neg, t3);
 
     bool succ = false;
     if (contains(lhs, var)) {
@@ -2882,10 +3749,10 @@ void handle_signed(expr* lhs, expr* rhs, expr_ref_vector &res, model &mdl) {
         res.push_back(u.mk_ule(lhs, rhs));
     }
     else SASSERT(0);
-  }
+}
 
 
-bool normalize(expr_ref var, expr_ref f, model &mdl, expr_ref_vector &res) {
+bool normalize_legacy(expr_ref var, expr_ref f, model &mdl, expr_ref_vector &res) {
     expr_ref rw(f, m), sc(m);
     expr *lhs, *rhs;
     TRACE("qe",
@@ -2894,7 +3761,7 @@ bool normalize(expr_ref var, expr_ref f, model &mdl, expr_ref_vector &res) {
         res.push_back(f);
         return true;
     }
-    if (unhandled(f, var)) {
+    if (unhandled_legacy(f, var)) {
         TRACE("qe", tout << "Operation not handled " << f << " on var " << var << "\n";);
         return false;
     }
@@ -2902,17 +3769,17 @@ bool normalize(expr_ref var, expr_ref f, model &mdl, expr_ref_vector &res) {
         if (!push_not(f, rw, sc, mdl))
             return false;
         // normalize both the expression inside f and the side condition produced
-        bool n1 = normalize(var, rw, mdl, res);
+        bool n1 = normalize_legacy(var, rw, mdl, res);
         if (sc.get() != nullptr)
-            n1 = n1 && normalize(var, sc, mdl, res);
+            n1 = n1 && normalize_legacy(var, sc, mdl, res);
         return n1;
     }
     if (m.is_eq(rw, lhs, rhs)) {
         expr_ref t(m);
         t = u.mk_ule(lhs, rhs);
-        bool n1 = normalize(var, t, mdl, res);
+        bool n1 = normalize_legacy(var, t, mdl, res);
         t = u.mk_ule(rhs, lhs);
-        n1 = n1 && normalize(var, t, mdl, res);
+        n1 = n1 && normalize_legacy(var, t, mdl, res);
         return n1;
     }
     if (u.is_bv_sle(rw, lhs, rhs)) {
@@ -2920,7 +3787,7 @@ bool normalize(expr_ref var, expr_ref f, model &mdl, expr_ref_vector &res) {
         handle_signed(lhs, rhs, all, mdl);
         bool n = true;
         for (auto a : all)
-            n &= normalize(var, expr_ref(a, m), mdl, res);
+            n &= normalize_legacy(var, expr_ref(a, m), mdl, res);
         return n;
     }
     if (!u.is_bv_ule(rw, lhs, rhs))
