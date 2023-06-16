@@ -596,7 +596,7 @@ public:
         if (fmls.empty()) {
             vars.reset();
         }
-        std::cout << "finished mbp" << std::endl;
+        std::cout << "finished mbp with formulas" << fmls <<std::endl;
         fmls.append(unused_fmls);
         SASSERT(validate_model(model, fmls));
         TRACE("qe", tout << vars << " " << fmls << "\n";);

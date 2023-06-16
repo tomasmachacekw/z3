@@ -450,7 +450,7 @@ class rw_rule {
 
         expr* create_signed_min(unsigned sz) { // TODO test 
             SASSERT(sz > 0);
-            return m_bv.mk_numeral(-rational::power_of_two(sz-1), sz);
+            return m_bv.mk_bv_neg(m_bv.mk_numeral(rational::power_of_two(sz-1), sz));
         }
 
         // check for equality and move var to the left
@@ -581,6 +581,12 @@ class rw_rule {
             return false;
           return true;
         }
+
+        bool is_not(expr* e, expr_ref &exp1) {
+          if (!m.is_not(e)) return false;
+          exp1 = to_app(e)->get_arg(0);
+          return true;
+        }
         // TODO add same for other bv operations
         expr* mk_bvand(expr* a, expr* b) {
           expr* args[2];
@@ -682,9 +688,9 @@ class eq : public rw_rule {
 public:
   eq(ast_manager &m) : rw_rule(m) {}
   bool apply(expr *e, expr_ref_vector &out) override {
-    expr *lhs, *rhs;
+    expr_ref lhs(m), rhs(m);
     expr_ref b1(m), b2(m);
-    if (!(m.is_eq(e, lhs, rhs) &&
+    if (!(is_eq(e, lhs, rhs) &&
           (contains(lhs, m_var) || contains(rhs, m_var))))
       return false;
     b1 = m_bv.mk_ule(rhs, lhs);
@@ -742,30 +748,22 @@ class nule : public rw_rule {
 public:
   nule(ast_manager &m) : rw_rule(m) {}
   bool apply(expr *e, expr_ref_vector &out) override {
-    std::cout << "Tom NULE 1 \n";
-    expr_ref f(m), lhs(m), rhs(m);
-    if (!((m.is_not(e, f)) && m_bv.is_bv_ule(f, lhs, rhs) &&
+    expr_ref f(m), lhs(m), rhs(m), h1(m), h2(m);
+    if (!((is_not(e, f)) && is_ule(f, lhs, rhs) &&
           (contains(lhs, m_var) || contains(rhs, m_var))))
       return false;
-    unsigned sz = m_bv.get_bv_size(m_var);
+    unsigned sz = m_bv.get_bv_size(lhs); // TOM
     expr_ref mone(m), dff(m), one(m);
-    std::cout << "Tom NULE 2 \n";
     one = m_bv.mk_numeral(rational::one(), sz);
-    std::cout << "Tom NULE 3 \n";
     mk_neg(one, mone);
-    std::cout << "Tom NULE 4 \n";
-    dff = m_bv.mk_bv_add(lhs, mone);
-    std::cout << "Tom NULE 5 \n";
-    expr *b1 = m_bv.mk_ule(rhs, dff);
-    expr *b2 = m_bv.mk_ule(one, lhs);
-    std::cout << "Tom NULE 6 \n";
-    if (m_mdl->is_true(b1) && m_mdl->is_true(b2)) {
-      out.push_back(b1);
-      out.push_back(b2);
-      std::cout << "Tom NULE 7 \n";
+    mk_add(lhs, mone, dff);
+    h1 = m_bv.mk_ule(rhs, dff);
+    h2 = m_bv.mk_ule(one, lhs);
+    if (m_mdl->is_true(h1) && m_mdl->is_true(h2)) {
+      out.push_back(h1);
+      out.push_back(h2);
       return true;
     }
-    std::cout << "Tom NULE 8 \n";
     return false;
   }
 };
@@ -775,11 +773,9 @@ class nsle : public rw_rule {
 public:
   nsle(ast_manager &m) : rw_rule(m) {}
   bool apply(expr *e, expr_ref_vector &out) override {
-    std::cout << "Tom NSLE 1 \n";
     expr *f, *lhs, *rhs;
     if (!((m.is_not(e, f)) && m_bv.is_bv_sle(f, lhs, rhs) &&
           (contains(lhs, m_var) || contains(rhs, m_var)))) {
-      std::cout << "Tom NSLE 2 \n";
       return false;
     }
     unsigned sz = m_bv.get_bv_size(m_var);
@@ -793,10 +789,8 @@ public:
     if (m_mdl->is_true(b1) && m_mdl->is_true(b2)) {
       out.push_back(b1);
       out.push_back(b2);
-      std::cout << "Tom NSLE 3 \n";
       return true;
     }
-    std::cout << "Tom NSLE 4 \n";
     return false;
   }
 };
@@ -2882,6 +2876,7 @@ struct bv_project_plugin::imp {
     }
   }
 
+  // tom project
   vector<def> project(model &mdl, app_ref_vector &vars, expr_ref_vector &fmls, bool useless) {
     std::cout << "In project \n";
     expr_ref_vector res(m);
@@ -2925,11 +2920,12 @@ struct bv_project_plugin::imp {
         std::cout << "In project 3 \n";
         simplify_operations(var, norm_fmls, mdl, simpl_fmls);
         std::cout << "In project 4 \n";
-        extract_bound_fmls(var, simpl_fmls, mdl, pi, bound_fmls, backg_fmls);
-        std::cout << "In project 5 \n";
       }
-    std::cout << "In project 6 \n";
-    resolve(var, bound_fmls, mdl, new_bounds, bd_fmls);
+    std::cout << "In project 5 \n";
+    extract_bound_fmls(var, simpl_fmls, mdl, pi, bound_fmls, backg_fmls);
+    std::cout << "In project 6 with bound formulas : " << bound_fmls << "\n on var" << var << std::endl;
+    resolve_boundaries(var, bound_fmls, mdl, new_bounds, bd_fmls);
+    std::cout << "In project 6.5 \n";
     if (bd_fmls.size() > 0) {
       pi.append(bd_fmls);
     }
@@ -2943,6 +2939,9 @@ struct bv_project_plugin::imp {
     res.append(backg_fmls);
     res.append(lazy_fmls);
     }
+    vars.shrink(0);
+    fmls.reset();
+    fmls.append(res);
     std::cout << "Checking validity \n";
     return vector<def>();
    }
@@ -3012,7 +3011,7 @@ struct bv_project_plugin::imp {
           pi.push_back(fml);
         }
       }
-      resolve(var, norm_fmls, mdl, new_fmls, bd_fmls);
+      resolve_boundaries(var, norm_fmls, mdl, new_fmls, bd_fmls);
       if (bd_fmls.size() > 0) {
         pi.append(bd_fmls);
       }
@@ -3036,6 +3035,7 @@ struct bv_project_plugin::imp {
 
     result = mk_and(res);
     SASSERT(mdl.is_true(result));
+    vars.shrink(0);
     // if sat, then MBP => E vars. fmls is not valid
     std::cout << "Checking validity \n";
     //SASSERT(!is_sat(result, m.mk_not(orig_fla)));
@@ -3095,7 +3095,7 @@ vector<def> project_legacy(model &model, app_ref_vector &vars, expr_ref_vector &
             }
         }
         expr_ref_vector bd_fmls(m);
-        resolve(v, norm_fmls, model, new_fmls, bd_fmls);
+        resolve_boundaries(v, norm_fmls, model, new_fmls, bd_fmls);
         CTRACE("qe", bd_fmls.size() > 0, tout << " could not resolve out " << mk_and(bd_fmls) << " for var " << v << "\n";);
 
         // TODO maybe do this after projecting all the vars ?
@@ -3355,16 +3355,13 @@ void simplify_operations(expr *var, expr_ref_vector &fmls, model &mdl, expr_ref_
     expr_ref t(m);
     unsigned i = 0;
     bool normalized;
-    std::cout << "Simpl project 1 \n";
     while (!todo.empty()) {
       t = todo.back();
       todo.pop_back();
-      std::cout << "Simpl project 2 \n";
       if (is_separated(t, var)) {
         res.push_back(t);
         continue;
       }
-      std::cout << "Simpl project 3 \n";
       normalized = false;
       for (auto r : break_op_rw_rules) {
         out.reset();
@@ -3374,21 +3371,20 @@ void simplify_operations(expr *var, expr_ref_vector &fmls, model &mdl, expr_ref_
           break;
         }
       }
-      std::cout << "Simpl project 4 \n";
       if (!normalized) {
         i = 0;
         for (auto r : sep_var_rw_rules) {
           out.reset();
-          std::cout << "Simpl project 5 and i is: "<< i << "\n";
+          //std::cout << "Simpl project 5 and i is: "<< i << "\n";
           i++;
           if (r->apply(t, out)) {
+            std::cout << "Changed something in rule " << i << "and out looks like" << out << std::endl;
             todo.append(out);
             normalized = true;
             break;
           }
         }
       }
-      std::cout << "Simpl project 6 \n";
       if (!normalized) 
         res.push_back(t);
     }
@@ -3415,9 +3411,9 @@ void extract_bound_fmls(expr *var, expr_ref_vector &fmls, model &mdl, expr_ref_v
        (to_app(lhs)->get_arg(0) == var || to_app(lhs)->get_arg(1) == var)))) ||
           (contains(rhs, var) && (rhs == var || (u.is_bv_mul(rhs) &&
        (to_app(rhs)->get_arg(0) == var || to_app(rhs)->get_arg(1) == var))))) {
-      }
-      bounds.push_back(f);
-      continue;   
+        bounds.push_back(f);
+        continue;  
+      } 
     }
     pi.push_back(f);
   }
@@ -3890,13 +3886,14 @@ void resolve(expr* a, expr* b, rational lcm, expr_ref var, expr_ref& res) {
         res = u.mk_ule(to_app(a)->get_arg(0), to_app(b)->get_arg(1));
     }
     else {
+        return;
         NOT_IMPLEMENTED_YET();
     }
 }
 
 // generates an under-approximation for some literals in f
 // modifies f, res and bd_fmls
-void resolve(expr_ref var, expr_ref_vector &f, model &mdl,
+void resolve_boundaries(expr_ref var, expr_ref_vector &f, model &mdl,
              expr_ref_vector &res, expr_ref_vector& bd_fmls) {
     if (f.empty())
         return;
