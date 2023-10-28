@@ -404,8 +404,10 @@ public:
     app * mk_ult(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_ULT, arg1, arg2); }
     app * mk_sle(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_SLEQ, arg1, arg2); }
     app * mk_slt(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_SLT, arg1, arg2); }
-    app * mk_eq(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_EQ, arg1, arg2); } // TOM
-    app * mk_diseq(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_DISTINCT, arg1, arg2); } // TOM
+    app * mk_eq(expr * arg1, expr * arg2) { return m_manager.mk_eq(arg1, arg2); }
+    app * mk_diseq(expr * arg1, expr * arg2) { expr_ref h(m_manager);
+          h = m_manager.mk_eq(arg1, arg2);
+           return m_manager.mk_not(h); }
     app * mk_extract(unsigned high, unsigned low, expr * n) {
         parameter params[2] = { parameter(high), parameter(low) };
         return m_manager.mk_app(get_fid(), OP_EXTRACT, 2, params, 1, &n);

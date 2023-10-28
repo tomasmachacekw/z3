@@ -679,15 +679,16 @@ public:
                    tout << "Remaining other vars:\n" << other_vars << "\n";);
             SASSERT (!m.is_false (fml));
         }
-        
+        SASSERT(!eval.is_false(fml));
         if (!other_vars.empty ()) {
             project_vars (mdl, other_vars, fml);
             m_rw(fml);
         }
-        
+        SASSERT(!eval.is_false(fml));
         // substitute any remaining other vars
         if (!m_dont_sub && !other_vars.empty ()) {
             subst_vars (eval, other_vars, fml);
+            SASSERT(!eval.is_false(fml));
             TRACE ("qe", tout << "After substituting remaining other vars:\n" << fml << "\n";);
             // an extra round of simplification because subst_vars is not simplifying
             m_rw(fml);

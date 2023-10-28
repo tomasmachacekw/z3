@@ -5,6 +5,8 @@
 #include "ast/arith_decl_plugin.h"
 #include "qe/qe_mbp.h"
 
+#include "muz/base/fp_params.hpp"
+
 namespace qe {
     bool contains(expr *e, expr *v);
     unsigned contains_num(expr *e, expr *v);
