@@ -530,7 +530,9 @@ public:
         expr_ref val(m), tmp(m);
         app_ref var(m);
         expr_ref_vector unused_fmls(m);
+        expr_ref check(m);
         bool progress = true;
+        mk_exists(mk_and(fmls), vars, check);
         preprocess_solve(model, vars, fmls);
         filter_variables(model, vars, fmls, unused_fmls);
         project_bools(model, vars, fmls);
@@ -581,6 +583,7 @@ public:
         if (fmls.empty()) {
             vars.reset();
         }
+        // std::cout << "finished mbp with formulas" << fmls <<std::endl;
         fmls.append(unused_fmls);
         SASSERT(validate_model(model, fmls));
         TRACE("qe", tout << vars << " " << fmls << "\n";);
