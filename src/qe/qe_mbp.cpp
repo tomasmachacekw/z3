@@ -525,7 +525,7 @@ public:
         return true;
     }
 
-    void operator()(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls) {
+    void operator()(bool force_elim, app_ref_vector& vars, model& model, expr_ref_vector& fmls, unsigned mbp_mode) {
         SASSERT(validate_model(model, fmls));
         expr_ref val(m), tmp(m);
         app_ref var(m);
@@ -539,14 +539,17 @@ public:
             progress = false;
             for (project_plugin * p : m_plugins) {
                 if (p) {
-                    (*p)(model, vars, fmls);
+                    if (typeid(*p) == typeid(bv_project_plugin))
+                        (*p)(model, vars, fmls, mbp_mode);
+                    else
+                        (*p)(model, vars, fmls);
                 }
             }
             while (!vars.empty() && !fmls.empty() && m.limit().inc()) {
                 var = vars.back();
                 vars.pop_back();
                 project_plugin* p = get_plugin(var);
-                if (p && (*p)(model, var, vars, fmls)) {
+                if (p && ((*p)(model, var, vars, fmls))) {
                     progress = true;
                 }
                 else {
@@ -601,9 +604,8 @@ public:
         fml = mk_and(fmls);
     }
 
-    void spacer(app_ref_vector& vars, model& mdl, expr_ref& fml) {
+    void spacer(app_ref_vector& vars, model& mdl, expr_ref& fml, unsigned mbp_mode) {
         TRACE ("qe", tout << "Before projection:\n" << fml << "\n" << "Vars: " << vars << "\n";);
-
         model_evaluator eval(mdl, m_params);        
         eval.set_model_completion(true);
         app_ref_vector other_vars (m);
@@ -654,7 +656,7 @@ public:
             expr_ref_vector fmls(m);
             flatten_and (fml, fmls);
             
-            (*this)(false, other_vars, mdl, fmls);
+            (*this)(false, other_vars, mdl, fmls, mbp_mode);
             fml = mk_and (fmls);
             m_rw(fml);
                         
@@ -704,14 +706,14 @@ void mbp::get_param_descrs(param_descrs & r) {
     r.insert("dont_sub", CPK_BOOL, "(default: false) disable substitution of values for free variables");
 }
         
-void mbp::operator()(bool force_elim, app_ref_vector& vars, model& mdl, expr_ref_vector& fmls) {
+void mbp::operator()(bool force_elim, app_ref_vector& vars, model& mdl, expr_ref_vector& fmls, unsigned mbp_mode) {
     scoped_no_proof _sp (fmls.get_manager());
-    (*m_impl)(force_elim, vars, mdl, fmls);
+    (*m_impl)(force_elim, vars, mdl, fmls, mbp_mode);
 }
 
-void mbp::spacer(app_ref_vector& vars, model& mdl, expr_ref& fml) {
+void mbp::spacer(app_ref_vector& vars, model& mdl, expr_ref& fml, unsigned mbp_mode) {
     scoped_no_proof _sp (fml.get_manager());
-    m_impl->spacer(vars, mdl, fml);
+    m_impl->spacer(vars, mdl, fml, mbp_mode);
 }
 
 void mbp::solve(model& model, app_ref_vector& vars, expr_ref_vector& fmls) {

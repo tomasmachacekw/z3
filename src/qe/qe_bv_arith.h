@@ -34,6 +34,7 @@ namespace qe {
         bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;
         family_id get_family_id() override;
         void operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;
+        void operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits, unsigned mbp_mode) override;
         vector<def> project(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;
         void saturate(model& model, func_decl_ref_vector const& shared, expr_ref_vector& lits) override;
 

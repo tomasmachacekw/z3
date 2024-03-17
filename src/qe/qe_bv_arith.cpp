@@ -4504,19 +4504,12 @@ void resolve_boundaries(expr_ref var, expr_ref_vector &f, model &mdl,
     return;
 }
 
-// project a single variable
+// project a single variable // DEAD CODE
 bool operator()(model &model, app *v, app_ref_vector &vars,
                 expr_ref_vector &lits) {
     app_ref_vector vs(m);
     vs.push_back(v);
-    fp_params const & f = fp_params();
-    unsigned projection_mode = f.spacer_use_bv_mbp();
-    // std::cout << "Projection_mode is "<< projection_mode <<std::endl;
-    if (projection_mode == 0)
-      project(model, vars, lits, false);
-    else if (projection_mode == 1) {
-      project_old_norm(model, vars, lits, false);
-    }
+    project(model, vars, lits, false);
     return vs.empty();
 }
 
@@ -4551,14 +4544,17 @@ bool bv_project_plugin::operator()(model &model, app *var, app_ref_vector &vars,
 
 void bv_project_plugin::operator()(model &model, app_ref_vector &vars,
                                    expr_ref_vector &lits) {
-    fp_params const & f = fp_params();
-    unsigned projection_mode = f.spacer_use_bv_mbp();
+    m_imp->project(model, vars, lits, false);
+}
+
+void bv_project_plugin::operator()(model &model, app_ref_vector &vars,
+                                   expr_ref_vector &lits, unsigned mbp_mode) {
     // m_stat_s.reset();
-    if (projection_mode == 0)
+    if (mbp_mode == 0)
       m_imp->project(model, vars, lits, false);
-    else if (projection_mode == 1) {
+    else if (mbp_mode == 1) {
       m_imp->project_old_norm(model, vars, lits, false);
-    } else if (projection_mode == 2) {
+    } else if (mbp_mode == 2) {
       m_imp->project_no_slowsmt(model, vars, lits, false);
     }
     std::cout << m_stat_s.m_num_other_used << "and invert " << m_stat_s.m_num_invertibility_used << std::endl;
@@ -4566,7 +4562,6 @@ void bv_project_plugin::operator()(model &model, app_ref_vector &vars,
     st.update("QE num other", m_stat_s.m_num_other_used);
     st.update("QE num invertibility", m_stat_s.m_num_invertibility_used);
 }
-
 
 vector<def> bv_project_plugin::project(model &model, app_ref_vector &vars,
                                        expr_ref_vector &lits) {

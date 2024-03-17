@@ -1331,7 +1331,7 @@ bool pred_transformer::is_qblocked (pob &n) {
 void pred_transformer::mbp(app_ref_vector &vars, expr_ref &fml, model &mdl,
                            bool reduce_all_selects, bool force) {
     scoped_watch _t_(m_mbp_watch);
-    qe_project(m, vars, fml, mdl, reduce_all_selects, use_native_mbp(), !force);
+    qe_project(m, vars, fml, mdl, reduce_all_selects, use_native_mbp(), !force, use_bv_mbp());
 }
 
 //
@@ -2357,6 +2357,7 @@ void context::updt_params() {
     m_simplify_formulas_pre = m_params.spacer_simplify_lemmas_pre();
     m_simplify_formulas_post = m_params.spacer_simplify_lemmas_post();
     m_use_native_mbp = m_params.spacer_native_mbp ();
+    m_use_bv_mbp = m_params.spacer_use_bv_mbp();
     m_instantiate = m_params.spacer_q3_instantiate ();
     m_use_qlemmas = m_params.spacer_q3();
     m_weak_abs = m_params.spacer_weak_abs();

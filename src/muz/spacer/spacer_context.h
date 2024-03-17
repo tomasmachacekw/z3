@@ -598,6 +598,7 @@ public:
     ~pred_transformer() {}
 
     inline bool use_native_mbp ();
+    inline unsigned use_bv_mbp ();
     reach_fact *get_rf (expr *v) {
         for (auto *rf : m_reach_facts) {
             if (v == rf->get()) {return rf;}
@@ -1188,6 +1189,7 @@ class context {
     model_converter_ref  m_mc;
     proof_converter_ref  m_pc;
     bool                 m_use_native_mbp;
+    unsigned             m_use_bv_mbp;
     bool                 m_instantiate;
     bool                 m_use_qlemmas;
     bool                 m_weak_abs;
@@ -1306,6 +1308,7 @@ public:
     const fp_params &get_params() const { return m_params; }
     bool use_eq_prop() const {return m_use_eq_prop;}
     bool use_native_mbp() const {return m_use_native_mbp;}
+    unsigned use_bv_mbp() const {return m_use_bv_mbp;}
     bool use_ground_pob() const {return m_ground_pob;}
     bool use_instantiate() const {return m_instantiate;}
     bool weak_abs() const {return m_weak_abs;}
@@ -1388,6 +1391,7 @@ public:
 };
 
 inline bool pred_transformer::use_native_mbp () {return ctx.use_native_mbp ();}
+inline unsigned pred_transformer::use_bv_mbp () {return ctx.use_bv_mbp ();}
 }
 
 #endif

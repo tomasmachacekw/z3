@@ -47,6 +47,7 @@ namespace qe {
         virtual family_id get_family_id() = 0;
 
         virtual void operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) { };
+        virtual void operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits, unsigned mbp_mode) { };
 
         /**
            \brief project vars modulo model, return set of definitions for eliminated variables.
@@ -88,7 +89,7 @@ namespace qe {
            Apply model-based qe on constants provided as vector of variables.
            Return the updated formula and updated set of variables that were not eliminated.
         */
-        void operator()(bool force_elim, app_ref_vector& vars, model& mdl, expr_ref_vector& fmls);
+        void operator()(bool force_elim, app_ref_vector& vars, model& mdl, expr_ref_vector& fmls, unsigned mbp_mode=0);
 
         /**
            \brief
@@ -115,7 +116,7 @@ namespace qe {
            - reduce_all_selects (false)
            - dont_sub (false)
         */
-        void spacer(app_ref_vector& vars, model& mdl, expr_ref& fml);
+        void spacer(app_ref_vector& vars, model& mdl, expr_ref& fml, unsigned mbp_mode=0);
     };
 }
 

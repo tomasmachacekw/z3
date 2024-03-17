@@ -98,7 +98,8 @@ namespace spacer {
                      expr_ref& fml, model &mdl,
                      bool reduce_all_selects=false,
                      bool native_mbp=false,
-                     bool dont_sub=false);
+                     bool dont_sub=false,
+                     unsigned mbp_mode=0);
 
     // deprecate
     void qe_project (ast_manager& m, app_ref_vector& vars, expr_ref& fml,
