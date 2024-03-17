@@ -35,8 +35,6 @@ Revision History:
 #include "model/model_smt2_pp.h"
 #include "smt/smt_solver.h"
 
-#include "muz/base/fp_params.hpp"
-
 namespace qe {
 
     struct stats {
@@ -4553,14 +4551,8 @@ bool bv_project_plugin::operator()(model &model, app *var, app_ref_vector &vars,
 
 void bv_project_plugin::operator()(model &model, app_ref_vector &vars,
                                    expr_ref_vector &lits) {
-    // everytime I call mbp for all vars I need to try to remove 0 handling ops
-    //replace_zero_handle_ops(model, lits);
-    //ast_manager m = model.get_manager();
-    //expr_ref sanity(mk_and(lits), m);
-    //SASSERT(model.is_true(sanity));
     fp_params const & f = fp_params();
     unsigned projection_mode = f.spacer_use_bv_mbp();
-    // std::cout << "Projection_mode is "<< projection_mode <<std::endl;
     // m_stat_s.reset();
     if (projection_mode == 0)
       m_imp->project(model, vars, lits, false);
@@ -4578,10 +4570,6 @@ void bv_project_plugin::operator()(model &model, app_ref_vector &vars,
 
 vector<def> bv_project_plugin::project(model &model, app_ref_vector &vars,
                                        expr_ref_vector &lits) {
-    //replace_zero_handle_ops(model, lits);
-    //ast_manager m = model.get_manager();
-    //expr_ref sanity(mk_and(lits), m);
-    //SASSERT(model.is_true(sanity));
     return m_imp->project(model, vars, lits, true);
 }
 
