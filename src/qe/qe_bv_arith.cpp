@@ -4557,7 +4557,7 @@ void bv_project_plugin::operator()(model &model, app_ref_vector &vars,
     } else if (mbp_mode == 2) {
       m_imp->project_no_slowsmt(model, vars, lits, false);
     }
-    std::cout << m_stat_s.m_num_other_used << "and invert " << m_stat_s.m_num_invertibility_used << std::endl;
+    // std::cout << m_stat_s.m_num_other_used << "and invert " << m_stat_s.m_num_invertibility_used << std::endl;
     statistics st;
     st.update("QE num other", m_stat_s.m_num_other_used);
     st.update("QE num invertibility", m_stat_s.m_num_invertibility_used);
