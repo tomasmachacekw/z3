@@ -144,14 +144,14 @@ namespace spacer {
 
     void qe_project_z3 (ast_manager& m, app_ref_vector& vars, expr_ref& fml,
                         model & mdl, bool reduce_all_selects, bool use_native_mbp,
-                        bool dont_sub) {
+                        bool dont_sub, unsigned mbp_mode) {
         params_ref p;
         p.set_bool("reduce_all_selects", reduce_all_selects);
         p.set_bool("dont_sub", dont_sub);
 
 //        to_mbp_benchmark(verbose_stream(), fml, vars);
         qe::mbp mbp(m, p);
-        mbp.spacer(vars, mdl, fml);
+        mbp.spacer(vars, mdl, fml, mbp_mode);
     }
 
     /*
@@ -314,10 +314,10 @@ namespace spacer {
 
     void qe_project (ast_manager& m, app_ref_vector& vars, expr_ref& fml,
                      model &mdl, bool reduce_all_selects, bool use_native_mbp,
-                     bool dont_sub) {
+                     bool dont_sub, unsigned mbp_mode) {
         if (use_native_mbp)
             qe_project_z3(m, vars, fml, mdl,
-                          reduce_all_selects, use_native_mbp, dont_sub);
+                          reduce_all_selects, use_native_mbp, dont_sub, mbp_mode);
         else
             qe_project_spacer(m, vars, fml, mdl,
                               reduce_all_selects, use_native_mbp, dont_sub);

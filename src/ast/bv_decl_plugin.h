@@ -341,7 +341,9 @@ public:
     bool is_bv_nor(expr const * e) const { return is_app_of(e, get_fid(), OP_BNOR); }
     bool is_bv_not(expr const * e) const { return is_app_of(e, get_fid(), OP_BNOT); }
     bool is_bv_ule(expr const * e) const { return is_app_of(e, get_fid(), OP_ULEQ); }
+    bool is_bv_ult(expr const * e) const { return is_app_of(e, get_fid(), OP_ULT); }
     bool is_bv_sle(expr const * e) const { return is_app_of(e, get_fid(), OP_SLEQ); }
+    bool is_bv_slt(expr const * e) const { return is_app_of(e, get_fid(), OP_SLT); }
     bool is_bit2bool(expr const * e) const { return is_app_of(e, get_fid(), OP_BIT2BOOL); }
     bool is_bv2int(expr const* e) const { return is_app_of(e, get_fid(), OP_BV2INT); }
     bool is_int2bv(expr const* e) const { return is_app_of(e, get_fid(), OP_INT2BV); }
@@ -399,7 +401,13 @@ public:
 
 
     app * mk_ule(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_ULEQ, arg1, arg2); }
+    app * mk_ult(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_ULT, arg1, arg2); }
     app * mk_sle(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_SLEQ, arg1, arg2); }
+    app * mk_slt(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_SLT, arg1, arg2); }
+    app * mk_eq(expr * arg1, expr * arg2) { return m_manager.mk_eq(arg1, arg2); }
+    app * mk_diseq(expr * arg1, expr * arg2) { expr_ref h(m_manager);
+          h = m_manager.mk_eq(arg1, arg2);
+           return m_manager.mk_not(h); }
     app * mk_extract(unsigned high, unsigned low, expr * n) {
         parameter params[2] = { parameter(high), parameter(low) };
         return m_manager.mk_app(get_fid(), OP_EXTRACT, 2, params, 1, &n);
@@ -407,11 +415,18 @@ public:
     app * mk_concat(unsigned num, expr * const * args) { return m_manager.mk_app(get_fid(), OP_CONCAT, num, args);  }
     app * mk_concat(expr * arg1, expr * arg2) { expr * args[2] = { arg1, arg2 }; return mk_concat(2, args); }
     app * mk_bv_or(unsigned num, expr * const * args) { return m_manager.mk_app(get_fid(), OP_BOR, num, args);  }
+    app * mk_bv_and(unsigned num, expr * const * args) { return m_manager.mk_app(get_fid(), OP_BAND, num, args);  } // TOM
     app * mk_bv_not(expr * arg) { return m_manager.mk_app(get_fid(), OP_BNOT, arg); }
     app * mk_bv_xor(unsigned num, expr * const * args) { return m_manager.mk_app(get_fid(), OP_BXOR, num, args);  }
     app * mk_bv_neg(expr * arg) { return m_manager.mk_app(get_fid(), OP_BNEG, arg); }
     app * mk_bv_urem(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BUREM, arg1, arg2); }
+    app * mk_bv_urem0(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BUREM0, arg1, arg2); }
+    app * mk_bv_uremi(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BUREM_I, arg1, arg2); }
     app * mk_bv_srem(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSREM, arg1, arg2); }
+    app * mk_bv_smod(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSMOD, arg1, arg2); }
+    app * mk_bv_udiv(expr * arg1, expr * arg2) const {return m_manager.mk_app(get_fid(), OP_BUDIV, arg1, arg2); }
+    app * mk_bv_udiv0(expr * arg1, expr * arg2) const {return m_manager.mk_app(get_fid(), OP_BUDIV0, arg1, arg2); }
+    app * mk_bv_udivi(expr * arg1, expr * arg2) const {return m_manager.mk_app(get_fid(), OP_BUDIV_I, arg1, arg2); }
     app * mk_bv_add(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BADD, arg1, arg2); }
     app * mk_bv_sub(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSUB, arg1, arg2); }
     app * mk_bv_mul(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BMUL, arg1, arg2); }
